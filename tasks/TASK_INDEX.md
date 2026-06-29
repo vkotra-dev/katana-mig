@@ -5,7 +5,7 @@
 | [001h-ui-portfolio-project-screens](./001h-ui-portfolio-project-screens.md) | ui, project | ready | **Narrowed**: portfolio dashboard only (stitch 02); project detail → 001p; run progress → 001u |
 | [001i-ui-template-foundation](./001i-ui-template-foundation.md) | ui | ready | Shell, tokens, Topbar/Sidebar/LoginView from mockmigration templates |
 | [001o-project-crud](./001o-project-crud.md) | project, api, management | ready | Project lifecycle backend — create, list, get, update, archive |
-| [001p-project-crud-ui](./001p-project-crud-ui.md) | ui, project | ready | Project CRUD UI — table, create dialog, detail view; no source fields |
+| [001p-project-crud-ui](./001p-project-crud-ui.md) | ui, project | ready | Five-step project initiation wizard (stitch 07) + project list + detail view |
 | [001q-source-intake](./001q-source-intake.md) | source-model, api, ui | ready | CSV and fixed-length source intake; Sources tab on project detail |
 | [001ab-source-slice-approval](./001ab-source-slice-approval.md) | source-model, api, ui | ready | Approve/reject/resubmit flow for parsed slices; Approvals page; depends on 001q |
 | [001r-codegen-artifact-model](./001r-codegen-artifact-model.md) | source-model, runs | ready | CodeGenerationArtifact ORM model + migration 0009; depends on 001q (0008) |

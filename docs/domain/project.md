@@ -77,13 +77,46 @@ Relevant fields:
 - `status`
 
 For migration workloads, `domain_config` carries the frozen
-`MigrationProjectConfig` opaquely. That config includes the destination schema,
-source type, sample policy, dry-run flag, migration context, and source
-composition details.
+`MigrationProjectConfig`. The known fields are:
 
-Per-environment settings live inside the frozen project definition as a
-dedicated environment configuration keyed by environment. The registry does not
-own operational settings.
+```
+MigrationProjectConfig:
+  target_db_engine        "mssql" | "oracle" | "postgresql" | "mysql"
+                          Required before code generation. The destination database
+                          engine; drives SQL dialect selection for all generated DDL
+                          and stored procedures.
+  staging_schema          string | null
+                          Schema name for staging tables (e.g. "stg", "staging").
+                          If null, staging tables land in the default schema.
+                          Combined with the naming convention stg_{destination_object_name}
+                          to form the full table reference used in generated scripts.
+  dry_run                 bool (default false)
+                          When true, generated scripts are validated but not executed
+                          in the target environment.
+  sample_policy           object | null
+                          Controls how many source rows are included in the approved
+                          source slice for analysis purposes.
+  destination_schema_ddl  string | null
+                          Raw DDL of the client-owned destination schema, submitted
+                          during project initiation (stitch 07, Step 3). Stored verbatim.
+                          Parsed by the mapping stage (001w) to extract the list of
+                          destination field names available for binding.
+  environments            list[str]
+                          Ordered list of execution environment names declared during
+                          project initiation (e.g. ["dev", "uat", "prod"]).
+                          The order is the intended promotion sequence; runs reference
+                          one environment by name.
+```
+
+`target_db_engine` and `staging_schema` are required before any code generation
+run can start. They must be set on the project definition before the baton
+reaches the code generation stage.
+
+`destination_schema_ddl` is required before the mapping stage can propose field
+bindings — the mapping AI reads it to know which destination fields exist.
+
+`environments` is declared at project initiation and determines the valid values
+for `RunRecord.environment`.
 
 ### `ProjectRegistry` record
 
@@ -245,6 +278,7 @@ project world existed at the time a run began.
 
 ## Changelog
 
+- 2026-06-29: Defined MigrationProjectConfig explicitly — target_db_engine, staging_schema, dry_run, sample_policy.
 - 2026-06-29: Expanded into a spec-style project page covering ownership,
   frozen definition identity, registry relationship, snapshot policy, failure
   modes, and acceptance criteria.
