@@ -36,8 +36,7 @@ schema invention or execution scheduling.
 
 - Defining the top-level project container.
 - Routing projects or enforcing tenancy.
-- User identity or role management.
-- Human approval policy.
+- User identity, role management, or membership policy.
 - Destination schema invention.
 
 ## Relationship to other pages
@@ -113,7 +112,9 @@ Common fields:
 - access reference or connection reference
 - selection information
 - layout information
-- destination object references
+- destination object references — list of destination object names (e.g. `["Customer", "Address"]`)
+  this source feeds; written as the mapping stage output baton when field mapping is approved;
+  not declared upfront by the operator
 - sample policy
 
 Source-specific fields:
@@ -152,6 +153,109 @@ The default granularity is one approved slice per source contract version,
 shared by all object runs that consume that contract. If a source type needs
 finer physical slicing, those slices are derived from the approved slice and
 remain versioned artifacts rather than untracked subsets.
+
+### Status
+
+A source slice moves through three states:
+
+```
+upload + parse success
+        │
+        ▼
+ pending_approval  ──── approve ───▶  approved  (terminal, immutable)
+        │
+        └────────── reject ────────▶  rejected
+                                          │
+                                       resubmit (new SourceSlice record, version + 1)
+                                          │
+                                          ▼
+                                   pending_approval
+```
+
+- `pending_approval`: set automatically on parse success; awaits `central_team` approval
+- `approved`: terminal and immutable; downstream stages may consume this slice
+- `rejected`: terminal for this record; operator may resubmit with corrected settings
+
+At most one slice per `SourceDefinition` is in `pending_approval` at a time. If a resubmit
+is triggered while another pending slice exists, that pending slice is automatically
+rejected with reason `"superseded_by_resubmit"`.
+
+### Versioning
+
+`source_slice_version` is a human-readable string: `"v1"`, `"v2"`, …. The first slice for
+a source contract is `"v1"`. Each resubmit increments the version on the new record.
+Multiple versions may exist for one `SourceDefinition`; only the latest `approved` version
+is consumed by downstream stages.
+
+### Model fields (approval-relevant)
+
+```
+status                      "pending_approval" | "approved" | "rejected"
+approval_rejection_reason   string | null — written on rejection
+parse_warnings              list[str] — parser-time warnings (e.g. "3 rows skipped: missing field")
+file_storage_path           string | null — server-side path or object-storage key to the
+                            original uploaded file; required for resubmit to re-parse
+```
+
+## Source slice approval
+
+Approval is the human gate that converts a parsed slice into an immutable, consumable artifact.
+
+**Who approves:** `central_team` only.
+
+**What triggers the approval opportunity:** the upload endpoint sets `status = "pending_approval"`
+automatically on parse success. No operator action is needed to promote a slice to the
+approval queue.
+
+**What the approver sees** (no row-level data shown):
+
+| Field | Display |
+|---|---|
+| `row_count` | e.g. "12,450 rows" |
+| `encoding` | e.g. "utf-8" |
+| `parse_warnings` | amber list if non-empty; hidden otherwise |
+| `source_type` | "csv" / "fixed_length_file" |
+| `source_slice_id` | monospace + copy icon |
+| `created_at` | monospace timestamp |
+
+**Actions:**
+
+- **Approve** — `status → "approved"`; emits `AuditEvent(event_type="source_slice_approved")`
+- **Reject** — requires a reason string (max 1000 chars); `status → "rejected"`;
+  emits `AuditEvent(event_type="source_slice_rejected", payload={reason})`
+- **Resubmit** (on a rejected slice) — re-parses the original file (via `file_storage_path`)
+  with corrected encoding or parse settings; creates a new `SourceSlice` record at version
+  `v{n+1}` with `status = "pending_approval"`;
+  emits `AuditEvent(event_type="source_slice_resubmitted", payload={old_slice_id, new_slice_id})`
+
+**API pattern:**
+
+```
+POST /projects/{project_id}/sources/{source_definition_id}/slices/{source_slice_id}/approve
+POST /projects/{project_id}/sources/{source_definition_id}/slices/{source_slice_id}/reject
+     body: { "reason": str }
+POST /projects/{project_id}/sources/{source_definition_id}/slices/{source_slice_id}/resubmit
+     body: { "encoding": str | null, "parse_settings": dict | null }
+```
+
+**Error codes:**
+
+| Code | HTTP | When |
+|---|---|---|
+| `slice_not_pending` | 409 | Approve or reject called on a non-pending slice |
+| `slice_not_rejected` | 409 | Resubmit called on a non-rejected slice |
+| `file_not_retained` | 422 | Resubmit attempted but `file_storage_path` is null |
+| `slice_not_found` | 404 | Slice does not belong to this project/source |
+
+**UI entry points:**
+
+1. **Approvals page** (`/approvals`) — global inbox listing all `pending_approval` slices
+   across projects visible to the user. Amber count badge on the Approvals nav item.
+   Per-row inline Approve + Reject actions.
+
+2. **Project detail — Artifacts tab** — shows the current slice with its status chip.
+   If `pending_approval`: inline Approve + Reject buttons.
+   If `rejected`: rejection reason + Resubmit button (opens modal for encoding/settings override).
 
 ## Object runs
 
@@ -199,6 +303,59 @@ The system must not silently mix incompatible versions. Every downstream
 execution must be able to explain exactly which approved source slice, mapping
 snapshot, lookup snapshot, and code-generation input it consumed.
 
+## Code generation artifact
+
+Code generation produces a versioned `CodeGenerationArtifact` per destination object. It is not
+stored on `SourceDefinition` — it lives in its own table, linked to the run that produced it.
+
+### Contents
+
+One artifact covers one destination object and contains the complete SQL bundle:
+
+- staging table DDL: `CREATE TABLE stg_{object}` for the destination object
+- lookup table DDL + data: `CREATE TABLE lookup_{field}` + `INSERT` rows from the approved
+  `LookupValueMap`
+- views: any `CREATE VIEW` statements needed for the transformation
+- stored procedures: `CREATE PROCEDURE proc_load_{object}` that reads from the staging table,
+  applies lookup translations, and writes to the destination table
+
+### Model fields
+
+```
+CodeGenerationArtifact:
+  codegen_artifact_id         UUID — primary key
+  project_id                  FK → project_registry
+  destination_object_name     string — e.g. "Customer"
+  run_id                      FK → runs — the run that produced this artifact
+  source_slice_version        string — pinned source slice version consumed
+  mapping_snapshot_version    string — pinned mapping snapshot consumed
+  lookup_snapshot_version     string — pinned lookup snapshot consumed
+  sql_bundle                  Text — full generated SQL (staging DDL + lookup DDL/data + views + SPs)
+  status                      "active" | "superseded"
+  created_at                  timestamp
+  superseded_at               timestamp | null
+```
+
+### Versioning and supersession
+
+If mapping or lookup changes and code generation reruns, a new artifact is minted for the same
+`(project_id, destination_object_name)`. The previous artifact for that pair is marked
+`status = "superseded"`, `superseded_at = now()` before the new one becomes `active`.
+
+Old artifacts are never deleted — the run record that consumed them still points to them as the
+audit trail. Only `active` artifacts are included in the delivery bundle.
+
+### Run reference
+
+The run record for the code generation stage carries `codegen_artifact_id` pointing to the
+`CodeGenerationArtifact` it produced. This is the baton_4 artifact reference.
+
+### Delivery bundle
+
+The complete delivery bundle is assembled by collecting all `status = "active"`
+`CodeGenerationArtifact` records for a project, ordered by destination object name. There is no
+`destination_ddl` column on `SourceDefinition`.
+
 ## Impact analysis and patch generation
 
 Mapping or lookup changes trigger impact analysis.
@@ -230,6 +387,8 @@ replace source analysis.
 | Source contract missing required shape information | Intake rejects or preserves as unresolved, depending on stage |
 | Fixed-width spec cannot be parsed | Reject before analysis proceeds |
 | Source is unreadable or unavailable | Surface as fatal or transient according to adapter policy |
+| Slice rejected, `file_storage_path` null (file not retained) | Return `file_not_retained` (422); operator must upload a new file via the normal upload flow |
+| Resubmit parse fails with new settings | Return `parse_failed` (422) with error detail; rejected slice remains as-is |
 | Source analysis sees structure drift | Mint a new version and require downstream re-approval |
 | Source slice would expose raw PII to an AI-facing step | Mask before exposure or deny the step |
 | Approved snapshot set cannot be resolved | Block until the required approvals exist |
@@ -240,7 +399,13 @@ replace source analysis.
 
 - [ ] Source definitions are structured and source-type aware.
 - [ ] Source contracts are declared rather than inferred from connection strings.
+- [ ] Source definitions are structured and source-type aware.
+- [ ] Source contracts are declared rather than inferred from connection strings.
+- [ ] Parse success automatically sets slice status to `pending_approval`.
 - [ ] The approved source slice is immutable and versioned.
+- [ ] Approval, rejection, and resubmit each emit an `AuditEvent`.
+- [ ] At most one slice per `SourceDefinition` is in `pending_approval` at a time.
+- [ ] Resubmit creates a new slice record at the next version; the rejected slice is retained.
 - [ ] Object runs consume a pinned source slice version.
 - [ ] Source analysis reruns when the source changes.
 - [ ] Mapping or lookup-only changes rerun only their respective approval path.
@@ -250,6 +415,9 @@ replace source analysis.
 
 ## Changelog
 
+- 2026-06-29: Added source slice approval flow — status state machine, model fields, approval/reject/resubmit API pattern, UI entry points, failure modes, and acceptance criteria.
+- 2026-06-29: Expanded CodeGenerationArtifact into a full model spec with fields, status values, supersession rule, and delivery bundle assembly.
+- 2026-06-29: Clarified destination_object_references as mapping stage output baton (not an operator input); introduced CodeGenerationArtifact as the versioned output of code generation.
 - 2026-06-29: Expanded into a spec-style source model page covering source
   contracts, modeling tiers, immutable source slices, object runs, snapshot
   policy, impact analysis, failure modes, and acceptance criteria.
