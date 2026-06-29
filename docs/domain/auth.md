@@ -43,10 +43,11 @@ role are already established before business logic runs.
 
 ## Relationship to other pages
 
-- Role-sensitive approval behavior is defined in `specs/29-approval-service.md`.
-- UI role surfaces are defined in `specs/28-ui.md`.
-- Project scoping and per-project isolation are defined in
-  `specs/18-project-registry.md`.
+- Role-sensitive approval behavior is enforced by the approval-service route in
+  the harness bundle, then surfaced through `ui.md` and `management.md`.
+- UI role surfaces are defined in `ui.md`.
+- Project scoping and per-project isolation are defined in `project.md`,
+  `runs.md`, and `security.md`.
 - Administrative user and membership lifecycle is defined in `management.md`.
 - Security-sensitive decisions and audit expectations are summarized in
   `security.md`.
@@ -131,6 +132,87 @@ If a request body attempts to assert a different role or identity, the body is
 ignored for authority purposes and may be rejected if it conflicts with the
 authenticated state.
 
+## API contract
+
+The auth API is intentionally small and explicit. JSON schemas, status codes,
+error envelopes, and JWT claim shapes are defined in [`api.md`](./api.md). The
+matching OpenAPI artifact lives at
+[`engine/openapi/auth.yaml`](../../engine/openapi/auth.yaml).
+
+### `POST /auth/login`
+
+Starts an authenticated human session.
+
+Request body:
+
+- `email`
+- `password`
+
+Behavior:
+
+- validates the credentials
+- rejects soft-deleted, disabled, or revoked identities
+- derives the authoritative role from authenticated state
+- returns a short-lived JWT plus session metadata
+
+Response:
+
+- authenticated `user_id`
+- authenticated role
+- token or session value
+- expiry timestamp
+- revocation marker or session version
+
+### `POST /auth/logout`
+
+Ends the current session or marks the current token version revoked.
+
+Behavior:
+
+- accepts the current authenticated session only
+- invalidates the presented token or its version marker
+- fails closed if the request is unauthenticated
+
+### `POST /auth/password-reset/request`
+
+Starts a self-service password reset.
+
+Request body:
+
+- `email`
+
+Behavior:
+
+- accepts the request without revealing whether the email exists
+- issues a reset challenge only when the account is eligible
+- records the reset request for audit and expiry tracking
+
+### `POST /auth/password-reset/confirm`
+
+Completes a password reset.
+
+Request body:
+
+- `reset_token`
+- `new_password`
+
+Behavior:
+
+- validates the reset token
+- stores only the new password hash
+- revokes outstanding sessions for the affected identity
+- fails closed if the token is invalid or expired
+
+### `GET /auth/session`
+
+Returns the current authenticated session context.
+
+Behavior:
+
+- requires a valid authenticated session
+- returns the authoritative user identity, role, and expiry state
+- never trusts caller-supplied identity fields
+
 ## Role model
 
 The system uses role-bearing authenticated identities. The exact human role set
@@ -197,8 +279,12 @@ The system must not continue to honor a token simply because it was once valid.
 
 ## Changelog
 
+- 2026-06-29: Linked behavioral auth contract to formal HTTP schemas in
+  `api.md` and `engine/openapi/auth.yaml`.
 - 2026-06-29: Expanded into a spec-style auth page covering identity model,
   session authority, lifecycle invalidation, bootstrap, failure modes, and
   acceptance criteria.
 - 2026-06-29: Added explicit revocation/version tracking for authenticated
   sessions.
+- 2026-06-29: Added explicit login, logout, password-reset, and session API
+  contracts.

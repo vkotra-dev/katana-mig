@@ -1,0 +1,280 @@
+openapi: 3.1.0
+info:
+  title: Katana Migration Engine API — Auth slice
+  version: 0.1.0
+  description: |
+    Auth endpoints for login, session lookup, logout, password reset, and
+    bootstrap status. Behavioral rules live in docs/domain/api.md and auth.md.
+servers:
+  - url: http://127.0.0.1:8000
+    description: Local development
+tags:
+  - name: auth
+    description: Human authentication and session management
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    PlatformRole:
+      type: string
+      enum:
+        - central_team
+        - project_stakeholder
+        - read_only_auditor
+    UserStatus:
+      type: string
+      enum:
+        - active
+        - disabled
+    ErrorBody:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+    AuthenticatedUser:
+      type: object
+      required:
+        - user_id
+        - email
+        - role
+        - status
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        display_name:
+          type: string
+          nullable: true
+        role:
+          $ref: '#/components/schemas/PlatformRole'
+        status:
+          $ref: '#/components/schemas/UserStatus'
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 1
+    LoginResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - expires_at
+        - session_version
+        - user
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          enum:
+            - bearer
+        expires_at:
+          type: string
+          format: date-time
+        session_version:
+          type: integer
+        user:
+          $ref: '#/components/schemas/AuthenticatedUser'
+    SessionResponse:
+      type: object
+      required:
+        - user_id
+        - email
+        - role
+        - status
+        - expires_at
+        - session_version
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        display_name:
+          type: string
+          nullable: true
+        role:
+          $ref: '#/components/schemas/PlatformRole'
+        status:
+          $ref: '#/components/schemas/UserStatus'
+        expires_at:
+          type: string
+          format: date-time
+        session_version:
+          type: integer
+    BootstrapStatusResponse:
+      type: object
+      required:
+        - bootstrap_required
+      properties:
+        bootstrap_required:
+          type: boolean
+    PasswordResetRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+    PasswordResetAccepted:
+      type: object
+      required:
+        - accepted
+      properties:
+        accepted:
+          type: boolean
+          const: true
+    PasswordResetConfirmRequest:
+      type: object
+      required:
+        - reset_token
+        - new_password
+      properties:
+        reset_token:
+          type: string
+          minLength: 1
+        new_password:
+          type: string
+          minLength: 1
+  responses:
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    Forbidden:
+      description: Authenticated identity is inactive or not permitted
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+paths:
+  /auth/bootstrap/status:
+    get:
+      tags: [auth]
+      summary: Report whether first-time bootstrap is required
+      operationId: getBootstrapStatus
+      responses:
+        '200':
+          description: Bootstrap status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BootstrapStatusResponse'
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Start an authenticated human session
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authenticated session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /auth/session:
+    get:
+      tags: [auth]
+      summary: Return the current authenticated session
+      operationId: getSession
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Revoke the current session
+      operationId: logout
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Session revoked
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /auth/password-reset/request:
+    post:
+      tags: [auth]
+      summary: Start a self-service password reset
+      operationId: requestPasswordReset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+      responses:
+        '202':
+          description: Reset request accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetAccepted'
+  /auth/password-reset/confirm:
+    post:
+      tags: [auth]
+      summary: Complete a password reset
+      operationId: confirmPasswordReset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirmRequest'
+      responses:
+        '204':
+          description: Password reset completed
+        '400':
+          description: Invalid or expired reset token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'

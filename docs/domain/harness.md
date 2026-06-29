@@ -7,17 +7,8 @@ It consolidates the current execution, orchestration, durability, and lifecycle
 behavior from the numbered specs so there is one place to read how the system
 runs.
 
-**Derived from:** `specs/00-architecture-overview.md`, `specs/01-run-manager.md`,
-`specs/02-context-assembler.md`, `specs/03-model-adapter.md`,
-`specs/04-tool-router.md`, `specs/05-policy-gate.md`, `specs/06-sandbox.md`,
-`specs/07-verifier.md`, `specs/08-audit-bus.md`, `specs/09-failure-taxonomy.md`,
-`specs/10-contract-registry.md`, `specs/11-change-requests.md`,
-`specs/12-persistence.md`, `specs/13-runtime-orchestrator.md`,
-`specs/14-planning-orchestrator.md`, `specs/15-domain-lexicon.md`,
-`specs/16-intake-project-definition.md`, `specs/17-lifecycle-conductor.md`,
-`specs/18-project-registry.md`, `specs/19-review-gate.md`,
-`specs/30-model-router.md`, `specs/31-ingestion-trigger.md`,
-`specs/32-notification-handler.md`, plus the current domain bundle pages.
+**Derived from:** the current domain bundle pages plus the historical specs
+archive.
 
 This page is the working contract for the harness bundle. The numbered specs
 remain the historical derivation archive.
@@ -43,15 +34,15 @@ Provide the operational contract for:
 
 The core harness is the single-run execution engine:
 
-- `01` Run Manager
-- `02` Context Assembler
-- `03` Model Adapter
-- `04` Tool Router
-- `05` Policy Gate
-- `06` Sandbox
-- `07` Verifier
-- `08` Audit Bus
-- `09` Failure Taxonomy
+- Run Manager
+- Context Assembler
+- Model Adapter
+- Tool Router
+- Policy Gate
+- Sandbox
+- Verifier
+- Audit Bus
+- Failure Taxonomy
 
 This layer owns the run loop and the disposition model.
 
@@ -59,19 +50,19 @@ This layer owns the run loop and the disposition model.
 
 The platform layer turns the harness into a multi-project operating system:
 
-- `10` Contract Registry
-- `11` Change Requests
-- `12` Persistence
-- `13` Runtime Orchestrator
-- `14` Planning Orchestrator
-- `15` Domain Lexicon
-- `16` Intake / Project Definition
-- `17` Lifecycle Conductor
-- `18` Project Registry
-- `19` Review Gate
-- `30` Model Router
-- `31` Ingestion Trigger
-- `32` Notification Handler
+- Contract Registry
+- Change Requests
+- Persistence
+- Runtime Orchestrator
+- Planning Orchestrator
+- Domain Lexicon
+- Intake / Project Definition
+- Lifecycle Conductor
+- Project Registry
+- Review Gate
+- Model Router
+- Ingestion Trigger
+- Notification Handler
 
 This layer owns persistence, orchestration, lifecycle handoff, and cross-cutting
 policy surfaces.

@@ -17,6 +17,7 @@ Status legend:
 |---|---|---:|---:|---:|---|
 | Auth | Finalize authentication mechanism | x |  |  | Password login for human callers |
 | Auth | Finalize session model | x |  |  | Stateless JWT sessions |
+| Auth | Finalize login and password-reset API contract | x |  |  | `POST /auth/login`, password-reset request/confirm, session lookup |
 | Auth | Finalize service-account behavior | x |  |  | Client secrets, scope, and allowed channels |
 | Auth | Finalize project-scope binding | x |  |  | Registry resolves project scope separately |
 | Project | Finalize snapshot selection end to end | x |  |  | Stage-local selection is pinned across the bundle |

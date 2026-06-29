@@ -19,6 +19,7 @@ archive updates.
 | Launch gate | [`launch-gate.md`](./launch-gate.md) |
 | Security | [`security.md`](./security.md) |
 | Auth | [`auth.md`](./auth.md) |
+| API | [`api.md`](./api.md) |
 | Management | [`management.md`](./management.md) |
 | UI | [`ui.md`](./ui.md) |
 | Project | [`project.md`](./project.md) |
@@ -34,9 +35,10 @@ archive updates.
 5. [`harness.md`](./harness.md)
 6. [`launch-gate.md`](./launch-gate.md)
 7. [`auth.md`](./auth.md)
-8. [`management.md`](./management.md)
-9. [`ui.md`](./ui.md)
-10. [`security.md`](./security.md)
+8. [`api.md`](./api.md)
+9. [`management.md`](./management.md)
+10. [`ui.md`](./ui.md)
+11. [`security.md`](./security.md)
 
 The older `specs/` tree remains as historical record. Read this folder first;
 use the numbered specs only when you need derivation history or are updating

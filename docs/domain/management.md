@@ -43,10 +43,10 @@ and at what level.
 
 - Authentication mechanics are defined in `auth.md`.
 - Security boundaries are defined in `security.md`.
-- Project-scoped access rules are defined in `specs/18-project-registry.md`.
-- UI role surfaces are defined in `specs/28-ui.md`.
-- Approval gate role requirements are defined in
-  `specs/29-approval-service.md`.
+- Project-scoped access rules are defined in `project.md` and `runs.md`.
+- UI role surfaces are defined in `ui.md`.
+- Approval gate role requirements are enforced by the approval-service route
+  in the harness bundle.
 
 ## Role model
 
@@ -120,9 +120,11 @@ The create flow must:
 The update flow must:
 
 - require an authenticated `central_team` caller
+- allow role edits directly in the user update flow
 - preserve role validity
 - keep historical auditability of the change
 - reject updates to nonexistent users
+- treat the role change as an explicit administrative action in audit records
 
 ### Soft-delete user
 
@@ -153,7 +155,8 @@ The flow must:
 
 - require an authenticated `central_team` caller
 - reject membership for non-stakeholder roles
-- prevent duplicate memberships
+- treat duplicate membership as an idempotent no-op with a warning that the
+  user is already part of the project
 - preserve project isolation
 
 ### Bootstrap admin
@@ -199,7 +202,8 @@ duplicates.
 
 - Role fields in request bodies are not authoritative for authorization.
 - Role must come from authenticated state.
-- Any role change must be an explicit administrative action.
+- Role changes may be submitted directly in the user update request, but they
+  are still explicit administrative actions and must be audited as such.
 
 ## Failure modes
 
@@ -209,7 +213,7 @@ duplicates.
 | Non-admin attempts role change | Reject |
 | Duplicate email on user create | Reject |
 | Membership assigned to non-stakeholder role | Reject |
-| Duplicate project membership | Reject or no-op, but must be explicit |
+| Duplicate project membership | No-op with warning |
 | Soft-deleted user attempts login or action | Reject |
 | Bootstrap invoked when users already exist | No duplicate creation |
 | Bootstrap credentials missing or invalid | Fail closed |
@@ -227,10 +231,6 @@ duplicates.
 
 ## Open questions
 
-- Should role updates be allowed directly, or only via a dedicated role-change
-  flow with extra confirmation?
-- Should duplicate membership creation be rejected or silently treated as a
-  no-op?
 - Should project membership assignment trigger notifications?
 - Should bootstrap admin be startup-only, CLI-only, or both in production?
 
@@ -238,3 +238,7 @@ duplicates.
 
 - 2026-06-29: Added dedicated management page for user CRUD, role assignment,
   project membership, and bootstrap admin behavior.
+- 2026-06-29: Clarified that role edits happen directly in the user update
+  flow and are audited as explicit administrative actions.
+- 2026-06-29: Clarified that duplicate project membership is an idempotent
+  no-op with a warning.

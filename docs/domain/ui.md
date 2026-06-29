@@ -6,13 +6,13 @@ It consolidates the current UI-related behavior from the numbered specs and the
 domain pages so there is one place to read the operator experience without
 chasing the full spec archive.
 
-**Derived from:** `specs/16-intake-project-definition.md`, `specs/18-project-registry.md`,
-`specs/28-ui.md`, `specs/29-approval-service.md`, `docs/domain/auth.md`,
-`docs/domain/management.md`, `docs/domain/project.md`, `docs/domain/runs.md`,
-`docs/domain/source-model.md`, `docs/domain/security.md`.
+**Derived from:** `docs/domain/auth.md`, `docs/domain/management.md`,
+`docs/domain/project.md`, `docs/domain/runs.md`, `docs/domain/source-model.md`,
+`docs/domain/security.md`, and the approval-service behavior in the harness
+bundle.
 
 This page is the working contract for the UI bundle. The numbered specs remain
-the historical derivation archive.
+the historical derivation archive only.
 
 `service_account` is not a UI audience. It is a non-human integration principal
 that submits approvals or API actions through automated channels, not through
@@ -49,6 +49,19 @@ Role is session-scoped, and `project_stakeholder` access is membership-scoped.
 - `read_only_auditor` lands on a read-only selector or portfolio view.
 
 ## Screens
+
+### Authentication
+
+Audience: unauthenticated users.
+
+Screens:
+
+- login
+- password-reset request
+- password-reset confirmation
+
+These screens are the entry point to the rest of the application and must use
+the authoritative auth contract from `auth.md`.
 
 ### Portfolio dashboard
 

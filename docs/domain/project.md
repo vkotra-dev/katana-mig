@@ -43,9 +43,10 @@ reconciliation. Everything else is scoped to a `project_id`.
 ## Relationship to other pages
 
 - The shape of each source contract is defined in `source-model.md`.
-- The intake and freeze mechanics are defined in `specs/16-intake-project-definition.md`.
-- Project isolation and multi-project routing are defined in
-  `specs/18-project-registry.md`.
+- The intake and freeze mechanics are defined in `governance.md` and the
+  intake behavior described in the harness bundle.
+- Project isolation and multi-project routing are defined in `security.md`,
+  `runs.md`, and the harness bundle.
 - The run unit of work is defined in `runs.md`.
 
 ## Data model

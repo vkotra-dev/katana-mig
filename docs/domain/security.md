@@ -40,11 +40,14 @@ The security model must ensure:
 
 - Authentication mechanics are defined in `auth.md`.
 - Administrative user and membership lifecycle is defined in `management.md`.
-- Role-sensitive approval behavior is defined in `specs/29-approval-service.md`.
-- Project tenancy and isolation are defined in `specs/18-project-registry.md`.
-- PII classification is defined in `specs/22-pii-classifier.md`.
-- Policy gating is defined in `specs/05-policy-gate.md`.
-- Audit event emission is defined in `specs/08-audit-bus.md`.
+- Role-sensitive approval behavior is enforced by the approval-service route in
+  the harness bundle and surfaced through `ui.md`.
+- Project tenancy and isolation are defined in `project.md`, `runs.md`, and
+  the project registry behavior in the harness bundle.
+- PII handling is constrained by `source-model.md` and the migration analysis
+  pipeline in the harness bundle.
+- Policy gating is defined in the harness bundle.
+- Audit event emission is defined in the harness bundle.
 
 ## Security boundaries
 

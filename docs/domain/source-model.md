@@ -44,17 +44,12 @@ schema invention or execution scheduling.
 
 - Project ownership and snapshot policy are defined in `project.md`.
 - Object-level execution behavior is defined in `runs.md`.
-- Intake and `MigrationProjectConfig` live in
-  `specs/16-intake-project-definition.md`.
-- Source adapter mechanics are in `specs/20-source-adapter.md`.
-- Schema discovery is in `specs/21-schema-discovery.md`.
-- PII classification is in `specs/22-pii-classifier.md`.
-- Domain object mapping is in `specs/23-domain-object-analyser.md`.
-- Lookup mapping is in `specs/24-lookup-value-mapper.md`.
-- Rule generation is in `specs/25-rule-set-generator.md`.
-- Code generation and knowledge freeze are in
-  `specs/26-migration-code-generator.md`.
-- Reconciliation is in `specs/27-reconciliation-engine.md`.
+- Intake and `MigrationProjectConfig` live in `governance.md` and the intake
+  behavior described in the harness bundle.
+- Source adapter mechanics, schema discovery, PII classification, domain
+  object mapping, lookup mapping, rule generation, code generation, and
+  reconciliation are all part of the migration analysis pipeline in the harness
+  bundle; this page defines the source-side inputs they consume.
 
 ## Source modeling tiers
 

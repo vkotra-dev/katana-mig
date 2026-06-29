@@ -40,10 +40,11 @@ The run is the unit of observability for migration execution.
 
 - Source contracts and source slices are defined in `source-model.md`.
 - Project ownership and version identity are defined in `project.md`.
-- Intake and frozen project definition mechanics live in
-  `specs/16-intake-project-definition.md`.
-- Multi-project routing and isolation live in `specs/18-project-registry.md`.
-- Lifecycle pause/resume and baton flow are defined in `specs/17-lifecycle-conductor.md`.
+- Intake and frozen project definition mechanics live in `governance.md` and
+  the intake behavior described in the harness bundle.
+- Multi-project routing and isolation live in `security.md`, `project.md`, and
+  the harness bundle.
+- Lifecycle pause/resume and baton flow are defined in `harness.md`.
 
 ## Data model
 
