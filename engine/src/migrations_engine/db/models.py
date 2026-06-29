@@ -262,6 +262,59 @@ class SourceSlice(Base):
     )
 
 
+class MappingSnapshot(Base):
+    __tablename__ = "mapping_snapshots"
+
+    mapping_snapshot_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("project_registry.project_id"), nullable=False
+    )
+    destination_object_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    mapping_snapshot_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    field_bindings: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="approved")
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_by_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.user_id"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class LookupSnapshot(Base):
+    __tablename__ = "lookup_snapshots"
+
+    lookup_snapshot_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("project_registry.project_id"), nullable=False
+    )
+    lookup_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    lookup_snapshot_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    value_map: Mapped[dict[str, str]] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="approved")
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_by_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.user_id"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class MappingArtifact(Base):
+    __tablename__ = "mapping_artifacts"
+
+    mapping_artifact_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    run_id: Mapped[str] = mapped_column(String(36), ForeignKey("run_records.run_id"), nullable=False)
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("project_registry.project_id"), nullable=False
+    )
+    destination_object_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    mapping_snapshot_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    lookup_snapshot_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    mapped_rows: Mapped[list[dict[str, str]]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class AuditEvent(Base):
     __tablename__ = "audit_events"
 
