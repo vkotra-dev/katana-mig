@@ -135,6 +135,117 @@ Each run targets exactly one environment. Projects that must traverse multiple
 execution environments create separate environment-specific runs in declared
 order rather than one run with hidden sub-runs.
 
+### Run loop
+
+The run loop operates at two levels: an outer object loop and an inner row loop.
+
+#### Outer loop — per destination object
+
+```
+for each destination_object in project:
+    receive stage baton (carries approved snapshot versions)
+    pin source_slice_version, mapping_snapshot_version,
+        lookup_snapshot_version, code_generation_input_snapshot_version
+        onto RunRecord
+    execute inner row loop
+    generate SQL from MappingArtifact.mapped_rows
+    record reconciliation evidence
+    sign off → mint frozen stage baton (carries artifact versions consumed)
+    pass baton to next stage
+```
+
+One run record per destination object. The outer loop does not share run
+records across objects; each object is independently auditable and restartable.
+
+#### Inner loop — per source row
+
+```
+for each source_row in approved SourceSlice:
+    apply MappingSnapshot.field_bindings
+        → rename and select fields to destination shape
+    apply LookupSnapshot.value_map to each translated field
+        → if source value is missing from value_map:
+            pause loop
+            raise LookupDeltaCR (change request)
+            wait for human resolution and approval
+            resume from last checkpoint with updated LookupSnapshot
+    write destination-shaped row → MappingArtifact.mapped_rows
+    if checkpoint_boundary reached:
+        write RunCheckpoint (stage, object, environment,
+            approved_snapshots, last_completed_checkpoint_boundary)
+```
+
+The checkpoint boundary is every 500 rows by default. It is configurable per
+project via `domain_config`. The checkpoint records the exact row offset and
+approved snapshot set so the inner loop can resume from the correct position
+without reprocessing already-committed rows.
+
+#### LookupDeltaCR interrupt
+
+When the inner loop encounters a source value absent from `LookupSnapshot.value_map`:
+
+1. The loop pauses at the current row; the checkpoint is written first.
+2. A `ChangeRequest` of type `LookupDeltaCR` is raised, carrying the lookup
+   name, the unmapped source value, and the run and object context.
+3. A human operator resolves the CR by adding the missing mapping to the lookup.
+4. The approval gate produces a new `LookupSnapshot` version.
+5. The stage baton is updated with the new lookup version.
+6. The run resumes from the last checkpoint using the updated snapshot — it
+   does not restart the whole object loop from row zero.
+
+The run never silently substitutes a default or skips an unmapped value.
+
+### Baton handoff
+
+A **baton** is the frozen artifact passed between lifecycle stages. It is the
+formal unit of stage sign-off and handoff.
+
+Each baton carries:
+
+- the stage that produced it
+- the approved artifact versions it consumed or produced
+- the destination object and environment scope
+- a reference to the approval record that authorised the sign-off
+
+When a stage completes and is approved, it mints a new frozen baton and passes
+it to the next stage. The next stage reads the baton to discover exactly which
+artifact versions to consume — it does not re-query for the latest approved
+versions, because the baton already encodes the approved decision.
+
+**Backward transitions** (rejection, rework) mint a new baton pointing back to
+the earlier stage. The rejected baton is never mutated. Both the original and the
+rework baton are preserved for audit.
+
+Stage sequence and baton chain for a migration object run:
+
+```
+[source analysis approved]
+    → baton_1: {source_slice_version}
+        → [mapping approved]
+            → baton_2: {source_slice_version, mapping_snapshot_version}
+                → [lookup approved]
+                    → baton_3: {source_slice_version, mapping_snapshot_version,
+                                lookup_snapshot_version}
+                        → [code generation run — mints CodeGenerationArtifact,
+                                               supersedes prior active artifact for
+                                               (project, destination_object_name)]
+                            → baton_4: {…, code_generation_input_snapshot_version,
+                                        codegen_artifact_id}
+                                → [review gate (Gate 1 / Gate 2 / impact review)]
+                                    → baton_5: {…, knowledge_freeze_version}
+                                        → [delivery / environment promotion]
+```
+
+`knowledge_freeze_version` is the `codegen_artifact_id` from baton_4 after it
+clears the review gate. No new artifact is minted — the `CodeGenerationArtifact`
+already captures every upstream version (source slice, mapping snapshot, lookup
+snapshot) and the generated SQL bundle. Gate approval is the act of freezing;
+the artifact was already the knowledge container.
+```
+
+A baton arriving at a stage without the required approved versions causes the
+stage to block rather than proceed with incomplete inputs.
+
 ### Resume rule
 
 Resume must continue from the exact approved work position that was already
@@ -222,6 +333,11 @@ outcome evidence, the run is incomplete.
 
 ## Changelog
 
+- 2026-06-29: Updated baton_4 to reference codegen_artifact_id (CodeGenerationArtifact)
+  instead of mapping_artifact_id; added supersession note on code generation run.
+- 2026-06-29: Added run loop section covering outer per-object loop, inner
+  per-row loop, LookupDeltaCR interrupt, checkpoint boundary rule, and baton
+  handoff chain across lifecycle stages.
 - 2026-06-29: Expanded into a spec-style run page covering ownership,
   snapshot recording, checkpoints, resume rules, reconciliation evidence,
   failure modes, and acceptance criteria.
