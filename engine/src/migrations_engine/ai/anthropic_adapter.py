@@ -15,22 +15,22 @@ class AnthropicAdapter:
     def __init__(self, *, model_id: str, api_key_env: str) -> None:
         self._model_id = model_id
         self._api_key_env = api_key_env
+        api_key = os.environ.get(self._api_key_env)
+        if not api_key:
+            raise ConfigurationError(self._api_key_env)
+        self._client = anthropic.Anthropic(api_key=api_key)
 
     @property
     def model_id(self) -> str:
         return self._model_id
 
     def call(self, system: str, user: str, response_model: type[T]) -> T:
-        api_key = os.environ.get(self._api_key_env)
-        if not api_key:
-            raise ConfigurationError(self._api_key_env)
-        client = anthropic.Anthropic(api_key=api_key)
         schema = response_model.model_json_schema()
         prompt = f"{system}\n\nReturn valid JSON matching this schema:\n{schema}"
         try:
-            response = client.messages.create(
+            response = self._client.messages.create(
                 model=self._model_id,
-                max_tokens=1024,
+                max_tokens=4096,
                 system=prompt,
                 messages=[{"role": "user", "content": user}],
             )

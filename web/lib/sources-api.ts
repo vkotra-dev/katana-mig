@@ -40,7 +40,6 @@ export interface SourceSliceRecord {
   status: string;
   approvalRejectionReason: string | null;
   parseWarnings: string[] | null;
-  fileStoragePath: string | null;
   previewRows: string[];
   createdAt: string;
 }
@@ -139,7 +138,6 @@ function mapSourceSliceResponse(response: {
   status: string;
   approval_rejection_reason: string | null;
   parse_warnings: string[] | null;
-  file_storage_path: string | null;
   preview_rows: string[];
   created_at: string;
 }): SourceSliceRecord {
@@ -152,7 +150,6 @@ function mapSourceSliceResponse(response: {
     status: response.status,
     approvalRejectionReason: response.approval_rejection_reason,
     parseWarnings: response.parse_warnings,
-    fileStoragePath: response.file_storage_path,
     previewRows: response.preview_rows,
     createdAt: response.created_at,
   };

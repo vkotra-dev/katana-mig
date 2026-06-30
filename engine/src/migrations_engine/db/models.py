@@ -179,8 +179,11 @@ class RunRecord(Base):
     source_slice_version: Mapped[str | None] = mapped_column(String(36))
     mapping_snapshot_version: Mapped[str | None] = mapped_column(String(36))
     lookup_snapshot_version: Mapped[str | None] = mapped_column(String(36))
+    lookup_snapshot_versions: Mapped[dict[str, str] | None] = mapped_column(JSON)
     code_generation_input_snapshot_version: Mapped[str | None] = mapped_column(String(36))
-    codegen_artifact_id: Mapped[str | None] = mapped_column(String(36))
+    codegen_artifact_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("code_generation_artifacts.codegen_artifact_id")
+    )
     knowledge_freeze_version: Mapped[str | None] = mapped_column(String(36))
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued")
     current_stage: Mapped[str | None] = mapped_column(String(64))

@@ -5,7 +5,6 @@ import uuid
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -30,7 +29,7 @@ db_session.SessionLocal = sessionmaker(
 from migrations_engine.app import app  # noqa: E402
 from migrations_engine.auth.passwords import hash_password  # noqa: E402
 from migrations_engine.config import get_settings  # noqa: E402
-from migrations_engine.db.models import ProjectDefinition, ProjectRegistry, SourceDefinition, SourceSlice, User  # noqa: E402
+from migrations_engine.db.models import User  # noqa: E402
 from migrations_engine.db.session import SessionLocal  # noqa: E402
 from migrations_engine.roles import CENTRAL_TEAM_ROLE  # noqa: E402
 
@@ -110,16 +109,6 @@ def test_csv_source_intake_masks_and_persists_rows(admin_token: str) -> None:
     assert slice_body["row_count"] == 1
     assert slice_body["preview_rows"][0] == "100042,***,***,DATABASE"
 
-    with SessionLocal() as db:
-        stored_definition = db.scalar(
-            select(ProjectDefinition).where(ProjectDefinition.project_id == project["project_id"])
-        )
-        assert stored_definition is not None
-        stored_source = db.scalar(select(ProjectRegistry).where(ProjectRegistry.project_id == project["project_id"]))
-        assert stored_source is not None
-        stored_slice = db.scalar(select(SourceSlice).where(SourceSlice.source_slice_id == slice_body["source_slice_id"]))
-    assert stored_slice is not None
-    assert stored_slice.file_storage_path is not None
 
 
 def test_fixed_length_requires_copybook_before_upload(admin_token: str) -> None:

@@ -20,7 +20,7 @@ from ..management.source_analysis import (
 router = APIRouter(prefix="/projects/{project_id}/sources", tags=["analysis"])
 
 
-@router.post("/{source_definition_id}/analyze", response_model=SourceAnalysisResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post("/{source_definition_id}/analyze", response_model=SourceAnalysisResponse, status_code=status.HTTP_200_OK)
 def post_source_analysis(
     project_id: str,
     source_definition_id: str,

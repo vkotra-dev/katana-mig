@@ -46,6 +46,8 @@ def _make_config(
 
 def test_get_adapter_routes_by_model_prefix(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("migrations_engine.ai.factory.get_ai_config", lambda: _make_config())
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "anthropic-secret")
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-secret")
 
     anthropic_adapter = get_adapter("field_mapping")
     openai_adapter = get_adapter("script_generation")
@@ -85,7 +87,7 @@ def test_anthropic_adapter_calls_sdk_and_parses_response(monkeypatch: pytest.Mon
     assert result.value == "ok"
     assert calls["api_key"] == "anthropic-secret"
     assert calls["model"] == "claude-opus-4-8"
-    assert calls["max_tokens"] > 0
+    assert calls["max_tokens"] >= 4096
     assert calls["messages"] == [{"role": "user", "content": "user prompt"}]
     assert "system prompt" in calls["system"]
     assert "DemoResponse" in calls["system"]
@@ -135,6 +137,5 @@ def test_missing_api_key_raises_at_call_time(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setattr("migrations_engine.ai.factory.get_ai_config", lambda: _make_config())
 
-    adapter = get_adapter("field_mapping")
     with pytest.raises(ConfigurationError, match="ANTHROPIC_API_KEY"):
-        adapter.call("system prompt", "user prompt", DemoResponse)
+        get_adapter("field_mapping")

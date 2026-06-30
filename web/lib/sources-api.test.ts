@@ -49,7 +49,6 @@ const sliceResponse = {
   status: "pending_approval",
   approval_rejection_reason: null,
   parse_warnings: [],
-  file_storage_path: "/tmp/source.csv",
   preview_rows: ["100042,***"],
   created_at: "2026-06-30T00:00:00Z",
 };
@@ -63,7 +62,6 @@ const slice: SourceSliceRecord = {
   status: "pending_approval",
   approvalRejectionReason: null,
   parseWarnings: [],
-  fileStoragePath: "/tmp/source.csv",
   previewRows: ["100042,***"],
   createdAt: "2026-06-30T00:00:00Z",
 };

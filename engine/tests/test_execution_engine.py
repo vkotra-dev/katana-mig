@@ -118,7 +118,7 @@ def _seed_source_slice(db, *, project_id: str, row_values: list[str]) -> SourceS
         source_slice_version="v1",
         source_schema_artifact=None,
         masking_policy=None,
-        header_csv="STATUS",
+        header_csv="STATUS,PLAN",
         slice_payload=None,
         status="approved",
         parse_warnings=[],
@@ -150,7 +150,12 @@ def _seed_snapshots(db, *, project_id: str) -> None:
                 source_field="STATUS",
                 destination_field="status",
                 lookup_name="status_map",
-            )
+            ),
+            FieldBinding(
+                source_field="PLAN",
+                destination_field="plan",
+                lookup_name="plan_map",
+            ),
         ],
     )
     create_approved_lookup_snapshot(
@@ -159,6 +164,13 @@ def _seed_snapshots(db, *, project_id: str) -> None:
         lookup_name="status_map",
         lookup_snapshot_version="v1",
         value_map={"A": "ACTIVE"},
+    )
+    create_approved_lookup_snapshot(
+        db,
+        project_id=project_id,
+        lookup_name="plan_map",
+        lookup_snapshot_version="v7",
+        value_map={"Gold": "GOLD"},
     )
     db.commit()
 
@@ -179,11 +191,11 @@ def _create_run(db, *, project_id: str, source_definition_id: str) -> RunRecord:
 def test_execute_run_completes_and_writes_checkpoint() -> None:
     with SessionLocal() as db:
         project_id = _make_project(db)
-        source_slice = _seed_source_slice(db, project_id=project_id, row_values=["A"] * 501)
+        source_slice = _seed_source_slice(db, project_id=project_id, row_values=["A,Gold"] * 501)
         _seed_snapshots(db, project_id=project_id)
         run = _create_run(db, project_id=project_id, source_definition_id=source_slice.source_definition_id)
 
-        execute_run(db, run_id=run.run_id, actor_user_id=None)
+        execute_run(db, project_id=project_id, run_id=run.run_id, actor_user_id=None)
 
         stored_run = db.get(RunRecord, run.run_id)
         checkpoints = list(db.scalars(select(RunCheckpoint).where(RunCheckpoint.run_id == run.run_id)))
@@ -192,7 +204,11 @@ def test_execute_run_completes_and_writes_checkpoint() -> None:
     assert stored_run.status == "completed"
     assert stored_run.source_slice_version == "v1"
     assert stored_run.mapping_snapshot_version == "v1"
-    assert stored_run.lookup_snapshot_version == "v1"
+    assert stored_run.lookup_snapshot_version is None
+    assert stored_run.lookup_snapshot_versions == {
+        "plan_map": "v7",
+        "status_map": "v1",
+    }
     assert len(checkpoints) == 1
     assert checkpoints[0].checkpoint_payload is not None
     assert checkpoints[0].checkpoint_payload["last_completed_row"] == 499
@@ -201,11 +217,11 @@ def test_execute_run_completes_and_writes_checkpoint() -> None:
 def test_execute_run_pauses_for_lookup_delta_and_resumes() -> None:
     with SessionLocal() as db:
         project_id = _make_project(db)
-        source_slice = _seed_source_slice(db, project_id=project_id, row_values=["A", "B"])
+        source_slice = _seed_source_slice(db, project_id=project_id, row_values=["A,Gold", "B,Gold"])
         _seed_snapshots(db, project_id=project_id)
         run = _create_run(db, project_id=project_id, source_definition_id=source_slice.source_definition_id)
 
-        execute_run(db, run_id=run.run_id, actor_user_id=None)
+        execute_run(db, project_id=project_id, run_id=run.run_id, actor_user_id=None)
 
         paused_run = db.get(RunRecord, run.run_id)
         change_request = db.scalar(select(ChangeRequest).where(ChangeRequest.project_id == project_id))
@@ -229,14 +245,18 @@ def test_execute_run_pauses_for_lookup_delta_and_resumes() -> None:
         )
         db.commit()
 
-        execute_run(db, run_id=run.run_id, actor_user_id=None, resume=True)
+        execute_run(db, project_id=project_id, run_id=run.run_id, actor_user_id=None, resume=True)
 
         resumed_run = db.get(RunRecord, run.run_id)
         checkpoints = list(db.scalars(select(RunCheckpoint).where(RunCheckpoint.run_id == run.run_id)))
 
     assert resumed_run is not None
     assert resumed_run.status == "completed"
-    assert resumed_run.lookup_snapshot_version == "v2"
+    assert resumed_run.lookup_snapshot_version is None
+    assert resumed_run.lookup_snapshot_versions == {
+        "plan_map": "v7",
+        "status_map": "v2",
+    }
     assert len(checkpoints) >= 1
     assert checkpoints[-1].checkpoint_payload is not None
     assert resumed_run.completion_metadata is not None

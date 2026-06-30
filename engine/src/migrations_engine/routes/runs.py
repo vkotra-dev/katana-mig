@@ -83,7 +83,9 @@ def post_run_launch(
     actor: User = Depends(get_central_team_user),
     db: Session = Depends(get_db),
 ) -> RunResponse:
-    return RunResponse.model_validate(execute_run(db, run_id=run_id, actor_user_id=actor.user_id, resume=False))
+    return RunResponse.model_validate(
+        execute_run(db, project_id=project_id, run_id=run_id, actor_user_id=actor.user_id, resume=False)
+    )
 
 
 @router.post("/{run_id}/pause", response_model=RunResponse)
@@ -104,7 +106,7 @@ def post_run_resume(
     db: Session = Depends(get_db),
 ) -> RunResponse:
     return RunResponse.model_validate(
-        execute_run(db, run_id=run_id, actor_user_id=actor.user_id, resume=True)
+        execute_run(db, project_id=project_id, run_id=run_id, actor_user_id=actor.user_id, resume=True)
     )
 
 

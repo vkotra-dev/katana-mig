@@ -58,13 +58,22 @@ def analyze_source_slice(
 ) -> SourceAnalysisResponse:
     source_definition = _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
     source_slice = _latest_approved_source_slice(db, source_definition_id=source_definition_id)
+    existing_artifact = db.scalar(
+        select(SourceSchemaArtifact).where(
+            SourceSchemaArtifact.source_definition_id == source_definition_id,
+            SourceSchemaArtifact.source_slice_version == source_slice.source_slice_version,
+        )
+    )
+    if existing_artifact is not None:
+        return SourceAnalysisResponse(schema_artifact_id=existing_artifact.schema_artifact_id)
+
     sample_rows = _load_slice_rows(db, source_slice_id=source_slice.source_slice_id, limit=200)
     sample_text = _build_sample_text(header_csv=source_slice.header_csv, rows=sample_rows)
     system_prompt = _build_system_prompt(source_definition)
 
     if get_adapter is None:
         raise AuthApiError("ai_adapter_unavailable", "AI adapter dependency is unavailable.", 503)
-    adapter = get_adapter("pii_review")
+    adapter = get_adapter("field_mapping")
     analysis_result = adapter.call(system_prompt, sample_text, AnalysisResult)
 
     schema_artifact = SourceSchemaArtifact(

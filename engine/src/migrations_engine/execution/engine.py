@@ -86,6 +86,7 @@ def _serialize_run(run: RunRecord, *, last_checkpoint_at: datetime | None = None
         "source_slice_version": run.source_slice_version,
         "mapping_snapshot_version": run.mapping_snapshot_version,
         "lookup_snapshot_version": run.lookup_snapshot_version,
+        "lookup_snapshot_versions": run.lookup_snapshot_versions,
         "code_generation_input_snapshot_version": run.code_generation_input_snapshot_version,
         "codegen_artifact_id": run.codegen_artifact_id,
         "knowledge_freeze_version": run.knowledge_freeze_version,
@@ -149,12 +150,14 @@ def _pin_run(
     *,
     source_slice: SourceSlice,
     mapping_snapshot: MappingSnapshot,
-    lookup_snapshot_version: str | None,
+    lookup_snapshot_versions: dict[str, str],
     resume: bool,
 ) -> None:
+    lookup_snapshot_version = _primary_lookup_snapshot_version(lookup_snapshot_versions)
     run.source_slice_version = source_slice.source_slice_version
     run.mapping_snapshot_version = mapping_snapshot.mapping_snapshot_version
     run.lookup_snapshot_version = lookup_snapshot_version
+    run.lookup_snapshot_versions = lookup_snapshot_versions or None
     run.code_generation_input_snapshot_version = source_slice.source_slice_version
     run.current_stage = "mapping"
     if resume:
@@ -162,6 +165,7 @@ def _pin_run(
             "resumed_at": datetime.now(UTC).isoformat(),
             "source_slice_version": source_slice.source_slice_version,
             "mapping_snapshot_version": mapping_snapshot.mapping_snapshot_version,
+            "lookup_snapshot_versions": lookup_snapshot_versions,
             "lookup_snapshot_version": lookup_snapshot_version,
         }
     elif run.start_metadata is None:
@@ -169,21 +173,28 @@ def _pin_run(
             "started_at": datetime.now(UTC).isoformat(),
             "source_slice_version": source_slice.source_slice_version,
             "mapping_snapshot_version": mapping_snapshot.mapping_snapshot_version,
+            "lookup_snapshot_versions": lookup_snapshot_versions,
             "lookup_snapshot_version": lookup_snapshot_version,
         }
+
+
+def _primary_lookup_snapshot_version(lookup_snapshot_versions: dict[str, str]) -> str | None:
+    unique_versions = set(lookup_snapshot_versions.values())
+    if len(unique_versions) == 1:
+        return next(iter(unique_versions))
+    return None
 
 
 def execute_run(
     db: Session,
     *,
+    project_id: str,
     run_id: str,
     actor_user_id: str | None,
     resume: bool = False,
     checkpoint_interval: int = CHECKPOINT_INTERVAL,
 ) -> dict[str, Any]:
-    run = db.get(RunRecord, run_id)
-    if run is None:
-        raise AuthApiError("run_not_found", "Run not found.", 404)
+    run = _require_run(db, run_id=run_id, project_id=project_id)
     if not resume and run.status != "queued":
         raise AuthApiError("run_not_launchable", "Run is not launchable.", 409)
     if resume and run.status not in {"paused", "awaiting_approval"}:
@@ -200,11 +211,13 @@ def execute_run(
             project_id=run.project_id,
             destination_object_name=run.destination_object_name,
         )
-        lookup_names = {
-            str(binding["lookup_name"])
-            for binding in mapping_snapshot.field_bindings
-            if binding.get("lookup_name") is not None
-        }
+        lookup_names = sorted(
+            {
+                str(binding["lookup_name"])
+                for binding in mapping_snapshot.field_bindings
+                if binding.get("lookup_name") is not None
+            }
+        )
         lookup_snapshots = {
             lookup_name: _select_latest_approved_lookup_snapshot(
                 db,
@@ -223,7 +236,9 @@ def execute_run(
         run,
         source_slice=source_slice,
         mapping_snapshot=mapping_snapshot,
-        lookup_snapshot_version=next(iter(lookup_snapshots.values())).lookup_snapshot_version if lookup_snapshots else None,
+        lookup_snapshot_versions={
+            lookup_name: snapshot.lookup_snapshot_version for lookup_name, snapshot in lookup_snapshots.items()
+        },
         resume=resume,
     )
     run.status = "running"
@@ -238,6 +253,7 @@ def execute_run(
             "source_slice_version": run.source_slice_version,
             "mapping_snapshot_version": run.mapping_snapshot_version,
             "lookup_snapshot_version": run.lookup_snapshot_version,
+            "lookup_snapshot_versions": run.lookup_snapshot_versions,
         },
     )
 
@@ -269,6 +285,7 @@ def execute_run(
         "source_slice_version": run.source_slice_version,
         "mapping_snapshot_version": run.mapping_snapshot_version,
         "lookup_snapshot_version": run.lookup_snapshot_version,
+        "lookup_snapshot_versions": run.lookup_snapshot_versions,
     }
     record_management_audit(
         db,

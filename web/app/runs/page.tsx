@@ -146,9 +146,12 @@ export default function RunsPage() {
     }
 
     setResumingRunId(run.run_id);
+    setErrorMessage(null);
     try {
       const resumed = await resumeRun(session.accessToken, run.project_id, run.run_id);
       setRuns((current) => current.map((item) => (item.run_id === resumed.run_id ? resumed : item)));
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Resume failed.");
     } finally {
       setResumingRunId(null);
     }

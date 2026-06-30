@@ -82,6 +82,7 @@ describe("RunsPage", () => {
         source_slice_version: "v1",
         mapping_snapshot_version: "v1",
         lookup_snapshot_version: "v1",
+        lookup_snapshot_versions: null,
         code_generation_input_snapshot_version: "v1",
         codegen_artifact_id: null,
         knowledge_freeze_version: null,

@@ -13,6 +13,7 @@ export interface RunRecord {
   source_slice_version: string | null;
   mapping_snapshot_version: string | null;
   lookup_snapshot_version: string | null;
+  lookup_snapshot_versions: Record<string, string> | null;
   code_generation_input_snapshot_version: string | null;
   codegen_artifact_id: string | null;
   knowledge_freeze_version: string | null;
@@ -32,7 +33,7 @@ export interface RunCheckpoint {
   stage: string | null;
   current_object: string | null;
   current_environment: string | null;
-  approved_snapshots: Record<string, string> | null;
+  approved_snapshots: Record<string, unknown> | null;
   last_completed_row: number | null;
   pause_reason: string | null;
   created_at: string;
@@ -110,6 +111,7 @@ function mapRunRecord(record: {
   source_slice_version: string | null;
   mapping_snapshot_version: string | null;
   lookup_snapshot_version: string | null;
+  lookup_snapshot_versions: Record<string, string> | null;
   code_generation_input_snapshot_version: string | null;
   codegen_artifact_id: string | null;
   knowledge_freeze_version: string | null;
@@ -131,7 +133,7 @@ function mapRunCheckpoint(record: {
   current_stage: string | null;
   current_object: string | null;
   current_environment: string | null;
-  approved_snapshots: Record<string, string> | null;
+  approved_snapshots: Record<string, unknown> | null;
   last_completed_row: number | null;
   pause_reason: string | null;
   created_at: string;

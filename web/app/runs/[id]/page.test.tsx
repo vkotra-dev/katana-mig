@@ -89,6 +89,9 @@ describe("RunDetailPage", () => {
       source_slice_version: "v1",
       mapping_snapshot_version: "v1",
       lookup_snapshot_version: "v1",
+      lookup_snapshot_versions: {
+        status_map: "v1",
+      },
       code_generation_input_snapshot_version: "v1",
       codegen_artifact_id: "cga-1234",
       knowledge_freeze_version: "cga-1234",
@@ -116,6 +119,9 @@ describe("RunDetailPage", () => {
         current_environment: "dev",
         approved_snapshots: {
           source_slice_version: "v1",
+          lookup_snapshot_versions: {
+            status_map: "v1",
+          },
         },
         last_completed_row: 499,
         pause_reason: "lookup_delta",
@@ -133,6 +139,9 @@ describe("RunDetailPage", () => {
       source_slice_version: "v1",
       mapping_snapshot_version: "v1",
       lookup_snapshot_version: "v2",
+      lookup_snapshot_versions: {
+        status_map: "v2",
+      },
       code_generation_input_snapshot_version: "v1",
       codegen_artifact_id: "cga-1234",
       knowledge_freeze_version: "cga-1234",

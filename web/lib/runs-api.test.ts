@@ -26,6 +26,7 @@ const stub: RunRecord = {
   source_slice_version: null,
   mapping_snapshot_version: null,
   lookup_snapshot_version: null,
+  lookup_snapshot_versions: null,
   code_generation_input_snapshot_version: null,
   codegen_artifact_id: null,
   knowledge_freeze_version: null,
@@ -47,6 +48,9 @@ const checkpointResponse = {
   current_environment: "dev",
   approved_snapshots: {
     source_slice_version: "v1",
+    lookup_snapshot_versions: {
+      status_map: "v1",
+    },
   },
   last_completed_row: 499,
   pause_reason: null,
@@ -61,6 +65,9 @@ const checkpoint: RunCheckpoint = {
   current_environment: "dev",
   approved_snapshots: {
     source_slice_version: "v1",
+    lookup_snapshot_versions: {
+      status_map: "v1",
+    },
   },
   last_completed_row: 499,
   pause_reason: null,

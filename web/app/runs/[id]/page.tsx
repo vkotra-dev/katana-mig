@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { Topbar } from "../../../components/Topbar";
 import { RunStatusChip } from "../../../components/runs/RunStatusChip";
 import { listProjects, type ProjectRecord } from "../../../lib/projects-api";
@@ -111,7 +111,6 @@ function timelineEvents(run: RunRecord, checkpoints: RunCheckpoint[]): Array<{ l
 }
 
 export default function RunDetailPage() {
-  const router = useRouter();
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const runId = params.id;
@@ -217,10 +216,13 @@ export default function RunDetailPage() {
     }
 
     setResuming(true);
+    setErrorMessage(null);
     try {
       const resumed = await resumeRun(session.accessToken, projectId, run.run_id);
       setRun(resumed);
       setRefreshNonce((current) => current + 1);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Resume failed.");
     } finally {
       setResuming(false);
     }
@@ -406,7 +408,15 @@ export default function RunDetailPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   {snapshotPill("Source slice", run.source_slice_version)}
                   {snapshotPill("Mapping", run.mapping_snapshot_version)}
-                  {snapshotPill("Lookup", run.lookup_snapshot_version)}
+                  {snapshotPill("Lookup", run.lookup_snapshot_version ?? (run.lookup_snapshot_versions ? "multiple" : null))}
+                  {run.lookup_snapshot_versions ? (
+                    <div className="rounded-xl border border-outline-variant bg-white px-4 py-4 md:col-span-2">
+                      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Lookup versions</div>
+                      <pre className="mt-2 whitespace-pre-wrap font-mono text-sm text-slate-700">
+                        {JSON.stringify(run.lookup_snapshot_versions, null, 2)}
+                      </pre>
+                    </div>
+                  ) : null}
                   {snapshotPill(
                     "Codegen artifact",
                     run.codegen_artifact_id ? `cga_${run.codegen_artifact_id.slice(0, 8)}` : null,

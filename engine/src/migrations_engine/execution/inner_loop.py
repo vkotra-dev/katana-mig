@@ -36,6 +36,16 @@ def _select_lookup_snapshot(lookup_snapshots: dict[str, LookupSnapshot], lookup_
     return snapshot
 
 
+def _approved_snapshots_for_run(run: RunRecord) -> dict[str, Any]:
+    snapshots: dict[str, Any] = {
+        "source_slice_version": run.source_slice_version,
+        "mapping_snapshot_version": run.mapping_snapshot_version,
+        "lookup_snapshot_version": run.lookup_snapshot_version,
+        "lookup_snapshot_versions": run.lookup_snapshot_versions or {},
+    }
+    return snapshots
+
+
 def process_inner_loop(
     db: Session,
     *,
@@ -80,11 +90,7 @@ def process_inner_loop(
                     run=run,
                     current_object=run.destination_object_name,
                     current_environment=run.environment,
-                    approved_snapshots={
-                        "source_slice_version": run.source_slice_version,
-                        "mapping_snapshot_version": run.mapping_snapshot_version,
-                        "lookup_snapshot_version": run.lookup_snapshot_version,
-                    },
+                    approved_snapshots=_approved_snapshots_for_run(run),
                     last_completed_row=last_completed_row,
                     pause_reason="lookup_delta",
                 )
@@ -94,7 +100,7 @@ def process_inner_loop(
                     lookup_name=binding.lookup_name,
                     unmapped_value=source_value,
                     mapping_snapshot_version=run.mapping_snapshot_version,
-                    lookup_snapshot_version=run.lookup_snapshot_version,
+                    lookup_snapshot_version=lookup_snapshot.lookup_snapshot_version,
                     actor_user_id=actor_user_id,
                 )
                 mark_run_paused_for_lookup_delta(
@@ -118,11 +124,7 @@ def process_inner_loop(
                 run=run,
                 current_object=run.destination_object_name,
                 current_environment=run.environment,
-                approved_snapshots={
-                    "source_slice_version": run.source_slice_version,
-                    "mapping_snapshot_version": run.mapping_snapshot_version,
-                    "lookup_snapshot_version": run.lookup_snapshot_version,
-                },
+                approved_snapshots=_approved_snapshots_for_run(run),
                 last_completed_row=last_completed_row,
             )
     return InnerLoopResult(processed_rows=processed_rows, paused=False, last_completed_row=last_completed_row)

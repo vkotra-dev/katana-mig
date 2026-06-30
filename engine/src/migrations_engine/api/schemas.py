@@ -196,7 +196,6 @@ class SourceSliceResponse(BaseModel):
     status: str
     approval_rejection_reason: str | None
     parse_warnings: list[str] | None
-    file_storage_path: str | None
     preview_rows: list[str]
     created_at: datetime
 
@@ -230,7 +229,7 @@ class SourceSliceApprovalCountResponse(BaseModel):
 
 class SourceAnalysisResponse(BaseModel):
     schema_artifact_id: str
-    status: Literal["queued"] = "queued"
+    status: Literal["completed"] = "completed"
 
 
 class SourceSchemaColumnResponse(BaseModel):
@@ -325,6 +324,7 @@ class RunResponse(BaseModel):
     source_slice_version: str | None
     mapping_snapshot_version: str | None
     lookup_snapshot_version: str | None
+    lookup_snapshot_versions: dict[str, str] | None
     code_generation_input_snapshot_version: str | None
     codegen_artifact_id: str | None
     knowledge_freeze_version: str | None

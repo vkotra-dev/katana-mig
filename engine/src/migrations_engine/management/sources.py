@@ -238,7 +238,15 @@ def list_pending_approvals(db: Session, *, actor: User) -> list[SourceSliceAppro
 
 
 def count_pending_approvals(db: Session, *, actor: User) -> SourceSliceApprovalCountResponse:
-    return SourceSliceApprovalCountResponse(pending_count=len(list_pending_approvals(db, actor=actor)))
+    stmt = (
+        select(func.count(SourceSlice.source_slice_id))
+        .join(SourceDefinition, SourceDefinition.source_definition_id == SourceSlice.source_definition_id)
+        .join(ProjectRegistry, ProjectRegistry.project_id == SourceDefinition.project_id)
+        .where(SourceSlice.status == "pending_approval")
+    )
+    stmt = _apply_visibility_filter(stmt, actor=actor)
+    pending_count = db.scalar(stmt) or 0
+    return SourceSliceApprovalCountResponse(pending_count=pending_count)
 
 
 def approve_source_slice(
@@ -405,22 +413,25 @@ def _source_contract_response(source_definition: SourceDefinition) -> SourceCont
 
 
 def _source_slice_response(db: Session, source_slice: SourceSlice) -> SourceSliceResponse:
-    rows = db.scalars(
-        select(SourceSliceRow)
+    row_count = db.scalar(
+        select(func.count(SourceSliceRow.id)).where(SourceSliceRow.source_slice_id == source_slice.source_slice_id)
+    ) or 0
+    preview_rows = db.scalars(
+        select(SourceSliceRow.row_csv)
         .where(SourceSliceRow.source_slice_id == source_slice.source_slice_id)
         .order_by(SourceSliceRow.row_index.asc())
+        .limit(10)
     ).all()
     return SourceSliceResponse(
         source_slice_id=source_slice.source_slice_id,
         source_definition_id=source_slice.source_definition_id,
         source_slice_version=source_slice.source_slice_version,
         header_csv=source_slice.header_csv,
-        row_count=len(rows),
+        row_count=row_count,
         status=source_slice.status,
         approval_rejection_reason=source_slice.approval_rejection_reason,
         parse_warnings=source_slice.parse_warnings,
-        file_storage_path=source_slice.file_storage_path,
-        preview_rows=[row.row_csv for row in rows[:10]],
+        preview_rows=preview_rows,
         created_at=source_slice.created_at,
     )
 

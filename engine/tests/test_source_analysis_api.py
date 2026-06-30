@@ -192,8 +192,8 @@ def test_source_analysis_returns_schema_and_value_summary(monkeypatch: pytest.Mo
         f"/projects/{project_id}/sources/{source_definition_id}/analyze",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert analyze.status_code == 202, analyze.text
-    assert analyze.json()["status"] == "queued"
+    assert analyze.status_code == 200, analyze.text
+    assert analyze.json()["status"] == "completed"
     assert analyze.json()["schema_artifact_id"]
 
     schema = client.get(

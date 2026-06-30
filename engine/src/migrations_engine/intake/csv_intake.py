@@ -113,8 +113,6 @@ def _create_source_slice(
                 row_csv=row_csv,
             )
         )
-    db.commit()
-    db.refresh(source_slice)
     return source_slice
 
 

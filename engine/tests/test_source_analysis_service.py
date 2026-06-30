@@ -158,13 +158,44 @@ def test_analyze_source_slice_caps_sample_and_masks_pii(monkeypatch: pytest.Monk
             )
         )
 
-    assert response.status == "queued"
+    assert response.status == "completed"
     assert len(fake_adapter.calls) == 1
     assert fake_adapter.calls[0].system.startswith("You are a data analyst.")
     assert len(fake_adapter.calls[0].user.splitlines()) == 201
     assert "***" in fake_adapter.calls[0].user
     assert len(schemas) == 1
     assert len(summaries) == 2
+
+
+def test_analyze_source_slice_is_idempotent(monkeypatch: pytest.MonkeyPatch) -> None:
+    Base.metadata.create_all(bind=TEST_ENGINE)
+
+    fake_adapter = FakeAdapter(
+        analysis_result=AnalysisResult(
+            columns=[
+                ColumnSchema(name="CUST_ID", inferred_type="integer", nullable=False, max_length=8),
+            ]
+        )
+    )
+    monkeypatch.setattr("migrations_engine.management.source_analysis.get_adapter", lambda task: fake_adapter)
+
+    with SessionLocal() as db:
+        actor, project_id, source_definition_id = _seed_approved_slice(db, row_count=2)
+        first = analyze_source_slice(
+            db,
+            actor=actor,
+            project_id=project_id,
+            source_definition_id=source_definition_id,
+        )
+        second = analyze_source_slice(
+            db,
+            actor=actor,
+            project_id=project_id,
+            source_definition_id=source_definition_id,
+        )
+
+    assert first.schema_artifact_id == second.schema_artifact_id
+    assert len(fake_adapter.calls) == 1
 
 
 def test_analyze_source_slice_caps_value_summary_distinct_values(monkeypatch: pytest.MonkeyPatch) -> None:
