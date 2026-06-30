@@ -2,7 +2,7 @@
 
 | Task | Domain | Status | Notes |
 |---|---|---|---|
-| [001h-ui-portfolio-project-screens](./001h-ui-portfolio-project-screens.md) | ui, project | ready | **Narrowed**: portfolio dashboard only (stitch 02); project detail → 001p; run progress → 001u |
+| [001h-ui-portfolio-project-screens](./completed/001h-ui-portfolio-project-screens.md) | ui, project | completed | [summary](./summary/001h-ui-portfolio-project-screens.md) |
 | [001i-ui-template-foundation](./001i-ui-template-foundation.md) | ui | ready | Shell, tokens, Topbar/Sidebar/LoginView from mockmigration templates |
 | [001q-source-intake](./completed/001q-source-intake.md) | source-model, api, ui | completed | [summary](./summary/001q-source-intake.md) |
 | [001t-runs-api](./completed/001t-runs-api.md) | [summary](./summary/001t-runs-api.md) | completed | Run CRUD, launch, execution engine, checkpoint writes, LookupDeltaCR; depends on 001q/r/s |
