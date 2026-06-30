@@ -282,6 +282,23 @@ If the source changes, source analysis reruns.
 If only mapping or lookup changes, only those approvals rerun, then codegen
 reruns.
 
+### Lookup mapping drafts
+
+Lookup mapping is the governed pre-run flow that turns source value summaries
+into approved lookup snapshots.
+
+- `SourceValueSummary` records the distinct observed values for a source field
+  after source analysis
+- `LookupValueMap` stores the operator-provided destination table as a draft
+  artifact for one named lookup
+- a lookup snapshot is generated from the latest approved mapping snapshot that
+  binds the lookup name plus the latest `SourceValueSummary` rows for the bound
+  source field(s)
+- if any source values are missing from the draft destination table, snapshot
+  generation stops and reports the unmapped values explicitly
+- approval makes the generated `LookupSnapshot` immutable and records audit
+  evidence
+
 ### Source/run snapshot policy
 
 The selection rule is explicit:

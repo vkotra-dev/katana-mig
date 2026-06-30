@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     jwt_access_token_hours: int = 8
     password_reset_token_hours: int = 1
     password_min_length: int = 8
+    sqlalchemy_url_override: str | None = None
 
     @field_validator("mysql_password", "bootstrap_admin_password", mode="before")
     @classmethod
@@ -39,7 +40,9 @@ class Settings(BaseSettings):
         return value
 
     @property
-    def sqlalchemy_url(self) -> URL:
+    def sqlalchemy_url(self) -> URL | str:
+        if self.sqlalchemy_url_override:
+            return self.sqlalchemy_url_override
         return URL.create(
             "mysql+pymysql",
             username=self.mysql_username,
@@ -51,6 +54,8 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
+        if isinstance(self.sqlalchemy_url, str):
+            return self.sqlalchemy_url
         return self.sqlalchemy_url.render_as_string(hide_password=False)
 
 

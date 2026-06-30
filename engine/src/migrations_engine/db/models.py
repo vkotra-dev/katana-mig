@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -259,6 +259,52 @@ class SourceSlice(Base):
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class SourceValueSummary(Base):
+    __tablename__ = "source_value_summaries"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_definition_id",
+            "source_slice_version",
+            "field_name",
+            name="uq_source_value_summaries_definition_slice_field",
+        ),
+    )
+
+    summary_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    source_definition_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("source_definitions.source_definition_id"), nullable=False
+    )
+    source_slice_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    field_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    value_counts: Mapped[dict[str, int]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class LookupValueMap(Base):
+    __tablename__ = "lookup_value_maps"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_definition_id",
+            "lookup_name",
+            "status",
+            name="uq_lookup_value_maps_definition_lookup_status",
+        ),
+    )
+
+    lookup_value_map_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    source_definition_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("source_definitions.source_definition_id"), nullable=False
+    )
+    lookup_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    destination_table: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
 
