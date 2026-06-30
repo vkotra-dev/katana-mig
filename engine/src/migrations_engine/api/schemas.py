@@ -306,6 +306,18 @@ class MappingSnapshotResponse(BaseModel):
     created_at: datetime
 
 
+class MappingPatchRequest(BaseModel):
+    field_bindings: list[MappingFieldBindingResponse]
+
+
+class MappingReviewResponse(MappingSnapshotResponse):
+    destination_fields: list[str]
+
+
+class MappingRejectRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=1000)
+
+
 class RunCreateRequest(BaseModel):
     destination_object_name: str = Field(min_length=1, max_length=255)
     source_definition_id: str
