@@ -28,7 +28,7 @@ font-mono on labels, tab style) are NOT obligations.
 | `web/lib/projects-api.ts` | modify — add `LatestRunSummary` type + field, update mapper |
 | `web/components/portfolio/PortfolioTable.tsx` | modify — add columns and source type filter |
 | `web/components/portfolio/PortfolioTable.test.tsx` | modify — add `latestRunSummary` to fixture, add column/filter tests |
-| `web/components/projects/StageTimeline.tsx` | create — horizontal step indicator |
+| `web/components/projects/StageTimeline.tsx` | create — grid step indicator |
 | `web/components/projects/StageTimeline.test.tsx` | create — tests |
 | `web/components/projects/ProjectDetailView.tsx` | modify — add StageTimeline to top of overview |
 
@@ -307,11 +307,12 @@ function mapProjectRecord(record: {
 
 #### PortfolioTable changes — `web/components/portfolio/PortfolioTable.tsx`
 
-Add `sourceTypeFilter` state:
+Add `sourceTypeFilter` and `stageFilter` state:
 
 ```typescript
 type SourceTypeFilter = "all" | "csv" | "fixed_length_file" | "database" | "xls" | "composite";
 const [sourceTypeFilter, setSourceTypeFilter] = useState<SourceTypeFilter>("all");
+const [stageFilter, setStageFilter] = useState("");
 ```
 
 Add to the `filteredProjects` filter chain:
@@ -320,9 +321,12 @@ Add to the `filteredProjects` filter chain:
 if (sourceTypeFilter !== "all" && project.latestRunSummary?.sourceType !== sourceTypeFilter) {
   return false;
 }
+if (stageFilter && project.latestRunSummary?.currentStage !== stageFilter) {
+  return false;
+}
 ```
 
-Add source type `<select>` to the filter bar (after the environment select):
+Add source type and stage `<select>` elements to the filter bar (after the environment select):
 
 ```tsx
 <label className="block">
@@ -339,6 +343,27 @@ Add source type `<select>` to the filter bar (after the environment select):
     <option value="database">Database</option>
     <option value="xls">XLS</option>
     <option value="composite">Composite</option>
+  </select>
+</label>
+
+<label className="block">
+  <span className="sr-only">Filter by stage</span>
+  <select
+    aria-label="Filter by stage"
+    className="rounded-md border border-outline-variant bg-surface px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary"
+    onChange={(event) => setStageFilter(event.currentTarget.value)}
+    value={stageFilter}
+  >
+    <option value="">All stages</option>
+    <option value="source_intake">Intake</option>
+    <option value="analysis">Analysis</option>
+    <option value="mapping">Mapping</option>
+    <option value="gate_1_pending">Gate 1</option>
+    <option value="gate_2_pending">Gate 2</option>
+    <option value="gate_2_approved">Gate 2 Approved</option>
+    <option value="codegen">Codegen</option>
+    <option value="reconciliation">Reconciliation</option>
+    <option value="complete">Complete</option>
   </select>
 </label>
 ```
@@ -368,48 +393,68 @@ New row cells (insert after the existing Project cell, replace Goal/Target DB/En
 
 ```tsx
 {/* Source Type */}
-<td className="px-4 py-3 align-top text-sm text-slate-700">
-  {project.latestRunSummary?.sourceType ?? "—"}
+<td className="px-4 py-3 align-top whitespace-nowrap">
+  {project.latestRunSummary?.sourceType ? (
+    <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-[10px] border border-slate-200 font-mono font-bold uppercase">
+      {project.latestRunSummary.sourceType.replace(/_/g, " ")}
+    </span>
+  ) : "—"}
 </td>
 
 {/* Current Stage */}
-<td className="px-4 py-3 align-top text-sm font-mono text-slate-700">
-  {project.latestRunSummary?.currentStage ?? "—"}
+<td className="px-4 py-3 align-top whitespace-nowrap">
+  {project.latestRunSummary?.currentStage ? (
+    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border border-indigo-200/40 bg-indigo-50 text-indigo-700">
+      {project.latestRunSummary.currentStage.replace(/_/g, " ")}
+    </span>
+  ) : "—"}
 </td>
 
 {/* Stage Entered */}
-<td className="px-4 py-3 align-top text-sm text-slate-700">
+<td className="px-4 py-3 align-top font-mono text-[10px] text-slate-500 whitespace-nowrap">
   {project.latestRunSummary ? formatDate(project.latestRunSummary.stageEnteredAt) : "—"}
 </td>
 
 {/* Days in Stage */}
-<td className="px-4 py-3 align-top text-sm tabular-nums text-slate-700">
-  {project.latestRunSummary
-    ? Math.floor(
-        (Date.now() - new Date(project.latestRunSummary.stageEnteredAt).getTime()) /
-          (1000 * 60 * 60 * 24),
-      )
-    : "—"}
+<td className="px-4 py-3 align-top whitespace-nowrap">
+  {(() => {
+    if (!project.latestRunSummary) return "—";
+    const days = Math.floor(
+      (Date.now() - new Date(project.latestRunSummary.stageEnteredAt).getTime()) /
+        (1000 * 60 * 60 * 24),
+    );
+    return days >= 10 ? (
+      <span className="text-amber-500 font-bold font-mono text-[11px] flex items-center gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        {days}d (Stale)
+      </span>
+    ) : (
+      <span className="text-slate-700 font-mono text-[11px]">{days} days</span>
+    );
+  })()}
 </td>
 
-{/* Status (blocked + action required badges) */}
+{/* Indicators (blocked + action required) */}
 <td className="px-4 py-3 align-top">
-  <div className="flex flex-col gap-1">
-    {project.latestRunSummary?.runStatus === "paused" ? (
-      <span className="status-chip bg-amber-500/10 text-amber-700 border border-amber-500/20">
+  <div className="flex flex-col items-start gap-1">
+    {project.latestRunSummary?.runStatus === "paused" && (
+      <span className="flex items-center gap-0.5 bg-red-500/10 text-red-500 px-1.5 py-0.5 rounded text-[9px] border border-red-500/20 font-bold uppercase">
+        <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
         Blocked
       </span>
-    ) : null}
-    {project.latestRunSummary?.runStatus === "awaiting_approval" ? (
-      <span className="status-chip bg-primary/10 text-primary border border-primary/20">
+    )}
+    {project.latestRunSummary?.runStatus === "awaiting_approval" && (
+      <span className="bg-amber-500 text-slate-950 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase animate-pulse">
         Action Required
       </span>
-    ) : null}
-    {!project.latestRunSummary ||
-    (project.latestRunSummary.runStatus !== "paused" &&
-      project.latestRunSummary.runStatus !== "awaiting_approval") ? (
-      <span className="status-chip bg-surface-dim text-neutral">{project.latestRunSummary?.runStatus ?? project.status}</span>
-    ) : null}
+    )}
+    {(!project.latestRunSummary ||
+      (project.latestRunSummary.runStatus !== "paused" &&
+        project.latestRunSummary.runStatus !== "awaiting_approval")) && (
+      <span className="status-chip bg-surface-dim text-neutral">
+        {project.latestRunSummary?.runStatus ?? project.status}
+      </span>
+    )}
   </div>
 </td>
 ```
@@ -501,6 +546,10 @@ line 162 of `execution/engine.py`. If the project has no runs yet, `currentStage
 
 ### Component — `web/components/projects/StageTimeline.tsx`
 
+Grid layout matching mockmigration: `grid-cols-2 md:grid-cols-4 lg:grid-cols-9`. Current
+stage gets `ring-4 ring-primary/10 animate-pulse`. Past stages use solid emerald fill with
+step number (not a checkmark). Current stage shows "N days in stage" subtitle in amber.
+
 ```tsx
 "use client";
 
@@ -526,56 +575,53 @@ export function StageTimeline({ currentStage, stageEnteredAt }: StageTimelinePro
     ? STAGE_SEQUENCE.findIndex((s) => s.key === currentStage)
     : -1;
 
+  const daysInStage = stageEnteredAt
+    ? Math.floor((Date.now() - new Date(stageEnteredAt).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
   return (
-    <div className="rounded-2xl border border-outline-variant bg-surface-container p-5 shadow-sm">
-      <p className="mb-3 text-[9px] font-mono font-bold uppercase tracking-widest text-neutral">
-        Lifecycle Stage
-      </p>
-      <div className="flex items-start gap-0">
+    <div className="rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm">
+      <h3 className="text-xs font-bold text-neutral uppercase tracking-widest font-mono mb-4">
+        Governed Lifecycle Stepper
+      </h3>
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-4">
         {STAGE_SEQUENCE.map((stage, index) => {
           const isPast = currentIndex > index;
           const isCurrent = currentIndex === index;
-          const isFuture = currentIndex < index;
 
           return (
-            <div key={stage.key} className="flex flex-1 flex-col items-center">
-              <div className="flex w-full items-center">
-                {index > 0 && (
-                  <div className={`h-0.5 flex-1 ${isPast || isCurrent ? "bg-primary" : "bg-outline-variant"}`} />
-                )}
-                <div
-                  className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border-2 text-[10px] font-bold transition-colors ${
-                    isCurrent
-                      ? "border-primary bg-primary text-white"
-                      : isPast
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-outline-variant bg-surface text-slate-400"
-                  }`}
-                >
-                  {isPast ? "✓" : index + 1}
-                </div>
-                {index < STAGE_SEQUENCE.length - 1 && (
-                  <div className={`h-0.5 flex-1 ${isPast ? "bg-primary" : "bg-outline-variant"}`} />
-                )}
-              </div>
-              <p
-                className={`mt-1.5 text-center text-[9px] font-mono font-semibold uppercase tracking-wide ${
-                  isCurrent ? "text-primary" : isPast ? "text-neutral" : "text-slate-400"
+            <div key={stage.key} className="flex flex-col items-center text-center space-y-2">
+              <div
+                className={`w-7 h-7 rounded-full flex items-center justify-center font-mono text-xs font-bold border-2 transition ${
+                  isCurrent
+                    ? "bg-primary text-white border-primary ring-4 ring-primary/10 animate-pulse"
+                    : isPast
+                      ? "bg-emerald-500 text-slate-950 border-emerald-500"
+                      : "bg-surface text-slate-400 border-outline-variant"
                 }`}
               >
-                {stage.label}
-              </p>
+                {index + 1}
+              </div>
+              <div className="space-y-0.5">
+                <p
+                  className={`text-[10px] font-bold truncate max-w-[80px] uppercase font-mono ${
+                    isCurrent ? "text-primary" : isPast ? "text-emerald-600" : "text-slate-400"
+                  }`}
+                >
+                  {stage.label}
+                </p>
+                {isCurrent && daysInStage !== null && (
+                  <p className="text-[9px] text-amber-500 font-semibold font-mono">
+                    {daysInStage}d in stage
+                  </p>
+                )}
+              </div>
             </div>
           );
         })}
       </div>
-      {currentStage && stageEnteredAt && (
-        <p className="mt-3 text-[10px] font-mono text-neutral">
-          In <strong>{currentStage}</strong> since {stageEnteredAt.slice(0, 10)}
-        </p>
-      )}
       {!currentStage && (
-        <p className="mt-3 text-[10px] font-mono text-neutral">No run started yet.</p>
+        <p className="mt-4 text-[10px] font-mono text-neutral">No run started yet.</p>
       )}
     </div>
   );
@@ -626,16 +672,18 @@ describe("StageTimeline", () => {
     expect(screen.getByText("No run started yet.")).toBeInTheDocument();
   });
 
-  it("shows the stage entered date when a stage is active", () => {
+  it("shows days in stage subtitle under current stage label", () => {
     render(<StageTimeline currentStage="analysis" stageEnteredAt="2026-06-25T00:00:00Z" />);
-    expect(screen.getByText(/2026-06-25/)).toBeInTheDocument();
+    // days-in-stage text appears below the "Analysis" label
+    expect(screen.getByText(/\dd in stage/)).toBeInTheDocument();
   });
 
-  it("marks past stages with checkmark indicators", () => {
+  it("shows step numbers (not checkmarks) in all stage circles", () => {
     render(<StageTimeline currentStage="mapping" stageEnteredAt="2026-06-28T00:00:00Z" />);
-    // "Intake" and "Analysis" are past stages — their circles show "✓"
-    const checkmarks = screen.getAllByText("✓");
-    expect(checkmarks.length).toBeGreaterThanOrEqual(2);
+    // Stages 1 and 2 are past — they should show "1" and "2", never "✓"
+    expect(screen.getByText("1")).toBeInTheDocument();
+    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.queryByText("✓")).toBeNull();
   });
 });
 ```

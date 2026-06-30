@@ -985,6 +985,7 @@ Layout: 2-pane (stitch 08). Left 2/3 = evidence (domain object map, PII, coverag
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { AlertTriangle } from "lucide-react";
 import { Topbar } from "../../../../components/Topbar";
 import { loadUiSession, type SessionRole, type UiSession } from "../../../../lib/session";
 import {
@@ -1126,29 +1127,35 @@ export default function Gate1ReviewPage() {
                 </div>
               </div>
 
-              {/* PII Classification */}
+              {/* PII Classification — one card per flagged field */}
               <div className="rounded-2xl border border-outline-variant bg-surface-container p-5 shadow-sm">
-                <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-primary mb-2">PII Classification</p>
+                <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-primary mb-3">PII Classification</p>
                 {evidence.piiFields.length === 0 ? (
                   <p className="text-xs text-neutral font-mono">No PII fields detected.</p>
                 ) : (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="space-y-2">
                     {evidence.piiFields.map((f) => (
-                      <span key={f} className="rounded-full bg-red-500/10 border border-red-500/20 px-2.5 py-0.5 text-[10px] font-bold font-mono text-red-600 uppercase">{f}</span>
+                      <div key={f} className="flex items-center justify-between rounded border border-outline-variant bg-surface px-3 py-2">
+                        <span className="font-mono text-xs text-slate-700">{f}</span>
+                        <span className="rounded border border-red-500/20 bg-red-500/15 px-2 py-0.5 text-[9px] font-bold uppercase text-red-500 font-mono">PII</span>
+                      </div>
                     ))}
                   </div>
                 )}
               </div>
 
-              {/* Coverage Gaps */}
+              {/* Coverage Gaps — red rows with AlertTriangle, not amber chips */}
               <div className="rounded-2xl border border-outline-variant bg-surface-container p-5 shadow-sm">
-                <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-amber-600 mb-2">Coverage Gaps</p>
+                <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-red-600 mb-3">Coverage Gaps</p>
                 {evidence.coverageGaps.length === 0 ? (
                   <p className="text-xs text-neutral font-mono">All source fields are mapped.</p>
                 ) : (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="space-y-1.5">
                     {evidence.coverageGaps.map((f) => (
-                      <span key={f} className="rounded-full bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 text-[10px] font-bold font-mono text-amber-700 uppercase">{f}</span>
+                      <div key={f} className="flex items-center gap-2 rounded border border-red-500/10 bg-red-500/5 px-3 py-2 text-red-600">
+                        <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span className="font-mono text-[10px] font-bold uppercase">{f}</span>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -1260,7 +1267,8 @@ Key differences from Gate 1:
 - Load `getGate2Evidence` instead of `getGate1Evidence`
 - Evidence left panel: table of `rows` with `sourceValue`, `destinationValue`, `state` chip
   - confirmed: `bg-emerald-500/10 text-emerald-600`
-  - unmapped: `bg-red-500/10 text-red-600`
+  - unmapped: `bg-red-500/10 text-red-500 animate-pulse` (pulse signals blocking status)
+- For unmapped rows, render the destination value cell as `<span className="font-mono text-[10px] font-bold text-red-500">BLOCKING_UNMAPPED</span>` instead of the raw value (which would be null)
 - Show `unmappedCount` count in amber warning if > 0: "N unmapped values must be resolved before approval"
 - Approve button disabled when `unmappedCount > 0` — show helper text
 - Role guard: audience is `project_stakeholder` per ui.md — but `central_team` can also act; hide controls for `read_only_auditor`
@@ -1273,8 +1281,8 @@ Structure mirrors Gate 1 page exactly; reuse the same decision form, submit hand
 Follow same vi.mock pattern as existing page tests. Tests must cover:
 
 **Gate 1 (`page.test.tsx`)**:
-- renders PII chips when `piiFields` is non-empty
-- renders coverage gap chips when `coverageGaps` is non-empty
+- renders PII card per field when `piiFields` is non-empty (field name + "PII" badge)
+- renders red AlertTriangle rows for coverage gaps when `coverageGaps` is non-empty
 - hides decision form for `read_only_auditor`
 - shows "Affected Objects" and "Required Changes" fields only when Push Back selected
 - disables submit when no decision selected
@@ -1284,6 +1292,7 @@ Follow same vi.mock pattern as existing page tests. Tests must cover:
 
 **Gate 2 (`page.test.tsx`)**:
 - renders lookup rows with correct state chips
+- renders "BLOCKING_UNMAPPED" text in destination cell for unmapped rows
 - disables approve when `unmappedCount > 0`
 - calls `approveGate("gate-2", ...)` on approve
 - shows settled state when `gateStatus.gate2` is non-null
