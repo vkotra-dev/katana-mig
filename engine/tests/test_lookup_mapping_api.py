@@ -203,7 +203,7 @@ def test_lookup_routes_enforce_auth_and_contract(admin_token: str, stakeholder_t
     assert generate.json()["lookup_snapshot_version"] == "v1"
 
     approve = client.post(
-        f"/projects/{project_id}/sources/{source_definition_id}/lookup-snapshots/{generate.json()['lookup_snapshot_id']}/approve",
+        f"/projects/{project_id}/lookup-snapshots/{generate.json()['lookup_snapshot_id']}/approve",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert approve.status_code == 200, approve.text

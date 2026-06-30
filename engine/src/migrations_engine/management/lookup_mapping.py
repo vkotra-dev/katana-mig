@@ -175,10 +175,8 @@ def approve_lookup_snapshot(
     *,
     actor: User,
     project_id: str,
-    source_definition_id: str,
     lookup_snapshot_id: str,
 ) -> LookupSnapshotResponse:
-    _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
     snapshot = db.get(LookupSnapshot, lookup_snapshot_id)
     if snapshot is None or snapshot.project_id != project_id or snapshot.lookup_name is None:
         raise AuthApiError("lookup_snapshot_not_found", "Lookup snapshot not found.", 404)
@@ -194,7 +192,6 @@ def approve_lookup_snapshot(
         actor_user_id=actor.user_id,
         event_type="lookup_snapshot.approved",
         payload={
-            "source_definition_id": source_definition_id,
             "lookup_name": snapshot.lookup_name,
             "lookup_snapshot_id": snapshot.lookup_snapshot_id,
             "lookup_snapshot_version": snapshot.lookup_snapshot_version,

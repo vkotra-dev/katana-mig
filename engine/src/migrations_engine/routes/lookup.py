@@ -19,10 +19,14 @@ from ..management.lookup_mapping import (
     list_lookup_value_maps,
 )
 
-router = APIRouter(prefix="/projects/{project_id}/sources/{source_definition_id}", tags=["lookup"])
+router = APIRouter(tags=["lookup"])
 
 
-@router.post("/lookup-maps", response_model=LookupValueMapResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/projects/{project_id}/sources/{source_definition_id}/lookup-maps",
+    response_model=LookupValueMapResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 def post_lookup_value_map(
     project_id: str,
     source_definition_id: str,
@@ -39,7 +43,7 @@ def post_lookup_value_map(
     )
 
 
-@router.get("/lookup-maps", response_model=list[LookupValueMapResponse])
+@router.get("/projects/{project_id}/sources/{source_definition_id}/lookup-maps", response_model=list[LookupValueMapResponse])
 def get_lookup_value_maps(
     project_id: str,
     source_definition_id: str,
@@ -54,7 +58,11 @@ def get_lookup_value_maps(
     )
 
 
-@router.post("/lookup-snapshots", response_model=LookupSnapshotResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/projects/{project_id}/sources/{source_definition_id}/lookup-snapshots",
+    response_model=LookupSnapshotResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 def post_lookup_snapshot(
     project_id: str,
     source_definition_id: str,
@@ -72,12 +80,11 @@ def post_lookup_snapshot(
 
 
 @router.post(
-    "/lookup-snapshots/{lookup_snapshot_id}/approve",
+    "/projects/{project_id}/lookup-snapshots/{lookup_snapshot_id}/approve",
     response_model=LookupSnapshotResponse,
 )
 def post_lookup_snapshot_approval(
     project_id: str,
-    source_definition_id: str,
     lookup_snapshot_id: str,
     actor: User = Depends(get_central_team_user),
     db: Session = Depends(get_db),
@@ -86,6 +93,5 @@ def post_lookup_snapshot_approval(
         db,
         actor=actor,
         project_id=project_id,
-        source_definition_id=source_definition_id,
         lookup_snapshot_id=lookup_snapshot_id,
     )

@@ -9,6 +9,7 @@
 | [001u-runs-ui](./completed/001u-runs-ui.md) | [summary](./summary/001u-runs-ui.md) | completed | Runs list, run detail (5 tabs, polling), launch dialog; stitch 03/04/05; depends on 001t |
 | [001v-source-analysis](./completed/001v-source-analysis.md) | [summary](./summary/001v-source-analysis.md) | completed | AI analysis of SourceSlice → SourceSchemaArtifact + SourceValueSummary; migration 0011 |
 | [001w-mapping-stage](./001w-mapping-stage.md) | source-model, api, ui | ready | AI-proposed field bindings, mapping approval, destination_object_references baton |
+| [001ae-lookup-snapshot-route-rehome](./completed/001ae-lookup-snapshot-route-rehome.md) | api, source-model, ui | completed | [summary](./summary/001ae-lookup-snapshot-route-rehome.md) |
 | [001y-codegen-service](./001y-codegen-service.md) | source-model, ai, runs | ready | AI generates sql_bundle → CodeGenerationArtifact; supersession; delivery bundle API |
 | [001z-review-gates](./001z-review-gates.md) | governance, ui | ready | Gate 1 + Gate 2 approval backend + UI (stitch 08–10); depends on 001y |
 | [001aa-reconciliation](./001aa-reconciliation.md) | governance, ui | ready | Reconciliation checks + ReconciliationReport; stitch 11; depends on 001t, 001z |

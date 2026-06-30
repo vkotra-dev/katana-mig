@@ -126,10 +126,10 @@ describe("lookup-api", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await approveLookupSnapshot("token-1", "project-1", "source-1", "snapshot-1");
+    const result = await approveLookupSnapshot("token-1", "project-1", "snapshot-1");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      `${BASE}/projects/project-1/sources/source-1/lookup-snapshots/snapshot-1/approve`,
+      `${BASE}/projects/project-1/lookup-snapshots/snapshot-1/approve`,
       expect.objectContaining({
         method: "POST",
       }),

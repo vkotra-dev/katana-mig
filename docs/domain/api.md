@@ -595,6 +595,40 @@ Request:
 
 Response `200`: `SourceSliceResponse`
 
+## Lookup mapping endpoints
+
+Lookup drafts remain source-scoped because they are created from a specific
+source contract. Lookup snapshot approval is project-scoped because the
+resulting snapshot is consumed project-wide.
+
+### `POST /projects/{project_id}/sources/{contract_id}/lookup-maps`
+
+Create or update a lookup draft for one source contract. Requires
+`central_team`.
+
+Response `201`: `LookupValueMapResponse`
+
+### `GET /projects/{project_id}/sources/{contract_id}/lookup-maps`
+
+List lookup drafts for one source contract. Any authenticated user with access
+to the project.
+
+Response `200`: array of `LookupValueMapResponse`
+
+### `POST /projects/{project_id}/sources/{contract_id}/lookup-snapshots`
+
+Generate a draft lookup snapshot for one source contract. Requires
+`central_team`.
+
+Response `201`: `LookupSnapshotResponse`
+
+### `POST /projects/{project_id}/lookup-snapshots/{lookup_snapshot_id}/approve`
+
+Approve a generated lookup snapshot at the project level. Requires
+`central_team`.
+
+Response `200`: `LookupSnapshotResponse`
+
 ### `SourceContractResponse`
 
 ```json
@@ -693,3 +727,5 @@ feeds (e.g. `["Customer", "Address"]`). Generated SQL artifacts are tracked sepa
   slice.
 - 2026-06-30: Added source approval routes, inbox count endpoint, and the slice
   approval response models.
+- 2026-06-30: Added lookup mapping endpoints and documented the project-scoped
+  lookup snapshot approval route.

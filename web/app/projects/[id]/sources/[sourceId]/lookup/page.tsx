@@ -398,7 +398,6 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
       const snapshot = await approveLookupSnapshot(
         session.accessToken,
         routeParams.id,
-        routeParams.sourceId,
         activeState.snapshotRecord.lookupSnapshotId,
       );
       updateFieldState(fieldName, (current) => ({

@@ -125,11 +125,10 @@ export async function generateLookupSnapshot(
 export async function approveLookupSnapshot(
   token: string,
   projectId: string,
-  sourceDefinitionId: string,
   lookupSnapshotId: string,
 ): Promise<LookupSnapshotRecord> {
   const response = await jsonRequest<Parameters<typeof mapLookupSnapshotResponse>[0]>(
-    `/projects/${projectId}/sources/${sourceDefinitionId}/lookup-snapshots/${lookupSnapshotId}/approve`,
+    `/projects/${projectId}/lookup-snapshots/${lookupSnapshotId}/approve`,
     {
       method: "POST",
       token,

@@ -182,7 +182,6 @@ describe("LookupPage", () => {
     await waitFor(() => expect(approveLookupSnapshotMock).toHaveBeenCalledWith(
       "token-1",
       "project-1",
-      "source-1",
       "snapshot-1",
     ));
   });
