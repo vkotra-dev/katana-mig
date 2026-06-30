@@ -333,7 +333,8 @@ The flow is:
 
 Rules:
 
-- the lookup draft stores the destination table rows for the lookup
+- the lookup draft stores the destination table rows and the current
+  source-value-to-destination-id selections for the lookup
 - the snapshot stores the final `value_map` of source value -> destination id
 - unmapped source values block snapshot generation
 - snapshot approval records audit evidence and preserves the snapshot version

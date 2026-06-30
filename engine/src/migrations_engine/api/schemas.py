@@ -260,6 +260,7 @@ class SourceValueSummaryResponse(BaseModel):
 class LookupValueMapCreateRequest(BaseModel):
     lookup_name: str = Field(min_length=1, max_length=128)
     destination_table: list[dict[str, Any]]
+    source_value_map: dict[str, str] = Field(default_factory=dict)
 
 
 class LookupValueMapResponse(BaseModel):
@@ -267,13 +268,13 @@ class LookupValueMapResponse(BaseModel):
     source_definition_id: str
     lookup_name: str
     destination_table: list[dict[str, Any]]
+    source_value_map: dict[str, str]
     status: Literal["draft", "approved"]
     created_at: datetime
 
 
 class LookupSnapshotGenerateRequest(BaseModel):
     lookup_name: str = Field(min_length=1, max_length=128)
-    value_map: dict[str, str]
 
 
 class LookupSnapshotResponse(BaseModel):
@@ -284,6 +285,24 @@ class LookupSnapshotResponse(BaseModel):
     lookup_snapshot_version: str
     value_map: dict[str, str]
     status: Literal["draft", "approved"]
+    approved_at: datetime | None
+    approved_by_user_id: str | None
+    created_at: datetime
+
+
+class MappingFieldBindingResponse(BaseModel):
+    source_field: str
+    destination_field: str
+    lookup_name: str | None
+
+
+class MappingSnapshotResponse(BaseModel):
+    mapping_snapshot_id: str
+    project_id: str
+    destination_object_name: str
+    mapping_snapshot_version: str
+    field_bindings: list[MappingFieldBindingResponse]
+    status: str
     approved_at: datetime | None
     approved_by_user_id: str | None
     created_at: datetime

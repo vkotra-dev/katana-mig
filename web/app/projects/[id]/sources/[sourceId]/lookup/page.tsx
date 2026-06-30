@@ -19,10 +19,15 @@ import {
   type LookupSnapshotRecord,
   type LookupValueMapRecord,
 } from "../../../../../../lib/lookup-api";
+import {
+  getLatestApprovedMappingSnapshot,
+  type MappingSnapshotRecord,
+} from "../../../../../../lib/mapping-api";
 import { loadUiSession, type SessionRole, type UiSession } from "../../../../../../lib/session";
 
 interface LookupFieldState {
   lookupName: string;
+  sourceField: string;
   draftText: string;
   destinationRows: Array<Record<string, unknown>>;
   valueMap: Record<string, string>;
@@ -30,6 +35,11 @@ interface LookupFieldState {
   snapshotRecord: LookupSnapshotRecord | null;
   noticeMessage: string | null;
   errorMessage: string | null;
+}
+
+interface LookupTab {
+  lookupName: string;
+  sourceField: string;
 }
 
 function formatDate(value: string): string {
@@ -119,6 +129,26 @@ function valueCountEntries(valueCounts: Record<string, number>): Array<[string, 
   });
 }
 
+function lookupTabsFromMappingSnapshot(snapshot: MappingSnapshotRecord | null): LookupTab[] {
+  if (!snapshot) {
+    return [];
+  }
+
+  const tabs: LookupTab[] = [];
+  const seen = new Set<string>();
+  for (const binding of snapshot.fieldBindings) {
+    if (!binding.lookupName || seen.has(binding.lookupName)) {
+      continue;
+    }
+    seen.add(binding.lookupName);
+    tabs.push({
+      lookupName: binding.lookupName,
+      sourceField: binding.sourceField,
+    });
+  }
+  return tabs;
+}
+
 function latestLookupMapForField(
   lookupMaps: LookupValueMapRecord[],
   lookupName: string,
@@ -131,15 +161,6 @@ function latestLookupMapForField(
   return [...matches].sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ?? null;
 }
 
-function sourceFieldOrder(
-  summaries: SourceValueSummaryRecord[],
-  schema: SourceSchemaColumnRecord[],
-): string[] {
-  const summaryFields = summaries.map((summary) => summary.fieldName);
-  const schemaFields = schema.map((column) => column.name);
-  return Array.from(new Set([...summaryFields, ...schemaFields]));
-}
-
 export default function LookupPage({ params }: { params: Promise<{ id: string; sourceId: string }> }) {
   const router = useRouter();
   const [routeParams, setRouteParams] = useState<{ id: string; sourceId: string } | null>(null);
@@ -147,6 +168,7 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
   const [source, setSource] = useState<SourceContractRecord | null>(null);
   const [schemaColumns, setSchemaColumns] = useState<SourceSchemaColumnRecord[]>([]);
   const [summaries, setSummaries] = useState<SourceValueSummaryRecord[]>([]);
+  const [mappingSnapshot, setMappingSnapshot] = useState<MappingSnapshotRecord | null>(null);
   const [lookupMaps, setLookupMaps] = useState<LookupValueMapRecord[]>([]);
   const [fieldStates, setFieldStates] = useState<Record<string, LookupFieldState>>({});
   const [activeField, setActiveField] = useState<string>("");
@@ -185,23 +207,25 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
       getSourceContract(session.accessToken, routeParams.id, routeParams.sourceId),
       listSourceSchema(session.accessToken, routeParams.id, routeParams.sourceId),
       listSourceValueSummaries(session.accessToken, routeParams.id, routeParams.sourceId),
+      getLatestApprovedMappingSnapshot(session.accessToken, routeParams.id, routeParams.sourceId),
       listLookupValueMaps(session.accessToken, routeParams.id, routeParams.sourceId),
     ])
-      .then(([sourceResponse, schemaResponse, summaryResponse, lookupMapResponse]) => {
+      .then(([sourceResponse, schemaResponse, summaryResponse, mappingResponse, lookupMapResponse]) => {
         if (!active) {
           return;
         }
 
-        const fields = sourceFieldOrder(summaryResponse, schemaResponse);
+        const tabs = lookupTabsFromMappingSnapshot(mappingResponse);
         const nextStates: Record<string, LookupFieldState> = {};
-        for (const field of fields) {
-          const latestMap = latestLookupMapForField(lookupMapResponse, field);
+        for (const tab of tabs) {
+          const latestMap = latestLookupMapForField(lookupMapResponse, tab.lookupName);
           const destinationRows = latestMap?.destinationTable ?? [];
-          nextStates[field] = {
-            lookupName: latestMap?.lookupName ?? field,
+          nextStates[tab.lookupName] = {
+            lookupName: latestMap?.lookupName ?? tab.lookupName,
+            sourceField: tab.sourceField,
             draftText: JSON.stringify(destinationRows, null, 2),
             destinationRows,
-            valueMap: {},
+            valueMap: latestMap?.sourceValueMap ?? {},
             draftRecord: latestMap,
             snapshotRecord: null,
             noticeMessage: latestMap
@@ -214,9 +238,10 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
         setSource(sourceResponse);
         setSchemaColumns(schemaResponse);
         setSummaries(summaryResponse);
+        setMappingSnapshot(mappingResponse);
         setLookupMaps(lookupMapResponse);
         setFieldStates(nextStates);
-        setActiveField(fields[0] ?? "");
+        setActiveField(tabs[0]?.lookupName ?? "");
       })
       .catch((error: unknown) => {
         if (active) {
@@ -235,10 +260,7 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
   }, [routeParams, session]);
 
   const role: SessionRole = session?.role ?? "read_only_auditor";
-  const fieldNames = useMemo(
-    () => sourceFieldOrder(summaries, schemaColumns),
-    [schemaColumns, summaries],
-  );
+  const lookupTabs = useMemo(() => lookupTabsFromMappingSnapshot(mappingSnapshot), [mappingSnapshot]);
   const activeState = activeField ? fieldStates[activeField] : null;
 
   const updateFieldState = (
@@ -304,6 +326,7 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
       const response = await createLookupValueMap(session.accessToken, routeParams.id, routeParams.sourceId, {
         lookupName,
         destinationTable: parsedRows,
+        sourceValueMap: activeState.valueMap,
       });
 
       updateFieldState(fieldName, (current) => ({
@@ -312,9 +335,11 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
         draftRecord: response,
         destinationRows: response.destinationTable,
         draftText: JSON.stringify(response.destinationTable, null, 2),
+        valueMap: response.sourceValueMap,
         noticeMessage: `Saved draft for ${response.lookupName}.`,
         errorMessage: null,
       }));
+      setLookupMaps((current) => [...current, response]);
     } catch (error) {
       setTabError(error instanceof Error ? error.message : "Unable to save lookup draft.");
     } finally {
@@ -333,14 +358,13 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
       setTabError(fieldName, null);
       const parsedRows = parseDestinationTable(activeState.draftText);
       const lookupName = activeState.lookupName.trim() || fieldName;
-      const valueMap = { ...activeState.valueMap };
       const savedDraft = await createLookupValueMap(session.accessToken, routeParams.id, routeParams.sourceId, {
         lookupName,
         destinationTable: parsedRows,
+        sourceValueMap: activeState.valueMap,
       });
       const snapshot = await generateLookupSnapshot(session.accessToken, routeParams.id, routeParams.sourceId, {
         lookupName,
-        valueMap,
       });
       updateFieldState(fieldName, (current) => ({
         ...current,
@@ -348,10 +372,12 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
         draftRecord: savedDraft,
         destinationRows: savedDraft.destinationTable,
         draftText: JSON.stringify(savedDraft.destinationTable, null, 2),
+        valueMap: savedDraft.sourceValueMap,
         snapshotRecord: snapshot,
         noticeMessage: `Generated snapshot ${snapshot.lookupSnapshotVersion}.`,
         errorMessage: null,
       }));
+      setLookupMaps((current) => [...current, savedDraft]);
     } catch (error) {
       setTabError(error instanceof Error ? error.message : "Unable to generate lookup snapshot.");
     } finally {
@@ -387,7 +413,7 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
     }
   };
 
-  const currentSummaries = summaries.filter((summary) => summary.fieldName === activeField);
+  const currentSummaries = summaries.filter((summary) => summary.fieldName === activeState?.sourceField);
   const destinationRows = activeState?.destinationRows ?? [];
   const destinationIds = useMemo(
     () => destinationRows.map((row) => extractDestinationId(row)).filter(Boolean),
@@ -439,28 +465,28 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
           <div role="alert" className="rounded-2xl border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
             {pageError}
           </div>
-        ) : fieldNames.length === 0 ? (
+        ) : lookupTabs.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-outline-variant bg-surface-container p-8 text-sm text-slate-600">
-            No source values were found for this source. Run source analysis first.
+            No lookup fields were found in the approved mapping snapshot.
           </div>
         ) : (
           <div className="space-y-4">
             <div className="flex flex-wrap gap-2">
-              {fieldNames.map((field) => {
-                const state = fieldStates[field];
-                const active = field === activeField;
+              {lookupTabs.map((tab) => {
+                const state = fieldStates[tab.lookupName];
+                const active = tab.lookupName === activeField;
                 return (
                   <button
-                    key={field}
+                    key={tab.lookupName}
                     className={`rounded-full px-4 py-2 text-sm font-semibold ${
                       active
                         ? "bg-primary text-white"
                         : "border border-outline-variant bg-surface-container text-slate-700"
                     }`}
-                    onClick={() => setActiveField(field)}
+                    onClick={() => setActiveField(tab.lookupName)}
                     type="button"
                   >
-                    {state?.lookupName ?? field}
+                    {state?.lookupName ?? tab.lookupName}
                   </button>
                 );
               })}
@@ -471,7 +497,7 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
                 <div className="space-y-2">
                   <h1 className="text-2xl font-semibold text-slate-900">Lookup mapping</h1>
                   <p className="text-sm text-slate-600">
-                    Source values for <span className="font-semibold text-slate-900">{activeField}</span>
+                    Source values for <span className="font-semibold text-slate-900">{activeState?.sourceField ?? "—"}</span>
                     {" "}with a draft destination table and approval flow.
                   </p>
                 </div>
@@ -482,15 +508,15 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
                     <div className="mt-1 text-sm text-slate-900">{source?.label ?? "—"}</div>
                   </div>
                   <div className="rounded-xl border border-outline-variant bg-surface px-4 py-3">
-                    <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Field</div>
-                    <div className="mt-1 text-sm text-slate-900">{activeField}</div>
+                    <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Lookup</div>
+                    <div className="mt-1 text-sm text-slate-900">{activeState?.lookupName ?? "—"}</div>
                   </div>
                   <div className="rounded-xl border border-outline-variant bg-surface px-4 py-3">
                     <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Source slice</div>
                     <div className="mt-1 text-sm text-slate-900">
-                    {currentSummaries[0]?.sourceSliceVersion ?? "—"}
+                      {currentSummaries[0]?.sourceSliceVersion ?? "—"}
+                    </div>
                   </div>
-                </div>
                 </div>
 
                 <div>
@@ -573,18 +599,18 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
                   >
                     Lookup name
                   </label>
-                    <input
-                      className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
-                      id="lookup-name"
-                      onChange={(event) => {
-                        const value = event.currentTarget.value;
-                        updateFieldState(activeField, (current) => ({
-                          ...current,
-                          lookupName: value,
-                        }));
-                      }}
-                      value={activeState?.lookupName ?? ""}
-                    />
+                  <input
+                    className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
+                    id="lookup-name"
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
+                      updateFieldState(activeField, (current) => ({
+                        ...current,
+                        lookupName: value,
+                      }));
+                    }}
+                    value={activeState?.lookupName ?? ""}
+                  />
                 </div>
 
                 <div className="space-y-2">

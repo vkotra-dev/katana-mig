@@ -5,6 +5,7 @@ export interface LookupValueMapRecord {
   sourceDefinitionId: string;
   lookupName: string;
   destinationTable: Array<Record<string, unknown>>;
+  sourceValueMap: Record<string, string>;
   status: "draft" | "approved";
   createdAt: string;
 }
@@ -23,11 +24,11 @@ export interface LookupSnapshotRecord {
 export interface LookupValueMapInput {
   lookupName: string;
   destinationTable: Array<Record<string, unknown>>;
+  sourceValueMap: Record<string, string>;
 }
 
 export interface LookupSnapshotInput {
   lookupName: string;
-  valueMap: Record<string, string>;
 }
 
 function mapLookupValueMapResponse(response: {
@@ -35,6 +36,7 @@ function mapLookupValueMapResponse(response: {
   source_definition_id: string;
   lookup_name: string;
   destination_table: Array<Record<string, unknown>>;
+  source_value_map: Record<string, string>;
   status: "draft" | "approved";
   created_at: string;
 }): LookupValueMapRecord {
@@ -43,6 +45,7 @@ function mapLookupValueMapResponse(response: {
     sourceDefinitionId: response.source_definition_id,
     lookupName: response.lookup_name,
     destinationTable: response.destination_table,
+    sourceValueMap: response.source_value_map,
     status: response.status,
     createdAt: response.created_at,
   };
@@ -96,6 +99,7 @@ export async function createLookupValueMap(
       body: JSON.stringify({
         lookup_name: input.lookupName,
         destination_table: input.destinationTable,
+        source_value_map: input.sourceValueMap,
       }),
     },
   );
@@ -115,7 +119,6 @@ export async function generateLookupSnapshot(
       token,
       body: JSON.stringify({
         lookup_name: input.lookupName,
-        value_map: input.valueMap,
       }),
     },
   );

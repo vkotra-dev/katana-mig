@@ -364,14 +364,6 @@ class LookupSnapshot(Base):
 
 class LookupValueMap(Base):
     __tablename__ = "lookup_value_maps"
-    __table_args__ = (
-        UniqueConstraint(
-            "source_definition_id",
-            "lookup_name",
-            "status",
-            name="uq_lookup_value_maps_definition_lookup_status",
-        ),
-    )
 
     lookup_value_map_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     source_definition_id: Mapped[str] = mapped_column(
@@ -379,6 +371,7 @@ class LookupValueMap(Base):
     )
     lookup_name: Mapped[str] = mapped_column(String(128), nullable=False)
     destination_table: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
+    source_value_map: Mapped[dict[str, str]] = mapped_column(JSON, nullable=False, default=dict)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

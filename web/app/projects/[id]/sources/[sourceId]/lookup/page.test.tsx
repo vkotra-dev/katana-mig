@@ -7,6 +7,7 @@ const {
   createLookupValueMapMock,
   generateLookupSnapshotMock,
   getSourceContractMock,
+  getLatestApprovedMappingSnapshotMock,
   listLookupValueMapsMock,
   listSourceSchemaMock,
   listSourceValueSummariesMock,
@@ -18,6 +19,7 @@ const {
   createLookupValueMapMock: vi.fn(),
   generateLookupSnapshotMock: vi.fn(),
   getSourceContractMock: vi.fn(),
+  getLatestApprovedMappingSnapshotMock: vi.fn(),
   listLookupValueMapsMock: vi.fn(),
   listSourceSchemaMock: vi.fn(),
   listSourceValueSummariesMock: vi.fn(),
@@ -41,6 +43,10 @@ vi.mock("../../../../../../lib/sources-api", () => ({
   getSourceContract: getSourceContractMock,
   listSourceSchema: listSourceSchemaMock,
   listSourceValueSummaries: listSourceValueSummariesMock,
+}));
+
+vi.mock("../../../../../../lib/mapping-api", () => ({
+  getLatestApprovedMappingSnapshot: getLatestApprovedMappingSnapshotMock,
 }));
 
 vi.mock("../../../../../../lib/lookup-api", () => ({
@@ -78,6 +84,23 @@ describe("LookupPage", () => {
       status: "declared",
       createdAt: "2026-06-30T00:00:00Z",
     });
+    getLatestApprovedMappingSnapshotMock.mockResolvedValue({
+      mappingSnapshotId: "mapping-1",
+      projectId: "project-1",
+      destinationObjectName: "Customer",
+      mappingSnapshotVersion: "v3",
+      fieldBindings: [
+        {
+          sourceField: "status_code",
+          destinationField: "status_id",
+          lookupName: "status_code",
+        },
+      ],
+      status: "approved",
+      approvedAt: "2026-06-30T00:00:00Z",
+      approvedByUserId: "user-1",
+      createdAt: "2026-06-30T00:00:00Z",
+    });
     listSourceSchemaMock.mockResolvedValue([
       {
         name: "status_code",
@@ -102,6 +125,7 @@ describe("LookupPage", () => {
       sourceDefinitionId: "source-1",
       lookupName: "status_code",
       destinationTable: [{ id: "ACTIVE", label: "Active" }],
+      sourceValueMap: { A: "ACTIVE", B: "ACTIVE" },
       status: "draft",
       createdAt: "2026-06-30T00:00:00Z",
     });
@@ -151,7 +175,7 @@ describe("LookupPage", () => {
       "token-1",
       "project-1",
       "source-1",
-      { lookupName: "status_code", valueMap: { A: "ACTIVE", B: "ACTIVE" } },
+      { lookupName: "status_code" },
     );
     expect(await screen.findByText("Generated snapshot v1.")).toBeInTheDocument();
 

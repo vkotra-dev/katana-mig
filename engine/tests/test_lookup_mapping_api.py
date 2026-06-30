@@ -19,6 +19,7 @@ from migrations_engine.db.models import (  # noqa: E402
     SourceValueSummary,
     User,
 )
+from migrations_engine.mapping.snapshots import FieldBinding, create_approved_mapping_snapshot  # noqa: E402
 from migrations_engine.roles import CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE  # noqa: E402
 
 client = TestClient(app)
@@ -110,6 +111,7 @@ def _seed_project() -> tuple[str, str]:
                 project_id=project_id,
                 source_type="csv",
                 source_contract_version="v1",
+                destination_object_references=["Customer"],
                 source_details={"label": "Customer Extract", "encoding": "utf-8"},
                 status="active",
             )
@@ -139,6 +141,20 @@ def _seed_project() -> tuple[str, str]:
                 value_counts={"A": 4, "B": 1},
             )
         )
+        create_approved_mapping_snapshot(
+            db,
+            project_id=project_id,
+            destination_object_name="Customer",
+            mapping_snapshot_version="v1",
+            field_bindings=[
+                FieldBinding(
+                    source_field="STATUS_CODE",
+                    destination_field="status_id",
+                    lookup_name="status_code",
+                ),
+            ],
+            approved_by_user_id=admin_user.user_id,
+        )
         db.commit()
     return project_id, source_definition_id
 
@@ -161,19 +177,26 @@ def test_lookup_routes_enforce_auth_and_contract(admin_token: str, stakeholder_t
         f"/projects/{project_id}/sources/{source_definition_id}/lookup-maps",
         headers={"Authorization": f"Bearer {admin_token}"},
         json={
-            "lookup_name": "STATUS_CODE",
+            "lookup_name": "status_code",
             "destination_table": [{"id": "ACTIVE", "label": "Active"}],
+            "source_value_map": {"A": "ACTIVE", "B": "ACTIVE"},
         },
     )
     assert create.status_code == 201, create.text
-    assert create.json()["lookup_name"] == "STATUS_CODE"
+    assert create.json()["lookup_name"] == "status_code"
+
+    mapping_snapshot = client.get(
+        f"/projects/{project_id}/sources/{source_definition_id}/mapping-snapshot",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert mapping_snapshot.status_code == 200, mapping_snapshot.text
+    assert mapping_snapshot.json()["mapping_snapshot_version"] == "v1"
 
     generate = client.post(
         f"/projects/{project_id}/sources/{source_definition_id}/lookup-snapshots",
         headers={"Authorization": f"Bearer {admin_token}"},
         json={
-            "lookup_name": "STATUS_CODE",
-            "value_map": {"A": "ACTIVE", "B": "ACTIVE"},
+            "lookup_name": "status_code",
         },
     )
     assert generate.status_code == 201, generate.text

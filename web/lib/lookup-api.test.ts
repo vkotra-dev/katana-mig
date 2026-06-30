@@ -21,6 +21,7 @@ describe("lookup-api", () => {
         source_definition_id: "source-1",
         lookup_name: "status_code",
         destination_table: [{ id: "ACTIVE", label: "Active" }],
+        source_value_map: { A: "ACTIVE" },
         status: "draft",
         created_at: "2026-06-30T00:00:00Z",
       }),
@@ -30,6 +31,7 @@ describe("lookup-api", () => {
     const result = await createLookupValueMap("token-1", "project-1", "source-1", {
       lookupName: "status_code",
       destinationTable: [{ id: "ACTIVE", label: "Active" }],
+      sourceValueMap: { A: "ACTIVE" },
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -42,6 +44,7 @@ describe("lookup-api", () => {
         body: JSON.stringify({
           lookup_name: "status_code",
           destination_table: [{ id: "ACTIVE", label: "Active" }],
+          source_value_map: { A: "ACTIVE" },
         }),
       }),
     );
@@ -57,6 +60,7 @@ describe("lookup-api", () => {
           source_definition_id: "source-1",
           lookup_name: "status_code",
           destination_table: [],
+          source_value_map: {},
           status: "approved",
           created_at: "2026-06-30T00:00:00Z",
         },
@@ -96,14 +100,13 @@ describe("lookup-api", () => {
 
     const result = await generateLookupSnapshot("token-1", "project-1", "source-1", {
       lookupName: "status_code",
-      valueMap: { A: "ACTIVE" },
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
       `${BASE}/projects/project-1/sources/source-1/lookup-snapshots`,
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ lookup_name: "status_code", value_map: { A: "ACTIVE" } }),
+        body: JSON.stringify({ lookup_name: "status_code" }),
       }),
     );
     expect(result.lookupSnapshotVersion).toBe("v1");

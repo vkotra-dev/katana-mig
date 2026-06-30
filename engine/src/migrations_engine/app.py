@@ -10,6 +10,7 @@ from .routes.auth import router as auth_router
 from .routes.projects import router as projects_router
 from .routes.runs import router as runs_router
 from .routes.analysis import router as analysis_router
+from .routes.mapping_snapshots import router as mapping_snapshots_router
 from .routes.lookup import router as lookup_router
 from .routes.sources import router as sources_router
 from .routes.slice_approval import router as slice_approval_router
@@ -31,6 +32,7 @@ app.include_router(users_router)
 app.include_router(projects_router)
 app.include_router(runs_router)
 app.include_router(analysis_router)
+app.include_router(mapping_snapshots_router)
 app.include_router(lookup_router)
 app.include_router(sources_router)
 app.include_router(slice_approval_router)

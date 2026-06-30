@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-import pytest
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select
 
 from sqlite_test_support import Base, SessionLocal, TEST_ENGINE
 from migrations_engine.db.models import ProjectDefinition, ProjectRegistry, LookupValueMap, SourceDefinition
@@ -43,7 +42,7 @@ def _seed_source_definition(db) -> str:
     return source_definition_id
 
 
-def test_lookup_value_map_persists_and_limits_one_draft_per_lookup() -> None:
+def test_lookup_value_map_persists_and_versions_drafts_per_lookup() -> None:
     Base.metadata.create_all(bind=TEST_ENGINE)
 
     with SessionLocal() as db:
@@ -73,5 +72,11 @@ def test_lookup_value_map_persists_and_limits_one_draft_per_lookup() -> None:
                 status="draft",
             )
         )
-        with pytest.raises(IntegrityError):
-            db.commit()
+        db.commit()
+        stored_maps = list(
+            db.scalars(
+                select(LookupValueMap).where(LookupValueMap.source_definition_id == source_definition_id)
+            )
+        )
+
+    assert len(stored_maps) == 2

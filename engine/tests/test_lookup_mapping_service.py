@@ -25,6 +25,7 @@ from migrations_engine.management.lookup_mapping import (
     generate_lookup_snapshot,
     list_lookup_value_maps,
 )
+from migrations_engine.mapping.snapshots import FieldBinding, create_approved_mapping_snapshot
 from migrations_engine.api.schemas import LookupSnapshotGenerateRequest, LookupValueMapCreateRequest
 from migrations_engine.roles import CENTRAL_TEAM_ROLE
 
@@ -64,6 +65,7 @@ def _seed_project(db) -> tuple[User, str, str]:
             project_id=project_id,
             source_type="csv",
             source_contract_version="v1",
+            destination_object_references=["Customer"],
             source_details={"label": "Customer Extract", "encoding": "utf-8"},
             status="active",
         )
@@ -93,6 +95,20 @@ def _seed_project(db) -> tuple[User, str, str]:
             value_counts={"A": 4, "B": 1},
         )
     )
+    create_approved_mapping_snapshot(
+        db,
+        project_id=project_id,
+        destination_object_name="Customer",
+        mapping_snapshot_version="v1",
+        field_bindings=[
+            FieldBinding(
+                source_field="STATUS_CODE",
+                destination_field="status_id",
+                lookup_name="status_code",
+            ),
+        ],
+        approved_by_user_id=actor.user_id,
+    )
     db.commit()
     return actor, project_id, source_definition_id
 
@@ -109,11 +125,12 @@ def test_lookup_mapping_service_persists_draft_and_lists_maps() -> None:
             project_id=project_id,
             source_definition_id=source_definition_id,
             body=LookupValueMapCreateRequest(
-                lookup_name="STATUS_CODE",
+                lookup_name="status_code",
                 destination_table=[
                     {"id": "ACTIVE", "label": "Active"},
                     {"id": "BLOCKED", "label": "Blocked"},
                 ],
+                source_value_map={"A": "ACTIVE", "B": "BLOCKED"},
             ),
         )
 
@@ -126,7 +143,7 @@ def test_lookup_mapping_service_persists_draft_and_lists_maps() -> None:
     assert response.status == "draft"
     assert response.destination_table[0]["id"] == "ACTIVE"
     assert len(maps) == 1
-    assert maps[0].lookup_name == "STATUS_CODE"
+    assert maps[0].lookup_name == "status_code"
 
 
 def test_lookup_mapping_service_generates_and_approves_snapshot() -> None:
@@ -141,11 +158,12 @@ def test_lookup_mapping_service_generates_and_approves_snapshot() -> None:
             project_id=project_id,
             source_definition_id=source_definition_id,
             body=LookupValueMapCreateRequest(
-                lookup_name="STATUS_CODE",
+                lookup_name="status_code",
                 destination_table=[
                     {"id": "ACTIVE", "label": "Active"},
                     {"id": "BLOCKED", "label": "Blocked"},
                 ],
+                source_value_map={"A": "ACTIVE", "B": "BLOCKED"},
             ),
         )
 
@@ -155,8 +173,7 @@ def test_lookup_mapping_service_generates_and_approves_snapshot() -> None:
             project_id=project_id,
             source_definition_id=source_definition_id,
             body=LookupSnapshotGenerateRequest(
-                lookup_name="STATUS_CODE",
-                value_map={"A": "ACTIVE", "B": "BLOCKED"},
+                lookup_name="status_code",
             ),
         )
         approved = approve_lookup_snapshot(
@@ -189,8 +206,9 @@ def test_lookup_mapping_service_rejects_unmapped_values() -> None:
             project_id=project_id,
             source_definition_id=source_definition_id,
             body=LookupValueMapCreateRequest(
-                lookup_name="STATUS_CODE",
+                lookup_name="status_code",
                 destination_table=[{"id": "ACTIVE", "label": "Active"}],
+                source_value_map={"A": "ACTIVE"},
             ),
         )
 
@@ -201,8 +219,7 @@ def test_lookup_mapping_service_rejects_unmapped_values() -> None:
                 project_id=project_id,
                 source_definition_id=source_definition_id,
                 body=LookupSnapshotGenerateRequest(
-                    lookup_name="STATUS_CODE",
-                    value_map={"A": "ACTIVE"},
+                    lookup_name="status_code",
                 ),
             )
 
