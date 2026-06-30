@@ -191,6 +191,9 @@ Task mechanics:
 - completed tasks move to `tasks/completed/<slug>.md`
 - the slug must remain identical across all four artifacts
 - task files are created first, then plans, then execution, then summaries
+- when a task uses a worktree, record the worktree branch/path in the task or
+  plan, and treat cleanup as part of completion: merge or abandon the branch,
+  remove the linked worktree, and prune stale metadata before closing the task
 - when work is done, move the task with `git mv` so git history is preserved
 - add the new task to `tasks/TASK_INDEX.md` when creating the task file
 - do not execute a task without a corresponding plan file in `plans/`
