@@ -18,6 +18,29 @@ function formatDate(value: string): string {
   return value.slice(0, 10);
 }
 
+function formatStage(value: string | null | undefined): string {
+  if (!value) {
+    return "—";
+  }
+  return value
+    .replace(/[_-]+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function daysInStage(value: string | null | undefined): string {
+  if (!value) {
+    return "—";
+  }
+  const entered = new Date(value);
+  const now = new Date();
+  const delta = Math.max(0, now.getTime() - entered.getTime());
+  const days = Math.floor(delta / (24 * 60 * 60 * 1000));
+  return `${days} day${days === 1 ? "" : "s"}`;
+}
+
 function truncate(value: string | null | undefined, maxLength: number): string {
   if (!value) {
     return "—";
@@ -34,10 +57,24 @@ function statusClassName(status: ProjectRecord["status"]): string {
     : "bg-primary-container text-on-primary-container";
 }
 
+function summaryClassName(status: string | null | undefined): string {
+  if (status === "paused" || status === "awaiting_approval") {
+    return "bg-amber-100 text-amber-800";
+  }
+  if (status === "failed") {
+    return "bg-red-100 text-red-800";
+  }
+  if (status === "running") {
+    return "bg-blue-100 text-blue-800";
+  }
+  return "bg-slate-100 text-slate-600";
+}
+
 export function PortfolioTable({ projects, role, onInitiate }: PortfolioTableProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [environmentFilter, setEnvironmentFilter] = useState("");
+  const [sourceTypeFilter, setSourceTypeFilter] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
@@ -51,10 +88,21 @@ export function PortfolioTable({ projects, role, onInitiate }: PortfolioTablePro
     return [...values].sort((left, right) => left.localeCompare(right));
   }, [projects]);
 
+  const sourceTypeOptions = useMemo(() => {
+    const values = new Set<string>();
+    for (const project of projects) {
+      const sourceType = project.latestRunSummary?.sourceType;
+      if (sourceType) {
+        values.add(sourceType);
+      }
+    }
+    return [...values].sort((left, right) => left.localeCompare(right));
+  }, [projects]);
+
   const filteredProjects = useMemo(() => {
     const query = search.trim().toLowerCase();
     return projects.filter((project) => {
-      const searchable = `${project.name} ${project.projectId}`.toLowerCase();
+      const searchable = `${project.name} ${project.projectId} ${project.latestRunSummary?.sourceType ?? ""} ${project.latestRunSummary?.currentStage ?? ""}`.toLowerCase();
       if (query && !searchable.includes(query)) {
         return false;
       }
@@ -67,9 +115,12 @@ export function PortfolioTable({ projects, role, onInitiate }: PortfolioTablePro
       ) {
         return false;
       }
+      if (sourceTypeFilter && project.latestRunSummary?.sourceType !== sourceTypeFilter) {
+        return false;
+      }
       return true;
     });
-  }, [environmentFilter, projects, search, statusFilter]);
+  }, [environmentFilter, projects, search, sourceTypeFilter, statusFilter]);
 
   const sortedProjects = useMemo(() => {
     const next = [...filteredProjects].sort((left, right) => {
@@ -155,6 +206,23 @@ export function PortfolioTable({ projects, role, onInitiate }: PortfolioTablePro
             ))}
           </select>
         </label>
+
+        <label className="block">
+          <span className="sr-only">Filter by source type</span>
+          <select
+            aria-label="Filter by source type"
+            className="rounded-md border border-outline-variant bg-surface px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary"
+            onChange={(event) => setSourceTypeFilter(event.currentTarget.value)}
+            value={sourceTypeFilter}
+          >
+            <option value="">All source types</option>
+            {sourceTypeOptions.map((sourceType) => (
+              <option key={sourceType} value={sourceType}>
+                {sourceType}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {sortedProjects.length === 0 ? (
@@ -175,6 +243,12 @@ export function PortfolioTable({ projects, role, onInitiate }: PortfolioTablePro
                     Project
                   </button>
                 </th>
+                <th className="px-4 py-3">Source Type</th>
+                <th className="px-4 py-3">Lifecycle Stage</th>
+                <th className="px-4 py-3">Stage Entered</th>
+                <th className="px-4 py-3">Days in Stage</th>
+                <th className="px-4 py-3">Blocked</th>
+                <th className="px-4 py-3">Action Required</th>
                 <th className="px-4 py-3">Goal</th>
                 <th className="px-4 py-3">Target DB</th>
                 <th className="px-4 py-3">Environments</th>
@@ -192,7 +266,9 @@ export function PortfolioTable({ projects, role, onInitiate }: PortfolioTablePro
               </tr>
             </thead>
             <tbody>
-              {sortedProjects.map((project) => (
+              {sortedProjects.map((project) => {
+                const summary = project.latestRunSummary ?? null;
+                return (
                 <tr key={project.projectId} className="border-t border-outline-variant hover:bg-surface-container-lowest">
                   <td className="px-4 py-3 align-top">
                     <div className="space-y-0.5">
@@ -204,6 +280,43 @@ export function PortfolioTable({ projects, role, onInitiate }: PortfolioTablePro
                       </a>
                       <div className="mono-id">{project.projectId}</div>
                     </div>
+                  </td>
+                  <td className="px-4 py-3 align-top text-sm text-slate-700">
+                    {summary?.sourceType ?? "—"}
+                  </td>
+                  <td className="px-4 py-3 align-top text-sm text-slate-700">
+                    {formatStage(summary?.currentStage)}
+                  </td>
+                  <td className="px-4 py-3 align-top text-sm text-slate-700">
+                    {summary?.stageEnteredAt ? formatDate(summary.stageEnteredAt) : "—"}
+                  </td>
+                  <td className="px-4 py-3 align-top text-sm text-slate-700">
+                    {daysInStage(summary?.stageEnteredAt)}
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    {summary?.runStatus === "paused" || summary?.runStatus === "failed" ? (
+                      <div className="space-y-1">
+                        <span
+                          className={`status-chip inline-flex items-center ${summaryClassName(summary?.runStatus)}`}
+                        >
+                          Blocked
+                        </span>
+                        <div className="text-xs text-slate-600">
+                          {summary?.runStatus === "paused" ? "Paused" : "Failed"}
+                        </div>
+                      </div>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    {summary?.runStatus === "awaiting_approval" ? (
+                      <span className="status-chip inline-flex items-center bg-amber-100 text-amber-800">
+                        Action required
+                      </span>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td className="px-4 py-3 align-top text-sm text-slate-700">
                     {truncate(project.goal, 60)}
@@ -244,7 +357,8 @@ export function PortfolioTable({ projects, role, onInitiate }: PortfolioTablePro
                     </a>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

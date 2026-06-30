@@ -1,6 +1,7 @@
 "use client";
 
 import type { ProjectRecord } from "../../lib/projects-api";
+import { StageTimeline } from "./StageTimeline";
 
 export interface ProjectDetailViewProps {
   project: ProjectRecord;
@@ -56,6 +57,8 @@ export function ProjectDetailView({ project }: ProjectDetailViewProps) {
           {project.archivedAt ? ` · Archived ${formatDate(project.archivedAt)}` : ""}
         </div>
       </div>
+
+      <StageTimeline latestRunSummary={project.latestRunSummary} />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <KeyValue label="Goal" value={project.goal ?? "—"} />

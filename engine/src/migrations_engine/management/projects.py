@@ -3,18 +3,19 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import cast
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
 from ..api.schemas import (
+    LatestRunSummary,
     MigrationProjectConfig,
     ProjectCreateRequest,
     ProjectResponse,
     ProjectStatus,
     ProjectUpdateRequest,
 )
-from ..db.models import ProjectDefinition, ProjectMembership, ProjectRegistry, User, new_id
+from ..db.models import ProjectDefinition, ProjectMembership, ProjectRegistry, RunRecord, SourceDefinition, User, new_id
 from ..roles import PROJECT_STAKEHOLDER_ROLE
 from .platform import record_management_audit
 
@@ -96,7 +97,11 @@ def list_projects(
 
     stmt = stmt.order_by(ProjectRegistry.name)
     rows = db.execute(stmt).all()
-    return [_project_response(registry, definition) for registry, definition in rows]
+    latest_run_summary_by_project = _load_latest_run_summaries(db, [registry.project_id for registry, _ in rows])
+    return [
+        _project_response(registry, definition, latest_run_summary_by_project.get(registry.project_id))
+        for registry, definition in rows
+    ]
 
 
 def get_project(db: Session, *, project_id: str) -> ProjectResponse:
@@ -217,7 +222,52 @@ def _get_project_rows(db: Session, project_id: str) -> tuple[ProjectRegistry, Pr
     return registry, definition
 
 
-def _project_response(registry: ProjectRegistry, definition: ProjectDefinition) -> ProjectResponse:
+def _load_latest_run_summaries(
+    db: Session,
+    project_ids: list[str],
+) -> dict[str, LatestRunSummary]:
+    if not project_ids:
+        return {}
+
+    latest_subquery = (
+        select(
+            RunRecord.project_id.label("project_id"),
+            func.max(RunRecord.updated_at).label("updated_at"),
+        )
+        .where(RunRecord.project_id.in_(project_ids))
+        .group_by(RunRecord.project_id)
+        .subquery()
+    )
+
+    stmt = (
+        select(RunRecord, SourceDefinition.source_type)
+        .join(
+            latest_subquery,
+            (RunRecord.project_id == latest_subquery.c.project_id)
+            & (RunRecord.updated_at == latest_subquery.c.updated_at),
+        )
+        .outerjoin(
+            SourceDefinition,
+            SourceDefinition.source_definition_id == RunRecord.source_definition_reference,
+        )
+    )
+
+    result: dict[str, LatestRunSummary] = {}
+    for run, source_type in db.execute(stmt).all():
+        result[run.project_id] = LatestRunSummary(
+            current_stage=run.current_stage,
+            run_status=run.status,
+            source_type=source_type,
+            stage_entered_at=run.updated_at,
+        )
+    return result
+
+
+def _project_response(
+    registry: ProjectRegistry,
+    definition: ProjectDefinition,
+    latest_run_summary: LatestRunSummary | None = None,
+) -> ProjectResponse:
     return ProjectResponse(
         project_id=registry.project_id,
         name=registry.name,
@@ -237,4 +287,5 @@ def _project_response(registry: ProjectRegistry, definition: ProjectDefinition) 
         created_at=registry.created_at,
         updated_at=registry.updated_at,
         archived_at=registry.archived_at,
+        latest_run_summary=latest_run_summary,
     )

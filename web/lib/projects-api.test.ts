@@ -35,6 +35,12 @@ const projectResponse = {
   created_at: "2026-06-30T00:00:00Z",
   updated_at: "2026-06-30T00:00:00Z",
   archived_at: null,
+  latest_run_summary: {
+    current_stage: "implementation",
+    run_status: "running",
+    source_type: "csv",
+    stage_entered_at: "2026-06-29T00:00:00Z",
+  },
 };
 
 const project: ProjectRecord = {
@@ -63,6 +69,12 @@ const project: ProjectRecord = {
   createdAt: "2026-06-30T00:00:00Z",
   updatedAt: "2026-06-30T00:00:00Z",
   archivedAt: null,
+  latestRunSummary: {
+    currentStage: "implementation",
+    runStatus: "running",
+    sourceType: "csv",
+    stageEnteredAt: "2026-06-29T00:00:00Z",
+  },
 };
 
 afterEach(() => {

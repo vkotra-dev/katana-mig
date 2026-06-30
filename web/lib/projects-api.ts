@@ -11,6 +11,13 @@ export interface ProjectDomainConfig {
   environments: string[] | null;
 }
 
+export interface LatestRunSummary {
+  currentStage: string | null;
+  runStatus: string;
+  sourceType: string | null;
+  stageEnteredAt: string;
+}
+
 export interface ProjectDomainConfigInput {
   targetDbEngine?: TargetDbEngine | null;
   stagingSchema?: string | null;
@@ -39,6 +46,7 @@ export interface ProjectRecord {
   createdAt: string;
   updatedAt: string;
   archivedAt: string | null;
+  latestRunSummary?: LatestRunSummary | null;
 }
 
 export interface ProjectCreateInput {
@@ -190,6 +198,12 @@ function mapProjectRecord(record: {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+  latest_run_summary: {
+    current_stage: string | null;
+    run_status: string;
+    source_type: string | null;
+    stage_entered_at: string;
+  } | null;
 }): ProjectRecord {
   return {
     projectId: record.project_id,
@@ -210,6 +224,14 @@ function mapProjectRecord(record: {
     createdAt: record.created_at,
     updatedAt: record.updated_at,
     archivedAt: record.archived_at,
+    latestRunSummary: record.latest_run_summary
+      ? {
+          currentStage: record.latest_run_summary.current_stage,
+          runStatus: record.latest_run_summary.run_status,
+          sourceType: record.latest_run_summary.source_type,
+          stageEnteredAt: record.latest_run_summary.stage_entered_at,
+        }
+      : null,
   };
 }
 

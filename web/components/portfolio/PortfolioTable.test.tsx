@@ -30,6 +30,12 @@ function makeProject(overrides: Partial<ProjectRecord>): ProjectRecord {
     createdAt: "2026-06-01T00:00:00Z",
     updatedAt: "2026-06-30T09:15:00Z",
     archivedAt: null,
+    latestRunSummary: {
+      currentStage: "implementation",
+      runStatus: "running",
+      sourceType: "csv",
+      stageEnteredAt: "2026-06-29T00:00:00Z",
+    },
     ...overrides,
   };
 }
@@ -48,6 +54,12 @@ const projects: ProjectRecord[] = [
     status: "archived",
     executionEnvironments: ["uat"],
     updatedAt: "2026-06-30T09:15:00Z",
+    latestRunSummary: {
+      currentStage: "approval gate",
+      runStatus: "awaiting_approval",
+      sourceType: "fixed_length_file",
+      stageEnteredAt: "2026-06-28T00:00:00Z",
+    },
   }),
   makeProject({
     projectId: "project-3",
@@ -55,6 +67,12 @@ const projects: ProjectRecord[] = [
     status: "active",
     executionEnvironments: ["dev"],
     updatedAt: "2026-05-15T09:15:00Z",
+    latestRunSummary: {
+      currentStage: "review",
+      runStatus: "paused",
+      sourceType: "database",
+      stageEnteredAt: "2026-05-14T00:00:00Z",
+    },
   }),
 ];
 
@@ -90,6 +108,17 @@ describe("PortfolioTable", () => {
     expect(screen.getByText("Alpha Migration")).toBeInTheDocument();
     expect(screen.queryByText("Beta Warehouse")).not.toBeInTheDocument();
     expect(screen.queryByText("Gamma Sync")).not.toBeInTheDocument();
+  });
+
+  it("filters by source type", () => {
+    render(<PortfolioTable projects={projects} role="central_team" />);
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Filter by source type" }), {
+      target: { value: "database" },
+    });
+
+    expect(screen.getByText("Gamma Sync")).toBeInTheDocument();
+    expect(screen.queryByText("Alpha Migration")).not.toBeInTheDocument();
   });
 
   it("sorts by name and last updated", () => {

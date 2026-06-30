@@ -106,6 +106,13 @@ TargetDbEngine = Literal["mssql", "oracle", "postgresql", "mysql"]
 ProjectStatus = Literal["active", "archived"]
 
 
+class LatestRunSummary(BaseModel):
+    current_stage: str | None
+    run_status: str
+    source_type: str | None
+    stage_entered_at: datetime
+
+
 class MigrationProjectConfig(BaseModel):
     target_db_engine: TargetDbEngine | None = None
     staging_schema: str | None = None
@@ -134,6 +141,7 @@ class ProjectResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     archived_at: datetime | None
+    latest_run_summary: LatestRunSummary | None = None
 
 
 class ProjectCreateRequest(BaseModel):

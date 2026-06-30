@@ -29,6 +29,12 @@ const active: ProjectRecord = {
   createdAt: "2026-06-30T00:00:00Z",
   updatedAt: "2026-06-30T01:00:00Z",
   archivedAt: null,
+  latestRunSummary: {
+    currentStage: "implementation",
+    runStatus: "running",
+    sourceType: "csv",
+    stageEnteredAt: "2026-06-29T00:00:00Z",
+  },
 };
 
 const archived: ProjectRecord = {
@@ -54,6 +60,14 @@ describe("ProjectDetailView", () => {
     expect(screen.getByText("GDPR, Art 6(1)(c)")).toBeInTheDocument();
     expect(screen.getByText("mssql")).toBeInTheDocument();
     expect(screen.getByText("create table crm(id int);")).toBeInTheDocument();
+  });
+
+  it("renders the lifecycle timeline", () => {
+    render(<ProjectDetailView project={active} />);
+
+    expect(screen.getByText("Lifecycle timeline")).toBeInTheDocument();
+    expect(screen.getByText("Implementation", { selector: "p span" })).toBeInTheDocument();
+    expect(screen.getByText("2026-06-29", { selector: "div span" })).toBeInTheDocument();
   });
 
   it("renders archived metadata when archived", () => {
