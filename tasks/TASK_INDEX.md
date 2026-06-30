@@ -13,6 +13,7 @@
 | [001y-codegen-service](./001y-codegen-service.md) | source-model, ai, runs | ready | AI generates sql_bundle → CodeGenerationArtifact; supersession; delivery bundle API |
 | [001z-review-gates](./001z-review-gates.md) | governance, ui | ready | Gate 1 + Gate 2 approval backend + UI (stitch 08–10); depends on 001y |
 | [001aa-reconciliation](./001aa-reconciliation.md) | governance, ui | ready | Reconciliation checks + ReconciliationReport; stitch 11; depends on 001t, 001z |
+| [001af-ui-compliance-gaps](./001af-ui-compliance-gaps.md) | ui | ready | Portfolio columns, project detail stage timeline, globals.css token registration; from audit vs ui.md |
 
 ## Completed
 
