@@ -1,6 +1,6 @@
 # Task 001af — UI Compliance Gaps
 
-**Plan:** `plans/2026-06-30-001af-ui-compliance-gaps.md` _(to be written)_
+**Plan:** `plans/2026-06-30-001af-ui-compliance-gaps.md`
 
 ## Domain
 
