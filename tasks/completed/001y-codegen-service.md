@@ -1,6 +1,6 @@
 # Task 001y — Code Generation Service
 
-**Plan:** `plans/2026-06-29-001y-codegen-service.md` _(to be written)_
+**Plan:** `plans/2026-06-30-001y-codegen-service.md`
 
 ## Domain
 
