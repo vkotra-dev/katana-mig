@@ -6,8 +6,24 @@ Depends on: 001t (RunRecord), 001z (Gate 2 approval)
 
 `docs/design/stitch/11-reconciliation-lineage.md` is the screen contract.
 `docs/domain/runs.md` § "Reconciliation and lineage" defines the evidence requirements.
-Access control: `central_team` only for write operations; all roles (including
-`read_only_auditor`) for read and export.
+Access control: `central_team` only for write operations; `project_stakeholder`
+(with membership) and `read_only_auditor` for read and export. Use
+`require_project_access` for every read route — same pattern as `routes/gates.py`.
+
+### Route shape / projectId source
+
+The page lives at `/runs/[id]/reconciliation`. There is no `[projectId]` segment in
+this route, matching the convention used by the existing gate pages.
+
+`projectId` is passed as the `?projectId=` query parameter. The existing run detail
+page (`web/app/runs/[id]/page.tsx`) already links to reconciliation with
+`?projectId=${projectId}` (line 513 of that file), so this convention is already
+established. The page must:
+
+1. Call `useSearchParams()` and read `projectId = searchParams.get("projectId")`.
+2. Guard at the top of the `useEffect`: if `projectId` is null or empty, render an
+   error state ("Missing project context") and skip all API calls.
+3. Pass `projectId` to every API call; never fall back to an empty string.
 
 ## Current state
 
@@ -265,9 +281,16 @@ def get_lineage(
     limit: int = 100,
     outcome: str | None = None,
     source_row_index: int | None = None,
+    destination_row_id: str | None = None,
 ) -> LineageResponse:
     """
-    Paginated lineage rows. Filter by outcome or source_row_index for drill-down.
+    Paginated lineage rows.
+
+    Drill-down filters (at most one should be set per request):
+    - source_row_index: show all destination rows produced by this source row
+    - destination_row_id: show which source row produced this destination row
+      (reverse direction — supports the "vice versa" requirement from the screen contract)
+
     Raises 404 if report not found for this run.
     """
     ...
@@ -290,8 +313,39 @@ def export_report(
 ### Lineage row builder
 
 When `trigger_reconciliation` runs, after inserting the `ReconciliationReport`, build
-lineage rows from `MappingArtifact.mapped_rows`. The engine's inner loop already writes
-destination-shaped rows into `MappingArtifact`. Reconstruct lineage as follows:
+lineage rows from `MappingArtifact.mapped_rows` and `SourceSliceRow` records.
+
+#### Positional alignment invariant
+
+`MappingArtifact.mapped_rows` is a list where element `i` is the destination-shaped
+row produced from `SourceSliceRow.row_index == i`. This invariant is established by
+the inner row loop in `runs.md` §"Inner loop — per source row", which appends to
+`mapped_rows` in strictly ascending `row_index` order. The test fixture **must enforce
+this** by seeding `SourceSliceRow` records with `row_index` values 0, 1, 2 … in order
+and `MappingArtifact.mapped_rows` with exactly as many entries at matching positions.
+If the two lengths diverge, the lineage builder must not silently pair wrong rows.
+
+**Implementation rule**: sort `source_rows` by `row_index` ascending before pairing.
+Assert `source_rows[i].row_index == i` for all `i`; if the assertion fails, raise
+`ValueError("source row index gap detected — lineage cannot be reconstructed")` and
+mark the report `overall_status = "fail"` with a check entry explaining the gap.
+
+#### Key extraction conventions
+
+These are display-only heuristics; they do not affect run correctness:
+
+- **`source_row_key`**: parse `SourceSliceRow.row_csv` as CSV and take the value of
+  the first column. `row_csv` is stored by the intake stage in column-order. This is
+  a display aid; the authoritative identity is `source_row_index`.
+
+- **`destination_row_id`**: read the value from the mapped row dict at the key that is
+  the `destination_field` of the first `field_bindings` entry. The first binding in
+  `MappingSnapshot.field_bindings` maps the source primary key by convention (established
+  in the mapping stage). This is a display aid; the authoritative identity for
+  reverse drill-down is the literal `destination_row_id` stored on the lineage row.
+
+- **`mapping_rules_applied`**: build the list as
+  `[f"{b['source_field']} → {b['destination_field']}" for b in field_bindings]`.
 
 ```python
 def _build_lineage_rows(
@@ -299,37 +353,63 @@ def _build_lineage_rows(
     *,
     run: RunRecord,
     report: ReconciliationReport,
-    source_rows: list[SourceSliceRow],
-    mapped_rows: list[dict[str, str]],
-    field_bindings: list[dict],  # from MappingSnapshot
+    source_rows: list[SourceSliceRow],      # sorted by row_index ascending
+    mapped_rows: list[dict[str, str]],       # from MappingArtifact.mapped_rows
+    field_bindings: list[dict],              # from MappingSnapshot.field_bindings
 ) -> None:
     """
-    Pair source_rows[i] with mapped_rows[i] by position (the inner loop processes
-    source rows in order and appends to mapped_rows). For each pair:
-      - parse source_row_key from row_csv first column
-      - extract destination_row_id from mapped row primary key field (first binding target)
-      - outcome: "confirmed" if destination_row_id is non-null, "rejected" otherwise
-      - mapping_rules_applied: list of "src_field → dst_field" strings from field_bindings
-    If len(source_rows) != len(mapped_rows): mark surplus source rows as "rejected"
-    with outcome_detail "no destination row produced".
+    Build one ReconciliationLineageRow per source row.
+
+    Pre-condition: source_rows[i].row_index == i (enforced before calling).
+    If len(source_rows) > len(mapped_rows): surplus source rows get outcome="rejected"
+    with outcome_detail="no destination row produced".
+
+    Key extraction:
+      source_row_key   = first CSV column of SourceSliceRow.row_csv
+      destination_row_id = mapped_row[field_bindings[0]['destination_field']]
+        (None if field_bindings is empty or the field is missing from the mapped row)
+      mapping_rules_applied = ["src → dst" for each binding in field_bindings]
     """
 ```
 
 ## Routes (`routes/reconciliation.py`)
 
+Follow the pattern from `routes/gates.py`: every route accepts `actor: User =
+Depends(get_current_user)` and calls `require_project_access` before any service
+call. Write routes additionally use `get_central_team_user`.
+
 ```python
+from ..api.deps import get_central_team_user, get_current_user, get_db
+from ..db.models import User
+from ..management.access import require_project_access
+
 router = APIRouter(prefix="/projects/{project_id}/runs/{run_id}/reconciliation", tags=["reconciliation"])
 
 @router.post("", response_model=ReconciliationReportResponse, status_code=201)
-def trigger(project_id: str, run_id: str, db: Session = Depends(get_db), session: UiSession = Depends(require_role("central_team"))):
+def trigger(
+    project_id: str, run_id: str,
+    actor: User = Depends(get_central_team_user),
+    db: Session = Depends(get_db),
+) -> ReconciliationReportResponse:
+    # get_central_team_user already enforces central_team role
     return trigger_reconciliation(db, project_id=project_id, run_id=run_id)
 
 @router.get("", response_model=ReconciliationReportResponse)
-def get_report(project_id: str, run_id: str, db: Session = Depends(get_db), session: UiSession = Depends(require_auth)):
+def get_report(
+    project_id: str, run_id: str,
+    actor: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ReconciliationReportResponse:
+    require_project_access(db, user=actor, project_id=project_id)
     return get_latest_report(db, project_id=project_id, run_id=run_id)
 
 @router.get("/history", response_model=list[ReconciliationReportResponse])
-def history(project_id: str, run_id: str, db: Session = Depends(get_db), session: UiSession = Depends(require_auth)):
+def history(
+    project_id: str, run_id: str,
+    actor: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[ReconciliationReportResponse]:
+    require_project_access(db, user=actor, project_id=project_id)
     return list_reports(db, project_id=project_id, run_id=run_id)
 
 @router.get("/{report_id}/lineage", response_model=LineageResponse)
@@ -338,14 +418,24 @@ def lineage(
     offset: int = 0, limit: int = 100,
     outcome: str | None = None,
     source_row_index: int | None = None,
+    destination_row_id: str | None = None,
+    actor: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    session: UiSession = Depends(require_auth),
-):
-    return get_lineage(db, project_id=project_id, run_id=run_id, report_id=report_id,
-                       offset=offset, limit=limit, outcome=outcome, source_row_index=source_row_index)
+) -> LineageResponse:
+    require_project_access(db, user=actor, project_id=project_id)
+    return get_lineage(
+        db, project_id=project_id, run_id=run_id, report_id=report_id,
+        offset=offset, limit=limit, outcome=outcome,
+        source_row_index=source_row_index, destination_row_id=destination_row_id,
+    )
 
 @router.get("/{report_id}/export", response_model=ReconciliationExportResponse)
-def export(project_id: str, run_id: str, report_id: str, db: Session = Depends(get_db), session: UiSession = Depends(require_auth)):
+def export(
+    project_id: str, run_id: str, report_id: str,
+    actor: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ReconciliationExportResponse:
+    require_project_access(db, user=actor, project_id=project_id)
     return export_report(db, project_id=project_id, run_id=run_id, report_id=report_id)
 ```
 
@@ -470,6 +560,55 @@ def test_lineage_drill_down_by_source_row_index(client, seeded_run, central_team
         headers={"Authorization": f"Bearer {central_team_token}"},
     )
     assert lineage_r.json()["total"] == 1
+
+def test_lineage_drill_down_by_destination_row_id(client, seeded_run, central_team_token):
+    """Reverse drill-down: filter by destination_row_id returns the source row that produced it."""
+    r = client.post(f"/projects/{PROJECT_ID}/runs/{seeded_run}/reconciliation",
+                    headers={"Authorization": f"Bearer {central_team_token}"})
+    report_id = r.json()["report_id"]
+    # get the destination_row_id of the first confirmed lineage row
+    lineage_r = client.get(
+        f"/projects/{PROJECT_ID}/runs/{seeded_run}/reconciliation/{report_id}/lineage",
+        headers={"Authorization": f"Bearer {central_team_token}"},
+    )
+    first_dst_id = next(
+        row["destination_row_id"]
+        for row in lineage_r.json()["rows"]
+        if row["destination_row_id"] is not None
+    )
+    # reverse lookup
+    rev_r = client.get(
+        f"/projects/{PROJECT_ID}/runs/{seeded_run}/reconciliation/{report_id}/lineage"
+        f"?destination_row_id={first_dst_id}",
+        headers={"Authorization": f"Bearer {central_team_token}"},
+    )
+    assert rev_r.status_code == 200
+    assert rev_r.json()["total"] == 1
+    assert rev_r.json()["rows"][0]["destination_row_id"] == first_dst_id
+
+def test_cross_project_access_denied(client, seeded_run, central_team_token, db_session):
+    """project_stakeholder without membership in PROJECT_ID cannot read reconciliation."""
+    # create a stakeholder user with membership in a DIFFERENT project
+    outsider_token = make_stakeholder_token_for_other_project(db_session)
+    r = client.post(f"/projects/{PROJECT_ID}/runs/{seeded_run}/reconciliation",
+                    headers={"Authorization": f"Bearer {central_team_token}"})
+    report_id = r.json()["report_id"]
+    for path in [
+        f"/projects/{PROJECT_ID}/runs/{seeded_run}/reconciliation",
+        f"/projects/{PROJECT_ID}/runs/{seeded_run}/reconciliation/history",
+        f"/projects/{PROJECT_ID}/runs/{seeded_run}/reconciliation/{report_id}/lineage",
+        f"/projects/{PROJECT_ID}/runs/{seeded_run}/reconciliation/{report_id}/export",
+    ]:
+        assert client.get(path, headers={"Authorization": f"Bearer {outsider_token}"}).status_code == 403
+
+def test_positional_alignment_gap_yields_fail_status(client, db_session, central_team_token):
+    """If source row count > mapped row count, report overall_status is 'fail' and check explains."""
+    run_id = make_run_with_extra_source_row(db_session)  # 3 SourceSliceRows, 2 mapped_rows
+    r = client.post(f"/projects/{PROJECT_ID}/runs/{run_id}/reconciliation",
+                    headers={"Authorization": f"Bearer {central_team_token}"})
+    assert r.json()["overall_status"] == "fail"
+    row_count_check = next(c for c in r.json()["checks"] if c["check_name"] == "row_count")
+    assert row_count_check["status"] == "fail"
 
 def test_lineage_read_only_auditor_can_read(client, seeded_run, auditor_token, central_team_token):
     r = client.post(f"/projects/{PROJECT_ID}/runs/{seeded_run}/reconciliation",
@@ -620,13 +759,20 @@ export async function getLatestReport(
 
 export async function getLineage(
   projectId: string, runId: string, reportId: string,
-  opts: { offset?: number; limit?: number; outcome?: string; sourceRowIndex?: number } = {}
+  opts: {
+    offset?: number;
+    limit?: number;
+    outcome?: string;
+    sourceRowIndex?: number;
+    destinationRowId?: string;
+  } = {}
 ): Promise<LineageResponse> {
   const params = new URLSearchParams();
   if (opts.offset !== undefined) params.set("offset", String(opts.offset));
   if (opts.limit !== undefined) params.set("limit", String(opts.limit));
   if (opts.outcome) params.set("outcome", opts.outcome);
   if (opts.sourceRowIndex !== undefined) params.set("source_row_index", String(opts.sourceRowIndex));
+  if (opts.destinationRowId) params.set("destination_row_id", opts.destinationRowId);
   const r = await jsonRequest<{ rows: Record<string, unknown>[]; total: number; offset: number; limit: number }>(
     `GET /projects/${projectId}/runs/${runId}/reconciliation/${reportId}/lineage?${params}`
   );
@@ -655,7 +801,7 @@ pinned above passing checks, row-count summary cards, lineage explorer with dril
 ```tsx
 "use client";
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { AlertTriangle, CheckCircle2, Download } from "lucide-react";
 import { Topbar } from "../../../../components/Topbar";
 import { loadUiSession, type UiSession } from "../../../../lib/session";
@@ -664,11 +810,20 @@ import {
   type ReconciliationReport, type LineageRow, type LineageResponse,
 } from "../../../../lib/reconciliation-api";
 
-type SelectedRow = { sourceRowIndex: number } | null;
+// Two drill-down directions per stitch spec:
+// - source → shows destination row(s) produced by this source row
+// - destination → shows which source row produced this destination row
+type SelectedRow =
+  | { direction: "source"; sourceRowIndex: number }
+  | { direction: "destination"; destinationRowId: string }
+  | null;
 
 export default function ReconciliationPage() {
   const { id: runId } = useParams<{ id: string }>();
-  const projectId = ""; // derive from run context or pass via query param
+  const searchParams = useSearchParams();
+  const projectId = searchParams.get("projectId");
+  // projectId is passed as ?projectId=prj_xxx — the run detail page already
+  // links here with this param (web/app/runs/[id]/page.tsx line ~513)
 
   const [session, setSession] = useState<UiSession | null>(null);
   const [report, setReport] = useState<ReconciliationReport | null>(null);
@@ -679,6 +834,10 @@ export default function ReconciliationPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!projectId) {
+      setLoading(false);
+      return;  // guard: render error state below, skip all API calls
+    }
     void (async () => {
       const s = await loadUiSession();
       setSession(s);
@@ -696,6 +855,7 @@ export default function ReconciliationPage() {
   }, [runId, projectId]);
 
   async function handleTrigger() {
+    if (!projectId) return;
     setTriggering(true);
     setErrorMessage(null);
     try {
@@ -710,22 +870,31 @@ export default function ReconciliationPage() {
     }
   }
 
-  async function handleDrillDown(sourceRowIndex: number) {
-    if (!report) return;
-    setSelectedRow({ sourceRowIndex });
+  // Drill-down: source row → shows its destination row(s)
+  async function handleSrcDrillDown(sourceRowIndex: number) {
+    if (!report || !projectId) return;
+    setSelectedRow({ direction: "source", sourceRowIndex });
     const l = await getLineage(projectId, runId, report.reportId, { sourceRowIndex });
     setLineage(l);
   }
 
+  // Drill-down: destination row → shows which source row produced it (reverse direction)
+  async function handleDstDrillDown(destinationRowId: string) {
+    if (!report || !projectId) return;
+    setSelectedRow({ direction: "destination", destinationRowId });
+    const l = await getLineage(projectId, runId, report.reportId, { destinationRowId });
+    setLineage(l);
+  }
+
   async function handleClearSelection() {
-    if (!report) return;
+    if (!report || !projectId) return;
     setSelectedRow(null);
     const l = await getLineage(projectId, runId, report.reportId, { limit: 100 });
     setLineage(l);
   }
 
   function handleDownload() {
-    if (!report) return;
+    if (!report || !projectId) return;
     void exportReport(projectId, runId, report.reportId).then((data) => {
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -747,6 +916,19 @@ export default function ReconciliationPage() {
     : [];
 
   const isCentralTeam = session?.role === "central_team";
+
+  if (!projectId) {
+    return (
+      <div className="min-h-screen bg-surface">
+        <Topbar session={session} />
+        <main className="mx-auto max-w-6xl px-6 py-8">
+          <div className="rounded border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-600">
+            Missing project context. Navigate here from the run detail page.
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-surface">
@@ -909,7 +1091,9 @@ export default function ReconciliationPage() {
 
               {selectedRow && (
                 <div className="rounded border border-indigo-200/40 bg-indigo-50 px-3 py-2 text-[10px] font-mono text-indigo-700">
-                  Showing destination row(s) for source row #{selectedRow.sourceRowIndex}
+                  {selectedRow.direction === "source"
+                    ? `Showing destination row(s) for source row #${selectedRow.sourceRowIndex}`
+                    : `Showing source row for destination ID ${selectedRow.destinationRowId}`}
                 </div>
               )}
 
@@ -922,43 +1106,57 @@ export default function ReconciliationPage() {
                   <table className="w-full border-collapse text-[11px]">
                     <thead>
                       <tr className="border-b border-outline-variant text-[9px] font-mono font-bold uppercase tracking-wider text-neutral">
-                        <th className="px-3 py-2 text-left">Src Row</th>
+                        <th className="px-3 py-2 text-left" title="Click to drill down: show destination rows for this source row">Src Row ↓</th>
                         <th className="px-3 py-2 text-left">Src Key</th>
-                        <th className="px-3 py-2 text-left">Dst Row ID</th>
+                        <th className="px-3 py-2 text-left" title="Click to drill down: show which source row produced this destination row">Dst Row ID ↑</th>
                         <th className="px-3 py-2 text-left">Mapping Rules</th>
                         <th className="px-3 py-2 text-left">Outcome</th>
                         <th className="px-3 py-2 text-left">Detail</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {lineage.rows.map((row) => (
-                        <tr
-                          key={row.lineageRowId}
-                          className={`border-b border-outline-variant/50 cursor-pointer transition-colors hover:bg-surface ${
-                            selectedRow?.sourceRowIndex === row.sourceRowIndex
-                              ? "bg-indigo-50"
-                              : ""
-                          }`}
-                          onClick={() => { void handleDrillDown(row.sourceRowIndex); }}
-                        >
-                          <td className="px-3 py-2 font-mono">{row.sourceRowIndex}</td>
-                          <td className="px-3 py-2 font-mono text-slate-500">{row.sourceRowKey ?? "—"}</td>
-                          <td className="px-3 py-2 font-mono text-slate-500">{row.destinationRowId ?? "—"}</td>
-                          <td className="px-3 py-2">
-                            <div className="flex flex-wrap gap-1">
-                              {row.mappingRulesApplied.map((rule) => (
-                                <span key={rule} className="rounded bg-surface-container border border-outline-variant px-1.5 py-0.5 font-mono text-[9px] text-neutral">
-                                  {rule}
-                                </span>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="px-3 py-2">
-                            <OutcomeChip outcome={row.outcome} />
-                          </td>
-                          <td className="px-3 py-2 font-mono text-[10px] text-slate-500">{row.outcomeDetail ?? "—"}</td>
-                        </tr>
-                      ))}
+                      {lineage.rows.map((row) => {
+                        const isSelected =
+                          (selectedRow?.direction === "source" && selectedRow.sourceRowIndex === row.sourceRowIndex) ||
+                          (selectedRow?.direction === "destination" && selectedRow.destinationRowId === row.destinationRowId);
+                        return (
+                          <tr
+                            key={row.lineageRowId}
+                            className={`border-b border-outline-variant/50 transition-colors ${isSelected ? "bg-indigo-50" : "hover:bg-surface"}`}
+                          >
+                            {/* src row index — click to drill source → destination */}
+                            <td
+                              className="px-3 py-2 font-mono cursor-pointer text-primary hover:underline"
+                              onClick={() => { void handleSrcDrillDown(row.sourceRowIndex); }}
+                              title="Show destination rows for this source row"
+                            >
+                              {row.sourceRowIndex}
+                            </td>
+                            <td className="px-3 py-2 font-mono text-slate-500">{row.sourceRowKey ?? "—"}</td>
+                            {/* destination row id — click to drill destination → source */}
+                            <td
+                              className={`px-3 py-2 font-mono ${row.destinationRowId ? "cursor-pointer text-primary hover:underline" : "text-slate-500"}`}
+                              onClick={() => { if (row.destinationRowId) void handleDstDrillDown(row.destinationRowId); }}
+                              title={row.destinationRowId ? "Show source row for this destination ID" : undefined}
+                            >
+                              {row.destinationRowId ?? "—"}
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="flex flex-wrap gap-1">
+                                {row.mappingRulesApplied.map((rule) => (
+                                  <span key={rule} className="rounded bg-surface-container border border-outline-variant px-1.5 py-0.5 font-mono text-[9px] text-neutral">
+                                    {rule}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2">
+                              <OutcomeChip outcome={row.outcome} />
+                            </td>
+                            <td className="px-3 py-2 font-mono text-[10px] text-slate-500">{row.outcomeDetail ?? "—"}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                   {lineage.total > lineage.rows.length && (
@@ -999,7 +1197,12 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import ReconciliationPage from "./page";
 import * as api from "../../../../lib/reconciliation-api";
 
-vi.mock("next/navigation", () => ({ useParams: () => ({ id: "run_test_001" }) }));
+let mockProjectId: string | null = "prj_test_001";
+
+vi.mock("next/navigation", () => ({
+  useParams: () => ({ id: "run_test_001" }),
+  useSearchParams: () => ({ get: (k: string) => k === "projectId" ? mockProjectId : null }),
+}));
 vi.mock("../../../../lib/session", () => ({ loadUiSession: vi.fn(() => Promise.resolve({ role: "central_team" })) }));
 vi.mock("../../../../lib/reconciliation-api");
 
@@ -1068,28 +1271,66 @@ describe("ReconciliationPage", () => {
     expect(screen.getByText("rejected")).toBeInTheDocument();
   });
 
-  it("drill-down: clicking a row filters lineage by source_row_index", async () => {
+  it("source drill-down: clicking src row index cell calls getLineage with sourceRowIndex", async () => {
     const drillLineage = { rows: [mockLineage.rows[0]], total: 1, offset: 0, limit: 100 };
     vi.mocked(api.getLineage)
-      .mockResolvedValueOnce(mockLineage)        // initial load
-      .mockResolvedValueOnce(drillLineage);       // drill-down
+      .mockResolvedValueOnce(mockLineage)   // initial load
+      .mockResolvedValueOnce(drillLineage); // drill-down
     render(<ReconciliationPage />);
-    await screen.findByText("C001");
-    fireEvent.click(screen.getByText("C001").closest("tr")!);
+    // click the sourceRowIndex cell (text "0") — it has the primary handleSrcDrillDown onClick
+    await screen.findByText("0");
+    fireEvent.click(screen.getByText("0"));
     await waitFor(() => {
       expect(vi.mocked(api.getLineage)).toHaveBeenCalledWith(
-        expect.any(String), "run_test_001", "rpt_001",
+        "prj_test_001", "run_test_001", "rpt_001",
         expect.objectContaining({ sourceRowIndex: 0 })
       );
     });
+    await screen.findByText(/Showing destination row/);
   });
 
-  it("shows 'Clear selection' button after drill-down", async () => {
-    vi.mocked(api.getLineage).mockResolvedValue(mockLineage);
+  it("destination drill-down: clicking dst row id cell calls getLineage with destinationRowId", async () => {
+    const drillLineage = { rows: [mockLineage.rows[0]], total: 1, offset: 0, limit: 100 };
+    vi.mocked(api.getLineage)
+      .mockResolvedValueOnce(mockLineage)
+      .mockResolvedValueOnce(drillLineage);
     render(<ReconciliationPage />);
-    await screen.findByText("C001");
-    fireEvent.click(screen.getByText("C001").closest("tr")!);
+    await screen.findByText("D001");
+    fireEvent.click(screen.getByText("D001"));
+    await waitFor(() => {
+      expect(vi.mocked(api.getLineage)).toHaveBeenCalledWith(
+        "prj_test_001", "run_test_001", "rpt_001",
+        expect.objectContaining({ destinationRowId: "D001" })
+      );
+    });
+    await screen.findByText(/Showing source row for destination ID D001/);
+  });
+
+  it("shows 'Clear selection' button after any drill-down and resets lineage on click", async () => {
+    vi.mocked(api.getLineage)
+      .mockResolvedValueOnce(mockLineage)
+      .mockResolvedValueOnce({ rows: [mockLineage.rows[0]], total: 1, offset: 0, limit: 100 })
+      .mockResolvedValueOnce(mockLineage); // after clear
+    render(<ReconciliationPage />);
+    await screen.findByText("0");
+    fireEvent.click(screen.getByText("0"));
     await screen.findByText("Clear selection");
+    fireEvent.click(screen.getByText("Clear selection"));
+    await waitFor(() => {
+      expect(vi.mocked(api.getLineage)).toHaveBeenLastCalledWith(
+        "prj_test_001", "run_test_001", "rpt_001",
+        expect.objectContaining({ limit: 100 })
+      );
+    });
+    expect(screen.queryByText("Clear selection")).toBeNull();
+  });
+
+  it("renders error state when projectId query param is missing", async () => {
+    mockProjectId = null;
+    render(<ReconciliationPage />);
+    await screen.findByText(/Missing project context/);
+    expect(api.getLatestReport).not.toHaveBeenCalled();
+    mockProjectId = "prj_test_001"; // restore for subsequent tests
   });
 
   it("hides Re-run button for read_only_auditor", async () => {
@@ -1099,7 +1340,7 @@ describe("ReconciliationPage", () => {
     expect(screen.queryByText(/Re-run/)).toBeNull();
   });
 
-  it("Download button calls exportReport and triggers file download", async () => {
+  it("Download button calls exportReport with resolved projectId and triggers file download", async () => {
     vi.mocked(api.exportReport).mockResolvedValue({
       ...mockReport,
       exportedAt: "2026-07-01T00:01:00Z",
@@ -1112,7 +1353,9 @@ describe("ReconciliationPage", () => {
     render(<ReconciliationPage />);
     await screen.findByText("Download");
     fireEvent.click(screen.getByText("Download"));
-    await waitFor(() => expect(api.exportReport).toHaveBeenCalledWith("", "run_test_001", "rpt_001"));
+    await waitFor(() =>
+      expect(api.exportReport).toHaveBeenCalledWith("prj_test_001", "run_test_001", "rpt_001")
+    );
   });
 
   it("shows no-report message when no report exists", async () => {
@@ -1187,11 +1430,20 @@ a single JSON artifact for offline audit.
 - [ ] `pytest engine/tests/test_reconciliation_api.py -v` — all tests green
 - [ ] `POST .../reconciliation` returns 403 for `read_only_auditor`
 - [ ] `POST .../reconciliation` returns 422 when gate_2 not approved
+- [ ] `GET .../reconciliation` returns 403 for `project_stakeholder` without project membership
+- [ ] `GET .../reconciliation/{report_id}/lineage` returns 403 for `project_stakeholder` without project membership
+- [ ] `GET .../reconciliation/{report_id}/export` returns 403 for `project_stakeholder` without project membership
 - [ ] `GET .../reconciliation` returns 200 for `read_only_auditor`
 - [ ] `GET .../reconciliation/{report_id}/export` returns 200 for `read_only_auditor`
-- [ ] Lineage drill-down: `GET .../lineage?source_row_index=0` returns exactly the matching rows
+- [ ] Source drill-down: `GET .../lineage?source_row_index=0` returns the row(s) produced by that source row
+- [ ] Destination drill-down: `GET .../lineage?destination_row_id=D001` returns the source row that produced that destination
+- [ ] Source row index gap in seeded data causes `overall_status = "fail"`
 - [ ] `pnpm --filter web test` — all UI tests green
-- [ ] Failed checks rendered above passing checks in UI
-- [ ] Download button produces a `.json` file containing `checks` and `lineage_rows`
-- [ ] "Re-run Reconciliation" button hidden for `read_only_auditor` session
+- [ ] UI: no-projectId error state renders when `?projectId` is absent; no API calls made
+- [ ] UI: clicking source row index cell triggers source→destination drill-down; banner shows "Showing destination row(s) for source row #N"
+- [ ] UI: clicking destination row ID cell triggers destination→source drill-down; banner shows "Showing source row for destination ID X"
+- [ ] UI: "Clear selection" button resets lineage to full list
+- [ ] UI: failed checks rendered above passing checks
+- [ ] UI: Download button passes resolved `projectId` to `exportReport` and creates `.json` file
+- [ ] UI: "Re-run Reconciliation" button hidden for `read_only_auditor` session
 - [ ] `pnpm --filter web build` — zero TS errors
