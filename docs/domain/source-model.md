@@ -336,8 +336,13 @@ Rules:
 - the lookup draft stores the destination table rows and the current
   source-value-to-destination-id selections for the lookup
 - the snapshot stores the final `value_map` of source value -> destination id
+- approved mapping snapshots are versioned per project and destination object;
+  duplicate versions are rejected before insert
 - unmapped source values block snapshot generation
 - snapshot approval records audit evidence and preserves the snapshot version
+- mapping snapshot parsing currently supports only one field binding per
+  snapshot; multi-binding snapshots are rejected explicitly until that shape is
+  implemented
 - runtime lookup delta handling remains a separate path
 
 ### Source/run snapshot policy

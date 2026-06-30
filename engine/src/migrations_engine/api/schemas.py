@@ -64,7 +64,7 @@ class PasswordResetAccepted(BaseModel):
 
 class PasswordResetConfirmRequest(BaseModel):
     reset_token: str = Field(min_length=1)
-    new_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=8)
 
 
 class UserResponse(BaseModel):
@@ -279,7 +279,6 @@ class LookupSnapshotGenerateRequest(BaseModel):
 class LookupSnapshotResponse(BaseModel):
     lookup_snapshot_id: str
     project_id: str
-    source_definition_id: str
     lookup_name: str
     lookup_snapshot_version: str
     value_map: dict[str, str]

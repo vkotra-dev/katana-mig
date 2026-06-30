@@ -9,6 +9,7 @@ from migrations_engine.db.models import (
     ChangeRequest,
     LookupSnapshot,
     MappingArtifact,
+    MappingSnapshot,
     ProjectDefinition,
     ProjectRegistry,
     RunRecord,
@@ -17,13 +18,17 @@ from migrations_engine.db.session import SessionLocal
 from migrations_engine.mapping import (
     FieldBinding,
     LookupDeltaCRError,
+    MappingError,
     SnapshotImmutableError,
+    SnapshotVersionConflictError,
     create_approved_lookup_snapshot,
     create_approved_mapping_snapshot,
     execute_mapping_run,
     guard_snapshot_immutable,
+    parse_primary_field_binding,
 )
 from migrations_engine.mapping.constants import LOOKUP_DELTA_CHANGE_REQUEST_TYPE
+from sqlite_test_support import Base as SQLiteBase, SessionLocal as SQLiteSessionLocal, TEST_ENGINE
 
 
 @pytest.fixture
@@ -159,3 +164,83 @@ def test_approved_snapshots_are_immutable(mapping_project_id: str) -> None:
     assert stored is not None
     with pytest.raises(SnapshotImmutableError):
         guard_snapshot_immutable(snapshot, updates={"value_map": {"B": "NEW"}})
+
+
+def test_create_approved_mapping_snapshot_rejects_duplicate_version() -> None:
+    SQLiteBase.metadata.create_all(bind=TEST_ENGINE)
+
+    project_id = str(uuid.uuid4())
+    definition_id = str(uuid.uuid4())
+
+    with SQLiteSessionLocal() as db:
+        db.add(
+            ProjectDefinition(
+                definition_id=definition_id,
+                project_id=project_id,
+                name="Mapping Project",
+                status="active",
+            )
+        )
+        db.add(
+            ProjectRegistry(
+                project_id=project_id,
+                name="Mapping Project",
+                definition_id=definition_id,
+                status="active",
+            )
+        )
+        db.commit()
+        create_approved_mapping_snapshot(
+            db,
+            project_id=project_id,
+            destination_object_name="Account",
+            mapping_snapshot_version="v1",
+            field_bindings=[
+                FieldBinding(
+                    source_field="src_status",
+                    destination_field="status",
+                    lookup_name="status_map",
+                )
+            ],
+        )
+        db.commit()
+
+        with pytest.raises(SnapshotVersionConflictError, match="already exists"):
+            create_approved_mapping_snapshot(
+                db,
+                project_id=project_id,
+                destination_object_name="Account",
+                mapping_snapshot_version="v1",
+                field_bindings=[
+                    FieldBinding(
+                        source_field="src_status",
+                        destination_field="status",
+                        lookup_name="status_map",
+                    )
+                ],
+            )
+
+
+def test_parse_primary_field_binding_rejects_multiple_bindings() -> None:
+    snapshot = MappingSnapshot(
+        mapping_snapshot_id="mapping-1",
+        project_id="project-1",
+        destination_object_name="Account",
+        mapping_snapshot_version="v1",
+        field_bindings=[
+            {
+                "source_field": "src_status",
+                "destination_field": "status",
+                "lookup_name": "status_map",
+            },
+            {
+                "source_field": "src_type",
+                "destination_field": "type",
+                "lookup_name": "type_map",
+            },
+        ],
+        status="approved",
+    )
+
+    with pytest.raises(MappingError, match="single-field binding is supported"):
+        parse_primary_field_binding(snapshot)

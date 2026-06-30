@@ -6,7 +6,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from migrations_engine.app import app
+from migrations_engine.app import app, _validate_runtime_settings
+from migrations_engine.auth.jwt import create_access_token, decode_access_token, encode_access_token
 from migrations_engine.config import get_settings
 from migrations_engine.db.models import User
 from migrations_engine.db.session import SessionLocal
@@ -112,3 +113,27 @@ def test_soft_deleted_user_is_rejected() -> None:
             assert user is not None
             user.soft_deleted_at = None
             db.commit()
+
+
+def test_production_jwt_secret_guard_blocks_dev_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    settings = get_settings()
+    monkeypatch.setenv("KATANA_ENV", "production")
+
+    with pytest.raises(RuntimeError, match="Production JWT secret"):
+        _validate_runtime_settings(settings)
+
+
+def test_access_token_round_trip_preserves_jti() -> None:
+    settings = get_settings()
+    claims = create_access_token(
+        settings=settings,
+        user_id="user-123",
+        email="user@example.com",
+        role="central_team",
+        session_version=3,
+    )
+    token = encode_access_token(settings=settings, claims=claims)
+    decoded = decode_access_token(settings=settings, token=token)
+
+    assert decoded.jti == claims.jti
+    assert decoded.user_id == "user-123"

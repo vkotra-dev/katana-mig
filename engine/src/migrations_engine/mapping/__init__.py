@@ -11,6 +11,7 @@ from .exceptions import (
     MappingError,
     SnapshotImmutableError,
     SnapshotNotFoundError,
+    SnapshotVersionConflictError,
     UnmappedLookupValueError,
 )
 from .lookup import MappedRow, apply_lookup_value
@@ -36,6 +37,7 @@ __all__ = [
     "MappingRunResult",
     "SnapshotImmutableError",
     "SnapshotNotFoundError",
+    "SnapshotVersionConflictError",
     "UnmappedLookupValueError",
     "apply_lookup_value",
     "create_approved_lookup_snapshot",

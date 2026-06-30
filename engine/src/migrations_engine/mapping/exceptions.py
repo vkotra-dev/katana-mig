@@ -13,6 +13,10 @@ class SnapshotImmutableError(MappingError):
     """Raised when a caller attempts to mutate an approved snapshot."""
 
 
+class SnapshotVersionConflictError(MappingError):
+    """Raised when an approved snapshot version already exists for the scope."""
+
+
 class LookupDeltaCRError(MappingError):
     """Raised when an unmapped lookup value triggers a governed delta change request."""
 

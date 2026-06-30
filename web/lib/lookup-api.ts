@@ -13,7 +13,6 @@ export interface LookupValueMapRecord {
 export interface LookupSnapshotRecord {
   lookupSnapshotId: string;
   projectId: string;
-  sourceDefinitionId: string;
   lookupName: string;
   lookupSnapshotVersion: string;
   valueMap: Record<string, string>;
@@ -54,7 +53,6 @@ function mapLookupValueMapResponse(response: {
 function mapLookupSnapshotResponse(response: {
   lookup_snapshot_id: string;
   project_id: string;
-  source_definition_id: string;
   lookup_name: string;
   lookup_snapshot_version: string;
   value_map: Record<string, string>;
@@ -64,7 +62,6 @@ function mapLookupSnapshotResponse(response: {
   return {
     lookupSnapshotId: response.lookup_snapshot_id,
     projectId: response.project_id,
-    sourceDefinitionId: response.source_definition_id,
     lookupName: response.lookup_name,
     lookupSnapshotVersion: response.lookup_snapshot_version,
     valueMap: response.value_map,

@@ -54,6 +54,7 @@ def test_lookup_value_map_persists_and_versions_drafts_per_lookup() -> None:
                 {"id": "ACTIVE", "label": "Active"},
                 {"id": "BLOCKED", "label": "Blocked"},
             ],
+            source_value_map={"A": "ACTIVE"},
             status="draft",
         )
         db.add(draft)
@@ -63,12 +64,14 @@ def test_lookup_value_map_persists_and_versions_drafts_per_lookup() -> None:
         assert stored is not None
         assert stored.lookup_name == "status_code"
         assert stored.destination_table[0]["id"] == "ACTIVE"
+        assert stored.source_value_map == {"A": "ACTIVE"}
 
         db.add(
             LookupValueMap(
                 source_definition_id=source_definition_id,
                 lookup_name="status_code",
                 destination_table=[{"id": "PENDING", "label": "Pending"}],
+                source_value_map={"B": "PENDING"},
                 status="draft",
             )
         )

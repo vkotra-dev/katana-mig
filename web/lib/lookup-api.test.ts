@@ -88,7 +88,6 @@ describe("lookup-api", () => {
       json: async () => ({
         lookup_snapshot_id: "snapshot-1",
         project_id: "project-1",
-        source_definition_id: "source-1",
         lookup_name: "status_code",
         lookup_snapshot_version: "v1",
         value_map: { A: "ACTIVE" },
@@ -118,7 +117,6 @@ describe("lookup-api", () => {
       json: async () => ({
         lookup_snapshot_id: "snapshot-1",
         project_id: "project-1",
-        source_definition_id: "source-1",
         lookup_name: "status_code",
         lookup_snapshot_version: "v1",
         value_map: { A: "ACTIVE" },

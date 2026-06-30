@@ -9,7 +9,13 @@ from sqlalchemy import select
 from migrations_engine.app import app
 from migrations_engine.auth.passwords import hash_password
 from migrations_engine.config import get_settings
-from migrations_engine.db.models import AuthSession, ProjectDefinition, ProjectMembership, ProjectRegistry, User
+from migrations_engine.db.models import (
+    AuthSession,
+    ProjectDefinition,
+    ProjectMembership,
+    ProjectRegistry,
+    User,
+)
 from migrations_engine.db.session import SessionLocal
 from migrations_engine.management.access import user_has_project_access
 from migrations_engine.roles import PROJECT_STAKEHOLDER_ROLE, READ_ONLY_AUDITOR_ROLE
@@ -147,6 +153,55 @@ def test_admin_can_create_and_update_user(admin_token: str) -> None:
     assert update.json()["role"] == "read_only_auditor"
 
 
+def test_admin_can_clear_display_name_and_cannot_change_own_role(admin_token: str) -> None:
+    settings = get_settings()
+    admin_email = settings.bootstrap_admin_email.strip().lower()
+    with SessionLocal() as db:
+        admin = db.scalar(select(User).where(User.email == admin_email))
+        assert admin is not None
+        admin_id = admin.user_id
+        original_display_name = admin.display_name
+
+    try:
+        clear_display_name = client.patch(
+            f"/users/{admin_id}",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            json={"display_name": None},
+        )
+        assert clear_display_name.status_code == 200, clear_display_name.text
+        assert clear_display_name.json()["display_name"] is None
+
+        self_role_change = client.patch(
+            f"/users/{admin_id}",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            json={"role": "project_stakeholder"},
+        )
+        assert self_role_change.status_code == 403
+        assert self_role_change.json()["error"]["code"] == "forbidden"
+    finally:
+        with SessionLocal() as db:
+            admin = db.scalar(select(User).where(User.user_id == admin_id))
+            assert admin is not None
+            admin.display_name = original_display_name
+            db.commit()
+
+
+def test_admin_cannot_delete_self(admin_token: str) -> None:
+    settings = get_settings()
+    admin_email = settings.bootstrap_admin_email.strip().lower()
+    with SessionLocal() as db:
+        admin = db.scalar(select(User).where(User.email == admin_email))
+        assert admin is not None
+        admin_id = admin.user_id
+
+    response = client.delete(
+        f"/users/{admin_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "forbidden"
+
+
 def test_non_admin_cannot_create_user(
     stakeholder_user: tuple[str, str, str],
     auditor_user: tuple[str, str],
@@ -238,3 +293,25 @@ def test_admin_cannot_assign_non_stakeholder_membership(
     )
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "not_stakeholder"
+
+
+def test_admin_cannot_add_member_to_archived_project(
+    admin_token: str,
+    test_project_id: str,
+    stakeholder_user: tuple[str, str, str],
+) -> None:
+    user_id = stakeholder_user[0]
+
+    archive = client.post(
+        f"/projects/{test_project_id}/archive",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert archive.status_code == 200, archive.text
+
+    response = client.post(
+        f"/projects/{test_project_id}/members",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"user_id": user_id},
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "project_archived"

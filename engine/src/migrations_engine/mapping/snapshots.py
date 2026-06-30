@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from ..db.models import LookupSnapshot, MappingSnapshot, new_id
 from .constants import APPROVED_SNAPSHOT_STATUS
-from .exceptions import SnapshotImmutableError, SnapshotNotFoundError
+from .exceptions import MappingError, SnapshotImmutableError, SnapshotNotFoundError, SnapshotVersionConflictError
 
 
 @dataclass(frozen=True)
@@ -28,6 +28,18 @@ def create_approved_mapping_snapshot(
     field_bindings: list[FieldBinding],
     approved_by_user_id: str | None = None,
 ) -> MappingSnapshot:
+    existing_snapshot = db.scalar(
+        select(MappingSnapshot).where(
+            MappingSnapshot.project_id == project_id,
+            MappingSnapshot.destination_object_name == destination_object_name,
+            MappingSnapshot.mapping_snapshot_version == mapping_snapshot_version,
+        )
+    )
+    if existing_snapshot is not None:
+        raise SnapshotVersionConflictError(
+            f"Mapping snapshot version {mapping_snapshot_version!r} already exists for "
+            f"{destination_object_name!r} in project {project_id}."
+        )
     serialized_bindings = [
         {
             "source_field": binding.source_field,
@@ -122,6 +134,8 @@ def select_latest_approved_lookup_snapshot(
 def parse_primary_field_binding(snapshot: MappingSnapshot) -> FieldBinding:
     if not snapshot.field_bindings:
         raise SnapshotNotFoundError("Mapping snapshot has no field bindings.")
+    if len(snapshot.field_bindings) > 1:
+        raise MappingError("Only single-field binding is supported.")
     binding = snapshot.field_bindings[0]
     return FieldBinding(
         source_field=str(binding["source_field"]),

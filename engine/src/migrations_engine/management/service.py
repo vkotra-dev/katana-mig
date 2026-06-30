@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
@@ -76,12 +76,14 @@ def update_user(
         raise AuthApiError("user_not_found", "User not found.", 404)
 
     changes: dict[str, object] = {}
-    if body.display_name is not None:
+    if "display_name" in body.model_fields_set:
         user.display_name = body.display_name
         changes["display_name"] = body.display_name
     if body.role is not None:
         if not is_valid_platform_role(body.role):
             raise AuthApiError("invalid_role", "Role is not valid.", 422)
+        if "role" in body.model_fields_set and actor.user_id == user_id:
+            raise AuthApiError("forbidden", "Cannot change your own role.", 403)
         user.role = body.role
         changes["role"] = body.role
     if body.status is not None:
@@ -106,11 +108,18 @@ def soft_delete_user(db: Session, *, actor: User, user_id: str) -> None:
     user = _get_user_record(db, user_id)
     if user.soft_deleted_at is not None:
         raise AuthApiError("user_not_found", "User not found.", 404)
+    if actor.user_id == user_id:
+        raise AuthApiError("forbidden", "Cannot delete your own account.", 403)
 
     now = datetime.now(UTC)
     user.soft_deleted_at = now
     user.status = "disabled"
-    user.session_version += 1
+    db.execute(
+        update(User)
+        .where(User.user_id == user.user_id)
+        .values(session_version=User.session_version + 1)
+    )
+    db.refresh(user)
     platform_project_id = ensure_platform_project(db)
     record_management_audit(
         db,
@@ -144,7 +153,13 @@ def add_project_member(
     project_id: str,
     user_id: str,
 ) -> MembershipResponse:
-    _get_project(db, project_id)
+    project = _get_project(db, project_id)
+    if project.archived_at is not None:
+        raise AuthApiError(
+            "project_archived",
+            "Cannot modify membership on an archived project.",
+            409,
+        )
     user = _get_user_record(db, user_id)
     if user.soft_deleted_at is not None:
         raise AuthApiError("user_not_found", "User not found.", 404)

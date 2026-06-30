@@ -58,7 +58,7 @@ function displayCellValue(value: unknown): string {
 }
 
 function extractDestinationId(row: Record<string, unknown>): string {
-  const candidates = ["id", "value", "code", "key"];
+  const candidates = ["id", "value", "code", "key", "destination_id"];
   for (const key of candidates) {
     const current = row[key];
     if (typeof current === "string" && current.trim()) {
@@ -295,6 +295,7 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
       return;
     }
 
+    const fieldName = activeField;
     try {
       const parsedRows = parseDestinationTable(activeState.draftText);
       const validIds = new Set(parsedRows.map((row) => extractDestinationId(row)).filter(Boolean));
@@ -308,7 +309,7 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
         errorMessage: null,
       }));
     } catch (error) {
-      setTabError(error instanceof Error ? error.message : "Unable to parse destination table.");
+      setTabError(fieldName, error instanceof Error ? error.message : "Unable to parse destination table.");
     }
   };
 
@@ -341,7 +342,7 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
       }));
       setLookupMaps((current) => [...current, response]);
     } catch (error) {
-      setTabError(error instanceof Error ? error.message : "Unable to save lookup draft.");
+      setTabError(fieldName, error instanceof Error ? error.message : "Unable to save lookup draft.");
     } finally {
       setActionLoading(false);
     }
@@ -379,7 +380,7 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
       }));
       setLookupMaps((current) => [...current, savedDraft]);
     } catch (error) {
-      setTabError(error instanceof Error ? error.message : "Unable to generate lookup snapshot.");
+      setTabError(fieldName, error instanceof Error ? error.message : "Unable to generate lookup snapshot.");
     } finally {
       setActionLoading(false);
     }
@@ -407,7 +408,7 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
         errorMessage: null,
       }));
     } catch (error) {
-      setTabError(error instanceof Error ? error.message : "Unable to approve lookup snapshot.");
+      setTabError(fieldName, error instanceof Error ? error.message : "Unable to approve lookup snapshot.");
     } finally {
       setActionLoading(false);
     }
@@ -588,7 +589,7 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
                 <div className="space-y-2">
                   <h2 className="text-lg font-semibold text-slate-900">Destination table</h2>
                   <p className="text-sm text-slate-600">
-                    Paste JSON or CSV rows with an `id` column, then generate the lookup snapshot.
+                    Paste JSON or CSV rows with an `id` or `destination_id` column, then generate the lookup snapshot.
                   </p>
                 </div>
 

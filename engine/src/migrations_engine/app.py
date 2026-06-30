@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from .api.deps import AuthApiError
@@ -16,9 +19,18 @@ from .routes.sources import router as sources_router
 from .routes.slice_approval import router as slice_approval_router
 from .routes.users import router as users_router
 
+
+def _validate_runtime_settings(settings: object) -> None:
+    if os.environ.get("KATANA_ENV", "").lower() != "production":
+        return
+    if getattr(settings, "jwt_secret", None) == "dev-only-change-me":
+        raise RuntimeError("Production JWT secret must not use the dev default.")
+
+
 app = FastAPI(title="Katana Migration Engine")
 
 _settings = get_settings()
+_validate_runtime_settings(_settings)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in _settings.cors_origins.split(",") if o.strip()],
@@ -43,6 +55,14 @@ async def auth_api_error_handler(_request: object, exc: AuthApiError) -> JSONRes
     return JSONResponse(
         status_code=exc.status_code,
         content={"error": {"code": exc.code, "message": exc.message}},
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_error_handler(_request: object, _exc: RequestValidationError) -> JSONResponse:
+    return JSONResponse(
+        status_code=422,
+        content={"error": {"code": "validation_error", "message": "Invalid request body."}},
     )
 
 

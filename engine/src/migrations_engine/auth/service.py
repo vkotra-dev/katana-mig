@@ -1,15 +1,16 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from ..auth.jwt import SessionClaims, create_access_token, encode_access_token
 from ..auth.passwords import hash_password, verify_password
 from ..auth.reset_tokens import generate_reset_token, hash_reset_token
 from ..config import Settings
-from ..db.models import AuthSession, PasswordResetToken, User, new_id
+from ..db.models import AuthSession, PasswordResetToken, User
 from ..api.deps import AuthApiError
 from ..api.schemas import (
     AuthenticatedUserResponse,
@@ -61,7 +62,7 @@ def login_user(
         session_version=user.session_version,
     )
     access_token = encode_access_token(settings=settings, claims=claims)
-    _record_auth_session(db, user=user, claims=claims, token_identifier=new_id())
+    _record_auth_session(db, user=user, claims=claims)
     db.commit()
 
     return LoginResponse(
@@ -133,10 +134,9 @@ def confirm_password_reset(
     user.password_hash = hash_password(new_password)
     _revoke_user_sessions(db, user=user)
     record.used_at = now
-    db.commit()
-
     if user.role != original_role:
         raise RuntimeError("password reset must not change user role")
+    db.commit()
 
 
 def _as_utc(value: datetime) -> datetime:
@@ -179,7 +179,12 @@ def _issue_password_reset_token(
 
 
 def _revoke_user_sessions(db: Session, *, user: User) -> None:
-    user.session_version += 1
+    db.execute(
+        update(User)
+        .where(User.user_id == user.user_id)
+        .values(session_version=User.session_version + 1)
+    )
+    db.refresh(user)
     now = datetime.now(UTC)
     for session in user.sessions:
         if session.revoked_at is None:
@@ -191,13 +196,12 @@ def _record_auth_session(
     *,
     user: User,
     claims: SessionClaims,
-    token_identifier: str,
 ) -> None:
     db.add(
         AuthSession(
             user_id=user.user_id,
             role=user.role,
-            token_identifier=token_identifier,
+            token_identifier=hashlib.sha256(claims.jti.encode("utf-8")).hexdigest(),
             issued_at=claims.issued_at,
             expires_at=claims.expires_at,
             revocation_version=user.session_version,

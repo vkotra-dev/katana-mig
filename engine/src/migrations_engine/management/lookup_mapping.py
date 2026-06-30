@@ -167,7 +167,7 @@ def generate_lookup_snapshot(
     )
     db.commit()
     db.refresh(snapshot)
-    return _lookup_snapshot_response(snapshot, source_definition_id=source_definition_id)
+    return _lookup_snapshot_response(snapshot)
 
 
 def approve_lookup_snapshot(
@@ -183,7 +183,7 @@ def approve_lookup_snapshot(
     if snapshot is None or snapshot.project_id != project_id or snapshot.lookup_name is None:
         raise AuthApiError("lookup_snapshot_not_found", "Lookup snapshot not found.", 404)
     if snapshot.status == "approved":
-        return _lookup_snapshot_response(snapshot, source_definition_id=source_definition_id)
+        return _lookup_snapshot_response(snapshot)
 
     snapshot.status = "approved"
     snapshot.approved_at = datetime.now(UTC)
@@ -202,7 +202,7 @@ def approve_lookup_snapshot(
     )
     db.commit()
     db.refresh(snapshot)
-    return _lookup_snapshot_response(snapshot, source_definition_id=source_definition_id)
+    return _lookup_snapshot_response(snapshot)
 
 
 def _get_source_definition(db: Session, *, project_id: str, source_definition_id: str) -> SourceDefinition:
@@ -336,11 +336,10 @@ def _mapping_snapshot_response(snapshot) -> MappingSnapshotResponse:
     )
 
 
-def _lookup_snapshot_response(row: LookupSnapshot, *, source_definition_id: str) -> LookupSnapshotResponse:
+def _lookup_snapshot_response(row: LookupSnapshot) -> LookupSnapshotResponse:
     return LookupSnapshotResponse(
         lookup_snapshot_id=row.lookup_snapshot_id,
         project_id=row.project_id,
-        source_definition_id=source_definition_id,
         lookup_name=row.lookup_name,
         lookup_snapshot_version=row.lookup_snapshot_version,
         value_map=row.value_map,

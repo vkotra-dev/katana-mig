@@ -132,7 +132,6 @@ describe("LookupPage", () => {
     generateLookupSnapshotMock.mockResolvedValue({
       lookupSnapshotId: "snapshot-1",
       projectId: "project-1",
-      sourceDefinitionId: "source-1",
       lookupName: "status_code",
       lookupSnapshotVersion: "v1",
       valueMap: { A: "ACTIVE", B: "ACTIVE" },
@@ -142,7 +141,6 @@ describe("LookupPage", () => {
     approveLookupSnapshotMock.mockResolvedValue({
       lookupSnapshotId: "snapshot-1",
       projectId: "project-1",
-      sourceDefinitionId: "source-1",
       lookupName: "status_code",
       lookupSnapshotVersion: "v1",
       valueMap: { A: "ACTIVE", B: "ACTIVE" },
@@ -187,5 +185,72 @@ describe("LookupPage", () => {
       "source-1",
       "snapshot-1",
     ));
+  });
+
+  it("shows lookup errors when save draft fails and accepts destination_id rows", async () => {
+    loadUiSessionMock.mockReturnValue({
+      accessToken: "token-1",
+      expiresAt: "2026-06-30T12:00:00Z",
+      role: "central_team",
+      sessionVersion: 1,
+      userId: "user-1",
+    });
+
+    getSourceContractMock.mockResolvedValue({
+      sourceDefinitionId: "source-1",
+      projectId: "project-1",
+      sourceType: "csv",
+      label: "Customer Extract",
+      encoding: "utf-8",
+      destinationObjectReferences: null,
+      layoutInformation: null,
+      copybookText: null,
+      status: "declared",
+      createdAt: "2026-06-30T00:00:00Z",
+    });
+    getLatestApprovedMappingSnapshotMock.mockResolvedValue({
+      mappingSnapshotId: "mapping-1",
+      projectId: "project-1",
+      destinationObjectName: "Customer",
+      mappingSnapshotVersion: "v3",
+      fieldBindings: [
+        {
+          sourceField: "status_code",
+          destinationField: "status_id",
+          lookupName: "status_code",
+        },
+      ],
+      status: "approved",
+      approvedAt: "2026-06-30T00:00:00Z",
+      approvedByUserId: "user-1",
+      createdAt: "2026-06-30T00:00:00Z",
+    });
+    listSourceSchemaMock.mockResolvedValue([]);
+    listSourceValueSummariesMock.mockResolvedValue([
+      {
+        summaryId: "summary-1",
+        sourceDefinitionId: "source-1",
+        sourceSliceVersion: "v1",
+        fieldName: "status_code",
+        valueCounts: { A: 4 },
+        createdAt: "2026-06-30T00:00:00Z",
+      },
+    ]);
+    listLookupValueMapsMock.mockResolvedValue([]);
+    createLookupValueMapMock.mockRejectedValue(new Error("Unable to save lookup draft."));
+
+    render(<LookupPage params={Promise.resolve({ id: "project-1", sourceId: "source-1" })} />);
+
+    const table = await screen.findByLabelText("Draft destination table");
+    fireEvent.change(table, {
+      target: { value: JSON.stringify([{ destination_id: "ACTIVE", label: "Active" }], null, 2) },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply table" }));
+
+    expect(screen.getAllByText("ACTIVE").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+
+    await expect(screen.findByRole("alert")).resolves.toHaveTextContent("Unable to save lookup draft.");
   });
 });
