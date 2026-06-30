@@ -1,12 +1,12 @@
 # Task 001aa — Reconciliation (Backend + UI)
 
-**Plan:** `plans/2026-06-29-001aa-reconciliation.md` _(to be written)_
+**Plan:** `plans/2026-07-01-001aa-reconciliation.md`
 
 ## Domain
 
 - `docs/domain/governance.md` — reconciliation, audit trail
 - `docs/domain/runs.md` — final stage of the baton chain
-- `docs/design/stitch/11-reconciliation.md` — reconciliation screen mockup
+- `docs/design/stitch/11-reconciliation-lineage.md` — reconciliation screen mockup
 
 ## Depends on
 
