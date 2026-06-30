@@ -3,7 +3,7 @@
 | Task | Domain | Status | Notes |
 |---|---|---|---|
 | [001h-ui-portfolio-project-screens](./completed/001h-ui-portfolio-project-screens.md) | ui, project | completed | [summary](./summary/001h-ui-portfolio-project-screens.md) |
-| [001i-ui-template-foundation](./001i-ui-template-foundation.md) | ui | ready | Shell, tokens, Topbar/Sidebar/LoginView from mockmigration templates |
+| [001i-ui-template-foundation](./completed/001i-ui-template-foundation.md) | ui | completed | [summary](./summary/001i-ui-template-foundation.md) |
 | [001q-source-intake](./completed/001q-source-intake.md) | source-model, api, ui | completed | [summary](./summary/001q-source-intake.md) |
 | [001t-runs-api](./completed/001t-runs-api.md) | [summary](./summary/001t-runs-api.md) | completed | Run CRUD, launch, execution engine, checkpoint writes, LookupDeltaCR; depends on 001q/r/s |
 | [001u-runs-ui](./completed/001u-runs-ui.md) | [summary](./summary/001u-runs-ui.md) | completed | Runs list, run detail (5 tabs, polling), launch dialog; stitch 03/04/05; depends on 001t |
