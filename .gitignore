@@ -10,3 +10,4 @@ katana.db
 *.sqlite3
 .env
 .env.*
+.worktrees/
