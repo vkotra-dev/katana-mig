@@ -318,6 +318,61 @@ class MappingRejectRequest(BaseModel):
     reason: str = Field(min_length=1, max_length=1000)
 
 
+class GateApproveRequest(BaseModel):
+    notes: str | None = None
+
+
+class GatePushbackRequest(BaseModel):
+    affected_objects: list[str]
+    required_changes: str = Field(min_length=1, max_length=1000)
+    notes: str | None = None
+
+
+class GateRecordResponse(BaseModel):
+    gate: str
+    decision: str
+    approver_user_id: str | None
+    decided_at: datetime
+    notes: str | None
+    affected_objects: list[str] | None = None
+    required_changes: str | None = None
+
+
+class GateStatusResponse(BaseModel):
+    run_id: str
+    gate_1: GateRecordResponse | None
+    gate_2: GateRecordResponse | None
+
+
+class FieldBindingSummary(BaseModel):
+    source_field: str
+    destination_field: str
+    lookup_name: str | None
+
+
+class Gate1EvidenceResponse(BaseModel):
+    run_id: str
+    destination_object_name: str
+    mapping_snapshot_version: str | None
+    field_bindings: list[FieldBindingSummary]
+    pii_fields: list[str]
+    coverage_gaps: list[str]
+
+
+class LookupRowResponse(BaseModel):
+    source_value: str
+    destination_value: str | None
+    state: str
+
+
+class Gate2EvidenceResponse(BaseModel):
+    run_id: str
+    lookup_name: str
+    rows: list[LookupRowResponse]
+    confirmed_count: int
+    unmapped_count: int
+
+
 class RunCreateRequest(BaseModel):
     destination_object_name: str = Field(min_length=1, max_length=255)
     source_definition_id: str
