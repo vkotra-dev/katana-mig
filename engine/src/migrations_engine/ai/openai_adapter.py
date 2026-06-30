@@ -1,14 +1,40 @@
 from __future__ import annotations
 
 import os
+import sys
+from types import ModuleType
 from typing import TypeVar
 
-import openai
 from pydantic import BaseModel
 
 from .adapter import AICallError, ConfigurationError
 
 T = TypeVar("T", bound=BaseModel)
+
+
+try:  # pragma: no cover - exercised indirectly through adapter tests
+    import openai
+except ImportError:  # pragma: no cover - environment shim for test isolation
+    openai = ModuleType("openai")
+
+    class _OpenAIError(Exception):
+        pass
+
+    class _OpenAICompletions:
+        def create(self, *_args: object, **_kwargs: object) -> object:
+            raise RuntimeError("openai package is not installed")
+
+    class _OpenAIChat:
+        def __init__(self) -> None:
+            self.completions = _OpenAICompletions()
+
+    class _OpenAIClient:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            self.chat = _OpenAIChat()
+
+    openai.OpenAIError = _OpenAIError  # type: ignore[attr-defined]
+    openai.OpenAI = _OpenAIClient  # type: ignore[attr-defined]
+    sys.modules.setdefault("openai", openai)
 
 
 class OpenAIAdapter:

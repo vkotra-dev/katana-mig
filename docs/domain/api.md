@@ -629,6 +629,39 @@ Approve a generated lookup snapshot at the project level. Requires
 
 Response `200`: `LookupSnapshotResponse`
 
+## Code generation endpoints
+
+Code generation is source-triggered but project-scoped in persistence. The
+trigger route is central-team only; read routes follow normal project access.
+
+### `POST /projects/{project_id}/sources/{contract_id}/codegen`
+
+Generate a new SQL bundle for the source's destination object. Requires
+`central_team`.
+
+Response `201`: `CodegenTriggerResponse`
+
+### `GET /projects/{project_id}/codegen-artifacts`
+
+List code generation artifacts for a project. Any authenticated user with
+project access.
+
+Response `200`: array of `CodegenArtifactResponse`
+
+### `GET /projects/{project_id}/codegen-artifacts/{codegen_artifact_id}`
+
+Return one code generation artifact. Any authenticated user with project
+access.
+
+Response `200`: `CodegenArtifactResponse`
+
+### `GET /projects/{project_id}/delivery-bundle`
+
+Download the concatenated SQL delivery bundle for all active artifacts in the
+project. Any authenticated user with project access.
+
+Response `200`: `text/plain` attachment named `delivery-bundle.sql`
+
 ### `SourceContractResponse`
 
 ```json

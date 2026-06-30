@@ -1,14 +1,36 @@
 from __future__ import annotations
 
 import os
+import sys
+from types import ModuleType
 from typing import Any, TypeVar
 
-import anthropic
 from pydantic import BaseModel
 
 from .adapter import AICallError, ConfigurationError
 
 T = TypeVar("T", bound=BaseModel)
+
+
+try:  # pragma: no cover - exercised indirectly through adapter tests
+    import anthropic
+except ImportError:  # pragma: no cover - environment shim for test isolation
+    anthropic = ModuleType("anthropic")
+
+    class _APIError(Exception):
+        pass
+
+    class _AnthropicMessages:
+        def create(self, *_args: Any, **_kwargs: Any) -> Any:
+            raise RuntimeError("anthropic package is not installed")
+
+    class _AnthropicClient:
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            self.messages = _AnthropicMessages()
+
+    anthropic.APIError = _APIError  # type: ignore[attr-defined]
+    anthropic.Anthropic = _AnthropicClient  # type: ignore[attr-defined]
+    sys.modules.setdefault("anthropic", anthropic)
 
 
 class AnthropicAdapter:

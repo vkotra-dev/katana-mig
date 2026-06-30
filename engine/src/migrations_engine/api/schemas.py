@@ -256,6 +256,38 @@ class SourceValueSummaryResponse(BaseModel):
     created_at: datetime
 
 
+class CodegenTriggerResponse(BaseModel):
+    codegen_artifact_id: str
+    project_id: str
+    destination_object_name: str
+    status: Literal["active", "superseded"]
+    sql_bundle_preview: str
+    source_slice_version: str | None
+    mapping_snapshot_version: str | None
+    lookup_snapshot_version: str | None
+    created_at: datetime
+
+
+class CodegenArtifactResponse(BaseModel):
+    codegen_artifact_id: str
+    project_id: str
+    destination_object_name: str
+    run_id: str | None
+    source_slice_version: str | None
+    mapping_snapshot_version: str | None
+    lookup_snapshot_version: str | None
+    sql_bundle: str | None
+    status: Literal["active", "superseded"]
+    created_at: datetime
+    superseded_at: datetime | None
+
+
+class DeliveryBundleResponse(BaseModel):
+    filename: str
+    sql_bundle: str
+    artifact_count: int
+
+
 class LookupValueMapCreateRequest(BaseModel):
     lookup_name: str = Field(min_length=1, max_length=128)
     destination_table: list[dict[str, Any]]
