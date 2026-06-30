@@ -187,3 +187,55 @@ def test_run_crud_launch_and_resume_via_api(admin_token: str) -> None:
     )
     assert detail_response.status_code == 200, detail_response.text
     assert detail_response.json()["status"] == "queued"
+
+
+def test_run_launch_and_resume_are_scoped_to_project(admin_token: str) -> None:
+    with SessionLocal() as db:
+        project_a, _ = _create_project(db, f"Runs-A-{uuid.uuid4().hex[:8]}")
+        project_b, _ = _create_project(db, f"Runs-B-{uuid.uuid4().hex[:8]}")
+
+    create_source = client.post(
+        f"/projects/{project_a}/sources",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"source_type": "csv", "label": "Customers", "encoding": "utf-8"},
+    )
+    assert create_source.status_code == 201, create_source.text
+    source_definition_id = create_source.json()["source_definition_id"]
+    upload = client.post(
+        f"/projects/{project_a}/sources/{source_definition_id}/slices",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"content": "STATUS,PLAN\nA,Gold\n"},
+    )
+    assert upload.status_code == 200, upload.text
+    slice_id = upload.json()["source_slice_id"]
+    approve = client.post(
+        f"/projects/{project_a}/sources/{source_definition_id}/slices/{slice_id}/approve",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert approve.status_code == 200, approve.text
+
+    create = client.post(
+        f"/projects/{project_a}/runs",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "destination_object_name": "Customer",
+            "source_definition_id": source_definition_id,
+            "environment": "dev",
+        },
+    )
+    assert create.status_code == 201, create.text
+    run_id = create.json()["run_id"]
+
+    launch_wrong_project = client.post(
+        f"/projects/{project_b}/runs/{run_id}/launch",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert launch_wrong_project.status_code == 404, launch_wrong_project.text
+    assert launch_wrong_project.json()["error"]["code"] == "run_not_found"
+
+    resume_wrong_project = client.post(
+        f"/projects/{project_b}/runs/{run_id}/resume",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resume_wrong_project.status_code == 404, resume_wrong_project.text
+    assert resume_wrong_project.json()["error"]["code"] == "run_not_found"

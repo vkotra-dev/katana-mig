@@ -25,6 +25,7 @@
 | [001ab-source-slice-approval](./completed/001ab-source-slice-approval.md) | [summary](./summary/001ab-source-slice-approval.md) |
 | [001x-lookup-value-mapping](./completed/001x-lookup-value-mapping.md) | [summary](./summary/001x-lookup-value-mapping.md) |
 | [001ac-mapping-hardening](./completed/001ac-mapping-hardening.md) | [summary](./summary/001ac-mapping-hardening.md) |
+| [001ad-runs-analysis-review-hardening](./completed/001ad-runs-analysis-review-hardening.md) | [summary](./summary/001ad-runs-analysis-review-hardening.md) |
 | [001r-codegen-artifact-model](./completed/001r-codegen-artifact-model.md) | [summary](./summary/001r-codegen-artifact-model.md) |
 | [001s-ai-adapters](./completed/001s-ai-adapters.md) | [summary](./summary/001s-ai-adapters.md) |
 | [001j-engine-fastapi-foundation](./completed/001j-engine-fastapi-foundation.md) | [summary](./summary/001j-engine-fastapi-foundation.md) |

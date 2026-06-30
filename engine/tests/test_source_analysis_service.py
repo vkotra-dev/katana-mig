@@ -198,6 +198,38 @@ def test_analyze_source_slice_is_idempotent(monkeypatch: pytest.MonkeyPatch) -> 
     assert len(fake_adapter.calls) == 1
 
 
+def test_analyze_source_slice_uses_field_mapping_adapter_slot(monkeypatch: pytest.MonkeyPatch) -> None:
+    Base.metadata.create_all(bind=TEST_ENGINE)
+
+    fake_adapter = FakeAdapter(
+        analysis_result=AnalysisResult(
+            columns=[
+                ColumnSchema(name="CUST_ID", inferred_type="integer", nullable=False, max_length=8),
+            ]
+        )
+    )
+    requested_tasks: list[str] = []
+
+    def capture_adapter(task: str) -> FakeAdapter:
+        requested_tasks.append(task)
+        return fake_adapter
+
+    monkeypatch.setattr("migrations_engine.management.source_analysis.get_adapter", capture_adapter)
+
+    with SessionLocal() as db:
+        actor, project_id, source_definition_id = _seed_approved_slice(db, row_count=1)
+        response = analyze_source_slice(
+            db,
+            actor=actor,
+            project_id=project_id,
+            source_definition_id=source_definition_id,
+        )
+
+    assert response.status == "completed"
+    assert requested_tasks == ["field_mapping"]
+    assert len(fake_adapter.calls) == 1
+
+
 def test_analyze_source_slice_caps_value_summary_distinct_values(monkeypatch: pytest.MonkeyPatch) -> None:
     Base.metadata.create_all(bind=TEST_ENGINE)
 
