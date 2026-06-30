@@ -60,7 +60,7 @@ Relevant fields:
 - source definition reference
 - source slice version
 - mapping snapshot version
-- lookup snapshot version
+- lookup snapshot versions
 - code-generation input snapshot version
 - knowledge-freeze version
 - status
@@ -78,6 +78,12 @@ facts are the minimum needed to explain what happened.
 The run record may also keep a frozen summary of selected snapshot metadata for
 audit queries, but the version references remain authoritative.
 
+`lookup_snapshot_versions` is a JSON object keyed by lookup name. Each value is
+the approved lookup snapshot version pinned for that lookup during execution.
+When a run only consumes one lookup, the map contains a single entry. When a run
+consumes multiple lookups, the map preserves every version so the audit trail is
+complete.
+
 ### Snapshot set
 
 A run should be able to identify the approved artifact set it consumed:
@@ -85,7 +91,7 @@ A run should be able to identify the approved artifact set it consumed:
 - source definition version or reference
 - approved source slice version
 - approved mapping snapshot version
-- approved lookup snapshot version
+- approved lookup snapshot versions
 - approved code-generation input version
 - knowledge-freeze version, where applicable
 
@@ -145,7 +151,7 @@ The run loop operates at two levels: an outer object loop and an inner row loop.
 for each destination_object in project:
     receive stage baton (carries approved snapshot versions)
     pin source_slice_version, mapping_snapshot_version,
-        lookup_snapshot_version, code_generation_input_snapshot_version
+        lookup_snapshot_versions, code_generation_input_snapshot_version
         onto RunRecord
     execute inner row loop
     generate SQL from MappingArtifact.mapped_rows
@@ -225,7 +231,7 @@ Stage sequence and baton chain for a migration object run:
             → baton_2: {source_slice_version, mapping_snapshot_version}
                 → [lookup approved]
                     → baton_3: {source_slice_version, mapping_snapshot_version,
-                                lookup_snapshot_version}
+                                lookup_snapshot_versions}
                         → [code generation run — mints CodeGenerationArtifact,
                                                supersedes prior active artifact for
                                                (project, destination_object_name)]
@@ -239,8 +245,8 @@ Stage sequence and baton chain for a migration object run:
 `knowledge_freeze_version` is the `codegen_artifact_id` from baton_4 after it
 clears the review gate. No new artifact is minted — the `CodeGenerationArtifact`
 already captures every upstream version (source slice, mapping snapshot, lookup
-snapshot) and the generated SQL bundle. Gate approval is the act of freezing;
-the artifact was already the knowledge container.
+snapshot set) and the generated SQL bundle. Gate approval is the act of
+freezing; the artifact was already the knowledge container.
 ```
 
 A baton arriving at a stage without the required approved versions causes the

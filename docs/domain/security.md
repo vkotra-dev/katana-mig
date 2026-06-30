@@ -130,6 +130,8 @@ The main risks the system must control are:
 - Soft-deleted and disabled users cannot act.
 - Service accounts must be explicit and scoped.
 - Human sessions use short-lived JWTs with explicit revocation support.
+- A `central_team` user cannot delete their own account or downgrade their own
+  role. Platform operators must always retain at least one recovery path.
 
 ### Project isolation
 
