@@ -22,9 +22,19 @@ def require_central_team(user: User) -> None:
         raise AuthApiError("forbidden", "Central team access is required.", 403)
 
 
+def require_non_auditor(user: User) -> None:
+    if user.role == READ_ONLY_AUDITOR_ROLE:
+        raise AuthApiError("forbidden", "Read-only auditors cannot perform this action.", 403)
+
+
 def require_central_team_or_self(actor: User, target_user_id: str) -> None:
     if actor.user_id != target_user_id:
         require_central_team(actor)
+
+
+def require_project_access(db: Session, *, user: User, project_id: str) -> None:
+    if not user_has_project_access(db, user=user, project_id=project_id):
+        raise AuthApiError("forbidden", "Access to this project requires membership.", 403)
 
 
 def user_has_project_access(db: Session, *, user: User, project_id: str) -> bool:

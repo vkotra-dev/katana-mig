@@ -1,5 +1,14 @@
 # 001h-ui-portfolio-project-screens
 
+> **SCOPE NARROWED** — Original scope included project detail + run progress, both now
+> covered by completed/planned tasks:
+> - Project detail page → `001p` (project-crud-ui)
+> - Run progress view → `001u` (runs-ui)
+>
+> **Remaining valid scope:** Portfolio dashboard only (stitch `02-portfolio-dashboard.md`) —
+> the project list view with per-project stage badges, blocked indicators, and
+> action-required chips that span multiple projects.
+
 ## Domain
 
 - [ui.md](/Users/vjkotra/projects/katana/docs/domain/ui.md)

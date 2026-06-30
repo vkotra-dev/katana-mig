@@ -195,6 +195,10 @@ approval_rejection_reason   string | null — written on rejection
 parse_warnings              list[str] — parser-time warnings (e.g. "3 rows skipped: missing field")
 file_storage_path           string | null — server-side path or object-storage key to the
                             original uploaded file; required for resubmit to re-parse
+slice_purpose               "full_load" | "patch" — set at upload time
+                            full_load: complete extract; codegen generates TRUNCATE + INSERT
+                            patch: delta rows only; codegen generates MERGE / UPDATE + INSERT
+                            for only the rows in this slice
 ```
 
 ## Source slice approval
@@ -257,6 +261,39 @@ POST /projects/{project_id}/sources/{source_definition_id}/slices/{source_slice_
    If `pending_approval`: inline Approve + Reject buttons.
    If `rejected`: rejection reason + Resubmit button (opens modal for encoding/settings override).
 
+## Source analysis
+
+Source analysis consumes the latest approved source slice for a source definition
+and produces immutable analysis artifacts for downstream mapping and lookup work.
+
+Rules:
+
+- the analysis target is the latest approved `SourceSlice` for the source definition
+- the AI-facing schema sample is capped at 200 rows
+- `SourceSchemaArtifact.columns` stores the analyzed column schemas
+- `SourceValueSummary.value_counts` stores distinct values and counts per field
+- value summaries are capped at 500 distinct values per field
+- source analysis reruns when the source slice changes
+
+### Source analysis artifacts
+
+`SourceSchemaArtifact`:
+
+- `schema_artifact_id`
+- `source_definition_id`
+- `source_slice_version`
+- `columns`
+- `created_at`
+
+`SourceValueSummary`:
+
+- `summary_id`
+- `source_definition_id`
+- `source_slice_version`
+- `field_name`
+- `value_counts`
+- `created_at`
+
 ## Object runs
 
 Runs are object-specific for auditability.
@@ -282,22 +319,25 @@ If the source changes, source analysis reruns.
 If only mapping or lookup changes, only those approvals rerun, then codegen
 reruns.
 
-### Lookup mapping drafts
+### Lookup mapping
 
-Lookup mapping is the governed pre-run flow that turns source value summaries
-into approved lookup snapshots.
+Lookup mapping is the operator-managed pre-run table flow that feeds the
+runtime lookup snapshot consumed by later execution stages.
 
-- `SourceValueSummary` records the distinct observed values for a source field
-  after source analysis
-- `LookupValueMap` stores the operator-provided destination table as a draft
-  artifact for one named lookup
-- a lookup snapshot is generated from the latest approved mapping snapshot that
-  binds the lookup name plus the latest `SourceValueSummary` rows for the bound
-  source field(s)
-- if any source values are missing from the draft destination table, snapshot
-  generation stops and reports the unmapped values explicitly
-- approval makes the generated `LookupSnapshot` immutable and records audit
-  evidence
+The flow is:
+
+1. operator saves a draft `LookupValueMap` for a `(source_definition_id, lookup_name)` pair
+2. operator maps each observed source value to a destination identifier
+3. the platform generates a draft `LookupSnapshot` from the source value summary and the selected destination ids
+4. the operator approves the generated snapshot
+
+Rules:
+
+- the lookup draft stores the destination table rows for the lookup
+- the snapshot stores the final `value_map` of source value -> destination id
+- unmapped source values block snapshot generation
+- snapshot approval records audit evidence and preserves the snapshot version
+- runtime lookup delta handling remains a separate path
 
 ### Source/run snapshot policy
 
@@ -373,9 +413,35 @@ The complete delivery bundle is assembled by collecting all `status = "active"`
 `CodeGenerationArtifact` records for a project, ordered by destination object name. There is no
 `destination_ddl` column on `SourceDefinition`.
 
-## Impact analysis and patch generation
+## Patch runs and multi-object derivation
 
-Mapping or lookup changes trigger impact analysis.
+### New destination object from the same source
+
+When a second destination object (e.g. `Address`) can be derived from the same
+source contract (e.g. `customers.csv`), the operator creates a new `MappingSnapshot`
+for that object and launches a new run — all against the same already-approved
+`SourceSlice`. No re-upload, no new analysis. Many runs may share one approved slice.
+
+### Source data patch (delta re-run)
+
+When source data changes partially — some records updated, new records added —
+the operator uploads a new `SourceSlice` containing **only the changed rows**
+(`slice_purpose = "patch"`). The pipeline reuses the same approved `MappingSnapshot`
+and `LookupSnapshot` (structure is unchanged). A new run processes the delta slice
+and produces a new `CodeGenerationArtifact` whose `sql_bundle` contains
+`MERGE / UPDATE + INSERT` statements for only those rows.
+
+This makes a patch run identical to a full run in mechanism — the same pipeline,
+the same approval chain, the same baton handoff — with the operator controlling
+scope by controlling what rows are in the slice.
+
+Full source re-extract: upload a new slice with `slice_purpose = "full_load"`;
+codegen generates `TRUNCATE + INSERT`. Partial re-extract: upload a delta slice with
+`slice_purpose = "patch"`; codegen generates `MERGE / UPDATE + INSERT`.
+
+### Impact analysis — mapping or lookup changes
+
+Mapping or lookup changes trigger impact analysis when structure changes, not data.
 
 The impact path should:
 
@@ -389,13 +455,14 @@ replace source analysis.
 
 ### Change-trigger rules
 
-- Source change → re-run source analysis.
+- Source data change (full extract) → new `full_load` slice → re-run source analysis.
+- Source data change (delta) → new `patch` slice → reuse approved mapping/lookup → patch run.
+- New destination object from same source → new mapping/lookup/run → reuse approved slice.
 - Mapping change only → re-run mapping-related approvals and downstream codegen.
 - Lookup change only → re-run lookup approvals and downstream codegen.
-- Patch generation follows the approved snapshot policy and never mutates old
-  versions.
-- A source contract change invalidates every downstream artifact derived from
-  the previous source contract version.
+- Patch generation follows the approved snapshot policy and never mutates old versions.
+- A source contract change (schema drift) invalidates every downstream artifact derived
+  from the previous source contract version.
 
 ## Failure modes
 

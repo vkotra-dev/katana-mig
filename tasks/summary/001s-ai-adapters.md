@@ -1,0 +1,8 @@
+# 001s-ai-adapters Summary
+
+- Added the AI adapter package in [engine/src/migrations_engine/ai/](/Users/vjkotra/projects/katana/engine/src/migrations_engine/ai/) with the `AIAdapter` protocol, `AICallError`, `ConfigurationError`, YAML config loader, provider adapters, and slot-based factory.
+- Added the default model-slot config in [engine/config/engine.yaml](/Users/vjkotra/projects/katana/engine/config/engine.yaml) and the matching environment placeholders in [engine/.env](/Users/vjkotra/projects/katana/engine/.env).
+- Added dependency declarations for `anthropic`, `openai`, and `pyyaml` in [pyproject.toml](/Users/vjkotra/projects/katana/pyproject.toml).
+- Added test coverage in [engine/tests/test_ai_config.py](/Users/vjkotra/projects/katana/engine/tests/test_ai_config.py) and [engine/tests/test_ai_adapter.py](/Users/vjkotra/projects/katana/engine/tests/test_ai_adapter.py) for config loading, environment substitution, provider selection, SDK prompting, and missing-key failures.
+- Documented the model-slot and API-key policy in [docs/domain/governance.md](/Users/vjkotra/projects/katana/docs/domain/governance.md).
+- Verified with `PYTHONPATH=engine/src python -m pytest engine/tests/test_ai_config.py engine/tests/test_ai_adapter.py -q` and `python -m py_compile engine/src/migrations_engine/ai/__init__.py engine/src/migrations_engine/ai/adapter.py engine/src/migrations_engine/ai/config.py engine/src/migrations_engine/ai/anthropic_adapter.py engine/src/migrations_engine/ai/openai_adapter.py engine/src/migrations_engine/ai/factory.py engine/tests/test_ai_config.py engine/tests/test_ai_adapter.py`.

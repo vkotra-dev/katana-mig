@@ -1,6 +1,6 @@
 # Task 001ab — Source Slice Approval
 
-**Plan:** `plans/2026-06-29-001ab-source-slice-approval.md` _(to be written)_
+**Plan:** `plans/2026-06-29-001ab-source-slice-approval.md`
 
 **Spec:** `docs/superpowers/specs/2026-06-29-source-slice-approval-design.md`
 

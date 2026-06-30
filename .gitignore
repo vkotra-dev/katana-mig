@@ -11,3 +11,4 @@ katana.db
 .env
 .env.*
 .worktrees/
+mockmigration/

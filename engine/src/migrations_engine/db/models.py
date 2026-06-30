@@ -22,7 +22,7 @@ class User(Base):
     display_name: Mapped[str | None] = mapped_column(String(255))
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(64), nullable=False)
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="declared")
     session_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     soft_deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
@@ -180,6 +180,7 @@ class RunRecord(Base):
     mapping_snapshot_version: Mapped[str | None] = mapped_column(String(36))
     lookup_snapshot_version: Mapped[str | None] = mapped_column(String(36))
     code_generation_input_snapshot_version: Mapped[str | None] = mapped_column(String(36))
+    codegen_artifact_id: Mapped[str | None] = mapped_column(String(36))
     knowledge_freeze_version: Mapped[str | None] = mapped_column(String(36))
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued")
     current_stage: Mapped[str | None] = mapped_column(String(64))
@@ -230,6 +231,7 @@ class SourceDefinition(Base):
     destination_object_references: Mapped[list[str] | None] = mapped_column(JSON)
     sample_policy: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     source_details: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    copybook_text: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -250,8 +252,12 @@ class SourceSlice(Base):
     source_slice_version: Mapped[str] = mapped_column(String(64), nullable=False)
     source_schema_artifact: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     masking_policy: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    header_csv: Mapped[str | None] = mapped_column(Text)
     slice_payload: Mapped[dict[str, Any] | None] = mapped_column(JSON)
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default="approved")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending_approval")
+    approval_rejection_reason: Mapped[str | None] = mapped_column(Text)
+    parse_warnings: Mapped[list[str] | None] = mapped_column(JSON)
+    file_storage_path: Mapped[str | None] = mapped_column(String(255))
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     approved_by_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.user_id"))
     created_at: Mapped[datetime] = mapped_column(
@@ -262,6 +268,41 @@ class SourceSlice(Base):
     )
 
 
+class SourceSliceRow(Base):
+    __tablename__ = "source_slice_rows"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    source_slice_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("source_slices.source_slice_id"), nullable=False, index=True
+    )
+    row_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    row_csv: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class SourceSchemaArtifact(Base):
+    __tablename__ = "source_schema_artifacts"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_definition_id",
+            "source_slice_version",
+            name="uq_source_schema_artifacts_definition_version",
+        ),
+    )
+
+    schema_artifact_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    source_definition_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("source_definitions.source_definition_id"), nullable=False
+    )
+    source_slice_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    columns: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class SourceValueSummary(Base):
     __tablename__ = "source_value_summaries"
     __table_args__ = (
@@ -269,7 +310,7 @@ class SourceValueSummary(Base):
             "source_definition_id",
             "source_slice_version",
             "field_name",
-            name="uq_source_value_summaries_definition_slice_field",
+            name="uq_source_value_summaries_definition_version_field",
         ),
     )
 
@@ -278,31 +319,8 @@ class SourceValueSummary(Base):
         String(36), ForeignKey("source_definitions.source_definition_id"), nullable=False
     )
     source_slice_version: Mapped[str] = mapped_column(String(64), nullable=False)
-    field_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    field_name: Mapped[str] = mapped_column(String(255), nullable=False)
     value_counts: Mapped[dict[str, int]] = mapped_column(JSON, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-
-
-class LookupValueMap(Base):
-    __tablename__ = "lookup_value_maps"
-    __table_args__ = (
-        UniqueConstraint(
-            "source_definition_id",
-            "lookup_name",
-            "status",
-            name="uq_lookup_value_maps_definition_lookup_status",
-        ),
-    )
-
-    lookup_value_map_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    source_definition_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("source_definitions.source_definition_id"), nullable=False
-    )
-    lookup_name: Mapped[str] = mapped_column(String(128), nullable=False)
-    destination_table: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
-    status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -344,6 +362,29 @@ class LookupSnapshot(Base):
     )
 
 
+class LookupValueMap(Base):
+    __tablename__ = "lookup_value_maps"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_definition_id",
+            "lookup_name",
+            "status",
+            name="uq_lookup_value_maps_definition_lookup_status",
+        ),
+    )
+
+    lookup_value_map_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    source_definition_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("source_definitions.source_definition_id"), nullable=False
+    )
+    lookup_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    destination_table: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class MappingArtifact(Base):
     __tablename__ = "mapping_artifacts"
 
@@ -359,6 +400,28 @@ class MappingArtifact(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class CodeGenerationArtifact(Base):
+    __tablename__ = "code_generation_artifacts"
+
+    codegen_artifact_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("project_registry.project_id"), nullable=False, index=True
+    )
+    destination_object_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    run_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("run_records.run_id"), nullable=True, index=True
+    )
+    source_slice_version: Mapped[str | None] = mapped_column(String(255))
+    mapping_snapshot_version: Mapped[str | None] = mapped_column(String(255))
+    lookup_snapshot_version: Mapped[str | None] = mapped_column(String(255))
+    sql_bundle: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class AuditEvent(Base):

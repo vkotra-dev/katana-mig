@@ -1,5 +1,12 @@
 # 001e-ui-shell
 
+> **SUPERSEDED** — Covered by:
+> - `001i` (ui-template-foundation) — shell layout, tokens, Topbar/Sidebar/LoginView
+> - `001l` (ui-auth-api-wiring, **completed**) — auth and session routing
+> - `001n` (ui-role-based-navigation, **completed**) — role-based nav
+>
+> Do not implement. Archive this task.
+
 ## Domain
 
 - [ui.md](/Users/vjkotra/projects/katana/docs/domain/ui.md)

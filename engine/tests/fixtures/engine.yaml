@@ -1,0 +1,13 @@
+models:
+  planning: claude-opus-4-8
+  review: claude-sonnet-4-6
+  implementation: claude-sonnet-4-6
+migration:
+  models:
+    pii_review: claude-haiku-4-5-20251001
+    field_mapping: claude-opus-4-8
+    script_generation: gpt-4o-mini
+    script_correction: claude-sonnet-4-6
+providers:
+  anthropic_api_key_env: ANTHROPIC_API_KEY
+  openai_api_key_env: OPENAI_API_KEY

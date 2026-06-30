@@ -41,6 +41,39 @@ When working in this repo:
 - keep business logic out of wiring and `__main__`
 - raise only for unexpected failures; use dispositions for expected terminal states
 
+### AI model policy and key management
+
+AI-backed stages resolve their model assignments from `engine/config/engine.yaml`
+through the `migrations_engine.ai` adapter layer.
+
+Rules:
+
+- model slots live in YAML, not in the Pydantic `Settings` class
+- provider API keys are referenced by environment-variable name in YAML and
+  read at call time by the adapter implementation
+- missing model-slot environment substitutions fail closed at load time
+- missing provider keys fail closed when an adapter is called
+- callers use the factory in `migrations_engine.ai.factory`; they do not talk
+  to provider SDKs directly
+
+### DDL change rule
+
+Every change to `engine/src/migrations_engine/db/models.py` that touches table
+structure — adding a column, removing a column, creating a table, dropping a
+table, or changing a column type — **must** ship with a hand-written Alembic
+migration file in `engine/migrations/versions/`.
+
+- Migration files follow the `NNNN_<description>.py` naming convention; inspect
+  the current chain to get the next number before writing the file.
+- The `down_revision` in the new file must match the `revision` of the latest
+  existing migration — never guess the number; read it from the file.
+- `alembic upgrade head` must run cleanly locally before the change is committed.
+- The model edit and the migration file are staged and committed together in a
+  single commit; a model change without a migration is a broken commit.
+- Do **not** use `alembic revision --autogenerate` for production migrations;
+  write the `upgrade()` / `downgrade()` by hand so the intent is explicit and
+  reviewable.
+
 ## Repository map
 
 ```
@@ -264,6 +297,8 @@ The invariants are repo-wide guardrails. Do not weaken them.
 
 - **I17** Knowledge artifacts are version-immutable; executions declare their
   artifact versions; execution results never mutate knowledge artifacts directly.
+- **I18** Every DDL change ships with a hand-written Alembic migration in the
+  same commit; a model edit without a migration is a broken commit.
 
 ## Typing and code conventions
 
@@ -315,5 +350,7 @@ When a change touches a task or plan:
 
 ## Changelog
 
+- 2026-06-29: Added DDL change rule and invariant I18 — every model.py table
+  structure change must ship with a hand-written Alembic migration in the same commit.
 - 2026-06-29: Added governance bundle page to consolidate repo operating rules,
   task workflow, build order, safety invariants, and typing/testing conventions.

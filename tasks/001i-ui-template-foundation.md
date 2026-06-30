@@ -1,5 +1,7 @@
 # 001i-ui-template-foundation
 
+**Plan:** `plans/2026-06-29-001i-ui-template-foundation.md`
+
 ## Domain
 
 - [ui.md](/Users/vjkotra/projects/katana/docs/domain/ui.md)

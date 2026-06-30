@@ -21,7 +21,9 @@ with the current stage emphasized.
    start metadata, pause metadata, resume metadata (which checkpoint it resumed from),
    completion metadata.
 2. **Pinned snapshots** — the exact consumed versions as copyable monospace version
-   pills: source slice, mapping, lookup, codegen input, knowledge-freeze.
+   pills: source slice, mapping, lookup, codegen artifact (`cga_…`), knowledge-freeze.
+   The codegen artifact pill links to the `CodeGenerationArtifact` record that holds
+   the generated SQL bundle for this destination object.
 3. **Checkpoints** — table of checkpoint boundaries (stage, object, environment,
    selected snapshots, last completed boundary, pause reason); highlight the one a
    resume would continue from.

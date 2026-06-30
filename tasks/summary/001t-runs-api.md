@@ -1,0 +1,8 @@
+# 001t-runs-api Summary
+
+- Added `codegen_artifact_id` to `RunRecord` in [engine/src/migrations_engine/db/models.py](/Users/vjkotra/projects/katana/engine/src/migrations_engine/db/models.py) and shipped migration [engine/migrations/versions/0010_run_record_codegen_artifact.py](/Users/vjkotra/projects/katana/engine/migrations/versions/0010_run_record_codegen_artifact.py).
+- Added run API schemas in [engine/src/migrations_engine/api/schemas.py](/Users/vjkotra/projects/katana/engine/src/migrations_engine/api/schemas.py) for run creation, run responses, and checkpoint responses.
+- Implemented the synchronous run execution package in [engine/src/migrations_engine/execution/](/Users/vjkotra/projects/katana/engine/src/migrations_engine/execution/) with snapshot pinning, checkpoint writes, lookup-delta pause handling, and resume support.
+- Added the runs router in [engine/src/migrations_engine/routes/runs.py](/Users/vjkotra/projects/katana/engine/src/migrations_engine/routes/runs.py) and wired it into [engine/src/migrations_engine/app.py](/Users/vjkotra/projects/katana/engine/src/migrations_engine/app.py).
+- Added integration coverage in [engine/tests/test_runs_api.py](/Users/vjkotra/projects/katana/engine/tests/test_runs_api.py) and execution coverage in [engine/tests/test_execution_engine.py](/Users/vjkotra/projects/katana/engine/tests/test_execution_engine.py) for queued creation, launch, checkpointing, LookupDeltaCR pause, and resume.
+- Verified with `python -m py_compile` on the touched engine modules and `PYTHONPATH=engine/src python -m pytest engine/tests/test_execution_engine.py -q` plus `PYTHONPATH=engine/src python -m pytest engine/tests/test_runs_api.py -q`.

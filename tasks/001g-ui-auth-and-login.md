@@ -1,5 +1,9 @@
 # 001g-ui-auth-and-login
 
+> **SUPERSEDED** — Login screen and session-aware routing were shipped in
+> `001l` (ui-auth-api-wiring, **completed**).
+> Do not implement. Archive this task.
+
 ## Domain
 
 - [ui.md](/Users/vjkotra/projects/katana/docs/domain/ui.md)

@@ -66,3 +66,10 @@ def get_central_team_user(user: User = Depends(get_current_user)) -> User:
 
     require_central_team(user)
     return user
+
+
+def get_project_initiation_user(user: User = Depends(get_current_user)) -> User:
+    from ..management.access import require_non_auditor
+
+    require_non_auditor(user)
+    return user

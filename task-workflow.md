@@ -247,6 +247,12 @@ Write "Do NOT X" for every known trap.
 
 - Do NOT put `RunPython` functions in importable helper modules if the migration must run
   from scratch.
+- Do NOT edit `models.py` table structure without a matching migration file — a model
+  change without a migration is a broken commit (invariant I18).
+- Do NOT use `alembic revision --autogenerate` for production migrations — write
+  `upgrade()` / `downgrade()` by hand so the intent is explicit and reviewable.
+- Do NOT guess the `down_revision` value — read the `revision` string directly from the
+  latest file in `engine/migrations/versions/` before writing the new migration.
 - Do NOT skip migration verification when schema or model shape changes — the migration is
   part of the change, not an implementation detail.
 - Do NOT ship a behavior change without updating the relevant tests and spec/doc patch when the
@@ -269,6 +275,7 @@ Before handing a plan to an agent for execution, every item must be true:
 
 - [ ] **Current state is written** — executor knows which files exist, which migration is latest, whether any file was pre-edited without a migration
 - [ ] **No placeholders** — `00NN`, `<slug>`, `TODO`, `[list here]` are absent from the final plan
+- [ ] **Migration written for every DDL change** — any plan that edits `models.py` table structure (add/remove column, create/drop table) includes a hand-written `engine/migrations/versions/NNNN_<description>.py`; the model edit and migration file are in the same commit
 - [ ] **Migration number is real** — verified with the repo's migration inspection command, not guessed
 - [ ] **Migration helpers are inline or embedded where required** — no import path from a mutable helper module if the migration must run from scratch
 - [ ] **Out of scope is written** — at least 2-3 explicit "Do NOT touch X" entries name the most tempting adjacent files

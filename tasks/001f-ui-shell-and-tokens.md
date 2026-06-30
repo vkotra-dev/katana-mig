@@ -1,5 +1,9 @@
 # 001f-ui-shell-and-tokens
 
+> **SUPERSEDED** — Subset of `001i` (ui-template-foundation) which covers the same
+> sticky nav, token set, and shell layout with broader role-awareness.
+> Do not implement. Archive this task.
+
 ## Domain
 
 - [ui.md](/Users/vjkotra/projects/katana/docs/domain/ui.md)
