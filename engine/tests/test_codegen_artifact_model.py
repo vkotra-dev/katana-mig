@@ -24,7 +24,12 @@ db_session.SessionLocal = sessionmaker(
 )
 
 from migrations_engine.db.base import Base  # noqa: E402
-from migrations_engine.db.models import CodeGenerationArtifact, ProjectDefinition, ProjectRegistry  # noqa: E402
+from migrations_engine.db.models import (  # noqa: E402
+    CodeGenerationArtifact,
+    ProjectDefinition,
+    ProjectRegistry,
+    RunRecord,
+)
 from migrations_engine.db.session import SessionLocal  # noqa: E402
 
 
@@ -130,3 +135,11 @@ def test_superseded_artifacts_leave_only_new_active_row() -> None:
     assert active_rows[0].sql_bundle == "-- v2"
     assert len(superseded_rows) == 1
     assert superseded_rows[0].status == "superseded"
+
+
+def test_run_records_codegen_artifact_id_has_foreign_key() -> None:
+    foreign_keys = RunRecord.__table__.c.codegen_artifact_id.foreign_keys
+    assert len(foreign_keys) == 1
+    foreign_key = next(iter(foreign_keys))
+    assert foreign_key.column.table.name == "code_generation_artifacts"
+    assert foreign_key.column.name == "codegen_artifact_id"
