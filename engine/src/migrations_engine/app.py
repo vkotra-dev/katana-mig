@@ -22,7 +22,6 @@ from .routes.fibers import router as fibers_router
 from .routes.reconciliation import router as reconciliation_router
 from .routes.feeds import router as feeds_router
 from .routes.feed_slice_approval import router as feed_slice_approval_router
-from .routes.fibers import feeds_router as fiber_feed_analyzer_router
 from .routes.users import router as users_router
 
 
@@ -58,7 +57,6 @@ app.include_router(lookup_router)
 app.include_router(fibers_router)
 app.include_router(reconciliation_router)
 app.include_router(feeds_router)
-app.include_router(fiber_feed_analyzer_router)
 app.include_router(feed_slice_approval_router)
 
 

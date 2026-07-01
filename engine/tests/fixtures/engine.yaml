@@ -8,8 +8,7 @@ migration:
     field_mapping: claude-opus-4-8
     script_generation: gpt-4o-mini
     script_correction: claude-sonnet-4-6
-    lookup_mapping: claude-sonnet-4-6
-    feed_analysis: claude-sonnet-4-6
+    impact_analysis: claude-sonnet-4-6
 providers:
   anthropic_api_key_env: ANTHROPIC_API_KEY
   openai_api_key_env: OPENAI_API_KEY

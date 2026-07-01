@@ -235,26 +235,6 @@ class FeedSliceApprovalCountResponse(BaseModel):
     pending_count: int
 
 
-class LookupInputsRequest(BaseModel):
-    source_values: list[str] = Field(min_length=1)
-    destination_lookup_csv: str = Field(min_length=1)
-
-
-class LookupSourceEntriesCreateRequest(BaseModel):
-    values: list[str] = Field(min_length=1)
-    discovery_type: Literal["sample", "delta"] = "sample"
-
-
-class LookupDestFeedCreateRequest(BaseModel):
-    columns: list[str] = Field(min_length=1)
-    rows: list[dict[str, Any]]
-
-
-class LookupMappingPatchRequest(BaseModel):
-    dest_entry_id: str
-    status: Literal["confirmed", "overridden"]
-
-
 class FiberCreateRequest(BaseModel):
     fiber_type: Literal["lookup", "domain_object"]
     fiber_key: str = Field(min_length=1, max_length=255)
