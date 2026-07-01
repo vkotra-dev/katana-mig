@@ -10,7 +10,7 @@
 | [001v-source-analysis](./completed/001v-source-analysis.md) | [summary](./summary/001v-source-analysis.md) | completed | AI analysis of SourceSlice → SourceSchemaArtifact + SourceValueSummary; migration 0011 |
 | [001w-mapping-stage](./completed/001w-mapping-stage.md) | source-model, api, ui | completed | [summary](./summary/001w-mapping-stage.md) |
 | [001ae-lookup-snapshot-route-rehome](./completed/001ae-lookup-snapshot-route-rehome.md) | api, source-model, ui | completed | [summary](./summary/001ae-lookup-snapshot-route-rehome.md) |
-| [001aa-reconciliation](./001aa-reconciliation.md) | governance, ui | ready | Reconciliation checks + ReconciliationReport; stitch 11; depends on 001t, 001z |
+| [001aa-reconciliation](./completed/001aa-reconciliation.md) | governance, ui | completed | [summary](./summary/001aa-reconciliation.md) |
 | [001af-ui-compliance-gaps](./completed/001af-ui-compliance-gaps.md) | ui | completed | [summary](./summary/001af-ui-compliance-gaps.md) |
 
 ## Completed
