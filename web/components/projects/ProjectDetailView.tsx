@@ -58,7 +58,7 @@ export function ProjectDetailView({ project }: ProjectDetailViewProps) {
         </div>
       </div>
 
-      <StageTimeline latestRunSummary={project.latestRunSummary} />
+      <StageTimeline latestRunSummary={project.latestRunSummary ?? null} />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <KeyValue label="Goal" value={project.goal ?? "—"} />
