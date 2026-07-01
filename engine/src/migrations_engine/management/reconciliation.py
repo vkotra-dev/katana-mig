@@ -23,9 +23,9 @@ from ..db.models import (
     ReconciliationLineageRow,
     ReconciliationReport,
     RunRecord,
-    SourceDefinition,
-    SourceSlice,
-    SourceSliceRow,
+    Feed,
+    FeedSlice,
+    FeedSliceRow,
 )
 
 
@@ -36,16 +36,16 @@ def _get_run_or_404(db: Session, *, project_id: str, run_id: str) -> RunRecord:
     return run
 
 
-def _get_source_slice_or_404(db: Session, *, project_id: str, source_definition_id: str, source_slice_version: str) -> SourceSlice:
+def _get_source_slice_or_404(db: Session, *, project_id: str, source_definition_id: str, source_slice_version: str) -> FeedSlice:
     source_slice = db.scalar(
-        select(SourceSlice)
-        .join(SourceDefinition, SourceDefinition.source_definition_id == SourceSlice.source_definition_id)
+        select(FeedSlice)
+        .join(Feed, Feed.source_definition_id == FeedSlice.source_definition_id)
         .where(
-            SourceDefinition.project_id == project_id,
-            SourceSlice.source_definition_id == source_definition_id,
-            SourceSlice.source_slice_version == source_slice_version,
+            Feed.project_id == project_id,
+            FeedSlice.source_definition_id == source_definition_id,
+            FeedSlice.source_slice_version == source_slice_version,
         )
-        .order_by(SourceSlice.created_at.desc())
+        .order_by(FeedSlice.created_at.desc())
     )
     if source_slice is None:
         raise AuthApiError("source_slice_not_found", "Source slice not found.", 404)
@@ -110,12 +110,12 @@ def _destination_field(field_bindings: list[dict[str, Any]]) -> str | None:
     return str(destination_field) if destination_field else None
 
 
-def _source_rows_for_report(db: Session, *, source_slice_id: str) -> list[SourceSliceRow]:
+def _source_rows_for_report(db: Session, *, source_slice_id: str) -> list[FeedSliceRow]:
     return list(
         db.scalars(
-            select(SourceSliceRow)
-            .where(SourceSliceRow.source_slice_id == source_slice_id)
-            .order_by(SourceSliceRow.row_index.asc())
+            select(FeedSliceRow)
+            .where(FeedSliceRow.source_slice_id == source_slice_id)
+            .order_by(FeedSliceRow.row_index.asc())
         )
     )
 
@@ -129,7 +129,7 @@ def _build_lineage_rows(
     *,
     run: RunRecord,
     report: ReconciliationReport,
-    source_rows: list[SourceSliceRow],
+    source_rows: list[FeedSliceRow],
     mapped_rows: list[dict[str, Any]],
     field_bindings: list[dict[str, Any]],
 ) -> list[ReconciliationCheckResult]:
@@ -247,7 +247,7 @@ def _count_lineages(db: Session, *, report_id: str) -> dict[str, int]:
 
 def _compute_row_count_summary(
     *,
-    source_rows: list[SourceSliceRow],
+    source_rows: list[FeedSliceRow],
     mapped_rows: list[dict[str, Any]],
     lineage_counts: dict[str, int],
 ) -> RowCountSummary:
@@ -272,7 +272,7 @@ def _evaluate_row_count_check(summary: RowCountSummary) -> ReconciliationCheckRe
 
 def _evaluate_key_integrity_check(
     *,
-    source_rows: list[SourceSliceRow],
+    source_rows: list[FeedSliceRow],
     report_id: str,
     db: Session,
 ) -> ReconciliationCheckResult:
@@ -328,7 +328,7 @@ def _load_context(
     *,
     project_id: str,
     run_id: str,
-) -> tuple[RunRecord, SourceSlice, MappingSnapshot, MappingArtifact, list[SourceSliceRow]]:
+) -> tuple[RunRecord, FeedSlice, MappingSnapshot, MappingArtifact, list[FeedSliceRow]]:
     run = _get_run_or_404(db, project_id=project_id, run_id=run_id)
     if run.source_definition_reference is None or run.source_slice_version is None or run.mapping_snapshot_version is None:
         raise AuthApiError("reconciliation_not_ready", "Run does not have pinned reconciliation artifacts.", 409)

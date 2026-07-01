@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
-from ..db.models import SourceDefinition, SourceSlice, SourceSliceRow, new_id
+from ..db.models import Feed, FeedSlice, FeedSliceRow, new_id
 from .masking import is_pii_field, mask_row
 
 
@@ -19,7 +19,7 @@ MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 @dataclass(frozen=True, slots=True)
 class IngestResult:
-    source_slice: SourceSlice
+    source_slice: FeedSlice
     preview_rows: list[str]
     row_count: int
 
@@ -27,7 +27,7 @@ class IngestResult:
 def ingest_csv(
     db: Session,
     *,
-    source_definition: SourceDefinition,
+    source_definition: Feed,
     raw_bytes: bytes,
     encoding_override: str | None = None,
     file_storage_path: str | None = None,
@@ -76,15 +76,15 @@ def ingest_csv(
 def _create_source_slice(
     db: Session,
     *,
-    source_definition: SourceDefinition,
+    source_definition: Feed,
     header_csv: str,
     file_storage_path: str,
     parse_warnings: list[str],
     masked_fields: list[str],
     row_csv_rows: list[tuple[int, str]],
-) -> SourceSlice:
+) -> FeedSlice:
     version_number = _next_slice_version(db, source_definition.source_definition_id)
-    source_slice = SourceSlice(
+    source_slice = FeedSlice(
         source_slice_id=new_id(),
         source_definition_id=source_definition.source_definition_id,
         source_contract_version=source_definition.source_contract_version,
@@ -107,7 +107,7 @@ def _create_source_slice(
     db.flush()
     for row_index, row_csv in row_csv_rows:
         db.add(
-            SourceSliceRow(
+            FeedSliceRow(
                 source_slice_id=source_slice.source_slice_id,
                 row_index=row_index,
                 row_csv=row_csv,
@@ -118,8 +118,8 @@ def _create_source_slice(
 
 def _next_slice_version(db: Session, source_definition_id: str) -> int:
     rows = db.scalars(
-        select(SourceSlice.source_slice_version).where(
-            SourceSlice.source_definition_id == source_definition_id
+        select(FeedSlice.source_slice_version).where(
+            FeedSlice.source_definition_id == source_definition_id
         )
     ).all()
     highest = 0
@@ -142,7 +142,7 @@ def _dump_csv_row(values: list[str]) -> str:
     return buffer.getvalue().rstrip("\r\n")
 
 
-def _contract_encoding(source_definition: SourceDefinition) -> str:
+def _contract_encoding(source_definition: Feed) -> str:
     details = source_definition.source_details or {}
     encoding = details.get("encoding") if isinstance(details, dict) else None
     return str(encoding or "utf-8")

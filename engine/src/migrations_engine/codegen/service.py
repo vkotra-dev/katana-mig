@@ -14,8 +14,8 @@ from ..db.models import (
     MappingSnapshot,
     ProjectDefinition,
     ProjectRegistry,
-    SourceDefinition,
-    SourceSlice,
+    Feed,
+    FeedSlice,
     User,
     new_id,
 )
@@ -221,8 +221,8 @@ def _artifact_response(artifact: CodeGenerationArtifact) -> CodegenArtifactRespo
     )
 
 
-def _get_source_definition(db: Session, *, project_id: str, source_definition_id: str) -> SourceDefinition:
-    source_definition = db.get(SourceDefinition, source_definition_id)
+def _get_source_definition(db: Session, *, project_id: str, source_definition_id: str) -> Feed:
+    source_definition = db.get(Feed, source_definition_id)
     if source_definition is None or source_definition.project_id != project_id:
         raise AuthApiError("source_not_found", "Source contract not found.", 404)
     return source_definition
@@ -238,7 +238,7 @@ def _get_project_definition(db: Session, *, project_id: str) -> ProjectDefinitio
     return project_definition
 
 
-def _primary_destination_object_name(source_definition: SourceDefinition) -> str:
+def _primary_destination_object_name(source_definition: Feed) -> str:
     references = source_definition.destination_object_references or []
     if not references:
         raise AuthApiError(
@@ -256,14 +256,14 @@ def _primary_destination_object_name(source_definition: SourceDefinition) -> str
     return destination_object_name
 
 
-def _select_latest_approved_source_slice(db: Session, *, source_definition_id: str) -> SourceSlice:
+def _select_latest_approved_source_slice(db: Session, *, source_definition_id: str) -> FeedSlice:
     source_slice = db.scalar(
-        select(SourceSlice)
+        select(FeedSlice)
         .where(
-            SourceSlice.source_definition_id == source_definition_id,
-            SourceSlice.status == "approved",
+            FeedSlice.source_definition_id == source_definition_id,
+            FeedSlice.status == "approved",
         )
-        .order_by(SourceSlice.approved_at.desc().nullslast(), SourceSlice.created_at.desc())
+        .order_by(FeedSlice.approved_at.desc().nullslast(), FeedSlice.created_at.desc())
     )
     if source_slice is None:
         raise AuthApiError("codegen_source_slice_missing", "An approved source slice is required.", 409)
@@ -333,8 +333,8 @@ def _build_system_prompt(*, project_config: MigrationProjectConfig, destination_
 
 def _build_user_prompt(
     *,
-    source_definition: SourceDefinition,
-    source_slice: SourceSlice,
+    source_definition: Feed,
+    source_slice: FeedSlice,
     mapping_snapshot: MappingSnapshot,
     lookup_snapshot_version: str | None,
     project_config: MigrationProjectConfig,

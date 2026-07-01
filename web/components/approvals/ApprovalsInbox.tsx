@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import {
-  approveSourceSlice,
+  approveFeedSlice,
   listPendingApprovals,
-  rejectSourceSlice,
-  type SourceSliceApprovalItem,
-} from "../../lib/slice-approval-api";
+  rejectFeedSlice,
+  type FeedSliceApprovalItem,
+} from "../../lib/feed-slice-approval-api";
 import type { SessionRole } from "../../lib/session";
 
 export interface ApprovalsInboxProps {
@@ -19,10 +19,10 @@ function formatDate(value: string): string {
 }
 
 export function ApprovalsInbox({ token, role }: ApprovalsInboxProps) {
-  const [items, setItems] = useState<SourceSliceApprovalItem[]>([]);
+  const [items, setItems] = useState<FeedSliceApprovalItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [rejectTarget, setRejectTarget] = useState<SourceSliceApprovalItem | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<FeedSliceApprovalItem | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -132,7 +132,7 @@ export function ApprovalsInbox({ token, role }: ApprovalsInboxProps) {
                           disabled={actionLoading}
                           onClick={() =>
                             void runAction(() =>
-                              approveSourceSlice(
+                              approveFeedSlice(
                                 token,
                                 item.projectId,
                                 item.sourceDefinitionId,
@@ -198,7 +198,7 @@ export function ApprovalsInbox({ token, role }: ApprovalsInboxProps) {
                 disabled={actionLoading || rejectReason.trim().length === 0}
                 onClick={() => {
                   void runAction(() =>
-                    rejectSourceSlice(
+                    rejectFeedSlice(
                       token,
                       rejectTarget.projectId,
                       rejectTarget.sourceDefinitionId,

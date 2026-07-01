@@ -176,13 +176,13 @@ class ProjectUpdateRequest(BaseModel):
     lexicon_scope: dict[str, Any] | None = None
 
 
-class SourceContractCreateRequest(BaseModel):
+class FeedCreateRequest(BaseModel):
     source_type: Literal["csv", "fixed_length_file"]
     label: str = Field(min_length=1, max_length=255)
     encoding: str = Field(default="utf-8", max_length=32)
 
 
-class SourceContractResponse(BaseModel):
+class FeedResponse(BaseModel):
     source_definition_id: str
     project_id: str
     source_type: str
@@ -195,7 +195,7 @@ class SourceContractResponse(BaseModel):
     created_at: datetime
 
 
-class SourceSliceResponse(BaseModel):
+class FeedSliceResponse(BaseModel):
     source_slice_id: str
     source_definition_id: str
     source_slice_version: str
@@ -208,7 +208,7 @@ class SourceSliceResponse(BaseModel):
     created_at: datetime
 
 
-class SourceSliceApprovalItemResponse(BaseModel):
+class FeedSliceApprovalItemResponse(BaseModel):
     project_id: str
     project_name: str
     source_definition_id: str
@@ -222,16 +222,16 @@ class SourceSliceApprovalItemResponse(BaseModel):
     created_at: datetime
 
 
-class SourceSliceRejectRequest(BaseModel):
+class FeedSliceRejectRequest(BaseModel):
     reason: str = Field(min_length=1, max_length=1000)
 
 
-class SourceSliceResubmitRequest(BaseModel):
+class FeedSliceResubmitRequest(BaseModel):
     encoding: str | None = Field(default=None, max_length=32)
     parse_settings: dict[str, Any] | None = None
 
 
-class SourceSliceApprovalCountResponse(BaseModel):
+class FeedSliceApprovalCountResponse(BaseModel):
     pending_count: int
 
 

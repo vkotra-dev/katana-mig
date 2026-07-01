@@ -7,7 +7,7 @@ import io
 from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
-from ..db.models import SourceDefinition
+from ..db.models import Feed
 from .cobol_parser import FieldDef, parse_copybook
 from .csv_intake import IngestResult, _create_source_slice, _decode_upload, _store_upload_bytes
 from .masking import mask_row
@@ -16,7 +16,7 @@ from .masking import mask_row
 def ingest_fixed(
     db: Session,
     *,
-    source_definition: SourceDefinition,
+    source_definition: Feed,
     raw_bytes: bytes,
     encoding_override: str | None = None,
     file_storage_path: str | None = None,
@@ -75,7 +75,7 @@ def _dump_csv_row(values: list[str]) -> str:
     return buffer.getvalue().rstrip("\r\n")
 
 
-def _contract_encoding(source_definition: SourceDefinition) -> str:
+def _contract_encoding(source_definition: Feed) -> str:
     details = source_definition.source_details or {}
     encoding = details.get("encoding") if isinstance(details, dict) else None
     return str(encoding or "utf-8")

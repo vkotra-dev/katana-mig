@@ -11,7 +11,7 @@ from ..db.models import (
     LookupSnapshot,
     MappingSnapshot,
     RunRecord,
-    SourceSlice,
+    FeedSlice,
 )
 from ..management.platform import record_management_audit
 from .checkpoints import get_latest_checkpoint, list_checkpoints_for_run
@@ -27,14 +27,14 @@ def _require_run(db: Session, *, run_id: str, project_id: str) -> RunRecord:
     return run
 
 
-def _select_latest_approved_source_slice(db: Session, *, source_definition_id: str) -> SourceSlice:
+def _select_latest_approved_source_slice(db: Session, *, source_definition_id: str) -> FeedSlice:
     source_slice = db.scalar(
-        select(SourceSlice)
+        select(FeedSlice)
         .where(
-            SourceSlice.source_definition_id == source_definition_id,
-            SourceSlice.status == "approved",
+            FeedSlice.source_definition_id == source_definition_id,
+            FeedSlice.status == "approved",
         )
-        .order_by(SourceSlice.approved_at.desc().nullslast(), SourceSlice.created_at.desc())
+        .order_by(FeedSlice.approved_at.desc().nullslast(), FeedSlice.created_at.desc())
     )
     if source_slice is None:
         raise ValueError("missing_source_slice")
@@ -148,7 +148,7 @@ def list_run_checkpoints(db: Session, *, project_id: str, run_id: str) -> list[d
 def _pin_run(
     run: RunRecord,
     *,
-    source_slice: SourceSlice,
+    source_slice: FeedSlice,
     mapping_snapshot: MappingSnapshot,
     lookup_snapshot_versions: dict[str, str],
     resume: bool,

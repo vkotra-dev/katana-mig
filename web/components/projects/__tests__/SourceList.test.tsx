@@ -2,8 +2,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SourceList } from "../SourceList";
 
-vi.mock("../../../lib/sources-api", () => ({
-  listSourceContracts: vi.fn().mockResolvedValue([
+vi.mock("../../../lib/feeds-api", () => ({
+  listFeedContracts: vi.fn().mockResolvedValue([
     {
       sourceDefinitionId: "source-1",
       projectId: "project-1",

@@ -221,7 +221,7 @@ class RunCheckpoint(Base):
     )
 
 
-class SourceDefinition(Base):
+class Feed(Base):
     __tablename__ = "source_definitions"
 
     source_definition_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
@@ -244,7 +244,7 @@ class SourceDefinition(Base):
     )
 
 
-class SourceSlice(Base):
+class FeedSlice(Base):
     __tablename__ = "source_slices"
 
     source_slice_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
@@ -271,7 +271,7 @@ class SourceSlice(Base):
     )
 
 
-class SourceSliceRow(Base):
+class FeedSliceRow(Base):
     __tablename__ = "source_slice_rows"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
@@ -283,6 +283,13 @@ class SourceSliceRow(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+# Backward-compatible aliases while the rename propagates through tests and docs.
+SourceDefinition = Feed
+SourceContract = Feed
+SourceSlice = FeedSlice
+SourceSliceRow = FeedSliceRow
 
 
 class SourceSchemaArtifact(Base):

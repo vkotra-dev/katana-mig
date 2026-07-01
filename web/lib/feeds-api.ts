@@ -1,11 +1,11 @@
 import { API_BASE_URL } from "./api-base";
 
-export type SourceType = "csv" | "fixed_length_file";
+export type FeedType = "csv" | "fixed_length_file";
 
-export interface SourceContractRecord {
+export interface FeedContractRecord {
   sourceDefinitionId: string;
   projectId: string;
-  sourceType: SourceType;
+  sourceType: FeedType;
   label: string;
   encoding: string;
   destinationObjectReferences: string[] | null;
@@ -15,14 +15,14 @@ export interface SourceContractRecord {
   createdAt: string;
 }
 
-export interface SourceSchemaColumnRecord {
+export interface FeedSchemaColumnRecord {
   name: string;
   inferredType: "text" | "integer" | "decimal" | "date" | "boolean" | "uuid";
   nullable: boolean;
   maxLength: number | null;
 }
 
-export interface SourceValueSummaryRecord {
+export interface FeedValueSummaryRecord {
   summaryId: string;
   sourceDefinitionId: string;
   sourceSliceVersion: string;
@@ -31,7 +31,7 @@ export interface SourceValueSummaryRecord {
   createdAt: string;
 }
 
-export interface SourceSliceRecord {
+export interface FeedSliceRecord {
   sourceSliceId: string;
   sourceDefinitionId: string;
   sourceSliceVersion: string;
@@ -44,23 +44,23 @@ export interface SourceSliceRecord {
   createdAt: string;
 }
 
-export interface SourceContractCreateInput {
-  sourceType: SourceType;
+export interface FeedContractCreateInput {
+  sourceType: FeedType;
   label: string;
   encoding: string;
 }
 
-export interface SourceFileUploadInput {
+export interface FeedFileUploadInput {
   content: string;
 }
 
-export class SourceApiError extends Error {
+export class FeedApiError extends Error {
   code: string;
   status: number;
 
   constructor(code: string, message: string, status: number) {
     super(message || code);
-    this.name = "SourceApiError";
+    this.name = "FeedApiError";
     this.code = code;
     this.status = status;
   }
@@ -91,22 +91,22 @@ async function requestJson<T>(
   return (await response.json()) as T;
 }
 
-async function parseApiError(response: Response): Promise<SourceApiError> {
+async function parseApiError(response: Response): Promise<FeedApiError> {
   try {
     const body = (await response.json()) as { error?: { code?: string; message?: string } };
     const code = body.error?.code ?? "api_error";
     const message = body.error?.message ?? code;
-    return new SourceApiError(code, message, response.status);
+    return new FeedApiError(code, message, response.status);
   } catch {
     const message = await response.text();
-    return new SourceApiError("api_error", message || "api_error", response.status);
+    return new FeedApiError("api_error", message || "api_error", response.status);
   }
 }
 
-function mapSourceContractResponse(response: {
+function mapFeedContractResponse(response: {
   source_definition_id: string;
   project_id: string;
-  source_type: SourceType;
+  source_type: FeedType;
   label: string;
   encoding: string;
   destination_object_references: string[] | null;
@@ -114,7 +114,7 @@ function mapSourceContractResponse(response: {
   copybook_text: string | null;
   status: string;
   created_at: string;
-}): SourceContractRecord {
+}): FeedContractRecord {
   return {
     sourceDefinitionId: response.source_definition_id,
     projectId: response.project_id,
@@ -129,7 +129,7 @@ function mapSourceContractResponse(response: {
   };
 }
 
-function mapSourceSliceResponse(response: {
+function mapFeedSliceResponse(response: {
   source_slice_id: string;
   source_definition_id: string;
   source_slice_version: string;
@@ -140,7 +140,7 @@ function mapSourceSliceResponse(response: {
   parse_warnings: string[] | null;
   preview_rows: string[];
   created_at: string;
-}): SourceSliceRecord {
+}): FeedSliceRecord {
   return {
     sourceSliceId: response.source_slice_id,
     sourceDefinitionId: response.source_definition_id,
@@ -155,12 +155,12 @@ function mapSourceSliceResponse(response: {
   };
 }
 
-function mapSourceSchemaColumnResponse(response: {
+function mapFeedSchemaColumnResponse(response: {
   name: string;
   inferred_type: "text" | "integer" | "decimal" | "date" | "boolean" | "uuid";
   nullable: boolean;
   max_length: number | null;
-}): SourceSchemaColumnRecord {
+}): FeedSchemaColumnRecord {
   return {
     name: response.name,
     inferredType: response.inferred_type,
@@ -169,14 +169,14 @@ function mapSourceSchemaColumnResponse(response: {
   };
 }
 
-function mapSourceValueSummaryResponse(response: {
+function mapFeedValueSummaryResponse(response: {
   summary_id: string;
   source_definition_id: string;
   source_slice_version: string;
   field_name: string;
   value_counts: Record<string, number>;
   created_at: string;
-}): SourceValueSummaryRecord {
+}): FeedValueSummaryRecord {
   return {
     summaryId: response.summary_id,
     sourceDefinitionId: response.source_definition_id,
@@ -187,35 +187,35 @@ function mapSourceValueSummaryResponse(response: {
   };
 }
 
-export async function listSourceContracts(
+export async function listFeedContracts(
   token: string,
   projectId: string,
-): Promise<SourceContractRecord[]> {
-  const response = await requestJson<Array<Parameters<typeof mapSourceContractResponse>[0]>>(
+): Promise<FeedContractRecord[]> {
+  const response = await requestJson<Array<Parameters<typeof mapFeedContractResponse>[0]>>(
     `/projects/${projectId}/sources`,
     { method: "GET", token },
   );
-  return response.map(mapSourceContractResponse);
+  return response.map(mapFeedContractResponse);
 }
 
-export async function getSourceContract(
+export async function getFeedContract(
   token: string,
   projectId: string,
   sourceDefinitionId: string,
-): Promise<SourceContractRecord> {
-  const response = await requestJson<Parameters<typeof mapSourceContractResponse>[0]>(
+): Promise<FeedContractRecord> {
+  const response = await requestJson<Parameters<typeof mapFeedContractResponse>[0]>(
     `/projects/${projectId}/sources/${sourceDefinitionId}`,
     { method: "GET", token },
   );
-  return mapSourceContractResponse(response);
+  return mapFeedContractResponse(response);
 }
 
-export async function createSourceContract(
+export async function createFeedContract(
   token: string,
   projectId: string,
-  input: SourceContractCreateInput,
-): Promise<SourceContractRecord> {
-  const response = await requestJson<Parameters<typeof mapSourceContractResponse>[0]>(
+  input: FeedContractCreateInput,
+): Promise<FeedContractRecord> {
+  const response = await requestJson<Parameters<typeof mapFeedContractResponse>[0]>(
     `/projects/${projectId}/sources`,
     {
       method: "POST",
@@ -227,16 +227,16 @@ export async function createSourceContract(
       }),
     },
   );
-  return mapSourceContractResponse(response);
+  return mapFeedContractResponse(response);
 }
 
-export async function uploadSourceCopybook(
+export async function uploadFeedCopybook(
   token: string,
   projectId: string,
   sourceDefinitionId: string,
-  input: SourceFileUploadInput,
-): Promise<SourceContractRecord> {
-  const response = await requestJson<Parameters<typeof mapSourceContractResponse>[0]>(
+  input: FeedFileUploadInput,
+): Promise<FeedContractRecord> {
+  const response = await requestJson<Parameters<typeof mapFeedContractResponse>[0]>(
     `/projects/${projectId}/sources/${sourceDefinitionId}/copybook`,
     {
       method: "POST",
@@ -244,16 +244,16 @@ export async function uploadSourceCopybook(
       body: JSON.stringify(input),
     },
   );
-  return mapSourceContractResponse(response);
+  return mapFeedContractResponse(response);
 }
 
-export async function uploadSourceSlice(
+export async function uploadFeedSlice(
   token: string,
   projectId: string,
   sourceDefinitionId: string,
-  input: SourceFileUploadInput,
-): Promise<SourceSliceRecord> {
-  const response = await requestJson<Parameters<typeof mapSourceSliceResponse>[0]>(
+  input: FeedFileUploadInput,
+): Promise<FeedSliceRecord> {
+  const response = await requestJson<Parameters<typeof mapFeedSliceResponse>[0]>(
     `/projects/${projectId}/sources/${sourceDefinitionId}/slices`,
     {
       method: "POST",
@@ -261,56 +261,56 @@ export async function uploadSourceSlice(
       body: JSON.stringify(input),
     },
   );
-  return mapSourceSliceResponse(response);
+  return mapFeedSliceResponse(response);
 }
 
-export async function listSourceSlices(
+export async function listFeedSlices(
   token: string,
   projectId: string,
   sourceDefinitionId: string,
-): Promise<SourceSliceRecord[]> {
-  const response = await requestJson<Array<Parameters<typeof mapSourceSliceResponse>[0]>>(
+): Promise<FeedSliceRecord[]> {
+  const response = await requestJson<Array<Parameters<typeof mapFeedSliceResponse>[0]>>(
     `/projects/${projectId}/sources/${sourceDefinitionId}/slices`,
     { method: "GET", token },
   );
-  return response.map(mapSourceSliceResponse);
+  return response.map(mapFeedSliceResponse);
 }
 
-export async function getSourceSlice(
+export async function getFeedSlice(
   token: string,
   projectId: string,
   sourceDefinitionId: string,
   sourceSliceId: string,
-): Promise<SourceSliceRecord> {
-  const response = await requestJson<Parameters<typeof mapSourceSliceResponse>[0]>(
+): Promise<FeedSliceRecord> {
+  const response = await requestJson<Parameters<typeof mapFeedSliceResponse>[0]>(
     `/projects/${projectId}/sources/${sourceDefinitionId}/slices/${sourceSliceId}`,
     { method: "GET", token },
   );
-  return mapSourceSliceResponse(response);
+  return mapFeedSliceResponse(response);
 }
 
-export async function listSourceSchema(
+export async function listFeedSchema(
   token: string,
   projectId: string,
   sourceDefinitionId: string,
-): Promise<SourceSchemaColumnRecord[]> {
-  const response = await requestJson<Array<Parameters<typeof mapSourceSchemaColumnResponse>[0]>>(
+): Promise<FeedSchemaColumnRecord[]> {
+  const response = await requestJson<Array<Parameters<typeof mapFeedSchemaColumnResponse>[0]>>(
     `/projects/${projectId}/sources/${sourceDefinitionId}/schema`,
     { method: "GET", token },
   );
-  return response.map(mapSourceSchemaColumnResponse);
+  return response.map(mapFeedSchemaColumnResponse);
 }
 
-export async function listSourceValueSummaries(
+export async function listFeedValueSummaries(
   token: string,
   projectId: string,
   sourceDefinitionId: string,
   field?: string,
-): Promise<SourceValueSummaryRecord[]> {
+): Promise<FeedValueSummaryRecord[]> {
   const query = field ? `?field=${encodeURIComponent(field)}` : "";
-  const response = await requestJson<Array<Parameters<typeof mapSourceValueSummaryResponse>[0]>>(
+  const response = await requestJson<Array<Parameters<typeof mapFeedValueSummaryResponse>[0]>>(
     `/projects/${projectId}/sources/${sourceDefinitionId}/value-summary${query}`,
     { method: "GET", token },
   );
-  return response.map(mapSourceValueSummaryResponse);
+  return response.map(mapFeedValueSummaryResponse);
 }

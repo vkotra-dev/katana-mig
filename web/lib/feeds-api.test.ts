@@ -1,16 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  getSourceContract,
-  createSourceContract,
-  listSourceContracts,
-  listSourceValueSummaries,
-  listSourceSlices,
-  listSourceSchema,
-  uploadSourceCopybook,
-  uploadSourceSlice,
-  type SourceContractRecord,
-  type SourceSliceRecord,
-} from "./sources-api";
+  getFeedContract,
+  createFeedContract,
+  listFeedContracts,
+  listFeedValueSummaries,
+  listFeedSlices,
+  listFeedSchema,
+  uploadFeedCopybook,
+  uploadFeedSlice,
+  type FeedContractRecord,
+  type FeedSliceRecord,
+} from "./feeds-api";
 
 const BASE = "http://127.0.0.1:8000";
 
@@ -27,7 +27,7 @@ const contractResponse = {
   created_at: "2026-06-30T00:00:00Z",
 };
 
-const contract: SourceContractRecord = {
+const contract: FeedContractRecord = {
   sourceDefinitionId: "source-1",
   projectId: "project-1",
   sourceType: "csv",
@@ -53,7 +53,7 @@ const sliceResponse = {
   created_at: "2026-06-30T00:00:00Z",
 };
 
-const slice: SourceSliceRecord = {
+const slice: FeedSliceRecord = {
   sourceSliceId: "slice-1",
   sourceDefinitionId: "source-1",
   sourceSliceVersion: "v1",
@@ -90,7 +90,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("sources-api", () => {
+describe("feeds-api", () => {
   it("lists source contracts", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -98,7 +98,7 @@ describe("sources-api", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await listSourceContracts("token-1", "project-1");
+    const result = await listFeedContracts("token-1", "project-1");
 
     expect(fetchMock).toHaveBeenCalledWith(
       `${BASE}/projects/project-1/sources`,
@@ -119,7 +119,7 @@ describe("sources-api", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await createSourceContract("token-1", "project-1", {
+    const result = await createFeedContract("token-1", "project-1", {
       sourceType: "csv",
       label: "Customer Extract",
       encoding: "utf-8",
@@ -140,7 +140,7 @@ describe("sources-api", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await uploadSourceCopybook("token-1", "project-1", "source-1", {
+    const result = await uploadFeedCopybook("token-1", "project-1", "source-1", {
       content: "copybook text",
     });
 
@@ -161,7 +161,7 @@ describe("sources-api", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await uploadSourceSlice("token-1", "project-1", "source-1", {
+    const result = await uploadFeedSlice("token-1", "project-1", "source-1", {
       content: "csv text",
     });
 
@@ -175,7 +175,7 @@ describe("sources-api", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await listSourceSlices("token-1", "project-1", "source-1");
+    const result = await listFeedSlices("token-1", "project-1", "source-1");
 
     expect(result[0]).toMatchObject(slice);
   });
@@ -187,7 +187,7 @@ describe("sources-api", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await getSourceContract("token-1", "project-1", "source-1");
+    const result = await getFeedContract("token-1", "project-1", "source-1");
 
     expect(fetchMock).toHaveBeenCalledWith(
       `${BASE}/projects/project-1/sources/source-1`,
@@ -208,7 +208,7 @@ describe("sources-api", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await listSourceSchema("token-1", "project-1", "source-1");
+    const result = await listFeedSchema("token-1", "project-1", "source-1");
 
     expect(fetchMock).toHaveBeenCalledWith(
       `${BASE}/projects/project-1/sources/source-1/schema`,
@@ -229,7 +229,7 @@ describe("sources-api", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await listSourceValueSummaries("token-1", "project-1", "source-1", "status_code");
+    const result = await listFeedValueSummaries("token-1", "project-1", "source-1", "status_code");
 
     expect(fetchMock).toHaveBeenCalledWith(
       `${BASE}/projects/project-1/sources/source-1/value-summary?field=status_code`,

@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..db.models import LookupSnapshot, MappingSnapshot, RunRecord, SourceSlice, SourceSliceRow
+from ..db.models import LookupSnapshot, MappingSnapshot, RunRecord, FeedSlice, FeedSliceRow
 from ..mapping import FieldBinding, UnmappedLookupValueError, apply_lookup_value
 from .checkpoints import write_checkpoint
 from .lookup_delta import mark_run_paused_for_lookup_delta, open_lookup_delta_change_request
@@ -50,7 +50,7 @@ def process_inner_loop(
     db: Session,
     *,
     run: RunRecord,
-    source_slice: SourceSlice,
+    source_slice: FeedSlice,
     mapping_snapshot: MappingSnapshot,
     lookup_snapshots: dict[str, LookupSnapshot],
     start_row_index: int,
@@ -67,9 +67,9 @@ def process_inner_loop(
     ]
     rows = list(
         db.scalars(
-            select(SourceSliceRow)
-            .where(SourceSliceRow.source_slice_id == source_slice.source_slice_id)
-            .order_by(SourceSliceRow.row_index.asc())
+            select(FeedSliceRow)
+            .where(FeedSliceRow.source_slice_id == source_slice.source_slice_id)
+            .order_by(FeedSliceRow.row_index.asc())
         )
     )
 

@@ -6,7 +6,7 @@ import { Topbar } from "../../components/Topbar";
 import { CreateProjectDialog } from "../../components/projects/CreateProjectDialog";
 import { PortfolioTable } from "../../components/portfolio/PortfolioTable";
 import { SummaryStrip } from "../../components/portfolio/SummaryStrip";
-import { getPendingApprovalCount } from "../../lib/slice-approval-api";
+import { getPendingApprovalCount } from "../../lib/feed-slice-approval-api";
 import { listProjects, projectErrorMessage, type ProjectRecord } from "../../lib/projects-api";
 import { loadUiSession, type SessionRole, type UiSession } from "../../lib/session";
 

@@ -4,13 +4,13 @@ import CodegenPage from "./page";
 
 const {
   loadUiSessionMock,
-  listSourceContractsMock,
+  listFeedContractsMock,
   listCodegenArtifactsMock,
   triggerCodegenMock,
   downloadCodegenDeliveryBundleMock,
 } = vi.hoisted(() => ({
   loadUiSessionMock: vi.fn(),
-  listSourceContractsMock: vi.fn(),
+  listFeedContractsMock: vi.fn(),
   listCodegenArtifactsMock: vi.fn(),
   triggerCodegenMock: vi.fn(),
   downloadCodegenDeliveryBundleMock: vi.fn(),
@@ -24,8 +24,8 @@ vi.mock("../../../../lib/session", () => ({
   loadUiSession: loadUiSessionMock,
 }));
 
-vi.mock("../../../../lib/sources-api", () => ({
-  listSourceContracts: listSourceContractsMock,
+vi.mock("../../../../lib/feeds-api", () => ({
+  listFeedContracts: listFeedContractsMock,
 }));
 
 vi.mock("../../../../lib/codegen-api", () => ({
@@ -44,7 +44,7 @@ describe("CodegenPage", () => {
       sessionVersion: 1,
       userId: "user-1",
     });
-    listSourceContractsMock.mockResolvedValue([
+    listFeedContractsMock.mockResolvedValue([
       {
         sourceDefinitionId: "source-1",
         projectId: "project-1",

@@ -23,12 +23,12 @@ vi.mock("../../lib/projects-api", () => ({
   projectErrorMessage: (error: unknown) => (error instanceof Error ? error.message : "Unable to load project."),
 }));
 
-vi.mock("../../lib/slice-approval-api", () => ({
+vi.mock("../../lib/feed-slice-approval-api", () => ({
   getPendingApprovalCount: vi.fn(),
 }));
 
 import { listProjects } from "../../lib/projects-api";
-import { getPendingApprovalCount } from "../../lib/slice-approval-api";
+import { getPendingApprovalCount } from "../../lib/feed-slice-approval-api";
 import { loadUiSession } from "../../lib/session";
 import { within } from "@testing-library/react";
 

@@ -13,7 +13,7 @@ import {
   type MappingFieldBindingRecord,
   type MappingReviewRecord,
 } from "../../../../../../lib/mapping-api";
-import { listSourceSchema, type SourceSchemaColumnRecord } from "../../../../../../lib/sources-api";
+import { listFeedSchema, type FeedSchemaColumnRecord } from "../../../../../../lib/feeds-api";
 import { loadUiSession, type SessionRole, type UiSession } from "../../../../../../lib/session";
 
 type PageState = "loading" | "no_snapshot" | "draft" | "approved" | "rejected";
@@ -41,7 +41,7 @@ export default function MappingPage() {
   const [session, setSession] = useState<UiSession | null>(null);
   const [pageState, setPageState] = useState<PageState>("loading");
   const [snapshot, setSnapshot] = useState<MappingReviewRecord | null>(null);
-  const [sourceColumns, setSourceColumns] = useState<SourceSchemaColumnRecord[]>([]);
+  const [sourceColumns, setSourceColumns] = useState<FeedSchemaColumnRecord[]>([]);
   const [editedBindings, setEditedBindings] = useState<MappingFieldBindingRecord[]>([]);
   const [isDirty, setIsDirty] = useState(false);
   const [decision, setDecision] = useState<"approved" | "rejected" | null>(null);
@@ -68,7 +68,7 @@ export default function MappingPage() {
 
     void Promise.allSettled([
       getMappingSnapshot(session.accessToken, projectId, sourceDefinitionId),
-      listSourceSchema(session.accessToken, projectId, sourceDefinitionId),
+      listFeedSchema(session.accessToken, projectId, sourceDefinitionId),
     ]).then(([mappingResult, schemaResult]) => {
       if (!active) {
         return;

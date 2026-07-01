@@ -17,10 +17,10 @@ from ..api.schemas import (
     SourceValueSummaryResponse,
 )
 from ..db.models import (
-    SourceDefinition,
+    Feed,
     SourceSchemaArtifact,
-    SourceSlice,
-    SourceSliceRow,
+    FeedSlice,
+    FeedSliceRow,
     SourceValueSummary,
     User,
 )
@@ -147,21 +147,21 @@ def list_source_value_summaries(
     return [_value_summary_response(row) for row in rows]
 
 
-def _get_source_definition(db: Session, *, project_id: str, source_definition_id: str) -> SourceDefinition:
-    source_definition = db.get(SourceDefinition, source_definition_id)
+def _get_source_definition(db: Session, *, project_id: str, source_definition_id: str) -> Feed:
+    source_definition = db.get(Feed, source_definition_id)
     if source_definition is None or source_definition.project_id != project_id:
         raise AuthApiError("source_not_found", "Source contract not found.", 404)
     return source_definition
 
 
-def _latest_approved_source_slice(db: Session, *, source_definition_id: str) -> SourceSlice:
+def _latest_approved_source_slice(db: Session, *, source_definition_id: str) -> FeedSlice:
     source_slice = db.scalar(
-        select(SourceSlice)
+        select(FeedSlice)
         .where(
-            SourceSlice.source_definition_id == source_definition_id,
-            SourceSlice.status == "approved",
+            FeedSlice.source_definition_id == source_definition_id,
+            FeedSlice.status == "approved",
         )
-        .order_by(SourceSlice.approved_at.desc().nullslast(), SourceSlice.created_at.desc())
+        .order_by(FeedSlice.approved_at.desc().nullslast(), FeedSlice.created_at.desc())
     )
     if source_slice is None:
         raise AuthApiError("source_analysis_not_ready", "An approved source slice is required.", 409)
@@ -170,21 +170,21 @@ def _latest_approved_source_slice(db: Session, *, source_definition_id: str) -> 
 
 def _latest_source_slice_version(db: Session, *, source_definition_id: str) -> str | None:
     source_slice = db.scalar(
-        select(SourceSlice.source_slice_version)
+        select(FeedSlice.source_slice_version)
         .where(
-            SourceSlice.source_definition_id == source_definition_id,
-            SourceSlice.status == "approved",
+            FeedSlice.source_definition_id == source_definition_id,
+            FeedSlice.status == "approved",
         )
-        .order_by(SourceSlice.approved_at.desc().nullslast(), SourceSlice.created_at.desc())
+        .order_by(FeedSlice.approved_at.desc().nullslast(), FeedSlice.created_at.desc())
     )
     return source_slice
 
 
 def _load_slice_rows(db: Session, *, source_slice_id: str, limit: int | None = None) -> list[str]:
     stmt = (
-        select(SourceSliceRow.row_csv)
-        .where(SourceSliceRow.source_slice_id == source_slice_id)
-        .order_by(SourceSliceRow.row_index.asc())
+        select(FeedSliceRow.row_csv)
+        .where(FeedSliceRow.source_slice_id == source_slice_id)
+        .order_by(FeedSliceRow.row_index.asc())
     )
     if limit is not None:
         stmt = stmt.limit(limit)
@@ -199,14 +199,14 @@ def _build_sample_text(*, header_csv: str | None, rows: list[str]) -> str:
     return "\n".join(parts)
 
 
-def _build_system_prompt(source_definition: SourceDefinition) -> str:
+def _build_system_prompt(source_definition: Feed) -> str:
     layout_information = json.dumps(source_definition.layout_information or [], ensure_ascii=False)
     if source_definition.source_type == "fixed_length_file":
         return f"{SYSTEM_PROMPT}\nSource type: fixed_length_file\nLayout information: {layout_information}"
     return f"{SYSTEM_PROMPT}\nSource type: {source_definition.source_type}"
 
 
-def _build_value_summaries(db: Session, *, source_slice: SourceSlice) -> list[SourceValueSummary]:
+def _build_value_summaries(db: Session, *, source_slice: FeedSlice) -> list[SourceValueSummary]:
     headers = _parse_csv_row(source_slice.header_csv)
     counts_by_field: dict[str, Counter[str]] = {header: Counter() for header in headers}
     rows = _load_slice_rows(db, source_slice_id=source_slice.source_slice_id)

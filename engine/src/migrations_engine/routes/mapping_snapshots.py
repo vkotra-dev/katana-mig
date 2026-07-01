@@ -8,7 +8,7 @@ from ..api.deps import get_current_user, get_db
 from ..api.schemas import MappingSnapshotResponse
 from ..db.models import User
 from ..management.access import require_project_access
-from ..management.sources import get_source_contract
+from ..management.feeds import get_source_contract
 from ..mapping.snapshots import select_latest_approved_mapping_snapshot
 from ..mapping.exceptions import SnapshotNotFoundError
 

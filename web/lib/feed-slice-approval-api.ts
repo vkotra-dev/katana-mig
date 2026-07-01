@@ -1,6 +1,6 @@
 import { API_BASE_URL } from "./api-base";
 
-export interface SourceSliceApprovalItem {
+export interface FeedSliceApprovalItem {
   projectId: string;
   projectName: string;
   sourceDefinitionId: string;
@@ -14,17 +14,17 @@ export interface SourceSliceApprovalItem {
   createdAt: string;
 }
 
-export interface SourceSliceApprovalCount {
+export interface FeedSliceApprovalCount {
   pendingCount: number;
 }
 
-export class SourceSliceApprovalApiError extends Error {
+export class FeedSliceApprovalApiError extends Error {
   code: string;
   status: number;
 
   constructor(code: string, message: string, status: number) {
     super(message || code);
-    this.name = "SourceSliceApprovalApiError";
+    this.name = "FeedSliceApprovalApiError";
     this.code = code;
     this.status = status;
   }
@@ -61,15 +61,15 @@ async function requestJson<T>(
   return (await response.json()) as T;
 }
 
-async function parseApiError(response: Response): Promise<SourceSliceApprovalApiError> {
+async function parseApiError(response: Response): Promise<FeedSliceApprovalApiError> {
   try {
     const body = (await response.json()) as { error?: { code?: string; message?: string } };
     const code = body.error?.code ?? "api_error";
     const message = body.error?.message ?? code;
-    return new SourceSliceApprovalApiError(code, message, response.status);
+    return new FeedSliceApprovalApiError(code, message, response.status);
   } catch {
     const message = await response.text();
-    return new SourceSliceApprovalApiError("api_error", message || "api_error", response.status);
+    return new FeedSliceApprovalApiError("api_error", message || "api_error", response.status);
   }
 }
 
@@ -85,7 +85,7 @@ function mapApprovalItem(response: {
   status: string;
   parse_warnings: string[] | null;
   created_at: string;
-}): SourceSliceApprovalItem {
+}): FeedSliceApprovalItem {
   return {
     projectId: response.project_id,
     projectName: response.project_name,
@@ -101,7 +101,7 @@ function mapApprovalItem(response: {
   };
 }
 
-export async function listPendingApprovals(token: string): Promise<SourceSliceApprovalItem[]> {
+export async function listPendingApprovals(token: string): Promise<FeedSliceApprovalItem[]> {
   const response = await requestJson<Array<Parameters<typeof mapApprovalItem>[0]>>("/approvals", {
     method: "GET",
     token,
@@ -110,14 +110,14 @@ export async function listPendingApprovals(token: string): Promise<SourceSliceAp
 }
 
 export async function getPendingApprovalCount(token: string): Promise<number> {
-  const response = await requestJson<SourceSliceApprovalCount>("/approvals/count", {
+  const response = await requestJson<FeedSliceApprovalCount>("/approvals/count", {
     method: "GET",
     token,
   });
   return response.pendingCount;
 }
 
-export async function approveSourceSlice(
+export async function approveFeedSlice(
   token: string,
   projectId: string,
   sourceDefinitionId: string,
@@ -129,7 +129,7 @@ export async function approveSourceSlice(
   );
 }
 
-export async function rejectSourceSlice(
+export async function rejectFeedSlice(
   token: string,
   projectId: string,
   sourceDefinitionId: string,
@@ -146,7 +146,7 @@ export async function rejectSourceSlice(
   );
 }
 
-export async function resubmitSourceSlice(
+export async function resubmitFeedSlice(
   token: string,
   projectId: string,
   sourceDefinitionId: string,

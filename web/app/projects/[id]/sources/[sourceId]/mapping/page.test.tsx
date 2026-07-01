@@ -6,7 +6,7 @@ const {
   approveMappingSnapshotMock,
   getMappingSnapshotMock,
   loadUiSessionMock,
-  listSourceSchemaMock,
+  listFeedSchemaMock,
   patchMappingSnapshotMock,
   proposeMappingSnapshotMock,
   rejectMappingSnapshotMock,
@@ -16,7 +16,7 @@ const {
   approveMappingSnapshotMock: vi.fn(),
   getMappingSnapshotMock: vi.fn(),
   loadUiSessionMock: vi.fn(),
-  listSourceSchemaMock: vi.fn(),
+  listFeedSchemaMock: vi.fn(),
   patchMappingSnapshotMock: vi.fn(),
   proposeMappingSnapshotMock: vi.fn(),
   rejectMappingSnapshotMock: vi.fn(),
@@ -43,8 +43,8 @@ vi.mock("../../../../../../lib/mapping-api", () => ({
   rejectMappingSnapshot: rejectMappingSnapshotMock,
 }));
 
-vi.mock("../../../../../../lib/sources-api", () => ({
-  listSourceSchema: listSourceSchemaMock,
+vi.mock("../../../../../../lib/feeds-api", () => ({
+  listFeedSchema: listFeedSchemaMock,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -89,7 +89,7 @@ const DRAFT_SNAPSHOT = {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(listSourceSchemaMock).mockResolvedValue([
+  vi.mocked(listFeedSchemaMock).mockResolvedValue([
     { name: "customer_id", inferredType: "integer", nullable: false, maxLength: null },
     { name: "full_name", inferredType: "text", nullable: false, maxLength: 200 },
   ]);

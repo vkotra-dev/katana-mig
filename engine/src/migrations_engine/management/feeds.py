@@ -8,15 +8,15 @@ from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
 from ..api.schemas import (
-    SourceContractCreateRequest,
-    SourceContractResponse,
-    SourceSliceApprovalCountResponse,
-    SourceSliceApprovalItemResponse,
-    SourceSliceRejectRequest,
-    SourceSliceResubmitRequest,
-    SourceSliceResponse,
+    FeedCreateRequest,
+    FeedResponse,
+    FeedSliceApprovalCountResponse,
+    FeedSliceApprovalItemResponse,
+    FeedSliceRejectRequest,
+    FeedSliceResubmitRequest,
+    FeedSliceResponse,
 )
-from ..db.models import ProjectMembership, ProjectRegistry, SourceDefinition, SourceSlice, SourceSliceRow, User, new_id
+from ..db.models import ProjectMembership, ProjectRegistry, Feed, FeedSlice, FeedSliceRow, User, new_id
 from ..intake.cobol_parser import parse_copybook
 from ..intake.csv_intake import ingest_csv
 from ..intake.fixed_intake import ingest_fixed
@@ -28,10 +28,10 @@ def create_source_contract(
     *,
     actor: User,
     project_id: str,
-    body: SourceContractCreateRequest,
-) -> SourceContractResponse:
+    body: FeedCreateRequest,
+) -> FeedResponse:
     label = body.label.strip()
-    source_definition = SourceDefinition(
+    source_definition = Feed(
         source_definition_id=new_id(),
         project_id=project_id,
         source_type=body.source_type,
@@ -59,16 +59,16 @@ def create_source_contract(
     return _source_contract_response(source_definition)
 
 
-def list_source_contracts(db: Session, *, project_id: str) -> list[SourceContractResponse]:
+def list_source_contracts(db: Session, *, project_id: str) -> list[FeedResponse]:
     rows = db.scalars(
-        select(SourceDefinition)
-        .where(SourceDefinition.project_id == project_id)
-        .order_by(SourceDefinition.created_at.asc())
+        select(Feed)
+        .where(Feed.project_id == project_id)
+        .order_by(Feed.created_at.asc())
     ).all()
     return [_source_contract_response(row) for row in rows]
 
 
-def get_source_contract(db: Session, *, project_id: str, source_definition_id: str) -> SourceContractResponse:
+def get_source_contract(db: Session, *, project_id: str, source_definition_id: str) -> FeedResponse:
     source_definition = _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
     return _source_contract_response(source_definition)
 
@@ -80,7 +80,7 @@ def upload_copybook(
     project_id: str,
     source_definition_id: str,
     raw_bytes: bytes,
-) -> SourceContractResponse:
+) -> FeedResponse:
     source_definition = _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
     if source_definition.source_type != "fixed_length_file":
         raise AuthApiError("layout_not_ready", "Copybook upload is only supported for fixed-length sources.", 409)
@@ -122,7 +122,7 @@ def upload_source_slice(
     project_id: str,
     source_definition_id: str,
     raw_bytes: bytes,
-) -> SourceSliceResponse:
+) -> FeedSliceResponse:
     source_definition = _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
     if source_definition.source_type == "csv":
         result = ingest_csv(db, source_definition=source_definition, raw_bytes=raw_bytes)
@@ -148,12 +148,12 @@ def upload_source_slice(
     return _source_slice_response(db, result.source_slice)
 
 
-def list_source_slices(db: Session, *, project_id: str, source_definition_id: str) -> list[SourceSliceResponse]:
+def list_source_slices(db: Session, *, project_id: str, source_definition_id: str) -> list[FeedSliceResponse]:
     _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
     rows = db.scalars(
-        select(SourceSlice)
-        .where(SourceSlice.source_definition_id == source_definition_id)
-        .order_by(SourceSlice.created_at.asc())
+        select(FeedSlice)
+        .where(FeedSlice.source_definition_id == source_definition_id)
+        .order_by(FeedSlice.created_at.asc())
     ).all()
     return [_source_slice_response(db, row) for row in rows]
 
@@ -164,51 +164,51 @@ def get_source_slice(
     project_id: str,
     source_definition_id: str,
     source_slice_id: str,
-) -> SourceSliceResponse:
+) -> FeedSliceResponse:
     _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
-    source_slice = db.get(SourceSlice, source_slice_id)
+    source_slice = db.get(FeedSlice, source_slice_id)
     if source_slice is None or source_slice.source_definition_id != source_definition_id:
         raise AuthApiError("source_slice_not_found", "Source slice not found.", 404)
     return _source_slice_response(db, source_slice)
 
 
-def list_pending_approvals(db: Session, *, actor: User) -> list[SourceSliceApprovalItemResponse]:
+def list_pending_approvals(db: Session, *, actor: User) -> list[FeedSliceApprovalItemResponse]:
     stmt = (
         select(
             ProjectRegistry.project_id,
             ProjectRegistry.name,
-            SourceDefinition.source_definition_id,
-            SourceDefinition.source_type,
-            SourceDefinition.source_details,
-            SourceSlice.source_slice_id,
-            SourceSlice.source_slice_version,
-            SourceSlice.status,
-            SourceSlice.parse_warnings,
-            SourceSlice.created_at,
-            func.count(SourceSliceRow.id).label("row_count"),
+            Feed.source_definition_id,
+            Feed.source_type,
+            Feed.source_details,
+            FeedSlice.source_slice_id,
+            FeedSlice.source_slice_version,
+            FeedSlice.status,
+            FeedSlice.parse_warnings,
+            FeedSlice.created_at,
+            func.count(FeedSliceRow.id).label("row_count"),
         )
-        .join(SourceDefinition, SourceDefinition.project_id == ProjectRegistry.project_id)
-        .join(SourceSlice, SourceSlice.source_definition_id == SourceDefinition.source_definition_id)
-        .outerjoin(SourceSliceRow, SourceSliceRow.source_slice_id == SourceSlice.source_slice_id)
-        .where(SourceSlice.status == "pending_approval")
+        .join(Feed, Feed.project_id == ProjectRegistry.project_id)
+        .join(FeedSlice, FeedSlice.source_definition_id == Feed.source_definition_id)
+        .outerjoin(FeedSliceRow, FeedSliceRow.source_slice_id == FeedSlice.source_slice_id)
+        .where(FeedSlice.status == "pending_approval")
         .group_by(
             ProjectRegistry.project_id,
             ProjectRegistry.name,
-            SourceDefinition.source_definition_id,
-            SourceDefinition.source_type,
-            SourceDefinition.source_details,
-            SourceSlice.source_slice_id,
-            SourceSlice.source_slice_version,
-            SourceSlice.status,
-            SourceSlice.parse_warnings,
-            SourceSlice.created_at,
+            Feed.source_definition_id,
+            Feed.source_type,
+            Feed.source_details,
+            FeedSlice.source_slice_id,
+            FeedSlice.source_slice_version,
+            FeedSlice.status,
+            FeedSlice.parse_warnings,
+            FeedSlice.created_at,
         )
-        .order_by(SourceSlice.created_at.asc())
+        .order_by(FeedSlice.created_at.asc())
     )
     stmt = _apply_visibility_filter(stmt, actor=actor)
     rows = db.execute(stmt).all()
     return [
-        SourceSliceApprovalItemResponse(
+        FeedSliceApprovalItemResponse(
             project_id=project_id,
             project_name=project_name,
             source_definition_id=source_definition_id,
@@ -237,16 +237,16 @@ def list_pending_approvals(db: Session, *, actor: User) -> list[SourceSliceAppro
     ]
 
 
-def count_pending_approvals(db: Session, *, actor: User) -> SourceSliceApprovalCountResponse:
+def count_pending_approvals(db: Session, *, actor: User) -> FeedSliceApprovalCountResponse:
     stmt = (
-        select(func.count(SourceSlice.source_slice_id))
-        .join(SourceDefinition, SourceDefinition.source_definition_id == SourceSlice.source_definition_id)
-        .join(ProjectRegistry, ProjectRegistry.project_id == SourceDefinition.project_id)
-        .where(SourceSlice.status == "pending_approval")
+        select(func.count(FeedSlice.source_slice_id))
+        .join(Feed, Feed.source_definition_id == FeedSlice.source_definition_id)
+        .join(ProjectRegistry, ProjectRegistry.project_id == Feed.project_id)
+        .where(FeedSlice.status == "pending_approval")
     )
     stmt = _apply_visibility_filter(stmt, actor=actor)
     pending_count = db.scalar(stmt) or 0
-    return SourceSliceApprovalCountResponse(pending_count=pending_count)
+    return FeedSliceApprovalCountResponse(pending_count=pending_count)
 
 
 def approve_source_slice(
@@ -256,7 +256,7 @@ def approve_source_slice(
     project_id: str,
     source_definition_id: str,
     source_slice_id: str,
-) -> SourceSliceResponse:
+) -> FeedSliceResponse:
     _source_definition, source_slice = _get_source_definition_and_slice(
         db,
         project_id=project_id,
@@ -292,8 +292,8 @@ def reject_source_slice(
     project_id: str,
     source_definition_id: str,
     source_slice_id: str,
-    body: SourceSliceRejectRequest,
-) -> SourceSliceResponse:
+    body: FeedSliceRejectRequest,
+) -> FeedSliceResponse:
     _source_definition, source_slice = _get_source_definition_and_slice(
         db,
         project_id=project_id,
@@ -331,8 +331,8 @@ def resubmit_source_slice(
     project_id: str,
     source_definition_id: str,
     source_slice_id: str,
-    body: SourceSliceResubmitRequest,
-) -> SourceSliceResponse:
+    body: FeedSliceResubmitRequest,
+) -> FeedSliceResponse:
     source_definition, source_slice = _get_source_definition_and_slice(
         db,
         project_id=project_id,
@@ -345,10 +345,10 @@ def resubmit_source_slice(
         raise AuthApiError("file_not_retained", "Original file was not retained.", 422)
 
     for pending in db.scalars(
-        select(SourceSlice).where(
-            SourceSlice.source_definition_id == source_definition_id,
-            SourceSlice.status == "pending_approval",
-            SourceSlice.source_slice_id != source_slice_id,
+        select(FeedSlice).where(
+            FeedSlice.source_definition_id == source_definition_id,
+            FeedSlice.status == "pending_approval",
+            FeedSlice.source_slice_id != source_slice_id,
         )
     ).all():
         pending.status = "rejected"
@@ -394,11 +394,11 @@ def resubmit_source_slice(
     return _source_slice_response(db, result.source_slice)
 
 
-def _source_contract_response(source_definition: SourceDefinition) -> SourceContractResponse:
+def _source_contract_response(source_definition: Feed) -> FeedResponse:
     details = source_definition.source_details or {}
     label = cast(str, details.get("label", source_definition.source_type))
     encoding = cast(str, details.get("encoding", "utf-8"))
-    return SourceContractResponse(
+    return FeedResponse(
         source_definition_id=source_definition.source_definition_id,
         project_id=source_definition.project_id,
         source_type=source_definition.source_type,
@@ -412,17 +412,17 @@ def _source_contract_response(source_definition: SourceDefinition) -> SourceCont
     )
 
 
-def _source_slice_response(db: Session, source_slice: SourceSlice) -> SourceSliceResponse:
+def _source_slice_response(db: Session, source_slice: FeedSlice) -> FeedSliceResponse:
     row_count = db.scalar(
-        select(func.count(SourceSliceRow.id)).where(SourceSliceRow.source_slice_id == source_slice.source_slice_id)
+        select(func.count(FeedSliceRow.id)).where(FeedSliceRow.source_slice_id == source_slice.source_slice_id)
     ) or 0
     preview_rows = db.scalars(
-        select(SourceSliceRow.row_csv)
-        .where(SourceSliceRow.source_slice_id == source_slice.source_slice_id)
-        .order_by(SourceSliceRow.row_index.asc())
+        select(FeedSliceRow.row_csv)
+        .where(FeedSliceRow.source_slice_id == source_slice.source_slice_id)
+        .order_by(FeedSliceRow.row_index.asc())
         .limit(10)
     ).all()
-    return SourceSliceResponse(
+    return FeedSliceResponse(
         source_slice_id=source_slice.source_slice_id,
         source_definition_id=source_slice.source_definition_id,
         source_slice_version=source_slice.source_slice_version,
@@ -436,8 +436,8 @@ def _source_slice_response(db: Session, source_slice: SourceSlice) -> SourceSlic
     )
 
 
-def _get_source_definition(db: Session, *, project_id: str, source_definition_id: str) -> SourceDefinition:
-    source_definition = db.get(SourceDefinition, source_definition_id)
+def _get_source_definition(db: Session, *, project_id: str, source_definition_id: str) -> Feed:
+    source_definition = db.get(Feed, source_definition_id)
     if source_definition is None or source_definition.project_id != project_id:
         raise AuthApiError("source_not_found", "Source contract not found.", 404)
     return source_definition
@@ -449,15 +449,15 @@ def _get_source_definition_and_slice(
     project_id: str,
     source_definition_id: str,
     source_slice_id: str,
-) -> tuple[SourceDefinition, SourceSlice]:
+) -> tuple[Feed, FeedSlice]:
     source_definition = _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
-    source_slice = db.get(SourceSlice, source_slice_id)
+    source_slice = db.get(FeedSlice, source_slice_id)
     if source_slice is None or source_slice.source_definition_id != source_definition_id:
         raise AuthApiError("slice_not_found", "Source slice not found.", 404)
     return source_definition, source_slice
 
 
-def _encoding_for_source(source_definition: SourceDefinition) -> str:
+def _encoding_for_source(source_definition: Feed) -> str:
     details = source_definition.source_details or {}
     if isinstance(details, dict):
         encoding = details.get("encoding")

@@ -15,7 +15,7 @@ from ..api.schemas import (
     LookupValueMapResponse,
     MappingSnapshotResponse,
 )
-from ..db.models import LookupSnapshot, LookupValueMap, SourceDefinition, User, new_id
+from ..db.models import LookupSnapshot, LookupValueMap, Feed, User, new_id
 from ..mapping.snapshots import select_latest_approved_mapping_snapshot
 from .platform import record_management_audit
 from .source_analysis import list_source_value_summaries
@@ -202,8 +202,8 @@ def approve_lookup_snapshot(
     return _lookup_snapshot_response(snapshot)
 
 
-def _get_source_definition(db: Session, *, project_id: str, source_definition_id: str) -> SourceDefinition:
-    source_definition = db.get(SourceDefinition, source_definition_id)
+def _get_source_definition(db: Session, *, project_id: str, source_definition_id: str) -> Feed:
+    source_definition = db.get(Feed, source_definition_id)
     if source_definition is None or source_definition.project_id != project_id:
         raise AuthApiError("source_not_found", "Source contract not found.", 404)
     return source_definition
@@ -233,7 +233,7 @@ def _latest_mapping_snapshot_for_lookup(
     db: Session,
     *,
     project_id: str,
-    source_definition: SourceDefinition,
+    source_definition: Feed,
     lookup_name: str,
 ) -> MappingSnapshotResponse:
     destination_object_names = source_definition.destination_object_references

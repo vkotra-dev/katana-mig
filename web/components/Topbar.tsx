@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { navItemsForRole, type NavItem } from "../lib/ui-model";
-import { getPendingApprovalCount } from "../lib/slice-approval-api";
+import { getPendingApprovalCount } from "../lib/feed-slice-approval-api";
 import { loadUiSession } from "../lib/session";
 
 export interface TopbarProps {

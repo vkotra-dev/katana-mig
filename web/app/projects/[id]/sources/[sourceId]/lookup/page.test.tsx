@@ -6,11 +6,11 @@ const {
   approveLookupSnapshotMock,
   createLookupValueMapMock,
   generateLookupSnapshotMock,
-  getSourceContractMock,
+  getFeedContractMock,
   getLatestApprovedMappingSnapshotMock,
   listLookupValueMapsMock,
-  listSourceSchemaMock,
-  listSourceValueSummariesMock,
+  listFeedSchemaMock,
+  listFeedValueSummariesMock,
   loadUiSessionMock,
   replaceMock,
   topbarMock,
@@ -18,11 +18,11 @@ const {
   approveLookupSnapshotMock: vi.fn(),
   createLookupValueMapMock: vi.fn(),
   generateLookupSnapshotMock: vi.fn(),
-  getSourceContractMock: vi.fn(),
+  getFeedContractMock: vi.fn(),
   getLatestApprovedMappingSnapshotMock: vi.fn(),
   listLookupValueMapsMock: vi.fn(),
-  listSourceSchemaMock: vi.fn(),
-  listSourceValueSummariesMock: vi.fn(),
+  listFeedSchemaMock: vi.fn(),
+  listFeedValueSummariesMock: vi.fn(),
   loadUiSessionMock: vi.fn(),
   replaceMock: vi.fn(),
   topbarMock: vi.fn(),
@@ -39,10 +39,10 @@ vi.mock("../../../../../../lib/session", () => ({
   loadUiSession: loadUiSessionMock,
 }));
 
-vi.mock("../../../../../../lib/sources-api", () => ({
-  getSourceContract: getSourceContractMock,
-  listSourceSchema: listSourceSchemaMock,
-  listSourceValueSummaries: listSourceValueSummariesMock,
+vi.mock("../../../../../../lib/feeds-api", () => ({
+  getFeedContract: getFeedContractMock,
+  listFeedSchema: listFeedSchemaMock,
+  listFeedValueSummaries: listFeedValueSummariesMock,
 }));
 
 vi.mock("../../../../../../lib/mapping-api", () => ({
@@ -72,7 +72,7 @@ describe("LookupPage", () => {
       userId: "user-1",
     });
 
-    getSourceContractMock.mockResolvedValue({
+    getFeedContractMock.mockResolvedValue({
       sourceDefinitionId: "source-1",
       projectId: "project-1",
       sourceType: "csv",
@@ -101,7 +101,7 @@ describe("LookupPage", () => {
       approvedByUserId: "user-1",
       createdAt: "2026-06-30T00:00:00Z",
     });
-    listSourceSchemaMock.mockResolvedValue([
+    listFeedSchemaMock.mockResolvedValue([
       {
         name: "status_code",
         inferredType: "text",
@@ -109,7 +109,7 @@ describe("LookupPage", () => {
         maxLength: 32,
       },
     ]);
-    listSourceValueSummariesMock.mockResolvedValue([
+    listFeedValueSummariesMock.mockResolvedValue([
       {
         summaryId: "summary-1",
         sourceDefinitionId: "source-1",
@@ -195,7 +195,7 @@ describe("LookupPage", () => {
       userId: "user-1",
     });
 
-    getSourceContractMock.mockResolvedValue({
+    getFeedContractMock.mockResolvedValue({
       sourceDefinitionId: "source-1",
       projectId: "project-1",
       sourceType: "csv",
@@ -224,8 +224,8 @@ describe("LookupPage", () => {
       approvedByUserId: "user-1",
       createdAt: "2026-06-30T00:00:00Z",
     });
-    listSourceSchemaMock.mockResolvedValue([]);
-    listSourceValueSummariesMock.mockResolvedValue([
+    listFeedSchemaMock.mockResolvedValue([]);
+    listFeedValueSummariesMock.mockResolvedValue([
       {
         summaryId: "summary-1",
         sourceDefinitionId: "source-1",

@@ -4,16 +4,16 @@ import { LaunchRunDialog } from "./LaunchRunDialog";
 
 const {
   listProjectsMock,
-  listSourceContractsMock,
-  listSourceSlicesMock,
+  listFeedContractsMock,
+  listFeedSlicesMock,
   listRunsMock,
   createRunMock,
   launchRunMock,
   getUiSessionMock,
 } = vi.hoisted(() => ({
   listProjectsMock: vi.fn(),
-  listSourceContractsMock: vi.fn(),
-  listSourceSlicesMock: vi.fn(),
+  listFeedContractsMock: vi.fn(),
+  listFeedSlicesMock: vi.fn(),
   listRunsMock: vi.fn(),
   createRunMock: vi.fn(),
   launchRunMock: vi.fn(),
@@ -24,9 +24,9 @@ vi.mock("../../lib/projects-api", () => ({
   listProjects: listProjectsMock,
 }));
 
-vi.mock("../../lib/sources-api", () => ({
-  listSourceContracts: listSourceContractsMock,
-  listSourceSlices: listSourceSlicesMock,
+vi.mock("../../lib/feeds-api", () => ({
+  listFeedContracts: listFeedContractsMock,
+  listFeedSlices: listFeedSlicesMock,
 }));
 
 vi.mock("../../lib/runs-api", () => ({
@@ -71,7 +71,7 @@ describe("LaunchRunDialog", () => {
         archivedAt: null,
       },
     ]);
-    listSourceContractsMock.mockResolvedValue([
+    listFeedContractsMock.mockResolvedValue([
       {
         sourceDefinitionId: "source-1",
         projectId: "project-1",
@@ -85,7 +85,7 @@ describe("LaunchRunDialog", () => {
         createdAt: "2026-06-30T00:00:00Z",
       },
     ]);
-    listSourceSlicesMock.mockResolvedValue([
+    listFeedSlicesMock.mockResolvedValue([
       {
         sourceSliceId: "slice-1",
         sourceDefinitionId: "source-1",

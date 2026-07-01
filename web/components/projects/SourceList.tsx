@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { AddSourceDialog } from "./AddSourceDialog";
 import {
-  listSourceContracts,
-  type SourceContractRecord,
-} from "../../lib/sources-api";
+  listFeedContracts,
+  type FeedContractRecord,
+} from "../../lib/feeds-api";
 import type { SessionRole } from "../../lib/session";
 
 export interface SourceListProps {
@@ -18,12 +18,12 @@ function formatDate(value: string): string {
   return value.slice(0, 10);
 }
 
-function sourceTypeLabel(sourceType: SourceContractRecord["sourceType"]): string {
+function sourceTypeLabel(sourceType: FeedContractRecord["sourceType"]): string {
   return sourceType === "csv" ? "CSV" : "Fixed-Length";
 }
 
 export function SourceList({ projectId, token, role }: SourceListProps) {
-  const [sources, setSources] = useState<SourceContractRecord[]>([]);
+  const [sources, setSources] = useState<FeedContractRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -32,7 +32,7 @@ export function SourceList({ projectId, token, role }: SourceListProps) {
     let active = true;
     setLoading(true);
     setErrorMessage(null);
-    void listSourceContracts(token, projectId)
+    void listFeedContracts(token, projectId)
       .then((response) => {
         if (active) {
           setSources(response);
@@ -127,7 +127,7 @@ export function SourceList({ projectId, token, role }: SourceListProps) {
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
         onCreated={async () => {
-          const response = await listSourceContracts(token, projectId);
+          const response = await listFeedContracts(token, projectId);
           setSources(response);
         }}
         projectId={projectId}

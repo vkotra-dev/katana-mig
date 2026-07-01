@@ -15,7 +15,7 @@ from ..api.schemas import (
     ProjectStatus,
     ProjectUpdateRequest,
 )
-from ..db.models import ProjectDefinition, ProjectMembership, ProjectRegistry, RunRecord, SourceDefinition, User, new_id
+from ..db.models import ProjectDefinition, ProjectMembership, ProjectRegistry, RunRecord, Feed, User, new_id
 from ..roles import PROJECT_STAKEHOLDER_ROLE
 from .platform import record_management_audit
 
@@ -240,15 +240,15 @@ def _load_latest_run_summaries(
     )
 
     stmt = (
-        select(RunRecord, SourceDefinition.source_type)
+        select(RunRecord, Feed.source_type)
         .join(
             latest_subquery,
             (RunRecord.project_id == latest_subquery.c.project_id)
             & (RunRecord.updated_at == latest_subquery.c.updated_at),
         )
         .outerjoin(
-            SourceDefinition,
-            SourceDefinition.source_definition_id == RunRecord.source_definition_reference,
+            Feed,
+            Feed.source_definition_id == RunRecord.source_definition_reference,
         )
     )
 

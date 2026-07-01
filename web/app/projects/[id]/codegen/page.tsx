@@ -8,7 +8,7 @@ import {
   triggerCodegen,
   type CodegenArtifactRecord,
 } from "../../../../lib/codegen-api";
-import { listSourceContracts, type SourceContractRecord } from "../../../../lib/sources-api";
+import { listFeedContracts, type FeedContractRecord } from "../../../../lib/feeds-api";
 import { loadUiSession, type SessionRole, type UiSession } from "../../../../lib/session";
 
 function formatDate(value: string): string {
@@ -31,7 +31,7 @@ function latestActiveArtifact(artifacts: CodegenArtifactRecord[]): CodegenArtifa
   return [...source].sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ?? null;
 }
 
-function sourceDestinationLabel(source: SourceContractRecord): string {
+function sourceDestinationLabel(source: FeedContractRecord): string {
   const refs = source.destinationObjectReferences ?? [];
   return refs.length > 0 ? refs.join(", ") : "Unassigned";
 }
@@ -39,7 +39,7 @@ function sourceDestinationLabel(source: SourceContractRecord): string {
 export default function CodegenPage({ params }: { params: Promise<{ id: string }> }) {
   const [routeParams, setRouteParams] = useState<{ id: string } | null>(null);
   const [session, setSession] = useState<UiSession | null>(null);
-  const [sources, setSources] = useState<SourceContractRecord[]>([]);
+  const [sources, setSources] = useState<FeedContractRecord[]>([]);
   const [artifacts, setArtifacts] = useState<CodegenArtifactRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
@@ -74,7 +74,7 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
     setStatusMessage(null);
 
     void Promise.all([
-      listSourceContracts(session.accessToken, routeParams.id),
+      listFeedContracts(session.accessToken, routeParams.id),
       listCodegenArtifacts(session.accessToken, routeParams.id),
     ])
       .then(([sourceResponse, artifactResponse]) => {

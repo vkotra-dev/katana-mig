@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AddSourceDialog } from "../AddSourceDialog";
 
-const createSourceContractMock = vi.fn().mockResolvedValue({
+const createFeedContractMock = vi.fn().mockResolvedValue({
   sourceDefinitionId: "source-1",
   projectId: "project-1",
   sourceType: "csv",
@@ -15,7 +15,7 @@ const createSourceContractMock = vi.fn().mockResolvedValue({
   createdAt: "2026-06-30T00:00:00Z",
 });
 
-const uploadSourceCopybookMock = vi.fn().mockResolvedValue({
+const uploadFeedCopybookMock = vi.fn().mockResolvedValue({
   sourceDefinitionId: "source-1",
   projectId: "project-1",
   sourceType: "fixed_length_file",
@@ -28,7 +28,7 @@ const uploadSourceCopybookMock = vi.fn().mockResolvedValue({
   createdAt: "2026-06-30T00:00:00Z",
 });
 
-const uploadSourceSliceMock = vi.fn().mockResolvedValue({
+const uploadFeedSliceMock = vi.fn().mockResolvedValue({
   sourceSliceId: "slice-1",
   sourceDefinitionId: "source-1",
   headerCsv: "CUST_ID,SURNAME",
@@ -38,10 +38,10 @@ const uploadSourceSliceMock = vi.fn().mockResolvedValue({
   createdAt: "2026-06-30T00:00:00Z",
 });
 
-vi.mock("../../../lib/sources-api", () => ({
-  createSourceContract: (...args: unknown[]) => createSourceContractMock(...args),
-  uploadSourceCopybook: (...args: unknown[]) => uploadSourceCopybookMock(...args),
-  uploadSourceSlice: (...args: unknown[]) => uploadSourceSliceMock(...args),
+vi.mock("../../../lib/feeds-api", () => ({
+  createFeedContract: (...args: unknown[]) => createFeedContractMock(...args),
+  uploadFeedCopybook: (...args: unknown[]) => uploadFeedCopybookMock(...args),
+  uploadFeedSlice: (...args: unknown[]) => uploadFeedSliceMock(...args),
 }));
 
 describe("AddSourceDialog", () => {
@@ -63,7 +63,7 @@ describe("AddSourceDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: /create csv/i }));
 
     await screen.findByText("Data file");
-    expect(createSourceContractMock).toHaveBeenCalledWith("token-1", "project-1", {
+    expect(createFeedContractMock).toHaveBeenCalledWith("token-1", "project-1", {
       sourceType: "csv",
       label: "Customer Extract",
       encoding: "utf-8",
@@ -74,7 +74,7 @@ describe("AddSourceDialog", () => {
     fireEvent.change(fileInput, { target: { files: [csvFile] } });
     fireEvent.click(screen.getByRole("button", { name: /upload source/i }));
 
-    await waitFor(() => expect(uploadSourceSliceMock).toHaveBeenCalled());
+    await waitFor(() => expect(uploadFeedSliceMock).toHaveBeenCalled());
     expect(onCreated).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
   });
@@ -102,6 +102,6 @@ describe("AddSourceDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: /upload copybook/i }));
 
     await screen.findByText("Data file");
-    expect(uploadSourceCopybookMock).toHaveBeenCalled();
+    expect(uploadFeedCopybookMock).toHaveBeenCalled();
   });
 });

@@ -4,13 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Topbar } from "../../../../../../components/Topbar";
 import {
-  getSourceContract,
-  listSourceSchema,
-  listSourceValueSummaries,
-  type SourceContractRecord,
-  type SourceSchemaColumnRecord,
-  type SourceValueSummaryRecord,
-} from "../../../../../../lib/sources-api";
+  getFeedContract,
+  listFeedSchema,
+  listFeedValueSummaries,
+  type FeedContractRecord,
+  type FeedSchemaColumnRecord,
+  type FeedValueSummaryRecord,
+} from "../../../../../../lib/feeds-api";
 import {
   approveLookupSnapshot,
   createLookupValueMap,
@@ -165,9 +165,9 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
   const router = useRouter();
   const [routeParams, setRouteParams] = useState<{ id: string; sourceId: string } | null>(null);
   const [session, setSession] = useState<UiSession | null>(null);
-  const [source, setSource] = useState<SourceContractRecord | null>(null);
-  const [schemaColumns, setSchemaColumns] = useState<SourceSchemaColumnRecord[]>([]);
-  const [summaries, setSummaries] = useState<SourceValueSummaryRecord[]>([]);
+  const [source, setSource] = useState<FeedContractRecord | null>(null);
+  const [schemaColumns, setSchemaColumns] = useState<FeedSchemaColumnRecord[]>([]);
+  const [summaries, setSummaries] = useState<FeedValueSummaryRecord[]>([]);
   const [mappingSnapshot, setMappingSnapshot] = useState<MappingSnapshotRecord | null>(null);
   const [lookupMaps, setLookupMaps] = useState<LookupValueMapRecord[]>([]);
   const [fieldStates, setFieldStates] = useState<Record<string, LookupFieldState>>({});
@@ -204,9 +204,9 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
     setPageError(null);
 
     void Promise.all([
-      getSourceContract(session.accessToken, routeParams.id, routeParams.sourceId),
-      listSourceSchema(session.accessToken, routeParams.id, routeParams.sourceId),
-      listSourceValueSummaries(session.accessToken, routeParams.id, routeParams.sourceId),
+      getFeedContract(session.accessToken, routeParams.id, routeParams.sourceId),
+      listFeedSchema(session.accessToken, routeParams.id, routeParams.sourceId),
+      listFeedValueSummaries(session.accessToken, routeParams.id, routeParams.sourceId),
       getLatestApprovedMappingSnapshot(session.accessToken, routeParams.id, routeParams.sourceId),
       listLookupValueMaps(session.accessToken, routeParams.id, routeParams.sourceId),
     ])

@@ -9,7 +9,7 @@ import {
   type RunRecord,
 } from "../../lib/runs-api";
 import { listProjects, type ProjectRecord } from "../../lib/projects-api";
-import { listSourceContracts, listSourceSlices, type SourceContractRecord, type SourceSliceRecord } from "../../lib/sources-api";
+import { listFeedContracts, listFeedSlices, type FeedContractRecord, type FeedSliceRecord } from "../../lib/feeds-api";
 import { getUiSession } from "../../lib/session";
 
 type WizardStep = 1 | 2 | 3;
@@ -33,7 +33,7 @@ function copyText(value: string): void {
   void navigator.clipboard?.writeText(value);
 }
 
-function latestApprovedSlice(slices: SourceSliceRecord[]): SourceSliceRecord | null {
+function latestApprovedSlice(slices: FeedSliceRecord[]): FeedSliceRecord | null {
   return slices.find((slice) => slice.status === "approved") ?? null;
 }
 
@@ -54,9 +54,9 @@ export function LaunchRunDialog({
   const [loading, setLoading] = useState(false);
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
-  const [contracts, setContracts] = useState<SourceContractRecord[]>([]);
+  const [contracts, setContracts] = useState<FeedContractRecord[]>([]);
   const [projectRuns, setProjectRuns] = useState<RunRecord[]>([]);
-  const [sourceSlices, setSourceSlices] = useState<SourceSliceRecord[]>([]);
+  const [sourceSlices, setSourceSlices] = useState<FeedSliceRecord[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialProjectId);
   const [selectedSourceDefinitionId, setSelectedSourceDefinitionId] = useState<string>("");
   const [destinationObjectName, setDestinationObjectName] = useState<string>("");
@@ -123,7 +123,7 @@ export function LaunchRunDialog({
     const loadProjectData = async () => {
       try {
         const [nextContracts, nextRuns] = await Promise.all([
-          listSourceContracts(session.accessToken, selectedProjectId),
+          listFeedContracts(session.accessToken, selectedProjectId),
           listRuns(session.accessToken, selectedProjectId),
         ]);
         if (!active) {
@@ -160,7 +160,7 @@ export function LaunchRunDialog({
 
     const loadSlices = async () => {
       try {
-        const nextSlices = await listSourceSlices(
+        const nextSlices = await listFeedSlices(
           session.accessToken,
           selectedProjectId,
           selectedSourceDefinitionId,

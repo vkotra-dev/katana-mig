@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
 from ..api.schemas import MappingFieldBindingResponse, MappingReviewResponse
-from ..db.models import MappingSnapshot, ProjectDefinition, ProjectRegistry, SourceDefinition, new_id
+from ..db.models import MappingSnapshot, ProjectDefinition, ProjectRegistry, Feed, new_id
 from ..management.platform import record_management_audit
 from ..management.source_analysis import get_latest_source_schema_artifact
 
@@ -96,8 +96,8 @@ def _get_project_destination_schema(db: Session, *, project_id: str) -> tuple[st
     return table_name, columns
 
 
-def _get_source_definition(db: Session, *, project_id: str, source_definition_id: str) -> SourceDefinition:
-    source_definition = db.get(SourceDefinition, source_definition_id)
+def _get_source_definition(db: Session, *, project_id: str, source_definition_id: str) -> Feed:
+    source_definition = db.get(Feed, source_definition_id)
     if source_definition is None or source_definition.project_id != project_id:
         raise AuthApiError("source_not_found", "Source contract not found.", 404)
     return source_definition

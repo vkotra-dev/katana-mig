@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from "react";
 import {
-  listSourceContracts,
-  listSourceSlices,
-  type SourceSliceRecord,
-} from "../../lib/sources-api";
+  listFeedContracts,
+  listFeedSlices,
+  type FeedSliceRecord,
+} from "../../lib/feeds-api";
 import {
-  approveSourceSlice,
-  rejectSourceSlice,
-  resubmitSourceSlice,
-} from "../../lib/slice-approval-api";
+  approveFeedSlice,
+  rejectFeedSlice,
+  resubmitFeedSlice,
+} from "../../lib/feed-slice-approval-api";
 import type { SessionRole } from "../../lib/session";
 
 export interface SourceArtifactsPanelProps {
@@ -23,7 +23,7 @@ interface ArtifactRow {
   sourceDefinitionId: string;
   sourceLabel: string;
   sourceType: string;
-  slice: SourceSliceRecord;
+  slice: FeedSliceRecord;
 }
 
 function formatDate(value: string): string {
@@ -52,11 +52,11 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
   const [actionLoading, setActionLoading] = useState(false);
 
   const loadRows = async (): Promise<ArtifactRow[]> => {
-    const contracts = await listSourceContracts(token, projectId);
+    const contracts = await listFeedContracts(token, projectId);
     const slicesByContract = await Promise.all(
       contracts.map(async (contract) => ({
         contract,
-        slices: await listSourceSlices(token, projectId, contract.sourceDefinitionId),
+        slices: await listFeedSlices(token, projectId, contract.sourceDefinitionId),
       })),
     );
     return slicesByContract.flatMap(({ contract, slices }) =>
@@ -175,7 +175,7 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
                           disabled={actionLoading}
                           onClick={() =>
                             void runAction(() =>
-                              approveSourceSlice(
+                              approveFeedSlice(
                                 token,
                                 projectId,
                                 row.sourceDefinitionId,
@@ -251,7 +251,7 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
                 disabled={actionLoading || rejectReason.trim().length === 0}
                 onClick={() => {
                   void runAction(() =>
-                    rejectSourceSlice(
+                    rejectFeedSlice(
                       token,
                       projectId,
                       rejectTarget.sourceDefinitionId,
@@ -324,7 +324,7 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
                     return;
                   }
                   void runAction(() =>
-                    resubmitSourceSlice(token, projectId, resubmitTarget.sourceDefinitionId, resubmitTarget.slice.sourceSliceId, {
+                    resubmitFeedSlice(token, projectId, resubmitTarget.sourceDefinitionId, resubmitTarget.slice.sourceSliceId, {
                       encoding: resubmitEncoding.trim() || null,
                       parseSettings: parsedSettings,
                     }),

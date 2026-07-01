@@ -2,12 +2,12 @@
 
 import { useState, type FormEvent } from "react";
 import {
-  createSourceContract,
-  type SourceContractRecord,
-  type SourceType,
-  uploadSourceCopybook,
-  uploadSourceSlice,
-} from "../../lib/sources-api";
+  createFeedContract,
+  type FeedContractRecord,
+  type FeedType,
+  uploadFeedCopybook,
+  uploadFeedSlice,
+} from "../../lib/feeds-api";
 
 type DialogStep = "declare" | "copybook" | "upload";
 
@@ -19,7 +19,7 @@ export interface AddSourceDialogProps {
   onCreated: () => Promise<void> | void;
 }
 
-function sourceTypeLabel(sourceType: SourceType): string {
+function sourceTypeLabel(sourceType: FeedType): string {
   return sourceType === "csv" ? "CSV" : "Fixed-Length Record";
 }
 
@@ -40,10 +40,10 @@ export function AddSourceDialog({
   onCreated,
 }: AddSourceDialogProps) {
   const [step, setStep] = useState<DialogStep>("declare");
-  const [sourceType, setSourceType] = useState<SourceType>("csv");
+  const [sourceType, setSourceType] = useState<FeedType>("csv");
   const [label, setLabel] = useState("");
   const [encoding, setEncoding] = useState("utf-8");
-  const [source, setSource] = useState<SourceContractRecord | null>(null);
+  const [source, setSource] = useState<FeedContractRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -71,7 +71,7 @@ export function AddSourceDialog({
     setLoading(true);
     setErrorMessage(null);
     try {
-      const created = await createSourceContract(token, projectId, {
+      const created = await createFeedContract(token, projectId, {
         sourceType,
         label,
         encoding,
@@ -100,7 +100,7 @@ export function AddSourceDialog({
     setErrorMessage(null);
     try {
       const content = await readFileAsText(file);
-      const updated = await uploadSourceCopybook(token, projectId, source.sourceDefinitionId, { content });
+      const updated = await uploadFeedCopybook(token, projectId, source.sourceDefinitionId, { content });
       setSource(updated);
       setStep("upload");
     } catch (error) {
@@ -125,7 +125,7 @@ export function AddSourceDialog({
     setErrorMessage(null);
     try {
       const content = await readFileAsText(file);
-      await uploadSourceSlice(token, projectId, source.sourceDefinitionId, { content });
+      await uploadFeedSlice(token, projectId, source.sourceDefinitionId, { content });
       await onCreated();
       close();
     } catch (error) {
@@ -197,7 +197,7 @@ export function AddSourceDialog({
                   className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
                   id="source-type"
                   name="sourceType"
-                  onChange={(event) => setSourceType(event.currentTarget.value as SourceType)}
+                  onChange={(event) => setSourceType(event.currentTarget.value as FeedType)}
                   value={sourceType}
                 >
                   <option value="csv">CSV</option>

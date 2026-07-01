@@ -9,7 +9,7 @@ from ..db.models import RunRecord, User
 from ..execution.engine import execute_run, get_run, list_run_checkpoints, list_runs_for_project, pause_run
 from ..management.access import require_project_access
 from ..management.platform import record_management_audit
-from ..db.models import SourceDefinition, new_id
+from ..db.models import Feed, new_id
 from sqlalchemy import select
 
 router = APIRouter(prefix="/projects/{project_id}/runs", tags=["runs"])
@@ -23,9 +23,9 @@ def post_run(
     db: Session = Depends(get_db),
 ) -> RunResponse:
     source_definition = db.scalar(
-        select(SourceDefinition).where(
-            SourceDefinition.project_id == project_id,
-            SourceDefinition.source_definition_id == body.source_definition_id,
+        select(Feed).where(
+            Feed.project_id == project_id,
+            Feed.source_definition_id == body.source_definition_id,
         )
     )
     if source_definition is None:
