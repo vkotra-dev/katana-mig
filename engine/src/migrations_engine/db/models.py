@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Float, JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -385,100 +385,6 @@ class LookupValueMap(Base):
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-
-
-class ProjectFiber(Base):
-    __tablename__ = "project_fibers"
-
-    fiber_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    feed_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("source_definitions.source_definition_id"), nullable=False, index=True
-    )
-    project_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("project_registry.project_id"), nullable=False, index=True
-    )
-    fiber_type: Mapped[str] = mapped_column(String(32), nullable=False)
-    fiber_key: Mapped[str] = mapped_column(String(255), nullable=False)
-    status: Mapped[str] = mapped_column(String(64), nullable=False, default="created")
-    source: Mapped[str] = mapped_column(String(16), nullable=False, default="manual")
-    proposed_mappings: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
-    field_bindings: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
-    output_sql: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
-    )
-
-
-class LookupSourceEntry(Base):
-    __tablename__ = "lookup_source_entries"
-
-    entry_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    fiber_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("project_fibers.fiber_id"), nullable=False, index=True
-    )
-    lookup_name: Mapped[str] = mapped_column(String(128), nullable=False)
-    source_value: Mapped[str] = mapped_column(String(512), nullable=False)
-    discovery_type: Mapped[str] = mapped_column(String(16), nullable=False, default="sample")
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-
-
-class LookupDestFeed(Base):
-    __tablename__ = "lookup_dest_feeds"
-
-    dest_feed_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    fiber_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("project_fibers.fiber_id"), nullable=False, unique=True
-    )
-    lookup_name: Mapped[str] = mapped_column(String(128), nullable=False)
-    columns: Mapped[list[str]] = mapped_column(JSON, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-
-
-class LookupDestEntry(Base):
-    __tablename__ = "lookup_dest_entries"
-
-    entry_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    dest_feed_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("lookup_dest_feeds.dest_feed_id"), nullable=False, index=True
-    )
-    row_data: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-
-
-class LookupMapping(Base):
-    __tablename__ = "lookup_mappings"
-
-    mapping_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    fiber_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("project_fibers.fiber_id"), nullable=False, index=True
-    )
-    lookup_name: Mapped[str] = mapped_column(String(128), nullable=False)
-    source_entry_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("lookup_source_entries.entry_id"), nullable=False
-    )
-    source_value: Mapped[str] = mapped_column(String(512), nullable=False)
-    dest_entry_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("lookup_dest_entries.entry_id")
-    )
-    dest_row: Mapped[dict[str, Any] | None] = mapped_column(JSON)
-    confidence_score: Mapped[float | None] = mapped_column(Float)
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default="proposed")
-    mapped_by: Mapped[str] = mapped_column(String(16), nullable=False, default="ai")
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
 

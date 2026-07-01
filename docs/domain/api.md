@@ -595,39 +595,6 @@ Request:
 
 Response `200`: `SourceSliceResponse`
 
-## Fiber endpoints
-
-Fibers are project-scoped records attached to a feed. They live under the feed
-route so the path identifies both the owning project and the input feed.
-
-### `POST /projects/{project_id}/feeds/{feed_id}/fibers`
-
-Create a fiber for one feed. Requires `central_team`.
-
-Request:
-
-```json
-{
-  "fiber_type": "lookup",
-  "fiber_key": "status_code",
-  "source": "manual"
-}
-```
-
-Response `201`: `FiberResponse`
-
-### `GET /projects/{project_id}/feeds/{feed_id}/fibers`
-
-List fibers for one feed. Any authenticated user with access to the project.
-
-Response `200`: array of `FiberResponse`
-
-### `GET /projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}`
-
-Get one fiber for one feed. Any authenticated user with access to the project.
-
-Response `200`: `FiberResponse`
-
 ## Lookup mapping endpoints
 
 Lookup drafts remain source-scoped because they are created from a specific
@@ -859,6 +826,5 @@ feeds (e.g. `["Customer", "Address"]`). Generated SQL artifacts are tracked sepa
   slice.
 - 2026-06-30: Added source approval routes, inbox count endpoint, and the slice
   approval response models.
-- 2026-07-01: Added fiber endpoints and the fiber entity response model family.
 - 2026-06-30: Added lookup mapping endpoints and documented the project-scoped
   lookup snapshot approval route.
