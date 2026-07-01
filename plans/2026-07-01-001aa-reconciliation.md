@@ -92,7 +92,8 @@ class ReconciliationLineageRow(Base):
     run_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("run_records.run_id"), nullable=False, index=True
     )
-    source_row_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_row_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # None only for orphaned mapped rows (surplus mapped_rows with no matching source row)
     source_row_key: Mapped[str | None] = mapped_column(String(255))
     # primary key value extracted from the source row (for display in the explorer)
     destination_row_id: Mapped[str | None] = mapped_column(String(255))
@@ -136,7 +137,7 @@ def upgrade() -> None:
         sa.Column("lineage_row_id", sa.String(36), primary_key=True),
         sa.Column("report_id", sa.String(36), sa.ForeignKey("reconciliation_reports.report_id"), nullable=False),
         sa.Column("run_id", sa.String(36), sa.ForeignKey("run_records.run_id"), nullable=False),
-        sa.Column("source_row_index", sa.Integer(), nullable=False),
+        sa.Column("source_row_index", sa.Integer(), nullable=True),  # None for orphaned mapped rows
         sa.Column("source_row_key", sa.String(255), nullable=True),
         sa.Column("destination_row_id", sa.String(255), nullable=True),
         sa.Column("mapping_rules_applied", sa.JSON(), nullable=True),
@@ -188,7 +189,7 @@ class ReconciliationReportResponse(BaseModel):
 
 class LineageRowResponse(BaseModel):
     lineage_row_id: str
-    source_row_index: int
+    source_row_index: int | None   # None for orphaned mapped rows
     source_row_key: str | None
     destination_row_id: str | None
     mapping_rules_applied: list[str]
@@ -735,7 +736,7 @@ export interface ReconciliationReport {
 
 export interface LineageRow {
   lineageRowId: string;
-  sourceRowIndex: number;
+  sourceRowIndex: number | null;  // null for orphaned mapped rows
   sourceRowKey: string | null;
   destinationRowId: string | null;
   mappingRulesApplied: string[];
@@ -785,7 +786,7 @@ function mapReport(r: Record<string, unknown>): ReconciliationReport {
 function mapLineageRow(r: Record<string, unknown>): LineageRow {
   return {
     lineageRowId: r.lineage_row_id as string,
-    sourceRowIndex: r.source_row_index as number,
+    sourceRowIndex: (r.source_row_index as number | null) ?? null,
     sourceRowKey: (r.source_row_key as string | null) ?? null,
     destinationRowId: (r.destination_row_id as string | null) ?? null,
     mappingRulesApplied: (r.mapping_rules_applied as string[]) ?? [],
@@ -1181,13 +1182,13 @@ export default function ReconciliationPage() {
                             key={row.lineageRowId}
                             className={`border-b border-outline-variant/50 transition-colors ${isSelected ? "bg-indigo-50" : "hover:bg-surface"}`}
                           >
-                            {/* src row index — click to drill source → destination */}
+                            {/* src row index — null for orphaned mapped rows; only clickable when non-null */}
                             <td
-                              className="px-3 py-2 font-mono cursor-pointer text-primary hover:underline"
-                              onClick={() => { void handleSrcDrillDown(row.sourceRowIndex); }}
-                              title="Show destination rows for this source row"
+                              className={`px-3 py-2 font-mono ${row.sourceRowIndex !== null ? "cursor-pointer text-primary hover:underline" : "text-slate-400 italic"}`}
+                              onClick={() => { if (row.sourceRowIndex !== null) void handleSrcDrillDown(row.sourceRowIndex); }}
+                              title={row.sourceRowIndex !== null ? "Show destination rows for this source row" : undefined}
                             >
-                              {row.sourceRowIndex}
+                              {row.sourceRowIndex ?? "orphaned"}
                             </td>
                             <td className="px-3 py-2 font-mono text-slate-500">{row.sourceRowKey ?? "—"}</td>
                             {/* destination row id — click to drill destination → source */}
@@ -1449,7 +1450,7 @@ for audit. The most-recent report is the canonical status.
 A `ReconciliationLineageRow` links one source row to its destination outcome:
 
 - `lineage_row_id`, `report_id`, `run_id`
-- `source_row_index` — position of the row in the approved `SourceSlice`
+- `source_row_index` — position of the row in the approved `SourceSlice`; `null` for orphaned mapped rows (surplus entries in `MappingArtifact.mapped_rows` that have no corresponding source row)
 - `source_row_key` — primary key value from the source row (for drill-down display)
 - `destination_row_id` — the destination record identifier; `null` for rejected rows
 - `mapping_rules_applied` — list of `"src_field → dst_field"` strings used
