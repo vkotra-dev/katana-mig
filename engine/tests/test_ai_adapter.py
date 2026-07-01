@@ -24,6 +24,7 @@ def _make_config(
     field_mapping: str = "claude-opus-4-8",
     script_generation: str = "gpt-4o-mini",
     script_correction: str = "claude-sonnet-4-6",
+    lookup_mapping: str = "claude-sonnet-4-6",
 ) -> AIConfig:
     return AIConfig(
         models=PlatformModelConfig(
@@ -36,6 +37,7 @@ def _make_config(
             field_mapping=field_mapping,
             script_generation=script_generation,
             script_correction=script_correction,
+            lookup_mapping=lookup_mapping,
         ),
         providers=ProviderConfig(
             anthropic_api_key_env="ANTHROPIC_API_KEY",
@@ -54,6 +56,15 @@ def test_get_adapter_routes_by_model_prefix(monkeypatch: pytest.MonkeyPatch) -> 
 
     assert anthropic_adapter.__class__.__name__ == "AnthropicAdapter"
     assert openai_adapter.__class__.__name__ == "OpenAIAdapter"
+
+
+def test_get_adapter_routes_lookup_mapping(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("migrations_engine.ai.factory.get_ai_config", lambda: _make_config())
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "anthropic-secret")
+
+    adapter = get_adapter("lookup_mapping")
+
+    assert adapter.__class__.__name__ == "AnthropicAdapter"
 
 
 def test_get_adapter_rejects_unknown_task(monkeypatch: pytest.MonkeyPatch) -> None:

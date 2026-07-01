@@ -235,6 +235,86 @@ class FeedSliceApprovalCountResponse(BaseModel):
     pending_count: int
 
 
+class LookupInputsRequest(BaseModel):
+    source_values: list[str] = Field(min_length=1)
+    destination_lookup_csv: str = Field(min_length=1)
+
+
+class LookupSourceEntriesCreateRequest(BaseModel):
+    values: list[str] = Field(min_length=1)
+    discovery_type: Literal["sample", "delta"] = "sample"
+
+
+class LookupDestFeedCreateRequest(BaseModel):
+    columns: list[str] = Field(min_length=1)
+    rows: list[dict[str, Any]]
+
+
+class LookupMappingPatchRequest(BaseModel):
+    dest_entry_id: str
+    status: Literal["confirmed", "overridden"]
+
+
+class FiberCreateRequest(BaseModel):
+    fiber_type: Literal["lookup", "domain_object"]
+    fiber_key: str = Field(min_length=1, max_length=255)
+    source: Literal["auto", "manual"] = "manual"
+
+
+class FiberResponse(BaseModel):
+    fiber_id: str
+    feed_id: str
+    project_id: str
+    fiber_type: Literal["lookup", "domain_object"]
+    fiber_key: str
+    status: str
+    source: Literal["auto", "manual"]
+    proposed_mappings: list[dict[str, Any]] | None
+    field_bindings: list[dict[str, Any]] | None
+    output_sql: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class LookupSourceEntryResponse(BaseModel):
+    entry_id: str
+    fiber_id: str
+    lookup_name: str
+    source_value: str
+    discovery_type: str
+    created_at: datetime
+
+
+class LookupDestFeedResponse(BaseModel):
+    dest_feed_id: str
+    fiber_id: str
+    lookup_name: str
+    columns: list[str]
+    created_at: datetime
+
+
+class LookupDestEntryResponse(BaseModel):
+    entry_id: str
+    dest_feed_id: str
+    row_data: dict[str, Any]
+    created_at: datetime
+
+
+class LookupMappingResponse(BaseModel):
+    mapping_id: str
+    fiber_id: str
+    lookup_name: str
+    source_entry_id: str
+    source_value: str
+    dest_entry_id: str | None
+    dest_row: dict[str, Any] | None
+    confidence_score: float | None
+    status: Literal["proposed", "confirmed", "overridden"]
+    mapped_by: Literal["ai", "operator", "business"]
+    created_at: datetime
+    updated_at: datetime
+
+
 class SourceAnalysisResponse(BaseModel):
     schema_artifact_id: str
     status: Literal["completed"] = "completed"

@@ -28,6 +28,7 @@ class MigrationModelConfig:
     field_mapping: str
     script_generation: str
     script_correction: str
+    lookup_mapping: str
 
 
 @dataclass(frozen=True)
@@ -105,6 +106,11 @@ def _parse_config(raw: Any) -> AIConfig:
                 "script_correction",
                 "migration.models.script_correction",
             ),
+            lookup_mapping=_require_str(
+                migration_models,
+                "lookup_mapping",
+                "migration.models.lookup_mapping",
+            ),
         ),
         providers=ProviderConfig(
             anthropic_api_key_env=_require_str(
@@ -135,4 +141,3 @@ def get_ai_config(config_path: Path | str | None = None) -> AIConfig:
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     substituted = _substitute_env_values(raw)
     return _parse_config(substituted)
-
