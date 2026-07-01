@@ -6,6 +6,7 @@
 |---|---|
 | [001ag-delivery-bundle-tab](./001ag-delivery-bundle-tab.md) | Add SQL Bundle tab to project detail page navigating to codegen page |
 | [001ah-delivery-bundle-sequencing](./001ah-delivery-bundle-sequencing.md) | AI DDL analysis, FK-ordered delivery bundle, SourceList banner, codegen report panel |
+| [001ai-knowledge-freeze-history](./001ai-knowledge-freeze-history.md) | Read-only freeze history panel in project detail Overview tab |
 
 ## Completed
 

@@ -667,6 +667,31 @@ with plain `-- table_name` headings.
 
 Response `200`: `text/plain` attachment named `delivery-bundle.sql`
 
+### `GET /projects/{project_id}/knowledge-freezes`
+
+List runs for this project where a knowledge freeze was recorded
+(`knowledge_freeze_version IS NOT NULL`), ordered newest first. Any
+authenticated user with project access.
+
+Response `200`: array of `KnowledgeFreezeRecord`
+
+### `KnowledgeFreezeRecord`
+
+```json
+{
+  "run_id": "...",
+  "knowledge_freeze_version": "...",
+  "destination_object_name": "Customer",
+  "environment": "UAT",
+  "status": "completed",
+  "started_at": "2026-07-01T10:00:00Z",
+  "created_at": "2026-07-01T09:58:00Z"
+}
+```
+
+`knowledge_freeze_version` is the `codegen_artifact_id` that was frozen at
+baton_4 of the run.
+
 ### `POST /projects/{project_id}/schema-analysis`
 
 Analyse the project's `destination_schema_ddl` using AI to extract all

@@ -88,9 +88,9 @@ Full lifecycle view for one project. Four tabs:
 
 The **DDL analysis prompt banner** appears in the Sources tab when at least one source exists but no schema analysis has been run yet. It shows a prompt with an "Analyze DDL" button. The button is disabled if the project has no `destination_schema_ddl` set. Clicking it triggers AI analysis and hides the banner on success.
 
-Also shows:
+The Overview tab also shows:
 - active CRs and their status
-- knowledge-freeze history
+- **knowledge-freeze history** — read-only panel listing runs where a knowledge freeze was recorded, newest first. Columns: date, run ID, destination object, environment, frozen artifact ID, run status. Empty state if no freezes yet.
 - execution run history with reconciliation status
 
 This is the project-local drilldown view.
