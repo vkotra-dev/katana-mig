@@ -30,6 +30,7 @@ class MigrationModelConfig:
     script_correction: str
     lookup_mapping: str
     feed_analysis: str
+    impact_analysis: str
 
 
 @dataclass(frozen=True)
@@ -116,6 +117,11 @@ def _parse_config(raw: Any) -> AIConfig:
                 migration_models,
                 "feed_analysis",
                 "migration.models.feed_analysis",
+            ),
+            impact_analysis=_require_str(
+                migration_models,
+                "impact_analysis",
+                "migration.models.impact_analysis",
             ),
         ),
         providers=ProviderConfig(

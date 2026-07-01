@@ -18,6 +18,7 @@ from .routes.codegen import router as codegen_router
 from .routes.mapping import router as mapping_router
 from .routes.mapping_snapshots import router as mapping_snapshots_router
 from .routes.lookup import router as lookup_router
+from .routes.impact import router as impact_router
 from .routes.fibers import router as fibers_router
 from .routes.reconciliation import router as reconciliation_router
 from .routes.feeds import router as feeds_router
@@ -55,6 +56,7 @@ app.include_router(codegen_router)
 app.include_router(mapping_router)
 app.include_router(mapping_snapshots_router)
 app.include_router(lookup_router)
+app.include_router(impact_router)
 app.include_router(fibers_router)
 app.include_router(reconciliation_router)
 app.include_router(feeds_router)

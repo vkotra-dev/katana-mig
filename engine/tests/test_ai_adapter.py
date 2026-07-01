@@ -26,6 +26,7 @@ def _make_config(
     script_correction: str = "claude-sonnet-4-6",
     lookup_mapping: str = "claude-sonnet-4-6",
     feed_analysis: str = "claude-sonnet-4-6",
+    impact_analysis: str = "claude-sonnet-4-6",
 ) -> AIConfig:
     return AIConfig(
         models=PlatformModelConfig(
@@ -40,6 +41,7 @@ def _make_config(
             script_correction=script_correction,
             lookup_mapping=lookup_mapping,
             feed_analysis=feed_analysis,
+            impact_analysis=impact_analysis,
         ),
         providers=ProviderConfig(
             anthropic_api_key_env="ANTHROPIC_API_KEY",
