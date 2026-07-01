@@ -30,7 +30,7 @@ established. The page must:
 | File | What exists |
 |---|---|
 | `engine/src/migrations_engine/db/models.py` | No reconciliation tables |
-| `engine/migrations/versions/` | Latest: `0014_run_record_lookup_snapshot_versions.py` (revision `0014_run_record_lookup_snapshot_versions`) |
+| `engine/migrations/versions/` | Latest: `0014_run_lookup_snapshots.py` (revision `0014_run_lookup_snapshots`) |
 | `engine/src/migrations_engine/management/` | No reconciliation service |
 | `engine/src/migrations_engine/routes/` | No reconciliation routes |
 | `web/app/runs/[id]/` | Tab 5 "Reconciliation & Lineage" link present per 001u; target page does not exist |
@@ -115,7 +115,7 @@ class ReconciliationLineageRow(Base):
 
 ```python
 revision = "0015_reconciliation_tables"
-down_revision = "0014_run_record_lookup_snapshot_versions"
+down_revision = "0014_run_lookup_snapshots"
 branch_labels = None
 depends_on = None
 
@@ -159,7 +159,7 @@ def downgrade() -> None:
 Verify the migration chain before implementing:
 ```bash
 cd engine && alembic history | head -5
-# must show 0014_run_record_lookup_snapshot_versions as the current head
+# must show 0014_run_lookup_snapshots as the current head
 alembic upgrade head
 ```
 
@@ -1465,7 +1465,7 @@ a single JSON artifact for offline audit.
 
 ## Implementation order
 
-1. **Migration 0015** — confirm `down_revision` matches `0014_run_record_lookup_snapshot_versions`;
+1. **Migration 0015** — confirm `down_revision` matches `0014_run_lookup_snapshots`;
    add `ReconciliationReport` + `ReconciliationLineageRow` to `models.py`; write and run migration.
    `cd engine && alembic upgrade head`. Commit.
 

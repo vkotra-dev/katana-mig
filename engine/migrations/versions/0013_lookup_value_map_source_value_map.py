@@ -1,13 +1,13 @@
 """add source value map to lookup value maps
 
-Revision ID: 0013_lookup_value_map_source_value_map
+Revision ID: 0013_lvm_source_value_map
 Revises: 0012_lookup_value_maps
 Create Date: 2026-06-30
 """
 
 from __future__ import annotations
 
-revision = "0013_lookup_value_map_source_value_map"
+revision = "0013_lvm_source_value_map"
 down_revision = "0012_lookup_value_maps"
 branch_labels = None
 depends_on = None

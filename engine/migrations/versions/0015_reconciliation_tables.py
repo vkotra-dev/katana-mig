@@ -1,7 +1,7 @@
 """add reconciliation reports and lineage tables
 
 Revision ID: 0015_reconciliation_tables
-Revises: 0014_run_record_lookup_snapshot_versions
+Revises: 0014_run_lookup_snapshots
 Create Date: 2026-07-01
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 revision = "0015_reconciliation_tables"
-down_revision = "0014_run_record_lookup_snapshot_versions"
+down_revision = "0014_run_lookup_snapshots"
 branch_labels = None
 depends_on = None
 

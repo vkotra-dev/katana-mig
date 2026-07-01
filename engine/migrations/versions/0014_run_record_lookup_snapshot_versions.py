@@ -1,7 +1,7 @@
 """add lookup snapshot versions and codegen fk to run_records
 
-Revision ID: 0014_run_record_lookup_snapshot_versions
-Revises: 0013_lookup_value_map_source_value_map
+Revision ID: 0014_run_lookup_snapshots
+Revises: 0013_lvm_source_value_map
 Create Date: 2026-06-30
 """
 
@@ -11,8 +11,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0014_run_record_lookup_snapshot_versions"
-down_revision = "0013_lookup_value_map_source_value_map"
+revision = "0014_run_lookup_snapshots"
+down_revision = "0013_lvm_source_value_map"
 branch_labels = None
 depends_on = None
 
