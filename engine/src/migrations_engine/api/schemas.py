@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 PlatformRole = Literal["central_team", "project_stakeholder", "read_only_auditor"]
@@ -455,3 +455,60 @@ class RunCheckpointResponse(BaseModel):
     last_completed_row: int | None
     pause_reason: str | None
     created_at: datetime
+
+
+class ReconciliationCheckResult(BaseModel):
+    check_name: str
+    status: Literal["pass", "fail"]
+    detail: str
+
+
+class RowCountSummary(BaseModel):
+    source_rows: int
+    destination_rows: int
+    rejected: int
+    duplicated: int
+    partially_mapped: int
+
+
+class ReconciliationReportResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    report_id: str
+    run_id: str
+    checks: list[ReconciliationCheckResult]
+    overall_status: Literal["in_progress", "pass", "fail"]
+    row_count_summary: RowCountSummary | None
+    created_at: datetime
+    completed_at: datetime | None
+
+
+class LineageRowResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    lineage_row_id: str
+    source_row_index: int | None
+    source_row_key: str | None
+    destination_row_id: str | None
+    mapping_rules_applied: list[str] | None
+    outcome: Literal["confirmed", "rejected", "duplicated", "partially_mapped"]
+    outcome_detail: str | None
+
+
+class LineageResponse(BaseModel):
+    rows: list[LineageRowResponse]
+    total: int
+    offset: int
+    limit: int
+
+
+class ReconciliationExportResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    report_id: str
+    run_id: str
+    exported_at: datetime
+    checks: list[ReconciliationCheckResult]
+    overall_status: Literal["in_progress", "pass", "fail"]
+    row_count_summary: RowCountSummary | None
+    lineage_rows: list[LineageRowResponse]

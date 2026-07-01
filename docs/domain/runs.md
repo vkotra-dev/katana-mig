@@ -308,6 +308,43 @@ Every run must leave behind enough evidence to answer:
 Reconciliation is not optional. If execution completes without lineage and
 outcome evidence, the run is incomplete.
 
+### Reconciliation report schema
+
+A `ReconciliationReport` is the persisted evidence record for a reconciliation
+run:
+
+- `report_id` links the evidence bundle to the run
+- `run_id` ties the report to one run in one project
+- `checks` stores the ordered list of `{check_name, status, detail}` results
+- `overall_status` is `"in_progress"`, `"pass"`, or `"fail"`
+- `row_count_summary` stores `source_rows`, `destination_rows`, `rejected`,
+  `duplicated`, and `partially_mapped`
+- `created_at` and `completed_at` define the report lifetime
+
+Failed checks are surfaced at the top of the reconciliation screen, but the
+stored order remains the execution order for auditability. Re-running
+reconciliation creates a new report; older reports remain available for review.
+
+### Lineage evidence schema
+
+A `ReconciliationLineageRow` records the row-level evidence that the screen
+explores:
+
+- `lineage_row_id`, `report_id`, and `run_id`
+- `source_row_index` identifies the approved source row position; `null` means
+  an orphaned mapped row with no matching source row
+- `source_row_key` stores the display key extracted from the first CSV column
+- `destination_row_id` stores the display identifier for the mapped destination
+- `mapping_rules_applied` records the `src_field → dst_field` rules used
+- `outcome` is `"confirmed"`, `"rejected"`, `"duplicated"`, or
+  `"partially_mapped"`
+- `outcome_detail` explains non-confirmed outcomes
+
+The Reconciliation & Lineage screen lets a reviewer drill in both directions:
+source row to destination row(s), and destination row back to its source row.
+The evidence export bundles the report and lineage rows into one auditable JSON
+artifact.
+
 ## Failure modes
 
 | Situation | Handling |
