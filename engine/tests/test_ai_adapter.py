@@ -25,6 +25,7 @@ def _make_config(
     script_generation: str = "gpt-4o-mini",
     script_correction: str = "claude-sonnet-4-6",
     impact_analysis: str = "claude-sonnet-4-6",
+    feed_analysis: str = "claude-sonnet-4-6",
 ) -> AIConfig:
     return AIConfig(
         models=PlatformModelConfig(
@@ -38,6 +39,7 @@ def _make_config(
             script_generation=script_generation,
             script_correction=script_correction,
             impact_analysis=impact_analysis,
+            feed_analysis=feed_analysis,
         ),
         providers=ProviderConfig(
             anthropic_api_key_env="ANTHROPIC_API_KEY",
@@ -52,9 +54,11 @@ def test_get_adapter_routes_by_model_prefix(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setenv("OPENAI_API_KEY", "openai-secret")
 
     anthropic_adapter = get_adapter("field_mapping")
+    feed_analysis_adapter = get_adapter("feed_analysis")
     openai_adapter = get_adapter("script_generation")
 
     assert anthropic_adapter.__class__.__name__ == "AnthropicAdapter"
+    assert feed_analysis_adapter.__class__.__name__ == "AnthropicAdapter"
     assert openai_adapter.__class__.__name__ == "OpenAIAdapter"
 
 
