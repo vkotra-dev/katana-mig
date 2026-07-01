@@ -286,7 +286,12 @@ def get_lineage(
     """
     Paginated lineage rows.
 
-    Drill-down filters (at most one should be set per request):
+    Drill-down filters are mutually exclusive. If both source_row_index and
+    destination_row_id are provided, raise AuthApiError("invalid_filter",
+    "source_row_index and destination_row_id are mutually exclusive.", 400).
+    The route enforces this at the service boundary so the HTTP response is 400.
+
+    Filters:
     - source_row_index: show all destination rows produced by this source row
     - destination_row_id: show which source row produced this destination row
       (reverse direction — supports the "vice versa" requirement from the screen contract)
@@ -358,11 +363,25 @@ def _build_lineage_rows(
     field_bindings: list[dict],              # from MappingSnapshot.field_bindings
 ) -> None:
     """
-    Build one ReconciliationLineageRow per source row.
+    Build one ReconciliationLineageRow per source row, plus one per orphaned mapped row.
 
     Pre-condition: source_rows[i].row_index == i (enforced before calling).
-    If len(source_rows) > len(mapped_rows): surplus source rows get outcome="rejected"
-    with outcome_detail="no destination row produced".
+
+    Length mismatch handling — both directions are failures:
+
+    - len(source_rows) > len(mapped_rows): surplus source rows (indexes beyond
+      len(mapped_rows)-1) get outcome="rejected",
+      outcome_detail="no destination row produced". The row_count check already
+      fails because destination_rows < source_rows.
+
+    - len(mapped_rows) > len(source_rows): surplus mapped rows have no source row
+      to pair with. Write each as a ReconciliationLineageRow with
+      source_row_index=None, source_row_key=None, outcome="rejected",
+      outcome_detail="orphaned mapped row — no source row at this index".
+      Add a dedicated check entry:
+        {"check_name": "orphaned_mapped_rows", "status": "fail",
+         "detail": f"{n} mapped rows have no corresponding source row"}
+      and set overall_status="fail". Do NOT silently drop these rows.
 
     Key extraction:
       source_row_key   = first CSV column of SourceSliceRow.row_csv
@@ -609,6 +628,44 @@ def test_positional_alignment_gap_yields_fail_status(client, db_session, central
     assert r.json()["overall_status"] == "fail"
     row_count_check = next(c for c in r.json()["checks"] if c["check_name"] == "row_count")
     assert row_count_check["status"] == "fail"
+
+def test_surplus_mapped_rows_recorded_as_orphaned_and_report_fails(client, db_session, central_team_token):
+    """If mapped row count > source row count, surplus mapped rows are NOT silently dropped;
+    an orphaned_mapped_rows check is added, overall_status is 'fail', and lineage contains
+    the orphaned rows with source_row_index=None and outcome='rejected'."""
+    run_id = make_run_with_extra_mapped_row(db_session)  # 2 SourceSliceRows, 3 mapped_rows
+    r = client.post(f"/projects/{PROJECT_ID}/runs/{run_id}/reconciliation",
+                    headers={"Authorization": f"Bearer {central_team_token}"})
+    assert r.json()["overall_status"] == "fail"
+    orphan_check = next(
+        (c for c in r.json()["checks"] if c["check_name"] == "orphaned_mapped_rows"), None
+    )
+    assert orphan_check is not None, "expected an orphaned_mapped_rows check entry"
+    assert orphan_check["status"] == "fail"
+    # the lineage should contain 3 rows total (2 paired + 1 orphaned)
+    report_id = r.json()["report_id"]
+    lineage_r = client.get(
+        f"/projects/{PROJECT_ID}/runs/{run_id}/reconciliation/{report_id}/lineage",
+        headers={"Authorization": f"Bearer {central_team_token}"},
+    )
+    assert lineage_r.json()["total"] == 3
+    orphan_rows = [row for row in lineage_r.json()["rows"] if row["source_row_index"] is None]
+    assert len(orphan_rows) == 1
+    assert orphan_rows[0]["outcome"] == "rejected"
+    assert "orphaned" in orphan_rows[0]["outcome_detail"]
+
+def test_lineage_both_filters_returns_400(client, seeded_run, central_team_token):
+    """Providing both source_row_index and destination_row_id in the same request is a 400."""
+    r = client.post(f"/projects/{PROJECT_ID}/runs/{seeded_run}/reconciliation",
+                    headers={"Authorization": f"Bearer {central_team_token}"})
+    report_id = r.json()["report_id"]
+    lineage_r = client.get(
+        f"/projects/{PROJECT_ID}/runs/{seeded_run}/reconciliation/{report_id}/lineage"
+        "?source_row_index=0&destination_row_id=D001",
+        headers={"Authorization": f"Bearer {central_team_token}"},
+    )
+    assert lineage_r.status_code == 400
+    assert lineage_r.json()["code"] == "invalid_filter"
 
 def test_lineage_read_only_auditor_can_read(client, seeded_run, auditor_token, central_team_token):
     r = client.post(f"/projects/{PROJECT_ID}/runs/{seeded_run}/reconciliation",
@@ -1437,7 +1494,9 @@ a single JSON artifact for offline audit.
 - [ ] `GET .../reconciliation/{report_id}/export` returns 200 for `read_only_auditor`
 - [ ] Source drill-down: `GET .../lineage?source_row_index=0` returns the row(s) produced by that source row
 - [ ] Destination drill-down: `GET .../lineage?destination_row_id=D001` returns the source row that produced that destination
-- [ ] Source row index gap in seeded data causes `overall_status = "fail"`
+- [ ] Source row count > mapped row count: surplus source rows appear as `outcome="rejected"` in lineage; `overall_status = "fail"`
+- [ ] Mapped row count > source row count: orphaned mapped rows appear as `source_row_index=None, outcome="rejected"` in lineage; `orphaned_mapped_rows` check is present with `status="fail"`; `overall_status = "fail"`
+- [ ] `GET .../lineage?source_row_index=0&destination_row_id=D001` returns 400 with `code="invalid_filter"`
 - [ ] `pnpm --filter web test` — all UI tests green
 - [ ] UI: no-projectId error state renders when `?projectId` is absent; no API calls made
 - [ ] UI: clicking source row index cell triggers source→destination drill-down; banner shows "Showing destination row(s) for source row #N"
