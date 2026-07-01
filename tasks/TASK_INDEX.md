@@ -1,22 +1,21 @@
 # Task Index
 
-| Task | Domain | Status | Notes |
-|---|---|---|---|
-| [001h-ui-portfolio-project-screens](./completed/001h-ui-portfolio-project-screens.md) | ui, project | completed | [summary](./summary/001h-ui-portfolio-project-screens.md) |
-| [001i-ui-template-foundation](./completed/001i-ui-template-foundation.md) | ui | completed | [summary](./summary/001i-ui-template-foundation.md) |
-| [001q-source-intake](./completed/001q-source-intake.md) | source-model, api, ui | completed | [summary](./summary/001q-source-intake.md) |
-| [001t-runs-api](./completed/001t-runs-api.md) | [summary](./summary/001t-runs-api.md) | completed | Run CRUD, launch, execution engine, checkpoint writes, LookupDeltaCR; depends on 001q/r/s |
-| [001u-runs-ui](./completed/001u-runs-ui.md) | [summary](./summary/001u-runs-ui.md) | completed | Runs list, run detail (5 tabs, polling), launch dialog; stitch 03/04/05; depends on 001t |
-| [001v-source-analysis](./completed/001v-source-analysis.md) | [summary](./summary/001v-source-analysis.md) | completed | AI analysis of SourceSlice → SourceSchemaArtifact + SourceValueSummary; migration 0011 |
-| [001w-mapping-stage](./completed/001w-mapping-stage.md) | source-model, api, ui | completed | [summary](./summary/001w-mapping-stage.md) |
-| [001ae-lookup-snapshot-route-rehome](./completed/001ae-lookup-snapshot-route-rehome.md) | api, source-model, ui | completed | [summary](./summary/001ae-lookup-snapshot-route-rehome.md) |
-| [001aa-reconciliation](./completed/001aa-reconciliation.md) | governance, ui | completed | [summary](./summary/001aa-reconciliation.md) |
-| [001af-ui-compliance-gaps](./completed/001af-ui-compliance-gaps.md) | ui | completed | [summary](./summary/001af-ui-compliance-gaps.md) |
+_No tasks currently in progress._
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001aa-reconciliation](./completed/001aa-reconciliation.md) | [summary](./summary/001aa-reconciliation.md) |
+| [001af-ui-compliance-gaps](./completed/001af-ui-compliance-gaps.md) | [summary](./summary/001af-ui-compliance-gaps.md) |
+| [001h-ui-portfolio-project-screens](./completed/001h-ui-portfolio-project-screens.md) | [summary](./summary/001h-ui-portfolio-project-screens.md) |
+| [001i-ui-template-foundation](./completed/001i-ui-template-foundation.md) | [summary](./summary/001i-ui-template-foundation.md) |
+| [001q-source-intake](./completed/001q-source-intake.md) | [summary](./summary/001q-source-intake.md) |
+| [001t-runs-api](./completed/001t-runs-api.md) | [summary](./summary/001t-runs-api.md) |
+| [001u-runs-ui](./completed/001u-runs-ui.md) | [summary](./summary/001u-runs-ui.md) |
+| [001v-source-analysis](./completed/001v-source-analysis.md) | [summary](./summary/001v-source-analysis.md) |
+| [001w-mapping-stage](./completed/001w-mapping-stage.md) | [summary](./summary/001w-mapping-stage.md) |
+| [001ae-lookup-snapshot-route-rehome](./completed/001ae-lookup-snapshot-route-rehome.md) | [summary](./summary/001ae-lookup-snapshot-route-rehome.md) |
 | [001l-ui-auth-api-wiring](./completed/001l-ui-auth-api-wiring.md) | [summary](./summary/001l-ui-auth-api-wiring.md) |
 | [001n-ui-role-based-navigation](./completed/001n-ui-role-based-navigation.md) | [summary](./summary/001n-ui-role-based-navigation.md) |
 | [001m-ui-management-user-admin](./completed/001m-ui-management-user-admin.md) | [summary](./summary/001m-ui-management-user-admin.md) |
