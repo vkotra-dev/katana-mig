@@ -11,7 +11,7 @@
 | [001w-mapping-stage](./completed/001w-mapping-stage.md) | source-model, api, ui | completed | [summary](./summary/001w-mapping-stage.md) |
 | [001ae-lookup-snapshot-route-rehome](./completed/001ae-lookup-snapshot-route-rehome.md) | api, source-model, ui | completed | [summary](./summary/001ae-lookup-snapshot-route-rehome.md) |
 | [001aa-reconciliation](./001aa-reconciliation.md) | governance, ui | ready | Reconciliation checks + ReconciliationReport; stitch 11; depends on 001t, 001z |
-| [001af-ui-compliance-gaps](./001af-ui-compliance-gaps.md) | ui | ready | Portfolio columns, project detail stage timeline, globals.css token registration; from audit vs ui.md |
+| [001af-ui-compliance-gaps](./completed/001af-ui-compliance-gaps.md) | ui | completed | [summary](./summary/001af-ui-compliance-gaps.md) |
 
 ## Completed
 
@@ -35,6 +35,7 @@
 | [001b-password-reset](./completed/001b-password-reset.md) | [summary](./summary/001b-password-reset.md) |
 | [001c-roles-and-membership](./completed/001c-roles-and-membership.md) | [summary](./summary/001c-roles-and-membership.md) |
 | [001d-minimal-mapping-slice](./completed/001d-minimal-mapping-slice.md) | [summary](./summary/001d-minimal-mapping-slice.md) |
+| [001af-ui-compliance-gaps](./completed/001af-ui-compliance-gaps.md) | [summary](./summary/001af-ui-compliance-gaps.md) |
 
 ## Archived / Superseded
 
