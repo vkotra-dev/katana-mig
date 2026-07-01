@@ -24,12 +24,7 @@ def upgrade() -> None:
         sa.Column("source_definition_id", sa.String(length=36), nullable=False),
         sa.Column("lookup_name", sa.String(length=128), nullable=False),
         sa.Column("destination_table", sa.JSON(), nullable=False),
-        sa.Column(
-            "source_value_map",
-            sa.JSON(),
-            nullable=False,
-            server_default=sa.text("'{}'"),
-        ),
+        sa.Column("source_value_map", sa.JSON(), nullable=False),
         sa.Column("status", sa.String(length=16), nullable=False, server_default=sa.text("'draft'")),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.ForeignKeyConstraint(["source_definition_id"], ["source_definitions.source_definition_id"]),
