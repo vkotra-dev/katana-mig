@@ -26,15 +26,16 @@ def _make_config(*, lookup_mapping: str = "claude-sonnet-4-6") -> AIConfig:
         ),
         migration_models=MigrationModelConfig(
             pii_review="claude-haiku-4-5-20251001",
-            field_mapping="claude-opus-4-8",
-            script_generation="gpt-4o-mini",
-            script_correction="claude-sonnet-4-6",
-            lookup_mapping=lookup_mapping,
-        ),
-        providers=ProviderConfig(
-            anthropic_api_key_env="ANTHROPIC_API_KEY",
-            openai_api_key_env="OPENAI_API_KEY",
-        ),
+                field_mapping="claude-opus-4-8",
+                script_generation="gpt-4o-mini",
+                script_correction="claude-sonnet-4-6",
+                lookup_mapping=lookup_mapping,
+                feed_analysis="claude-sonnet-4-6",
+            ),
+            providers=ProviderConfig(
+                anthropic_api_key_env="ANTHROPIC_API_KEY",
+                openai_api_key_env="OPENAI_API_KEY",
+            ),
     )
 
 
