@@ -9,7 +9,6 @@ from pydantic import BaseModel
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from ..ai.factory import get_adapter
 from ..api.deps import AuthApiError
 from ..api.schemas import (
     FiberCreateRequest,
@@ -25,14 +24,22 @@ from ..api.schemas import (
 )
 from ..db.models import (
     Feed,
+    FeedSlice,
     LookupDestEntry,
     LookupDestFeed,
     LookupMapping,
     LookupSourceEntry,
+    ProjectDefinition,
     ProjectFiber,
+    ProjectRegistry,
     User,
     new_id,
 )
+
+try:
+    from ..ai.factory import get_adapter
+except ModuleNotFoundError:  # pragma: no cover - optional SDK dependency may be absent in tests
+    get_adapter = None  # type: ignore[assignment]
 
 
 _LOOKUP_MAPPING_SYSTEM_PROMPT = (
@@ -50,6 +57,42 @@ class _LookupProposal(BaseModel):
 
 class _LookupMappingResult(BaseModel):
     proposals: list[_LookupProposal]
+
+
+_FEED_ANALYSIS_SYSTEM_PROMPT = (
+    "You are a data migration analyst. "
+    "Given CSV column headers and a destination schema DDL, "
+    "identify all lookup columns and domain objects. Return JSON."
+)
+
+_FIELD_MAPPING_SYSTEM_PROMPT = (
+    "You are a field mapper. "
+    "Given source columns and destination DDL, propose field bindings. Return JSON."
+)
+
+
+class _LookupIdentified(BaseModel):
+    column_name: str
+    lookup_name: str
+
+
+class _DomainObject(BaseModel):
+    destination_table: str
+
+
+class _FeedAnalysisResult(BaseModel):
+    lookups: list[_LookupIdentified]
+    domain_objects: list[_DomainObject]
+
+
+class _FieldBinding(BaseModel):
+    source_field: str | None
+    destination_field: str
+    lookup_name: str | None
+
+
+class _FieldMappingResult(BaseModel):
+    field_bindings: list[_FieldBinding]
 
 
 def create_fiber(
@@ -93,6 +136,119 @@ def get_fiber(db: Session, *, project_id: str, feed_id: str, fiber_id: str) -> F
     if fiber is None or fiber.project_id != project_id or fiber.feed_id != feed_id:
         raise AuthApiError("fiber_not_found", "Fiber not found.", 404)
     return _fiber_response(fiber)
+
+
+def analyze_feed(
+    db: Session,
+    *,
+    feed_id: str,
+    project_id: str,
+    actor: User,
+) -> list[FiberResponse]:
+    del actor
+
+    _get_feed(db, project_id=project_id, feed_id=feed_id)
+
+    registry = db.get(ProjectRegistry, project_id)
+    if registry is None:
+        raise AuthApiError("project_not_found", "Project not found.", 404)
+
+    project_definition = db.get(ProjectDefinition, registry.definition_id)
+    domain_config = project_definition.domain_config if project_definition is not None else {}
+    destination_schema_ddl = ""
+    if isinstance(domain_config, dict):
+        ddl_value = domain_config.get("destination_schema_ddl", "")
+        if isinstance(ddl_value, str):
+            destination_schema_ddl = ddl_value
+
+    feed_slice = db.scalar(
+        select(FeedSlice)
+        .where(
+            FeedSlice.source_definition_id == feed_id,
+            FeedSlice.status == "approved",
+        )
+        .order_by(FeedSlice.approved_at.desc().nullslast(), FeedSlice.created_at.desc())
+    )
+    if feed_slice is None:
+        raise AuthApiError(
+            "feed_slice_not_ready",
+            "An approved FeedSlice is required before AI analysis.",
+            409,
+        )
+
+    source_headers = _parse_header_csv(feed_slice.header_csv)
+
+    if get_adapter is None:
+        raise AuthApiError("ai_adapter_unavailable", "AI adapter dependency is unavailable.", 503)
+
+    feed_analysis_payload = json.dumps(
+        {
+            "source_headers": source_headers,
+            "destination_schema_ddl": destination_schema_ddl,
+        }
+    )
+    feed_analysis_adapter = get_adapter("feed_analysis")
+    analysis_result = feed_analysis_adapter.call(
+        _FEED_ANALYSIS_SYSTEM_PROMPT,
+        feed_analysis_payload,
+        _FeedAnalysisResult,
+    )
+
+    created_fibers: list[ProjectFiber] = []
+    domain_fibers: list[ProjectFiber] = []
+
+    for lookup in analysis_result.lookups:
+        fiber = ProjectFiber(
+            feed_id=feed_id,
+            project_id=project_id,
+            fiber_type="lookup",
+            fiber_key=lookup.lookup_name,
+            status="deferred",
+            source="auto",
+        )
+        db.add(fiber)
+        created_fibers.append(fiber)
+
+    for domain_object in analysis_result.domain_objects:
+        fiber = ProjectFiber(
+            feed_id=feed_id,
+            project_id=project_id,
+            fiber_type="domain_object",
+            fiber_key=domain_object.destination_table,
+            status="ai_running",
+            source="auto",
+        )
+        db.add(fiber)
+        created_fibers.append(fiber)
+        domain_fibers.append(fiber)
+
+    db.flush()
+
+    for fiber in domain_fibers:
+        field_mapping_payload = json.dumps(
+            {
+                "source_columns": source_headers,
+                "destination_table": fiber.fiber_key,
+                "destination_schema_ddl": destination_schema_ddl,
+            }
+        )
+        field_mapping_adapter = get_adapter("field_mapping")
+        field_mapping_result = field_mapping_adapter.call(
+            _FIELD_MAPPING_SYSTEM_PROMPT,
+            field_mapping_payload,
+            _FieldMappingResult,
+        )
+        fiber.field_bindings = [
+            binding.model_dump(mode="python") for binding in field_mapping_result.field_bindings
+        ]
+        fiber.status = "mapped"
+
+    db.commit()
+
+    for fiber in created_fibers:
+        db.refresh(fiber)
+
+    return [_fiber_response(fiber) for fiber in created_fibers]
 
 
 def submit_lookup_inputs(
@@ -367,6 +523,12 @@ def _parse_destination_csv(csv_text: str) -> tuple[list[str], list[dict[str, Any
     columns = list(reader.fieldnames or [])
     rows = [dict(row) for row in reader]
     return columns, rows
+
+
+def _parse_header_csv(header_csv: str | None) -> list[str]:
+    if not header_csv:
+        return []
+    return next(csv.reader([header_csv]), [])
 
 
 def _get_feed(db: Session, *, project_id: str, feed_id: str) -> Feed:
