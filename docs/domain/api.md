@@ -660,7 +660,48 @@ Response `200`: `CodegenArtifactResponse`
 Download the concatenated SQL delivery bundle for all active artifacts in the
 project. Any authenticated user with project access.
 
+If a schema analysis exists for the project, artifacts are ordered by the
+FK dependency sequence and each SQL block is prefixed with `-- [01] table_name`,
+`-- [02] table_name`, etc. Without an analysis, blocks are ordered alphabetically
+with plain `-- table_name` headings.
+
 Response `200`: `text/plain` attachment named `delivery-bundle.sql`
+
+### `POST /projects/{project_id}/schema-analysis`
+
+Analyse the project's `destination_schema_ddl` using AI to extract all
+destination objects and their FK/REFERENCES dependencies. Produces a
+topologically-sorted execution sequence. Creates or overwrites the existing
+analysis for the project (one record per project). Any authenticated user
+with project access.
+
+Returns `422 missing_ddl` if the project has no `destination_schema_ddl` set.
+
+Response `200`: `ProjectSchemaAnalysisResponse`
+
+### `GET /projects/{project_id}/schema-analysis`
+
+Return the current schema analysis record for a project, or `null` if no
+analysis has been run yet. Any authenticated user with project access.
+
+Response `200`: `ProjectSchemaAnalysisResponse | null`
+
+### `ProjectSchemaAnalysisResponse`
+
+```json
+{
+  "analysis_id": "...",
+  "project_id": "...",
+  "destination_object_sequence": ["customers", "orders", "order_items"],
+  "identified_count": 3,
+  "processed_count": 2,
+  "analyzed_at": "2026-07-01T12:00:00Z"
+}
+```
+
+`identified_count` — total destination objects found in the DDL.
+`processed_count` — of those, how many currently have an active codegen artifact.
+`destination_object_sequence` — FK-ordered list; items not in the sequence sort to the end of the bundle.
 
 ### `SourceContractResponse`
 

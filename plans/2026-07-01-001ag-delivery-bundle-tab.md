@@ -57,7 +57,8 @@ Mockmigration (if referenced) is for styling patterns only — not content autho
 Create `web/app/projects/[id]/page.test.tsx`:
 
 ```tsx
-import { fireEvent, render, screen, Suspense } from "@testing-library/react";
+import { Suspense } from "react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ProjectDetailPage from "./page";
 

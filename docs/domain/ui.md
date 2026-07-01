@@ -79,15 +79,37 @@ This is the high-level operational surface for cross-project monitoring.
 
 ### Project detail
 
-Full lifecycle view for one project:
+Full lifecycle view for one project. Four tabs:
 
-- stage timeline
-- artifacts produced at each stage
+- **Overview** — stage timeline, key–value metadata (goal, environments, target DB engine, staging schema, dry-run flag, destination schema DDL, sample policy, constraints, unresolved questions, assumptions, lexicon scope)
+- **Sources** — list of source contracts with add-source action; DDL analysis prompt banner (see below)
+- **Artifacts** — source slice versions and approval status
+- **SQL Bundle** — navigates to the SQL bundle delivery page (see SQL bundle delivery)
+
+The **DDL analysis prompt banner** appears in the Sources tab when at least one source exists but no schema analysis has been run yet. It shows a prompt with an "Analyze DDL" button. The button is disabled if the project has no `destination_schema_ddl` set. Clicking it triggers AI analysis and hides the banner on success.
+
+Also shows:
 - active CRs and their status
 - knowledge-freeze history
 - execution run history with reconciliation status
 
 This is the project-local drilldown view.
+
+### SQL bundle delivery
+
+Audience: all authenticated roles with project access.
+
+Route: `/projects/{id}/codegen`
+
+Panels:
+
+- **Sources** — list of source contracts with "Generate SQL" action per row (`central_team` only)
+- **Latest active artifact** — destination name, artifact ID, created date, source slice version; "Copy SQL" and "Download delivery bundle" buttons; full SQL preview in a scrollable code block
+- **Delivery bundle sidebar** — active artifact count; note that the download saves as `delivery-bundle.sql`
+- **Schema dependency analysis** — shows identified / processed / pending counts for destination objects; "Re-analyze DDL" button to re-run AI analysis; "analyzed at" timestamp. Empty state if no analysis has been run.
+- **Artifact history** — all artifacts (active and superseded) with timestamps
+
+When a schema analysis exists, the downloaded bundle orders SQL blocks by FK dependency sequence and prefixes each with `-- [01] table_name`, `-- [02] table_name`, etc. Without an analysis, blocks are ordered alphabetically with plain `-- table_name` headings.
 
 ### Project initiation
 

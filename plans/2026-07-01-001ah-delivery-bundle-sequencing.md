@@ -966,7 +966,7 @@ git commit -m "feat(001ah): sequence delivery bundle by FK dependency order"
 
 - [ ] **Step 1: Write the failing test**
 
-Create `web/lib/__tests__/codegen-api.schema-analysis.test.ts`:
+Create `web/lib/__tests__/codegen-api.schema-analysis.test.ts` (create the `__tests__` directory if it doesn't exist: `mkdir -p web/lib/__tests__`):
 
 ```typescript
 import { describe, expect, it, vi, beforeEach } from "vitest";
