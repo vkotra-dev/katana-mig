@@ -18,6 +18,16 @@ FK-dependency-ordered sequence of destination objects, store it in a new
 (when first source exists but no analysis yet) and a report panel in the
 codegen page (identified / processed / pending counts + Re-analyze button).
 
+## Execution order
+
+**001ag must complete before this task starts** — Task 7 of this plan modifies
+`web/app/projects/[id]/page.tsx`, which 001ag also touches. Run 001ag first to
+avoid merge conflicts.
+
+Within this task, run Tasks 1–5 (backend) before Tasks 6–8 (frontend). The
+frontend helpers in Task 6 are consumed by Tasks 7 and 8; those cannot be
+tested until the helpers exist.
+
 ## Tasks (8)
 
 1. AI config — add `schema_dependency` slot to `engine.yaml`, `config.py`, `factory.py`
