@@ -14,7 +14,7 @@ def _clear_ai_config_cache() -> None:
     get_ai_config.cache_clear()
 
 
-def test_impact_analysis_slot_is_available(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_lookup_mapping_slot_is_available(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     config_path = tmp_path / "engine.yaml"
     config_path.write_text(
         "models:\n"
@@ -27,7 +27,7 @@ def test_impact_analysis_slot_is_available(monkeypatch: pytest.MonkeyPatch, tmp_
         "    field_mapping: claude-opus-4-8\n"
         "    script_generation: gpt-4o-mini\n"
         "    script_correction: claude-sonnet-4-6\n"
-        "    impact_analysis: claude-sonnet-4-6\n"
+        "    lookup_mapping: claude-sonnet-4-6\n"
         "providers:\n"
         "  anthropic_api_key_env: ANTHROPIC_API_KEY\n"
         "  openai_api_key_env: OPENAI_API_KEY\n",
@@ -38,7 +38,7 @@ def test_impact_analysis_slot_is_available(monkeypatch: pytest.MonkeyPatch, tmp_
     monkeypatch.setenv("OPENAI_API_KEY", "openai-secret")
 
     get_ai_config.cache_clear()
-    adapter = get_adapter("impact_analysis")
+    adapter = get_adapter("lookup_mapping")
 
     assert adapter.__class__.__name__ == "AnthropicAdapter"
 

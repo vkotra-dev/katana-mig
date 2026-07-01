@@ -24,7 +24,7 @@ def _make_config(
     field_mapping: str = "claude-opus-4-8",
     script_generation: str = "gpt-4o-mini",
     script_correction: str = "claude-sonnet-4-6",
-    impact_analysis: str = "claude-sonnet-4-6",
+    lookup_mapping: str = "claude-sonnet-4-6",
 ) -> AIConfig:
     return AIConfig(
         models=PlatformModelConfig(
@@ -37,7 +37,7 @@ def _make_config(
             field_mapping=field_mapping,
             script_generation=script_generation,
             script_correction=script_correction,
-            impact_analysis=impact_analysis,
+            lookup_mapping=lookup_mapping,
         ),
         providers=ProviderConfig(
             anthropic_api_key_env="ANTHROPIC_API_KEY",

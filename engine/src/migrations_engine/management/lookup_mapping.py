@@ -175,6 +175,7 @@ def approve_lookup_snapshot(
     *,
     actor: User,
     project_id: str,
+    source_definition_id: str | None = None,
     lookup_snapshot_id: str,
 ) -> LookupSnapshotResponse:
     snapshot = db.get(LookupSnapshot, lookup_snapshot_id)
