@@ -6,7 +6,6 @@
 |---|---|---|
 | [001al-lookup-fiber-ai-flow](./001al-lookup-fiber-ai-flow.md) | lookup_mapping AI slot, lookup inputs endpoint, AI proposals | 001ak |
 | [001am-mapping-fiber-ai-flow](./001am-mapping-fiber-ai-flow.md) | feed_analysis AI slot, analyze_feed endpoint, field bindings | 001ak |
-| [001at-notifications](./001at-notifications.md) | Notification model (0017), 4 endpoints, NotificationBell component with polling | — |
 | [001au-notification-email-delivery](./001au-notification-email-delivery.md) | SMTP-backed notification emails and delivery docs | 001at |
 | [001ao-feed-comment](./001ao-feed-comment.md) | FeedComment model (0020), thread endpoint, notifications | 001ak |
 | [001ai-knowledge-freeze-history](./001ai-knowledge-freeze-history.md) | Read-only freeze history panel in project detail Overview tab | — |
@@ -58,6 +57,7 @@
 | [001d-minimal-mapping-slice](./completed/001d-minimal-mapping-slice.md) | [summary](./summary/001d-minimal-mapping-slice.md) |
 | [001af-ui-compliance-gaps](./completed/001af-ui-compliance-gaps.md) | [summary](./summary/001af-ui-compliance-gaps.md) |
 | [001an-fiber-approval-chain](./completed/001an-fiber-approval-chain.md) | [summary](./summary/001an-fiber-approval-chain.md) |
+| [001at-notifications](./completed/001at-notifications.md) | [summary](./summary/001at-notifications.md) |
 
 ## Archived / Superseded
 
