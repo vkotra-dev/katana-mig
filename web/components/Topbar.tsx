@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { navItemsForRole, type NavItem } from "../lib/ui-model";
 import { getPendingApprovalCount } from "../lib/feed-slice-approval-api";
 import { loadUiSession } from "../lib/session";
+import { NotificationBell } from "./notifications/NotificationBell";
 
 export interface TopbarProps {
   role: "central_team" | "project_stakeholder" | "read_only_auditor";
@@ -65,6 +66,7 @@ export function Topbar({ role }: TopbarProps) {
         ))}
       </nav>
       <div className="ml-auto flex items-center">
+        <NotificationBell />
         <div className="mono-id">AD</div>
       </div>
     </header>

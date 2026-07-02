@@ -407,7 +407,7 @@ UI surfaces receive notification events for:
 
 **Delivery:**
 - **In-app bell** — unread count badge polled via `GET /notifications/count`; list view with deep links; mark-as-read per item or bulk
-- **Email** — sent at event creation time using `User.email`; plain template with event description and deep link; SMTP config in deployment settings
+- **Email** — notification delivery hook exists at event creation time; the base slice logs instead of sending, and real SMTP delivery is tracked separately
 
 Notifications deep-link to the relevant project or artifact view.
 Polling is used for in-app; WebSockets are not required.
@@ -445,10 +445,10 @@ Polling is used for in-app; WebSockets are not required.
 - Which pages should remain in the UI spec versus the derived domain bundle?
 - Should auditors be allowed to download raw staging data or artifact views only?
 - Should project initiation be split into a wizard or a single form?
-- Should notifications land in-app only, email only, or both?
 
 ## Changelog
 
+- 2026-07-03: Clarified notification delivery as in-app plus a stubbed email hook.
 - 2026-07-01: Added Feed/FeedSlice/Fiber vocabulary; Feed intake screen; Fiber
   management screen; Mapping review 3-step approval chain; updated delivery
   bundle to 0000/0001+ sequencing; fleshed out Lookup delta review screen.

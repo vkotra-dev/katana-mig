@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 revision = "0019_fiber_models"
-down_revision = "0016_project_schema_analysis"
+down_revision = "0017_notifications"
 branch_labels = None
 depends_on = None
 
