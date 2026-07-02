@@ -15,6 +15,9 @@ Add a fourth "SQL Bundle" tab pill to the project detail page
 (`web/app/projects/[id]/page.tsx`) that navigates to the existing codegen page
 (`/projects/[id]/codegen`) via `router.push`. Single file change + test.
 
+This is a later-phase delivery ticket. Feed/fiber/comment/AI work is now the
+priority stream; keep this ticket queued behind that stream.
+
 ## Success criteria
 
 - "SQL Bundle" button renders alongside Overview / Sources / Artifacts tabs

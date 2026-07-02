@@ -1,12 +1,11 @@
 Task: tasks/001ah-delivery-bundle-sequencing.md
-Spec: docs/superpowers/specs/2026-07-01-delivery-bundle-sequencing-design.md
 Domain: docs/domain/ui.md (authoritative), docs/domain/api.md
 
 ## Source of truth
 
-`docs/superpowers/specs/2026-07-01-delivery-bundle-sequencing-design.md` defines what to build.
+`docs/domain/ui.md` defines what to build — see **SQL bundle delivery** and the **DDL analysis prompt banner** in the Project detail section.
+`docs/domain/api.md` defines the endpoint contracts.
 Mockmigration (if referenced) is for styling patterns only — not content authority.
-`docs/domain/ui.md` governs role-based visibility rules.
 
 ## Current state
 
@@ -62,6 +61,36 @@ Mockmigration (if referenced) is for styling patterns only — not content autho
 - Route auth: `require_project_access(db, user=actor, project_id=project_id)` — all roles read; no write-gate beyond project membership
 - Styling follows mockmigration patterns; spec is content authority
 - Cycle-breaking in topological sort: alphabetical insertion of remaining nodes — no hard failure
+
+## Objective
+
+Add AI-assisted schema dependency analysis and use it to order the SQL delivery bundle, while surfacing the analysis state in the Sources tab and codegen page.
+
+## Out of Scope
+
+- No unrelated codegen page redesign
+- No manual dependency editor UI
+- No cross-project behavior changes
+
+## File Changes
+
+- See the blast radius table above for the exact backend and web files.
+
+## Verification
+
+- Run the task-specific backend tests first
+- Run the task-specific web tests next
+- Run the touched-surface full suites before committing
+
+## Pitfalls
+
+- Keep the AI slot name and YAML wiring aligned across config, factory, and tests
+- Preserve deterministic ordering when the dependency graph has cycles or partial data
+- Keep the migration revision chain intact and within the `alembic_version` length limit
+
+## Commit
+
+- `feat(001ah): add schema dependency analysis and bundle sequencing`
 
 ---
 

@@ -48,6 +48,17 @@ Role is session-scoped, and `project_stakeholder` access is membership-scoped.
 - `project_stakeholder` lands on their project home or filtered project view.
 - `read_only_auditor` lands on a read-only selector or portfolio view.
 
+## Vocabulary
+
+| Term | Meaning |
+|---|---|
+| **Feed** | A single CSV file or one XLSX sheet — the raw data unit provided for migration |
+| **FeedSlice** | A windowed, PII-masked sample of a Feed; the working unit AI analyzes |
+| **Lookup Fiber** | A unit of work mapping unique source values for one lookup column to destination reference rows |
+| **Mapping Fiber** | A unit of work mapping source columns to destination table columns for one domain object |
+
+`SourceDefinition` and `SourceSlice` in the codebase correspond to Feed and FeedSlice respectively. The rename is tracked in task 001aj.
+
 ## Screens
 
 ### Authentication
@@ -82,11 +93,11 @@ This is the high-level operational surface for cross-project monitoring.
 Full lifecycle view for one project. Four tabs:
 
 - **Overview** — stage timeline, key–value metadata (goal, environments, target DB engine, staging schema, dry-run flag, destination schema DDL, sample policy, constraints, unresolved questions, assumptions, lexicon scope)
-- **Sources** — list of source contracts with add-source action; DDL analysis prompt banner (see below)
+- **Feeds** — list of feeds with add-feed action; DDL analysis prompt banner (see below)
 - **Artifacts** — source slice versions and approval status
 - **SQL Bundle** — navigates to the SQL bundle delivery page (see SQL bundle delivery)
 
-The **DDL analysis prompt banner** appears in the Sources tab when at least one source exists but no schema analysis has been run yet. It shows a prompt with an "Analyze DDL" button. The button is disabled if the project has no `destination_schema_ddl` set. Clicking it triggers AI analysis and hides the banner on success.
+The **DDL analysis prompt banner** appears in the Feeds tab when at least one feed exists but no schema analysis has been run yet. It shows a prompt with an "Analyze DDL" button. The button is disabled if the project has no `destination_schema_ddl` set. Clicking it triggers AI analysis and hides the banner on success.
 
 The Overview tab also shows:
 - active CRs and their status
@@ -109,7 +120,95 @@ Panels:
 - **Schema dependency analysis** — shows identified / processed / pending counts for destination objects; "Re-analyze DDL" button to re-run AI analysis; "analyzed at" timestamp. Empty state if no analysis has been run.
 - **Artifact history** — all artifacts (active and superseded) with timestamps
 
-When a schema analysis exists, the downloaded bundle orders SQL blocks by FK dependency sequence and prefixes each with `-- [01] table_name`, `-- [02] table_name`, etc. Without an analysis, blocks are ordered alphabetically with plain `-- table_name` headings.
+Delivery bundle sequencing:
+
+- All lookup fiber SQL is prefixed `0000_<lookup_table_name>` — sorts to the top, runs in any order (reference data is independent)
+- Domain object SQL is prefixed `0001_`, `0002_`, etc. in FK dependency sequence from schema analysis
+
+Example:
+```
+0000_account_type_ref
+0000_status_code_ref
+0001_customers
+0002_orders
+0003_order_items
+```
+
+Without a schema analysis, domain objects are ordered alphabetically with plain `-- table_name` headings.
+
+### Feed intake
+
+Audience: `central_team`.
+
+Route: `/projects/[id]/feeds/new`
+
+The operator uploads one or more files:
+
+- **CSV** — one file = one Feed
+- **XLSX** — one file = N Feeds; system auto-creates one Feed per sheet on upload
+
+After upload, each Feed is sliced: a window of rows is extracted and PII fields are replaced with typed tokens (`TAXID_XXXX`, `EMAIL_XXXX`, `DOB_XXXX`, `PHONE_XXXX`). The token type is determined by the masking policy and carries enough semantic meaning for AI to understand the column's purpose. The resulting FeedSlice is stored and used for all subsequent AI analysis.
+
+A progress indicator is shown during PII masking.
+
+### Fiber management
+
+Audience: `central_team`.
+
+Route: `/projects/[id]/feeds/[feed_id]/fibers`
+
+After a FeedSlice is created, the system creates fibers for the Feed by analyzing the FeedSlice against the destination DDL.
+
+**Lookup Fibers** — one per lookup column identified. A lookup fiber is `deferred` by default. To continue it the operator provides:
+
+1. **Source values** — multiline list of unique values for this lookup column (operator may add values beyond what the FeedSlice window showed, knowing the full domain of the real data)
+2. **Destination lookup CSV** — reference data from the destination system; flexible multi-column schema: id, description, plus any industry-specific columns (NSIC, SIC, regulatory flags, etc.)
+
+Once both inputs are provided, the fiber calls AI to propose source→destination mappings with confidence scores. Each mapping is a `LookupMapping` row linking a `LookupSourceEntry` to a `LookupDestEntry` — not a JSON blob. Unmapped values are directly queryable, delta values are added as new rows without replacing existing mappings, and the destination reference data retains all its columns (id, description, industry codes, etc.).
+
+Operator can defer any lookup fiber and return to it later. Deferred lookup fibers do not block mapping fibers.
+
+**Mapping Fibers** — one per domain object identified. A mapping fiber runs immediately on creation — it calls AI with the FeedSlice columns and the destination table DDL to propose field-level bindings (source column → destination column).
+
+**Manual fibers** — within the fiber management screen for a feed, the operator can add custom lookup or mapping fibers the AI did not identify. Useful when the AI misses a lookup column or when an enum needs to be defined explicitly from the feed data. A manually added lookup fiber goes to `deferred` and follows the normal inputs → AI mapping → approval flow. A manually added mapping fiber opens the grid for operator-entered field bindings. Both are tied to the same `feed_id` as the AI-spawned fibers. `source` field on the fiber distinguishes `"auto"` from `"manual"`.
+
+**Fiber lifecycles:**
+
+Lookup: `created → deferred → inputs_ready → ai_running → mapped → operator_assigned → business_approved → operator_triggered → codegen_complete`
+
+Mapping: `created → ai_running → mapped → operator_assigned → business_approved → operator_triggered → codegen_complete`
+
+Codegen gates on all fibers for a domain object being `operator_triggered` — both its mapping fiber and every lookup fiber it references must be complete before codegen runs.
+
+### Mapping review
+
+Audience: `central_team` (operator) and `project_stakeholder` (business user).
+
+Three-step approval chain per Feed:
+
+1. **Operator assigns** — reviews AI-proposed field bindings and lookup mappings in the mapping grid; sets default values for destination columns with no source equivalent; adds comments for the business user; submits
+2. **Business user approves** — reviews the same grid (without the Default Value column); adjusts lookup value selections; responds to operator comments; approves
+3. **Operator triggers** — final cursory review; explicitly triggers fiber lineup for codegen
+
+**Mapping grid:**
+
+| Source Column | Destination Column | Lookup | Default Value | Status |
+|---|---|---|---|---|
+| `CUST_ID` | `customer_id` | — | — | mapped |
+| `ACCT_TYPE` | `account_type` | `account_type_map` | — | mapped |
+| `FULL_NAME` | `first_name` | — | — | mapped |
+| `FULL_NAME` | `last_name` | — | — | mapped |
+| — | `created_by` | — | `"MIGRATION"` | default |
+| `LEGACY_CODE` | — | — | — | unmapped (data loss) |
+
+Rules:
+- One source field may appear on multiple rows mapping to different destination columns
+- Unmapped source columns are shown with no destination — documented as potential data loss
+- Destination columns with no source are shown with no source — operator assigns a static default value
+- Default Value column is visible to operator only; business user sees the grid without it
+- Business user may change lookup value selections (pick a different destination row for any source value)
+
+**Comments** — each Feed has a comment thread accessible to both operator and business user throughout the review. Notifications fire when either party adds a comment. AI reads the full comment thread at codegen time as additional context for scripting the migration proc.
 
 ### Project initiation
 
@@ -187,41 +286,74 @@ Controls:
 
 Audience: `central_team`
 
-Shown when a pushback yields an impact report.
+Route: `/projects/[id]/runs/[run_id]/impact`
+
+Shown after Gate 1 is rejected. The operator sees the full impact before
+correcting the issues and re-submitting.
 
 The screen shows:
 
-- the pushback comment
-- the structured target fields
-- affected objects
-- replay scope
-- recommendation
+- **Pushback panel** — `required_changes` text, `affected_objects` list, rejector and timestamp
+- **Replay scope** — other runs in the project that reference the same domain objects and would need to re-execute if the correction is made
+- **AI recommendation** — based on `required_changes` + `affected_objects` + field bindings, AI suggests what specifically to fix and what the minimal replay scope is
+
+Actions:
+
+- **Acknowledge and fix** — operator marks they have understood the impact; run is unlocked for correction and re-submission to Gate 1
+- **Request clarification** — adds a comment to the gate record; run stays blocked
 
 ### Dry-run review
 
 Audience: `central_team`
 
-Shown when dry run is enabled.
+Route: `/projects/[id]/runs/[run_id]/dry-run`
 
-The screen shows:
+Shown when `dry_run = true` on the project and the run reaches the dry-run
+stage. The engine maps all source rows to destination rows but does not write
+to the destination. Instead it produces a `DryRunArtifact` per domain object.
 
-- one dry-run artifact per domain object
-- sample rows and annotations
-- target object summary
-- PII masking status
+The screen shows one panel per domain object:
+
+**Sample rows table** — columns: source field value | mapped destination value
+per field binding. Lookup substitutions are shown inline (source code →
+destination description). PII fields appear as their typed tokens (`TAXID_XXXX`,
+`EMAIL_XXXX`, etc.) confirming masking is applied correctly.
+
+**Target object summary** — total rows that would succeed; rows that would fail
+(unmapped lookup values, null constraint violations); field coverage percentage.
+
+**PII masking status** — list of fields classified as PII and the token type
+applied to each.
+
+Actions:
+
+- **Approve** — run promotes from `dry_run_review` to actual execution
+- **Push back** — run stays paused; operator provides a structured comment;
+  central team investigates before re-triggering
 
 ### Lookup delta review
 
 Audience: `project_stakeholder`
 
-Shown when a new lookup value is discovered during execution.
+Route: `/projects/[id]/change-requests/[cr_id]`
+
+Shown when execution discovers an unmapped lookup value in the real data (beyond the FeedSlice window) and pauses the run.
 
 The screen shows:
 
-- environment that discovered the value
-- source column and exact value
-- AI-proposed mapping
-- confidence score
+- destination object and run context
+- lookup name (source column)
+- the exact unmapped value found in the data
+- a single input: "Map this to:" with a text field
+- Submit button
+
+On submit:
+1. The new mapping is added to the lookup value map
+2. A new LookupSnapshot is generated and auto-approved
+3. The paused run resumes from its checkpoint
+4. The CR is closed
+
+Entry point: Overview tab active CRs list links here. Notification also deep-links to this page.
 
 ### Reconciliation view
 
@@ -261,16 +393,24 @@ The view should show:
 
 UI surfaces receive notification events for:
 
-- gate 1 waiting
-- gate 2 waiting
-- impact review waiting
-- dry-run waiting
-- lookup delta discovered
-- reconciliation failed
-- knowledge freeze published
-- execution complete
+| Event | Recipients |
+|---|---|
+| `gate_1_waiting` | `central_team` users |
+| `gate_2_waiting` | `project_stakeholder` members |
+| `impact_review_waiting` | `central_team` users |
+| `dry_run_waiting` | `central_team` users |
+| `lookup_delta_discovered` | `project_stakeholder` members |
+| `reconciliation_failed` | all project members |
+| `knowledge_freeze_published` | all project members |
+| `execution_complete` | all project members |
+| `feed_comment_added` | the other party (operator comments → stakeholders; stakeholder comments → operator) |
 
-Notifications should deep-link to the relevant project or artifact view.
+**Delivery:**
+- **In-app bell** — unread count badge polled via `GET /notifications/count`; list view with deep links; mark-as-read per item or bulk
+- **Email** — sent at event creation time using `User.email`; plain template with event description and deep link; SMTP config in deployment settings
+
+Notifications deep-link to the relevant project or artifact view.
+Polling is used for in-app; WebSockets are not required.
 
 ## Technical shape
 
@@ -309,5 +449,8 @@ Notifications should deep-link to the relevant project or artifact view.
 
 ## Changelog
 
+- 2026-07-01: Added Feed/FeedSlice/Fiber vocabulary; Feed intake screen; Fiber
+  management screen; Mapping review 3-step approval chain; updated delivery
+  bundle to 0000/0001+ sequencing; fleshed out Lookup delta review screen.
 - 2026-06-29: Added derived UI bundle page to consolidate the operator-facing
   contract from the current specs.

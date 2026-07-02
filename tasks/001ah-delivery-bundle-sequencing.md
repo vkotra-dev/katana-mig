@@ -18,6 +18,9 @@ FK-dependency-ordered sequence of destination objects, store it in a new
 (when first source exists but no analysis yet) and a report panel in the
 codegen page (identified / processed / pending counts + Re-analyze button).
 
+This is a later-phase delivery ticket. Execute it after the feed/fiber/comment/AI
+priority stream is in place.
+
 ## Execution order
 
 **001ag must complete before this task starts** — Task 7 of this plan modifies

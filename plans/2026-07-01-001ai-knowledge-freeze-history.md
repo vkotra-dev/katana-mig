@@ -47,6 +47,36 @@ Mockmigration is styling reference only.
 - Styling follows mockmigration patterns; `docs/domain/ui.md` is content authority
 - No new DB model or migration — reads existing `RunRecord` data
 
+## Objective
+
+Add a read-only knowledge-freeze history panel to the project detail Overview tab using existing run data.
+
+## Out of Scope
+
+- No new persistence model or migration
+- No mutation or acknowledge action for freeze history
+- No changes to run execution behavior
+
+## File Changes
+
+- See the blast radius table above for the exact backend and web files.
+
+## Verification
+
+- Run the new backend freeze-history tests
+- Run the new panel test
+- Run the touched backend and web suites for runs and project detail
+
+## Pitfalls
+
+- Filter strictly to runs with `knowledge_freeze_version != null`
+- Keep the list newest-first
+- Ensure the panel stays read-only and role-gated by project access only
+
+## Commit
+
+- `feat(001ai): add knowledge freeze history panel`
+
 ---
 
 ### Task 1: Backend — service, schema, route

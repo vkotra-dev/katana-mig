@@ -3,7 +3,13 @@
     "allow": [
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(PYTHONPATH=engine/src python *)"
+      "Bash(PYTHONPATH=engine/src python *)",
+      "Bash(git *)",
+      "Bash(awk '{print length, $0}' /Users/vjkotra/projects/katana/engine/migrations/versions/0013_lookup_value_map_source_value_map.py)",
+      "Bash(awk '{print length\\($0\\), $0}')",
+      "Bash(python3 *)",
+      "Bash(grep -v \"^#\\\\|^$\")",
+      "Bash(grep -v \"^$\")"
     ]
   }
 }

@@ -34,3 +34,8 @@ No new DB model or migration — reads existing `RunRecord` data.
 - Empty state shown when no freezes exist
 - Error state shown on fetch failure
 - All engine and web tests pass
+
+## Execution order
+
+This is an independent UI task. It can run in the feed/fiber/comment/AI
+priority stream or later, but it does not depend on the delivery tickets.

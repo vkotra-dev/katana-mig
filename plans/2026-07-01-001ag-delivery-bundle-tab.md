@@ -33,12 +33,48 @@ Mockmigration (if referenced) is for styling patterns only — not content autho
 
 **Tech Stack:** Next.js App Router, React, TypeScript, Vitest + Testing Library
 
+## Priority
+
+This is a later-phase delivery item. Keep it behind the feed/fiber/comment/AI
+priority stream.
+
 ## Global Constraints
 
 - Styling follows mockmigration patterns; content/behaviour is determined by the spec
 - Tab pill styling must match the existing three tabs exactly: `rounded-full px-4 py-2 text-sm font-semibold` with active/inactive states
 - All authenticated roles (`central_team`, `project_stakeholder`, `read_only_auditor`) see the tab
 - No `activeTab` value `"sql-bundle"` is needed — the tab navigates away immediately on click
+
+## Objective
+
+Add a project-detail navigation affordance for SQL bundle delivery without changing the codegen page itself.
+
+## Out of Scope
+
+- No backend API changes
+- No new codegen page panels or content
+- No role gates or feature flags
+- No navigation changes outside the project detail tab strip
+
+## File Changes
+
+- `web/app/projects/[id]/page.tsx` - add the SQL Bundle tab button
+- `web/app/projects/[id]/page.test.tsx` - add coverage for render and navigation
+
+## Verification
+
+- `npm test -- app/projects/\\[id\\]/page.test.tsx`
+- `npm test`
+
+## Pitfalls
+
+- Do not add a new `"sql-bundle"` active tab state; this tab should only navigate
+- Keep the button styling consistent with the other pills
+- Cover at least one non-`central_team` role in the test so the "all authenticated roles" requirement is locked in
+
+## Commit
+
+- `feat(001ag): add SQL Bundle tab navigating to codegen page`
 
 ---
 
@@ -104,9 +140,17 @@ vi.mock("next/navigation", () => ({
 const SESSION = {
   accessToken: "tok-1",
   expiresAt: "2027-01-01T00:00:00Z",
-  role: "central_team" as const,
+  role: "project_stakeholder" as const,
   sessionVersion: 1,
   userId: "user-1",
+};
+
+const AUDITOR_SESSION = {
+  accessToken: "tok-2",
+  expiresAt: "2027-01-01T00:00:00Z",
+  role: "read_only_auditor" as const,
+  sessionVersion: 1,
+  userId: "user-2",
 };
 
 const PROJECT = {
@@ -159,6 +203,12 @@ describe("ProjectDetailPage — SQL Bundle tab", () => {
     fireEvent.click(tab);
     expect(routerPushMock).toHaveBeenCalledWith("/projects/proj-1/codegen");
   });
+
+  it("renders the SQL Bundle tab for read-only auditors too", async () => {
+    loadUiSessionMock.mockReturnValue(AUDITOR_SESSION);
+    renderPage("proj-1");
+    expect(await screen.findByRole("button", { name: "SQL Bundle" })).toBeInTheDocument();
+  });
 });
 ```
 
@@ -194,7 +244,7 @@ cd /Users/vjkotra/projects/katana/web
 npm test -- app/projects/\\[id\\]/page.test.tsx
 ```
 
-Expected: PASS — both tests green.
+Expected: PASS — all three tests green.
 
 - [ ] **Step 5: Run the full web test suite to check for regressions**
 
