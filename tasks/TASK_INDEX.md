@@ -9,7 +9,6 @@
 | [001at-notifications](./001at-notifications.md) | Notification model (0017), 4 endpoints, NotificationBell component with polling | — |
 | [001au-notification-email-delivery](./001au-notification-email-delivery.md) | SMTP-backed notification emails and delivery docs | 001at |
 | [001ao-feed-comment](./001ao-feed-comment.md) | FeedComment model (0020), thread endpoint, notifications | 001ak |
-| [001an-fiber-approval-chain](./001an-fiber-approval-chain.md) | 3-step: operator assign → business approve → operator trigger + fiber detail page | 001al, 001am |
 | [001ai-knowledge-freeze-history](./001ai-knowledge-freeze-history.md) | Read-only freeze history panel in project detail Overview tab | — |
 | [001ap-lookup-delta-cr-review](./001ap-lookup-delta-cr-review.md) | List/get/resolve CR endpoints + review page (no new DB model) | 001ai |
 | [001ar-dry-run-review](./001ar-dry-run-review.md) | DryRunArtifact model, GET/approve/push-back routes, review screen | 001ak |
@@ -58,6 +57,7 @@
 | [001c-roles-and-membership](./completed/001c-roles-and-membership.md) | [summary](./summary/001c-roles-and-membership.md) |
 | [001d-minimal-mapping-slice](./completed/001d-minimal-mapping-slice.md) | [summary](./summary/001d-minimal-mapping-slice.md) |
 | [001af-ui-compliance-gaps](./completed/001af-ui-compliance-gaps.md) | [summary](./summary/001af-ui-compliance-gaps.md) |
+| [001an-fiber-approval-chain](./completed/001an-fiber-approval-chain.md) | [summary](./summary/001an-fiber-approval-chain.md) |
 
 ## Archived / Superseded
 
