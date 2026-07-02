@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from migrations_engine.ai.adapter import ConfigurationError
-from migrations_engine.ai.config import get_ai_config
+from migrations_engine.ai.config import AIConfig, MigrationModelConfig, PlatformModelConfig, ProviderConfig, get_ai_config
 from migrations_engine.ai.factory import get_adapter
 
 
@@ -17,40 +17,50 @@ def _clear_ai_config_cache() -> None:
     get_ai_config.cache_clear()
 
 
-def test_impact_analysis_slot_is_available(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    config_path = tmp_path / "engine.yaml"
-    config_path.write_text(
-        "models:\n"
-        "  planning: claude-opus-4-8\n"
-        "  review: claude-sonnet-4-6\n"
-        "  implementation: claude-sonnet-4-6\n"
-        "migration:\n"
-        "  models:\n"
-        "    pii_review: claude-haiku-4-5-20251001\n"
-        "    field_mapping: claude-opus-4-8\n"
-        "    lookup_mapping: claude-sonnet-4-6\n"
-        "    script_generation: gpt-4o-mini\n"
-        "    script_correction: claude-sonnet-4-6\n"
-        "    schema_dependency: claude-sonnet-4-6\n"
-        "    impact_analysis: claude-sonnet-4-6\n"
-        "    feed_analysis: claude-sonnet-4-6\n"
-        "providers:\n"
-        "  anthropic_api_key_env: ANTHROPIC_API_KEY\n"
-        "  openai_api_key_env: OPENAI_API_KEY\n",
-        encoding="utf-8",
+def _make_config(*, lookup_mapping: str = "claude-sonnet-4-6") -> AIConfig:
+    return AIConfig(
+        models=PlatformModelConfig(
+            planning="claude-opus-4-8",
+            review="claude-sonnet-4-6",
+            implementation="claude-sonnet-4-6",
+        ),
+        migration_models=MigrationModelConfig(
+            pii_review="claude-haiku-4-5-20251001",
+            field_mapping="claude-opus-4-8",
+            lookup_mapping=lookup_mapping,
+            script_generation="gpt-4o-mini",
+            script_correction="claude-sonnet-4-6",
+            schema_dependency="claude-sonnet-4-6",
+            impact_analysis="claude-sonnet-4-6",
+            feed_analysis="claude-sonnet-4-6",
+        ),
+        providers=ProviderConfig(
+            anthropic_api_key_env="ANTHROPIC_API_KEY",
+            openai_api_key_env="OPENAI_API_KEY",
+        ),
     )
-    monkeypatch.setenv("CONFIG_PATH", str(config_path))
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "anthropic-secret")
-    monkeypatch.setenv("OPENAI_API_KEY", "openai-secret")
 
-    get_ai_config.cache_clear()
-    adapter = get_adapter("impact_analysis")
 
+def test_migration_model_config_has_lookup_mapping_field() -> None:
+    config = _make_config()
+    assert config.migration_models.lookup_mapping == "claude-sonnet-4-6"
+
+
+def test_fixture_yaml_includes_lookup_mapping() -> None:
+    config = get_ai_config(FIXTURE_YAML)
+    assert config.migration_models.lookup_mapping == "claude-sonnet-4-6"
+
+
+def test_get_adapter_routes_lookup_mapping_to_anthropic(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("migrations_engine.ai.factory.get_ai_config", lambda: _make_config())
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "fake-key")
+
+    adapter = get_adapter("lookup_mapping")
     assert adapter.__class__.__name__ == "AnthropicAdapter"
 
 
-def test_unknown_slot_still_raises(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("migrations_engine.ai.factory.get_ai_config", lambda: None)
+def test_get_adapter_unknown_task_still_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("migrations_engine.ai.factory.get_ai_config", lambda: _make_config())
 
-    with pytest.raises(ConfigurationError, match="Unknown AI task: nonexistent_slot_xyz"):
-        get_adapter("nonexistent_slot_xyz")
+    with pytest.raises(ConfigurationError, match="Unknown AI task"):
+        get_adapter("not_a_real_task")

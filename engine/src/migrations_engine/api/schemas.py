@@ -256,6 +256,26 @@ class FiberResponse(BaseModel):
     updated_at: datetime
 
 
+class LookupInputsRequest(BaseModel):
+    source_values: list[str] = Field(min_length=1)
+    destination_lookup_csv: str = Field(min_length=1)
+
+
+class LookupSourceEntriesCreateRequest(BaseModel):
+    values: list[str] = Field(min_length=1)
+    discovery_type: Literal["sample", "delta"] = "sample"
+
+
+class LookupDestFeedCreateRequest(BaseModel):
+    columns: list[str]
+    rows: list[dict[str, Any]]
+
+
+class LookupMappingPatchRequest(BaseModel):
+    dest_entry_id: str = Field(min_length=1)
+    status: Literal["confirmed", "overridden"]
+
+
 class LookupSourceEntryResponse(BaseModel):
     entry_id: str
     fiber_id: str
