@@ -154,6 +154,7 @@ The main risks the system must control are:
 - Passwords are hashed.
 - Service accounts authenticate with client secrets.
 - Tokens, secrets, and connection credentials are never stored in plaintext.
+- SMTP credentials for notification delivery are treated as secrets and must not appear in logs, artifacts, or API responses.
 - Credentials are not emitted in logs, audit payloads, or generated artifacts.
 - External connections should use the minimum required credential scope.
 - Password changes, role changes, disable events, logout, and secret rotation

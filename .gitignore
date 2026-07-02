@@ -10,5 +10,6 @@ katana.db
 *.sqlite3
 .env
 .env.*
+!engine/.env.example
 .worktrees/
 mockmigration/

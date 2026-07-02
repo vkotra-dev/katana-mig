@@ -6,6 +6,15 @@ FastAPI backend scaffold for the Katana migration engine.
 
 Runtime settings are read from [`engine/.env`](./.env).
 
+SMTP-backed notification delivery uses these optional keys:
+
+- `KATANA_SMTP_HOST`
+- `KATANA_SMTP_PORT`
+- `KATANA_SMTP_USERNAME`
+- `KATANA_SMTP_PASSWORD`
+- `KATANA_SMTP_FROM_ADDRESS`
+- `KATANA_SMTP_USE_TLS`
+
 ## Commands
 
 - Start the API: `uvicorn migrations_engine.app:app --reload`

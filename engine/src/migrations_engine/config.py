@@ -31,8 +31,14 @@ class Settings(BaseSettings):
     password_reset_token_hours: int = 1
     password_min_length: int = 8
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_address: str = ""
+    smtp_use_tls: bool = True
 
-    @field_validator("mysql_password", "bootstrap_admin_password", mode="before")
+    @field_validator("mysql_password", "bootstrap_admin_password", "smtp_password", mode="before")
     @classmethod
     def decode_password(cls, value: object) -> object:
         if isinstance(value, str):

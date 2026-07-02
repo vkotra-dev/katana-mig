@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import smtplib
 import logging
 from datetime import UTC, datetime
+from email.message import EmailMessage
+from typing import cast
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -13,18 +16,41 @@ from ..api.schemas import (
     NotificationMarkAllResponse,
     NotificationResponse,
 )
+from ..config import get_settings
 from ..db.models import Notification, User, new_id
 
 _LOGGER = logging.getLogger(__name__)
 
 
 def send_notification_email(user_email: str, event_type: str, deep_link: str | None) -> None:
-    _LOGGER.info(
-        "notification email stub: email=%s event_type=%s deep_link=%s",
-        user_email,
-        event_type,
-        deep_link,
-    )
+    settings = get_settings()
+    if not settings.smtp_host:
+        _LOGGER.debug(
+            "SMTP not configured; skipping notification email to %s for event %s",
+            user_email,
+            event_type,
+        )
+        return
+
+    message = EmailMessage()
+    message["Subject"] = f"[Katana] {event_type.replace('_', ' ').title()}"
+    message["From"] = settings.smtp_from_address
+    message["To"] = user_email
+    body_lines = [f"Event: {event_type}"]
+    if deep_link:
+        body_lines.append(f"View: {deep_link}")
+    message.set_content("\n".join(body_lines))
+
+    try:
+        with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as smtp:
+            if settings.smtp_use_tls:
+                smtp.starttls()
+            if settings.smtp_username:
+                smtp.login(settings.smtp_username, settings.smtp_password)
+            smtp.send_message(message)
+        _LOGGER.info("Notification email sent: to=%s event_type=%s", user_email, event_type)
+    except Exception:
+        _LOGGER.exception("Failed to send notification email to %s for event %s", user_email, event_type)
 
 
 def _to_response(notification: Notification) -> NotificationResponse:
@@ -32,7 +58,7 @@ def _to_response(notification: Notification) -> NotificationResponse:
         notification_id=notification.notification_id,
         user_id=notification.user_id,
         project_id=notification.project_id,
-        event_type=notification.event_type,  # type: ignore[arg-type]
+        event_type=cast(NotificationEventType, notification.event_type),
         deep_link=notification.deep_link,
         read=notification.read,
         payload=notification.payload,
