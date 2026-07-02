@@ -9,6 +9,7 @@ migration:
     lookup_mapping: claude-sonnet-4-6
     script_generation: gpt-4o-mini
     script_correction: claude-sonnet-4-6
+    schema_dependency: claude-sonnet-4-6
     impact_analysis: claude-sonnet-4-6
     feed_analysis: claude-sonnet-4-6
 providers:

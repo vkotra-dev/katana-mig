@@ -29,6 +29,7 @@ class MigrationModelConfig:
     lookup_mapping: str
     script_generation: str
     script_correction: str
+    schema_dependency: str
     impact_analysis: str
     feed_analysis: str
 
@@ -108,6 +109,11 @@ def _parse_config(raw: Any) -> AIConfig:
                 migration_models,
                 "script_correction",
                 "migration.models.script_correction",
+            ),
+            schema_dependency=_require_str(
+                migration_models,
+                "schema_dependency",
+                "migration.models.schema_dependency",
             ),
             impact_analysis=_require_str(
                 migration_models,

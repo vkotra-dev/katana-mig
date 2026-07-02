@@ -25,6 +25,7 @@ def _make_config(
     lookup_mapping: str = "claude-sonnet-4-6",
     script_generation: str = "gpt-4o-mini",
     script_correction: str = "claude-sonnet-4-6",
+    schema_dependency: str = "claude-sonnet-4-6",
     impact_analysis: str = "claude-sonnet-4-6",
     feed_analysis: str = "claude-sonnet-4-6",
 ) -> AIConfig:
@@ -40,6 +41,7 @@ def _make_config(
             lookup_mapping=lookup_mapping,
             script_generation=script_generation,
             script_correction=script_correction,
+            schema_dependency=schema_dependency,
             impact_analysis=impact_analysis,
             feed_analysis=feed_analysis,
         ),

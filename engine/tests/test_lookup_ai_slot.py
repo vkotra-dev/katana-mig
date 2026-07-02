@@ -31,6 +31,7 @@ def test_impact_analysis_slot_is_available(monkeypatch: pytest.MonkeyPatch, tmp_
         "    lookup_mapping: claude-sonnet-4-6\n"
         "    script_generation: gpt-4o-mini\n"
         "    script_correction: claude-sonnet-4-6\n"
+        "    schema_dependency: claude-sonnet-4-6\n"
         "    impact_analysis: claude-sonnet-4-6\n"
         "    feed_analysis: claude-sonnet-4-6\n"
         "providers:\n"

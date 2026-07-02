@@ -31,6 +31,7 @@ def test_impact_analysis_slot_is_in_factory(tmp_path: Path, monkeypatch: pytest.
         "    lookup_mapping: claude-3-haiku-20240307\n"
         "    script_generation: claude-3-haiku-20240307\n"
         "    script_correction: claude-3-haiku-20240307\n"
+        "    schema_dependency: claude-3-haiku-20240307\n"
         "    feed_analysis: claude-3-haiku-20240307\n"
         "    impact_analysis: claude-3-haiku-20240307\n"
         "providers:\n"

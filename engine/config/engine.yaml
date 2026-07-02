@@ -9,6 +9,7 @@ migration:
     lookup_mapping: ${MODEL_LOOKUP_MAPPING}
     script_generation: ${MODEL_SCRIPT_GENERATION}
     script_correction: ${MODEL_SCRIPT_CORRECTION}
+    schema_dependency: ${MODEL_SCHEMA_DEPENDENCY}
     impact_analysis: ${MODEL_IMPACT_ANALYSIS}
     feed_analysis: ${MODEL_FEED_ANALYSIS}
 providers:
