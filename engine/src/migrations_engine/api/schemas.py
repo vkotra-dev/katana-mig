@@ -311,6 +311,10 @@ class LookupMappingPatchRequest(BaseModel):
     status: Literal["confirmed", "overridden"]
 
 
+class FiberActionRequest(BaseModel):
+    comment: str | None = None
+
+
 class LookupSourceEntryResponse(BaseModel):
     entry_id: str
     fiber_id: str

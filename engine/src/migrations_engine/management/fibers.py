@@ -3,15 +3,17 @@ from __future__ import annotations
 import csv
 import io
 import json
+import logging
 from typing import Any
 
 from pydantic import BaseModel
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from ..ai.factory import get_adapter
 from ..api.deps import AuthApiError
 from ..api.schemas import (
+    FiberActionRequest,
     FiberCreateRequest,
     FiberResponse,
     LookupDestEntryResponse,
@@ -33,6 +35,11 @@ from ..db.models import (
     User,
     new_id,
 )
+from ..management.access import require_project_access
+from ..roles import PROJECT_STAKEHOLDER_ROLE
+
+
+logger = logging.getLogger(__name__)
 
 
 _LOOKUP_MAPPING_SYSTEM_PROMPT = (
@@ -129,6 +136,87 @@ def get_fiber(db: Session, *, project_id: str, feed_id: str, fiber_id: str) -> F
     fiber = db.get(ProjectFiber, fiber_id)
     if fiber is None or fiber.project_id != project_id or fiber.feed_id != feed_id:
         raise AuthApiError("fiber_not_found", "Fiber not found.", 404)
+    return _fiber_response(fiber)
+
+
+def assign_fiber(
+    db: Session,
+    *,
+    actor: User,
+    project_id: str,
+    feed_id: str,
+    fiber_id: str,
+    body: FiberActionRequest,
+) -> FiberResponse:
+    del actor, body
+    fiber = _require_fiber(db, feed_id=feed_id, fiber_id=fiber_id, project_id=project_id)
+    if fiber.status != "mapped":
+        raise AuthApiError("fiber_not_ready", "Fiber is not in the expected state.", 409)
+    fiber.status = "operator_assigned"
+    db.commit()
+    db.refresh(fiber)
+    return _fiber_response(fiber)
+
+
+def approve_fiber(
+    db: Session,
+    *,
+    actor: User,
+    project_id: str,
+    feed_id: str,
+    fiber_id: str,
+    body: FiberActionRequest,
+) -> FiberResponse:
+    del body
+    require_project_access(db, user=actor, project_id=project_id)
+    if actor.role != PROJECT_STAKEHOLDER_ROLE:
+        raise AuthApiError(
+            "forbidden",
+            "Business approval requires project_stakeholder role.",
+            403,
+        )
+    fiber = _require_fiber(db, feed_id=feed_id, fiber_id=fiber_id, project_id=project_id)
+    if fiber.status != "operator_assigned":
+        raise AuthApiError("fiber_not_ready", "Fiber is not in the expected state.", 409)
+    fiber.status = "business_approved"
+    db.commit()
+    db.refresh(fiber)
+    return _fiber_response(fiber)
+
+
+def trigger_fiber(
+    db: Session,
+    *,
+    actor: User,
+    project_id: str,
+    feed_id: str,
+    fiber_id: str,
+    body: FiberActionRequest,
+) -> FiberResponse:
+    del actor, body
+    fiber = _require_fiber(db, feed_id=feed_id, fiber_id=fiber_id, project_id=project_id)
+    if fiber.status != "business_approved":
+        raise AuthApiError("fiber_not_ready", "Fiber is not in the expected state.", 409)
+
+    fiber_key = fiber.fiber_key
+    fiber.status = "operator_triggered"
+    db.flush()
+
+    remaining = db.scalar(
+        select(func.count(ProjectFiber.fiber_id)).where(
+            ProjectFiber.project_id == project_id,
+            ProjectFiber.fiber_key == fiber_key,
+            ProjectFiber.status != "operator_triggered",
+        )
+    )
+    should_queue = (remaining or 0) == 0
+
+    db.commit()
+    db.refresh(fiber)
+
+    if should_queue:
+        logger.info("codegen queued for %s", fiber_key)
+
     return _fiber_response(fiber)
 
 
@@ -453,6 +541,26 @@ def _get_feed(db: Session, *, project_id: str, feed_id: str) -> Feed:
     if feed is None or feed.project_id != project_id:
         raise AuthApiError("feed_not_found", "Feed not found.", 404)
     return feed
+
+
+def _require_fiber(
+    db: Session,
+    *,
+    feed_id: str,
+    fiber_id: str,
+    project_id: str,
+) -> ProjectFiber:
+    _get_feed(db, project_id=project_id, feed_id=feed_id)
+    fiber = db.scalar(
+        select(ProjectFiber).where(
+            ProjectFiber.fiber_id == fiber_id,
+            ProjectFiber.feed_id == feed_id,
+            ProjectFiber.project_id == project_id,
+        )
+    )
+    if fiber is None:
+        raise AuthApiError("fiber_not_found", "Fiber not found.", 404)
+    return fiber
 
 
 def _parse_header_csv(header_csv: str | None) -> list[str]:

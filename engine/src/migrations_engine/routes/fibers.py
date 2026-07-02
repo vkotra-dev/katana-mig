@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from ..api.deps import get_central_team_user, get_current_user, get_db
 from ..api.schemas import (
+    FiberActionRequest,
     FiberCreateRequest,
     FiberResponse,
     LookupDestEntryResponse,
@@ -21,6 +22,8 @@ from ..management.access import require_non_auditor, require_project_access
 from ..management.fibers import (
     add_source_entries,
     analyze_feed,
+    approve_fiber,
+    assign_fiber,
     create_fiber,
     create_or_replace_dest_feed,
     get_fiber,
@@ -30,6 +33,7 @@ from ..management.fibers import (
     list_source_entries,
     patch_mapping,
     submit_lookup_inputs,
+    trigger_fiber,
 )
 
 router = APIRouter(prefix="/projects/{project_id}/feeds/{feed_id}/fibers", tags=["fibers"])
@@ -178,5 +182,62 @@ def patch_mapping_by_id(
         fiber_id=fiber_id,
         mapping_id=mapping_id,
         project_id=project_id,
+        body=body,
+    )
+
+
+@router.post("/{fiber_id}/assign", response_model=FiberResponse)
+def post_fiber_assign(
+    project_id: str,
+    feed_id: str,
+    fiber_id: str,
+    body: FiberActionRequest,
+    actor: User = Depends(get_central_team_user),
+    db: Session = Depends(get_db),
+) -> FiberResponse:
+    return assign_fiber(
+        db,
+        actor=actor,
+        project_id=project_id,
+        feed_id=feed_id,
+        fiber_id=fiber_id,
+        body=body,
+    )
+
+
+@router.post("/{fiber_id}/approve", response_model=FiberResponse)
+def post_fiber_approve(
+    project_id: str,
+    feed_id: str,
+    fiber_id: str,
+    body: FiberActionRequest,
+    actor: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> FiberResponse:
+    return approve_fiber(
+        db,
+        actor=actor,
+        project_id=project_id,
+        feed_id=feed_id,
+        fiber_id=fiber_id,
+        body=body,
+    )
+
+
+@router.post("/{fiber_id}/trigger", response_model=FiberResponse)
+def post_fiber_trigger(
+    project_id: str,
+    feed_id: str,
+    fiber_id: str,
+    body: FiberActionRequest,
+    actor: User = Depends(get_central_team_user),
+    db: Session = Depends(get_db),
+) -> FiberResponse:
+    return trigger_fiber(
+        db,
+        actor=actor,
+        project_id=project_id,
+        feed_id=feed_id,
+        fiber_id=fiber_id,
         body=body,
     )
