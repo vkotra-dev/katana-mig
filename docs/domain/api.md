@@ -459,6 +459,90 @@ Failures:
 | `project_already_archived` | `409` |
 | `forbidden` | `403` |
 
+## Notification endpoints
+
+These endpoints implement the notification contract in [`ui.md`](./ui.md).
+They are user-scoped, so project membership is resolved from the authenticated
+session rather than a `project_id` path segment.
+
+### Notification event type enum
+
+| Value | Meaning |
+|---|---|
+| `gate_1_waiting` | Gate 1 waiting for review |
+| `gate_2_waiting` | Gate 2 waiting for review |
+| `impact_review_waiting` | Impact review waiting for operator action |
+| `dry_run_waiting` | Dry-run review waiting for operator action |
+| `lookup_delta_discovered` | New lookup delta is ready |
+| `reconciliation_failed` | Reconciliation failed |
+| `knowledge_freeze_published` | A new freeze was published |
+| `execution_complete` | Run execution completed |
+| `feed_comment_added` | A comment was added to a feed thread |
+
+### `NotificationResponse`
+
+```json
+{
+  "notification_id": "...",
+  "user_id": "...",
+  "project_id": "...",
+  "event_type": "gate_1_waiting",
+  "deep_link": "/projects/.../runs/...",
+  "read": false,
+  "payload": {"run_id": "..."},
+  "read_at": null,
+  "created_at": "..."
+}
+```
+
+### `NotificationCountResponse`
+
+```json
+{
+  "unread_count": 4
+}
+```
+
+### `NotificationMarkAllResponse`
+
+```json
+{
+  "marked_count": 4
+}
+```
+
+### `GET /notifications`
+
+List the authenticated user's notifications. Returns unread items first, then
+most recent items.
+
+Response `200`: array of `NotificationResponse`.
+
+### `GET /notifications/count`
+
+Return the authenticated user's unread notification count.
+
+Response `200`: `NotificationCountResponse`.
+
+### `POST /notifications/{notification_id}/read`
+
+Mark one notification as read. Returns the updated `NotificationResponse`.
+
+Failures:
+- `404` + `notification_not_found`
+
+### `POST /notifications/read-all`
+
+Mark all notifications for the authenticated user as read.
+
+Response `200`: `NotificationMarkAllResponse`.
+
+### Notification error codes
+
+| Code | Typical status |
+|---|---|
+| `notification_not_found` | `404` |
+
 ## Source contract endpoints
 
 These endpoints implement the contract in [`source-model.md`](./source-model.md).

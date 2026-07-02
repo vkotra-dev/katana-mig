@@ -235,6 +235,41 @@ class FeedSliceApprovalCountResponse(BaseModel):
     pending_count: int
 
 
+NotificationEventType = Literal[
+    "gate_1_waiting",
+    "gate_2_waiting",
+    "impact_review_waiting",
+    "dry_run_waiting",
+    "lookup_delta_discovered",
+    "reconciliation_failed",
+    "knowledge_freeze_published",
+    "execution_complete",
+    "feed_comment_added",
+]
+
+
+class NotificationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    notification_id: str
+    user_id: str
+    project_id: str
+    event_type: NotificationEventType
+    deep_link: str
+    read: bool
+    payload: dict[str, Any] | None
+    read_at: datetime | None
+    created_at: datetime
+
+
+class NotificationCountResponse(BaseModel):
+    unread_count: int
+
+
+class NotificationMarkAllResponse(BaseModel):
+    marked_count: int
+
+
 class FiberCreateRequest(BaseModel):
     fiber_type: Literal["lookup", "domain_object"]
     fiber_key: str = Field(min_length=1, max_length=255)
