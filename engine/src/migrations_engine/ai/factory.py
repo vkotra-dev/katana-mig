@@ -15,6 +15,7 @@ _SLOT_MAP = {
     "script_generation": lambda config: config.migration_models.script_generation,
     "script_correction": lambda config: config.migration_models.script_correction,
     "impact_analysis": lambda config: config.migration_models.impact_analysis,
+    "feed_analysis": lambda config: config.migration_models.feed_analysis,
 }
 
 

@@ -7,9 +7,10 @@ from ..api.deps import get_central_team_user, get_current_user, get_db
 from ..api.schemas import FiberCreateRequest, FiberResponse
 from ..db.models import User
 from ..management.access import require_project_access
-from ..management.fibers import create_fiber, get_fiber, list_fibers
+from ..management.fibers import analyze_feed, create_fiber, get_fiber, list_fibers
 
 router = APIRouter(prefix="/projects/{project_id}/feeds/{feed_id}/fibers", tags=["fibers"])
+feeds_router = APIRouter(prefix="/projects/{project_id}/feeds/{feed_id}", tags=["fibers"])
 
 
 @router.post("", response_model=FiberResponse, status_code=status.HTTP_201_CREATED)
@@ -44,3 +45,13 @@ def get_fiber_by_id(
 ) -> FiberResponse:
     require_project_access(db, user=actor, project_id=project_id)
     return get_fiber(db, project_id=project_id, feed_id=feed_id, fiber_id=fiber_id)
+
+
+@feeds_router.post("/analyze", response_model=list[FiberResponse], status_code=status.HTTP_200_OK)
+def post_analyze_feed(
+    project_id: str,
+    feed_id: str,
+    actor: User = Depends(get_central_team_user),
+    db: Session = Depends(get_db),
+) -> list[FiberResponse]:
+    return analyze_feed(db, project_id=project_id, feed_id=feed_id, actor=actor)

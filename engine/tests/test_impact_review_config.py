@@ -28,6 +28,7 @@ def test_impact_analysis_slot_is_available(monkeypatch: pytest.MonkeyPatch, tmp_
         "    script_generation: gpt-4o-mini\n"
         "    script_correction: claude-sonnet-4-6\n"
         "    impact_analysis: claude-sonnet-4-6\n"
+        "    feed_analysis: claude-sonnet-4-6\n"
         "providers:\n"
         "  anthropic_api_key_env: ANTHROPIC_API_KEY\n"
         "  openai_api_key_env: OPENAI_API_KEY\n",

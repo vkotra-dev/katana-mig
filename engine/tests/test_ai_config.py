@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from migrations_engine.ai.config import ConfigurationError, get_ai_config
+from migrations_engine.ai.factory import _SLOT_MAP
 
 
 FIXTURE_YAML = Path(__file__).parent / "fixtures" / "engine.yaml"
@@ -23,8 +24,13 @@ def test_load_valid_config_from_fixture() -> None:
     assert config.models.implementation == "claude-sonnet-4-6"
     assert config.migration_models.script_generation == "gpt-4o-mini"
     assert config.migration_models.impact_analysis == "claude-sonnet-4-6"
+    assert config.migration_models.feed_analysis == "claude-sonnet-4-6"
     assert config.providers.anthropic_api_key_env == "ANTHROPIC_API_KEY"
     assert config.providers.openai_api_key_env == "OPENAI_API_KEY"
+
+
+def test_get_adapter_feed_analysis_slot(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert "feed_analysis" in _SLOT_MAP
 
 
 def test_substitutes_env_values_and_raises_for_missing_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -41,6 +47,7 @@ def test_substitutes_env_values_and_raises_for_missing_env(monkeypatch: pytest.M
         "    script_generation: ${MODEL_SCRIPT_GENERATION}\n"
         "    script_correction: ${MODEL_SCRIPT_CORRECTION}\n"
         "    impact_analysis: ${MODEL_IMPACT_ANALYSIS}\n"
+        "    feed_analysis: ${MODEL_FEED_ANALYSIS}\n"
         "providers:\n"
         "  anthropic_api_key_env: ANTHROPIC_API_KEY\n"
         "  openai_api_key_env: OPENAI_API_KEY\n",
@@ -54,6 +61,7 @@ def test_substitutes_env_values_and_raises_for_missing_env(monkeypatch: pytest.M
     monkeypatch.setenv("MODEL_SCRIPT_GENERATION", "gpt-4o-mini")
     monkeypatch.setenv("MODEL_SCRIPT_CORRECTION", "claude-sonnet-4-6")
     monkeypatch.setenv("MODEL_IMPACT_ANALYSIS", "claude-sonnet-4-6")
+    monkeypatch.setenv("MODEL_FEED_ANALYSIS", "claude-sonnet-4-6")
 
     config = get_ai_config(config_path)
     assert config.migration_models.pii_review == "claude-haiku-4-5-20251001"

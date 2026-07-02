@@ -9,6 +9,7 @@ migration:
     script_generation: ${MODEL_SCRIPT_GENERATION}
     script_correction: ${MODEL_SCRIPT_CORRECTION}
     impact_analysis: ${MODEL_IMPACT_ANALYSIS}
+    feed_analysis: ${MODEL_FEED_ANALYSIS}
 providers:
   anthropic_api_key_env: ANTHROPIC_API_KEY
   openai_api_key_env: OPENAI_API_KEY
