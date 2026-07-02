@@ -712,6 +712,32 @@ Get one fiber for one feed. Any authenticated user with access to the project.
 
 Response `200`: `FiberResponse`
 
+### `POST /projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/assign`
+
+Advance a mapped fiber to `operator_assigned`. Requires `central_team`.
+
+Request body: `{ "comment": string | null }` or `{}`.
+
+Response `200`: `FiberResponse`
+
+### `POST /projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/approve`
+
+Advance an `operator_assigned` fiber to `business_approved`. Requires
+`project_stakeholder` project access.
+
+Request body: `{ "comment": string | null }` or `{}`.
+
+Response `200`: `FiberResponse`
+
+### `POST /projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/trigger`
+
+Advance a `business_approved` fiber to `operator_triggered`. Requires
+`central_team`.
+
+Request body: `{ "comment": string | null }` or `{}`.
+
+Response `200`: `FiberResponse`
+
 ## Lookup mapping endpoints
 
 Lookup drafts remain source-scoped because they are created from a specific

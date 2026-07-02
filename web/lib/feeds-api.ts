@@ -31,6 +31,34 @@ export interface FeedValueSummaryRecord {
   createdAt: string;
 }
 
+export interface FiberFieldBindingRecord {
+  sourceField: string;
+  destinationField: string;
+  lookupName: string | null;
+}
+
+export interface FiberProposedMappingRecord {
+  sourceValue: string;
+  destEntryId: string | null;
+  destRow: Record<string, unknown> | null;
+  confidenceScore: number | null;
+}
+
+export interface FiberRecord {
+  fiberId: string;
+  feedId: string;
+  projectId: string;
+  fiberType: "lookup" | "domain_object";
+  fiberKey: string;
+  status: string;
+  source: "auto" | "manual";
+  proposedMappings: FiberProposedMappingRecord[] | null;
+  fieldBindings: FiberFieldBindingRecord[] | null;
+  outputSql: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface FeedSliceRecord {
   sourceSliceId: string;
   sourceDefinitionId: string;
@@ -187,6 +215,54 @@ function mapFeedValueSummaryResponse(response: {
   };
 }
 
+function mapFiberResponse(response: {
+  fiber_id: string;
+  feed_id: string;
+  project_id: string;
+  fiber_type: "lookup" | "domain_object";
+  fiber_key: string;
+  status: string;
+  source: "auto" | "manual";
+  proposed_mappings: Array<{
+    source_value: string;
+    dest_entry_id: string | null;
+    dest_row: Record<string, unknown> | null;
+    confidence_score: number | null;
+  }> | null;
+  field_bindings: Array<{
+    source_field: string;
+    destination_field: string;
+    lookup_name: string | null;
+  }> | null;
+  output_sql: string | null;
+  created_at: string;
+  updated_at: string;
+}): FiberRecord {
+  return {
+    fiberId: response.fiber_id,
+    feedId: response.feed_id,
+    projectId: response.project_id,
+    fiberType: response.fiber_type,
+    fiberKey: response.fiber_key,
+    status: response.status,
+    source: response.source,
+    proposedMappings: response.proposed_mappings?.map((mapping) => ({
+      sourceValue: mapping.source_value,
+      destEntryId: mapping.dest_entry_id,
+      destRow: mapping.dest_row,
+      confidenceScore: mapping.confidence_score,
+    })) ?? null,
+    fieldBindings: response.field_bindings?.map((binding) => ({
+      sourceField: binding.source_field,
+      destinationField: binding.destination_field,
+      lookupName: binding.lookup_name,
+    })) ?? null,
+    outputSql: response.output_sql,
+    createdAt: response.created_at,
+    updatedAt: response.updated_at,
+  };
+}
+
 export async function listFeedContracts(
   token: string,
   projectId: string,
@@ -313,4 +389,56 @@ export async function listFeedValueSummaries(
     { method: "GET", token },
   );
   return response.map(mapFeedValueSummaryResponse);
+}
+
+export async function getFiber(
+  token: string,
+  projectId: string,
+  feedId: string,
+  fiberId: string,
+): Promise<FiberRecord> {
+  const response = await requestJson<Parameters<typeof mapFiberResponse>[0]>(
+    `/projects/${projectId}/feeds/${feedId}/fibers/${fiberId}`,
+    { method: "GET", token },
+  );
+  return mapFiberResponse(response);
+}
+
+export async function assignFiber(
+  token: string,
+  projectId: string,
+  feedId: string,
+  fiberId: string,
+): Promise<FiberRecord> {
+  const response = await requestJson<Parameters<typeof mapFiberResponse>[0]>(
+    `/projects/${projectId}/feeds/${feedId}/fibers/${fiberId}/assign`,
+    { method: "POST", token, body: JSON.stringify({}) },
+  );
+  return mapFiberResponse(response);
+}
+
+export async function approveFiber(
+  token: string,
+  projectId: string,
+  feedId: string,
+  fiberId: string,
+): Promise<FiberRecord> {
+  const response = await requestJson<Parameters<typeof mapFiberResponse>[0]>(
+    `/projects/${projectId}/feeds/${feedId}/fibers/${fiberId}/approve`,
+    { method: "POST", token, body: JSON.stringify({}) },
+  );
+  return mapFiberResponse(response);
+}
+
+export async function triggerFiber(
+  token: string,
+  projectId: string,
+  feedId: string,
+  fiberId: string,
+): Promise<FiberRecord> {
+  const response = await requestJson<Parameters<typeof mapFiberResponse>[0]>(
+    `/projects/${projectId}/feeds/${feedId}/fibers/${fiberId}/trigger`,
+    { method: "POST", token, body: JSON.stringify({}) },
+  );
+  return mapFiberResponse(response);
 }

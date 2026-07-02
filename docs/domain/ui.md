@@ -180,6 +180,18 @@ Mapping: `created → ai_running → mapped → operator_assigned → business_a
 
 Codegen gates on all fibers for a domain object being `operator_triggered` — both its mapping fiber and every lookup fiber it references must be complete before codegen runs.
 
+### Fiber detail page
+
+Route: `/projects/[id]/feeds/[feedId]/fibers/[fiberId]`
+
+The detail page shows the current fiber status, the lookup proposed-mappings
+panel or the domain_object field-bindings panel, and the role/status-gated
+actions for the approval chain:
+
+1. **Operator assigns**
+2. **Business user approves**
+3. **Operator triggers**
+
 ### Mapping review
 
 Audience: `central_team` (operator) and `project_stakeholder` (business user).

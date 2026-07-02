@@ -1,14 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  approveFiber,
   getFeedContract,
+  getFiber,
   createFeedContract,
+  assignFiber,
   listFeedContracts,
   listFeedValueSummaries,
   listFeedSlices,
   listFeedSchema,
+  triggerFiber,
   uploadFeedCopybook,
   uploadFeedSlice,
   type FeedContractRecord,
+  type FiberRecord,
   type FeedSliceRecord,
 } from "./feeds-api";
 
@@ -85,6 +90,62 @@ const valueSummaryResponse = [
     created_at: "2026-06-30T00:00:00Z",
   },
 ];
+
+const fiberResponse = {
+  fiber_id: "fiber-1",
+  feed_id: "feed-1",
+  project_id: "project-1",
+  fiber_type: "domain_object",
+  fiber_key: "customer",
+  status: "mapped",
+  source: "auto",
+  proposed_mappings: [
+    {
+      source_value: "A",
+      dest_entry_id: "entry-1",
+      dest_row: { code: "A", label: "Active" },
+      confidence_score: 0.91,
+    },
+  ],
+  field_bindings: [
+    {
+      source_field: "cust_id",
+      destination_field: "customer_id",
+      lookup_name: null,
+    },
+  ],
+  output_sql: null,
+  created_at: "2026-06-30T00:00:00Z",
+  updated_at: "2026-06-30T00:00:00Z",
+};
+
+const fiberRecord: FiberRecord = {
+  fiberId: "fiber-1",
+  feedId: "feed-1",
+  projectId: "project-1",
+  fiberType: "domain_object",
+  fiberKey: "customer",
+  status: "mapped",
+  source: "auto",
+  proposedMappings: [
+    {
+      sourceValue: "A",
+      destEntryId: "entry-1",
+      destRow: { code: "A", label: "Active" },
+      confidenceScore: 0.91,
+    },
+  ],
+  fieldBindings: [
+    {
+      sourceField: "cust_id",
+      destinationField: "customer_id",
+      lookupName: null,
+    },
+  ],
+  outputSql: null,
+  createdAt: "2026-06-30T00:00:00Z",
+  updatedAt: "2026-06-30T00:00:00Z",
+};
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -241,5 +302,65 @@ describe("feeds-api", () => {
       }),
     );
     expect(result[0].fieldName).toBe("status_code");
+  });
+
+  it("fetches a single fiber", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => fiberResponse,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getFiber("token-1", "project-1", "feed-1", "fiber-1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${BASE}/projects/project-1/feeds/feed-1/fibers/fiber-1`,
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          Authorization: "Bearer token-1",
+        }),
+      }),
+    );
+    expect(result).toMatchObject(fiberRecord);
+  });
+
+  it("assigns a fiber with an empty JSON body", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => fiberResponse,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await assignFiber("token-1", "project-1", "feed-1", "fiber-1");
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({});
+    expect(result.status).toBe("mapped");
+  });
+
+  it("approves a fiber with an empty JSON body", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => fiberResponse,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await approveFiber("token-1", "project-1", "feed-1", "fiber-1");
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({});
+    expect(result.fiberId).toBe("fiber-1");
+  });
+
+  it("triggers a fiber with an empty JSON body", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => fiberResponse,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await triggerFiber("token-1", "project-1", "feed-1", "fiber-1");
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({});
+    expect(result.projectId).toBe("project-1");
   });
 });
