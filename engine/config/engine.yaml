@@ -6,6 +6,7 @@ migration:
   models:
     pii_review: ${MODEL_PII_REVIEW}
     field_mapping: ${MODEL_FIELD_MAPPING}
+    lookup_mapping: ${MODEL_LOOKUP_MAPPING}
     script_generation: ${MODEL_SCRIPT_GENERATION}
     script_correction: ${MODEL_SCRIPT_CORRECTION}
     impact_analysis: ${MODEL_IMPACT_ANALYSIS}

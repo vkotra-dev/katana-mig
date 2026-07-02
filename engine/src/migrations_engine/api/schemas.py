@@ -538,9 +538,27 @@ class ReconciliationReportResponse(BaseModel):
     run_id: str
     checks: list[ReconciliationCheckResult]
     overall_status: Literal["in_progress", "pass", "fail"]
-    row_count_summary: RowCountSummary | None
-    created_at: datetime
-    completed_at: datetime | None
+
+
+class GateRejectionDetail(BaseModel):
+    rejected_by: str | None
+    rejected_at: datetime
+    affected_objects: list[str]
+    required_changes: str
+    notes: str | None
+
+
+class ImpactAIRecommendation(BaseModel):
+    recommendation: str
+    suggested_fix: str
+    minimal_replay_scope: list[str]
+
+
+class ImpactReportResponse(BaseModel):
+    run_id: str
+    gate_rejection: GateRejectionDetail
+    replay_scope: list[str]
+    ai_recommendation: ImpactAIRecommendation
 
 
 class LineageRowResponse(BaseModel):

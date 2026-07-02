@@ -45,6 +45,27 @@ export interface RunCreateInput {
   environment?: string | null;
 }
 
+export interface GateRejectionDetail {
+  rejectedBy: string | null;
+  rejectedAt: string;
+  affectedObjects: string[];
+  requiredChanges: string;
+  notes: string | null;
+}
+
+export interface ImpactAIRecommendation {
+  recommendation: string;
+  suggestedFix: string;
+  minimalReplayScope: string[];
+}
+
+export interface ImpactReport {
+  runId: string;
+  gateRejection: GateRejectionDetail;
+  replayScope: string[];
+  aiRecommendation: ImpactAIRecommendation;
+}
+
 export class RunApiError extends Error {
   code: string;
   status: number;
@@ -217,4 +238,56 @@ export async function listCheckpoints(token: string, projectId: string, runId: s
     { method: "GET", token },
   );
   return response.map(mapRunCheckpoint);
+}
+
+export async function getImpactReport(
+  token: string,
+  projectId: string,
+  runId: string,
+): Promise<ImpactReport> {
+  const response = await requestJson<{
+    run_id: string;
+    gate_rejection: {
+      rejected_by: string | null;
+      rejected_at: string;
+      affected_objects: string[];
+      required_changes: string;
+      notes: string | null;
+    };
+    replay_scope: string[];
+    ai_recommendation: {
+      recommendation: string;
+      suggested_fix: string;
+      minimal_replay_scope: string[];
+    };
+  }>(`/projects/${projectId}/runs/${runId}/impact`, { method: "GET", token });
+
+  return {
+    runId: response.run_id,
+    gateRejection: {
+      rejectedBy: response.gate_rejection.rejected_by,
+      rejectedAt: response.gate_rejection.rejected_at,
+      affectedObjects: response.gate_rejection.affected_objects,
+      requiredChanges: response.gate_rejection.required_changes,
+      notes: response.gate_rejection.notes,
+    },
+    replayScope: response.replay_scope,
+    aiRecommendation: {
+      recommendation: response.ai_recommendation.recommendation,
+      suggestedFix: response.ai_recommendation.suggested_fix,
+      minimalReplayScope: response.ai_recommendation.minimal_replay_scope,
+    },
+  };
+}
+
+export async function acknowledgeImpact(
+  token: string,
+  projectId: string,
+  runId: string,
+): Promise<RunRecord> {
+  const response = await requestJson<Parameters<typeof mapRunRecord>[0]>(
+    `/projects/${projectId}/runs/${runId}/impact/acknowledge`,
+    { method: "POST", token },
+  );
+  return mapRunRecord(response);
 }

@@ -6,7 +6,6 @@
 |---|---|---|
 | [001al-lookup-fiber-ai-flow](./001al-lookup-fiber-ai-flow.md) | lookup_mapping AI slot, lookup inputs endpoint, AI proposals | 001ak |
 | [001am-mapping-fiber-ai-flow](./001am-mapping-fiber-ai-flow.md) | feed_analysis AI slot, analyze_feed endpoint, field bindings | 001ak |
-| [001as-impact-review](./001as-impact-review.md) | impact_analysis AI slot, GET impact + acknowledge routes, review screen | — |
 | [001at-notifications](./001at-notifications.md) | Notification model (0017), 4 endpoints, NotificationBell component with polling | — |
 | [001ao-feed-comment](./001ao-feed-comment.md) | FeedComment model (0020), thread endpoint, notifications | 001ak |
 | [001an-fiber-approval-chain](./001an-fiber-approval-chain.md) | 3-step: operator assign → business approve → operator trigger + fiber detail page | 001al, 001am |
@@ -52,6 +51,7 @@
 | [001k-api-contracts-auth](./completed/001k-api-contracts-auth.md) | [summary](./summary/001k-api-contracts-auth.md) |
 | [001aj-feed-rename](./completed/001aj-feed-rename.md) | [summary](./summary/001aj-feed-rename.md) |
 | [001ak-fiber-models](./completed/001ak-fiber-models.md) | [summary](./summary/001ak-fiber-models.md) |
+| [001as-impact-review](./completed/001as-impact-review.md) | [summary](./summary/001as-impact-review.md) |
 | [001a-login-and-session](./completed/001a-login-and-session.md) | [summary](./summary/001a-login-and-session.md) |
 | [001b-password-reset](./completed/001b-password-reset.md) | [summary](./summary/001b-password-reset.md) |
 | [001c-roles-and-membership](./completed/001c-roles-and-membership.md) | [summary](./summary/001c-roles-and-membership.md) |

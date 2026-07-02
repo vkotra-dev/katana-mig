@@ -23,6 +23,7 @@ def test_load_valid_config_from_fixture() -> None:
     assert config.models.review == "claude-sonnet-4-6"
     assert config.models.implementation == "claude-sonnet-4-6"
     assert config.migration_models.script_generation == "gpt-4o-mini"
+    assert config.migration_models.lookup_mapping == "claude-sonnet-4-6"
     assert config.migration_models.impact_analysis == "claude-sonnet-4-6"
     assert config.migration_models.feed_analysis == "claude-sonnet-4-6"
     assert config.providers.anthropic_api_key_env == "ANTHROPIC_API_KEY"
@@ -33,7 +34,10 @@ def test_get_adapter_feed_analysis_slot(monkeypatch: pytest.MonkeyPatch) -> None
     assert "feed_analysis" in _SLOT_MAP
 
 
-def test_substitutes_env_values_and_raises_for_missing_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_substitutes_env_values_and_raises_for_missing_env(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     config_path = tmp_path / "engine.yaml"
     config_path.write_text(
         "models:\n"
@@ -44,6 +48,7 @@ def test_substitutes_env_values_and_raises_for_missing_env(monkeypatch: pytest.M
         "  models:\n"
         "    pii_review: ${MODEL_PII_REVIEW}\n"
         "    field_mapping: ${MODEL_FIELD_MAPPING}\n"
+        "    lookup_mapping: ${MODEL_LOOKUP_MAPPING}\n"
         "    script_generation: ${MODEL_SCRIPT_GENERATION}\n"
         "    script_correction: ${MODEL_SCRIPT_CORRECTION}\n"
         "    impact_analysis: ${MODEL_IMPACT_ANALYSIS}\n"
@@ -58,6 +63,7 @@ def test_substitutes_env_values_and_raises_for_missing_env(monkeypatch: pytest.M
     monkeypatch.setenv("MODEL_IMPLEMENTATION", "claude-sonnet-4-6")
     monkeypatch.setenv("MODEL_PII_REVIEW", "claude-haiku-4-5-20251001")
     monkeypatch.setenv("MODEL_FIELD_MAPPING", "claude-opus-4-8")
+    monkeypatch.setenv("MODEL_LOOKUP_MAPPING", "claude-sonnet-4-6")
     monkeypatch.setenv("MODEL_SCRIPT_GENERATION", "gpt-4o-mini")
     monkeypatch.setenv("MODEL_SCRIPT_CORRECTION", "claude-sonnet-4-6")
     monkeypatch.setenv("MODEL_IMPACT_ANALYSIS", "claude-sonnet-4-6")
@@ -65,6 +71,9 @@ def test_substitutes_env_values_and_raises_for_missing_env(monkeypatch: pytest.M
 
     config = get_ai_config(config_path)
     assert config.migration_models.pii_review == "claude-haiku-4-5-20251001"
+    assert config.migration_models.lookup_mapping == "claude-sonnet-4-6"
+    assert config.migration_models.feed_analysis == "claude-sonnet-4-6"
+    assert config.migration_models.impact_analysis == "claude-sonnet-4-6"
 
     monkeypatch.delenv("MODEL_SCRIPT_CORRECTION", raising=False)
     with pytest.raises(ConfigurationError, match="MODEL_SCRIPT_CORRECTION"):

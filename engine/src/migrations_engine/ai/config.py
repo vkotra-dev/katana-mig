@@ -26,6 +26,7 @@ class PlatformModelConfig:
 class MigrationModelConfig:
     pii_review: str
     field_mapping: str
+    lookup_mapping: str
     script_generation: str
     script_correction: str
     impact_analysis: str
@@ -97,6 +98,7 @@ def _parse_config(raw: Any) -> AIConfig:
         migration_models=MigrationModelConfig(
             pii_review=_require_str(migration_models, "pii_review", "migration.models.pii_review"),
             field_mapping=_require_str(migration_models, "field_mapping", "migration.models.field_mapping"),
+            lookup_mapping=_require_str(migration_models, "lookup_mapping", "migration.models.lookup_mapping"),
             script_generation=_require_str(
                 migration_models,
                 "script_generation",

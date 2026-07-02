@@ -22,6 +22,7 @@ def _make_config(
     implementation: str = "claude-sonnet-4-6",
     pii_review: str = "claude-haiku-4-5-20251001",
     field_mapping: str = "claude-opus-4-8",
+    lookup_mapping: str = "claude-sonnet-4-6",
     script_generation: str = "gpt-4o-mini",
     script_correction: str = "claude-sonnet-4-6",
     impact_analysis: str = "claude-sonnet-4-6",
@@ -36,6 +37,7 @@ def _make_config(
         migration_models=MigrationModelConfig(
             pii_review=pii_review,
             field_mapping=field_mapping,
+            lookup_mapping=lookup_mapping,
             script_generation=script_generation,
             script_correction=script_correction,
             impact_analysis=impact_analysis,
