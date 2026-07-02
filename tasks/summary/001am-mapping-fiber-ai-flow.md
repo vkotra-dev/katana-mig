@@ -24,4 +24,4 @@
 ## Notes
 
 - The full engine suite still has unrelated MySQL/environment failures outside this change set.
-- Existing compatibility edits in `lookup_mapping.py` and `test_impact_review_config.py` were left untouched.
+- Compatibility edits in `lookup_mapping.py` and `test_impact_review_config.py` were folded into the branch to keep the AI-slot and lookup-snapshot tests aligned.
