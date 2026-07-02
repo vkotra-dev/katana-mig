@@ -32,6 +32,15 @@ export interface DeliveryBundleRecord {
   artifactCount: number;
 }
 
+export interface SchemaAnalysisRecord {
+  analysisId: string;
+  projectId: string;
+  destinationObjectSequence: string[];
+  identifiedCount: number;
+  processedCount: number;
+  analyzedAt: string;
+}
+
 export class CodegenApiError extends Error {
   code: string;
   status: number;
@@ -162,6 +171,24 @@ function mapArtifactResponse(response: {
   };
 }
 
+function mapSchemaAnalysisResponse(response: {
+  analysis_id: string;
+  project_id: string;
+  destination_object_sequence: string[];
+  identified_count: number;
+  processed_count: number;
+  analyzed_at: string;
+}): SchemaAnalysisRecord {
+  return {
+    analysisId: response.analysis_id,
+    projectId: response.project_id,
+    destinationObjectSequence: response.destination_object_sequence,
+    identifiedCount: response.identified_count,
+    processedCount: response.processed_count,
+    analyzedAt: response.analyzed_at,
+  };
+}
+
 export async function triggerCodegen(
   token: string,
   projectId: string,
@@ -206,4 +233,33 @@ export async function downloadCodegenDeliveryBundle(
     token,
   });
   return response.text;
+}
+
+export async function getSchemaAnalysis(
+  token: string,
+  projectId: string,
+): Promise<SchemaAnalysisRecord | null> {
+  try {
+    const response = await requestJson<Parameters<typeof mapSchemaAnalysisResponse>[0]>(
+      `/projects/${projectId}/schema-analysis`,
+      { method: "GET", token },
+    );
+    return mapSchemaAnalysisResponse(response);
+  } catch (error) {
+    if (error instanceof CodegenApiError && error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function triggerSchemaAnalysis(
+  token: string,
+  projectId: string,
+): Promise<SchemaAnalysisRecord> {
+  const response = await requestJson<Parameters<typeof mapSchemaAnalysisResponse>[0]>(
+    `/projects/${projectId}/schema-analysis`,
+    { method: "POST", token },
+  );
+  return mapSchemaAnalysisResponse(response);
 }

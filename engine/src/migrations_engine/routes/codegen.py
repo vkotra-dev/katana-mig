@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from ..api.deps import get_central_team_user, get_current_user, get_db
-from ..api.schemas import CodegenArtifactResponse, CodegenTriggerResponse
+from ..api.schemas import CodegenArtifactResponse, CodegenTriggerResponse, ProjectSchemaAnalysisResponse
 from ..db.models import User
 from ..management.access import require_project_access
 from ..codegen.service import (
@@ -13,6 +13,7 @@ from ..codegen.service import (
     get_codegen_artifact,
     list_codegen_artifacts,
 )
+from ..codegen.schema_analysis import get_schema_analysis, run_schema_analysis
 
 router = APIRouter(tags=["codegen"])
 
@@ -71,3 +72,23 @@ def download_delivery_bundle(
         media_type="text/plain",
         headers={"Content-Disposition": 'attachment; filename="delivery-bundle.sql"'},
     )
+
+
+@router.post("/projects/{project_id}/schema-analysis", response_model=ProjectSchemaAnalysisResponse)
+def trigger_schema_analysis(
+    project_id: str,
+    actor: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ProjectSchemaAnalysisResponse:
+    require_project_access(db, user=actor, project_id=project_id)
+    return run_schema_analysis(db, project_id=project_id)
+
+
+@router.get("/projects/{project_id}/schema-analysis", response_model=ProjectSchemaAnalysisResponse | None)
+def get_schema_analysis_route(
+    project_id: str,
+    actor: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ProjectSchemaAnalysisResponse | None:
+    require_project_access(db, user=actor, project_id=project_id)
+    return get_schema_analysis(db, project_id=project_id)

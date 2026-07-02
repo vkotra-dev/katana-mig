@@ -118,7 +118,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           activeTab === "overview" ? (
             <ProjectDetailView project={project} />
           ) : activeTab === "sources" ? (
-            <SourceList projectId={id} role={role} token={session.accessToken} />
+            <SourceList
+              projectId={id}
+              role={role}
+              token={session.accessToken}
+              destinationSchemaDdl={project?.domainConfig?.destinationSchemaDdl ?? null}
+            />
           ) : (
             <SourceArtifactsPanel projectId={id} role={role} token={session.accessToken} />
           )

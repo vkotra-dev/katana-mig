@@ -536,6 +536,22 @@ class ReconciliationLineageRow(Base):
     )
 
 
+class ProjectSchemaAnalysis(Base):
+    __tablename__ = "project_schema_analyses"
+
+    analysis_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    project_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("project_definitions.project_id"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    destination_object_sequence: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    identified_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    analyzed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class CodeGenerationArtifact(Base):
     __tablename__ = "code_generation_artifacts"
 

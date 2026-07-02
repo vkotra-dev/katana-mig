@@ -4,9 +4,12 @@ import { use, useEffect, useMemo, useState } from "react";
 import { Topbar } from "../../../../components/Topbar";
 import {
   downloadCodegenDeliveryBundle,
+  getSchemaAnalysis,
   listCodegenArtifacts,
+  triggerSchemaAnalysis,
   triggerCodegen,
   type CodegenArtifactRecord,
+  type SchemaAnalysisRecord,
 } from "../../../../lib/codegen-api";
 import { listFeedContracts, type FeedContractRecord } from "../../../../lib/feeds-api";
 import { loadUiSession, type SessionRole, type UiSession } from "../../../../lib/session";
@@ -41,10 +44,12 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
   const [session, setSession] = useState<UiSession | null>(null);
   const [sources, setSources] = useState<FeedContractRecord[]>([]);
   const [artifacts, setArtifacts] = useState<CodegenArtifactRecord[]>([]);
+  const [schemaAnalysis, setSchemaAnalysis] = useState<SchemaAnalysisRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [analysisActionLoading, setAnalysisActionLoading] = useState(false);
 
   useEffect(() => {
     setSession(loadUiSession());
@@ -76,13 +81,15 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
     void Promise.all([
       listFeedContracts(session.accessToken, routeParams.id),
       listCodegenArtifacts(session.accessToken, routeParams.id),
+      getSchemaAnalysis(session.accessToken, routeParams.id),
     ])
-      .then(([sourceResponse, artifactResponse]) => {
+      .then(([sourceResponse, artifactResponse, analysisResponse]) => {
         if (!active) {
           return;
         }
         setSources(sourceResponse);
         setArtifacts(artifactResponse);
+        setSchemaAnalysis(analysisResponse);
       })
       .catch((error: unknown) => {
         if (active) {
@@ -103,6 +110,12 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
   const role: SessionRole = session?.role ?? "read_only_auditor";
   const latestArtifact = useMemo(() => latestActiveArtifact(artifacts), [artifacts]);
   const activeCount = useMemo(() => artifacts.filter((artifact) => artifact.status === "active").length, [artifacts]);
+  const pendingCount = useMemo(() => {
+    if (!schemaAnalysis) {
+      return 0;
+    }
+    return Math.max(schemaAnalysis.identifiedCount - schemaAnalysis.processedCount, 0);
+  }, [schemaAnalysis]);
 
   const refreshArtifacts = async (): Promise<void> => {
     if (!session || !routeParams) {
@@ -127,6 +140,24 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
       setPageError(error instanceof Error ? error.message : "Unable to generate code.");
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const handleReanalyze = async (): Promise<void> => {
+    if (!session || !routeParams) {
+      return;
+    }
+    setPageError(null);
+    setStatusMessage(null);
+    setAnalysisActionLoading(true);
+    try {
+      const response = await triggerSchemaAnalysis(session.accessToken, routeParams.id);
+      setSchemaAnalysis(response);
+      setStatusMessage("Schema analysis completed.");
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : "Unable to analyze destination schema.");
+    } finally {
+      setAnalysisActionLoading(false);
     }
   };
 
@@ -319,6 +350,61 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
                 <div className="rounded-xl border border-dashed border-outline-variant bg-surface px-4 py-4 text-sm text-slate-600">
                   The download button above saves the bundle as <span className="font-mono">delivery-bundle.sql</span>.
                 </div>
+              </div>
+
+              <div className="space-y-4 rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-semibold text-slate-900">Schema dependency analysis</h2>
+                    <p className="text-sm text-slate-600">
+                      Counts how many destination objects were identified, processed, and are still pending.
+                    </p>
+                  </div>
+                  {schemaAnalysis ? (
+                    <button
+                      className="rounded-md border border-outline-variant px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
+                      disabled={analysisActionLoading}
+                      onClick={() => void handleReanalyze()}
+                      type="button"
+                    >
+                      Re-analyze DDL
+                    </button>
+                  ) : null}
+                </div>
+
+                {schemaAnalysis ? (
+                  <>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-xl border border-outline-variant bg-surface px-4 py-4">
+                        <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Identified</div>
+                        <div className="mt-2 text-2xl font-semibold text-slate-900">
+                          {schemaAnalysis.identifiedCount}
+                        </div>
+                        <div className="text-sm text-slate-600">destination objects</div>
+                      </div>
+                      <div className="rounded-xl border border-outline-variant bg-surface px-4 py-4">
+                        <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Processed</div>
+                        <div className="mt-2 text-2xl font-semibold text-slate-900">
+                          {schemaAnalysis.processedCount}
+                        </div>
+                        <div className="text-sm text-slate-600">have active artifacts</div>
+                      </div>
+                      <div className="rounded-xl border border-outline-variant bg-surface px-4 py-4">
+                        <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Pending</div>
+                        <div className="mt-2 text-2xl font-semibold text-slate-900">{pendingCount}</div>
+                        <div className="text-sm text-slate-600">still need SQL generation</div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-dashed border-outline-variant bg-surface px-4 py-4 text-sm text-slate-600">
+                      Analyzed: {formatDate(schemaAnalysis.analyzedAt)}
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-outline-variant bg-surface px-4 py-4 text-sm text-slate-600">
+                    No schema analysis yet. Add a source and click Analyze DDL to begin.
+                  </div>
+                )}
               </div>
             </section>
 

@@ -23,6 +23,7 @@ from ..management.platform import record_management_audit
 from ..ai.factory import get_adapter
 from ..mapping.exceptions import SnapshotNotFoundError
 from ..mapping.snapshots import select_latest_approved_lookup_snapshot
+from .schema_analysis import get_schema_analysis
 
 
 class GeneratedSQL(BaseModel):
@@ -171,6 +172,8 @@ def build_delivery_bundle_text(
     *,
     project_id: str,
 ) -> DeliveryBundleResponse:
+    analysis = get_schema_analysis(db, project_id=project_id)
+    sequence = analysis.destination_object_sequence if analysis is not None else None
     artifacts = db.scalars(
         select(CodeGenerationArtifact)
         .where(
@@ -179,9 +182,24 @@ def build_delivery_bundle_text(
         )
         .order_by(CodeGenerationArtifact.destination_object_name.asc(), CodeGenerationArtifact.created_at.desc())
     ).all()
+    if sequence is not None:
+        positions = {name: index for index, name in enumerate(sequence)}
+        artifacts = sorted(
+            artifacts,
+            key=lambda artifact: (
+                positions.get(artifact.destination_object_name, len(sequence)),
+                artifact.destination_object_name,
+                artifact.created_at,
+            ),
+        )
     bundle_parts: list[str] = []
-    for artifact in artifacts:
-        bundle_parts.append(f"-- {artifact.destination_object_name}")
+    for index, artifact in enumerate(artifacts, start=1):
+        heading = (
+            f"-- [{index:02d}] {artifact.destination_object_name}"
+            if sequence is not None
+            else f"-- {artifact.destination_object_name}"
+        )
+        bundle_parts.append(heading)
         if artifact.sql_bundle:
             bundle_parts.append(artifact.sql_bundle.strip())
     return DeliveryBundleResponse(

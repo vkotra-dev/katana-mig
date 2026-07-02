@@ -18,7 +18,6 @@
 | Task | Summary | Depends on |
 |---|---|---|
 | [001ag-delivery-bundle-tab](./001ag-delivery-bundle-tab.md) | Add SQL Bundle tab to project detail page navigating to codegen page | — |
-| [001ah-delivery-bundle-sequencing](./001ah-delivery-bundle-sequencing.md) | AI DDL analysis, FK-ordered delivery bundle, SourceList banner, codegen report panel | — |
 | [001aq-bundle-sequencing](./001aq-bundle-sequencing.md) | Lookup upsert SQL generator, trigger_fiber codegen, 0000/0001+ bundle ordering | 001ah, 001ak |
 
 ## Completed
@@ -41,6 +40,7 @@
 | [001o-project-crud](./completed/001o-project-crud.md) | [summary](./summary/001o-project-crud.md) |
 | [001p-project-crud-ui](./completed/001p-project-crud-ui.md) | [summary](./summary/001p-project-crud-ui.md) |
 | [001ab-source-slice-approval](./completed/001ab-source-slice-approval.md) | [summary](./summary/001ab-source-slice-approval.md) |
+| [001ah-delivery-bundle-sequencing](./completed/001ah-delivery-bundle-sequencing.md) | [summary](./summary/001ah-delivery-bundle-sequencing.md) |
 | [001x-lookup-value-mapping](./completed/001x-lookup-value-mapping.md) | [summary](./summary/001x-lookup-value-mapping.md) |
 | [001y-codegen-service](./completed/001y-codegen-service.md) | [summary](./summary/001y-codegen-service.md) |
 | [001ac-mapping-hardening](./completed/001ac-mapping-hardening.md) | [summary](./summary/001ac-mapping-hardening.md) |
