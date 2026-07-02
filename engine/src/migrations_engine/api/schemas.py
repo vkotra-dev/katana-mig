@@ -376,6 +376,17 @@ class DeliveryBundleResponse(BaseModel):
     artifact_count: int
 
 
+class ProjectSchemaAnalysisResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    analysis_id: str
+    project_id: str
+    destination_object_sequence: list[str]
+    identified_count: int
+    processed_count: int
+    analyzed_at: datetime
+
+
 class LookupValueMapCreateRequest(BaseModel):
     lookup_name: str = Field(min_length=1, max_length=128)
     destination_table: list[dict[str, Any]]

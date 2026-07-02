@@ -1,7 +1,7 @@
 """add fiber and lookup entity tables
 
 Revision ID: 0019_fiber_models
-Revises: 0015_reconciliation_tables
+Revises: 0016_project_schema_analysis
 Create Date: 2026-07-01
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 revision = "0019_fiber_models"
-down_revision = "0015_reconciliation_tables"
+down_revision = "0016_project_schema_analysis"
 branch_labels = None
 depends_on = None
 

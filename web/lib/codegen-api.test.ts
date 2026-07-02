@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   downloadCodegenDeliveryBundle,
   getCodegenArtifact,
+  getSchemaAnalysis,
   listCodegenArtifacts,
+  triggerSchemaAnalysis,
   triggerCodegen,
 } from "./codegen-api";
 
@@ -95,5 +97,64 @@ describe("codegen-api", () => {
     expect(list[0]?.destinationObjectName).toBe("Customer");
     expect(artifact.sqlBundle).toContain("CREATE TABLE");
     expect(bundle).toContain("-- Customer");
+  });
+
+  it("loads schema analysis and returns null when missing", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({
+          error: {
+            code: "schema_analysis_not_found",
+            message: "Schema analysis has not been run.",
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          analysis_id: "analysis-1",
+          project_id: "project-1",
+          destination_object_sequence: ["customers", "orders"],
+          identified_count: 2,
+          processed_count: 1,
+          analyzed_at: "2026-06-30T00:00:00Z",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          analysis_id: "analysis-2",
+          project_id: "project-1",
+          destination_object_sequence: ["customers", "orders"],
+          identified_count: 2,
+          processed_count: 2,
+          analyzed_at: "2026-06-30T01:00:00Z",
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const missing = await getSchemaAnalysis("token-1", "project-1");
+    const analysis = await getSchemaAnalysis("token-1", "project-1");
+    const triggered = await triggerSchemaAnalysis("token-1", "project-1");
+
+    expect(missing).toBeNull();
+    expect(analysis?.identifiedCount).toBe(2);
+    expect(triggered.processedCount).toBe(2);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${BASE}/projects/project-1/schema-analysis`,
+      expect.objectContaining({
+        method: "GET",
+      }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${BASE}/projects/project-1/schema-analysis`,
+      expect.objectContaining({
+        method: "POST",
+      }),
+    );
   });
 });
