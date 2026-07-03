@@ -83,6 +83,10 @@ describe("ProjectEditPage", () => {
     expect(await screen.findByRole("button", { name: "Overview" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Overview" }));
     expect(routerPushMock).toHaveBeenCalledWith("/projects/proj-1");
+    fireEvent.click(screen.getByRole("button", { name: "Sources" }));
+    expect(routerPushMock).toHaveBeenCalledWith("/projects/proj-1?tab=sources");
+    fireEvent.click(screen.getByRole("button", { name: "Artifacts" }));
+    expect(routerPushMock).toHaveBeenCalledWith("/projects/proj-1?tab=artifacts");
     expect(await screen.findByDisplayValue("CRM Migration")).toBeInTheDocument();
     fireEvent.submit(
       screen.getByRole("button", { name: "Save changes" }).closest("form") as HTMLFormElement,

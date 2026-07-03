@@ -92,8 +92,13 @@ export default function ProjectEditPage({ params }: { params: Promise<{ id: stri
         <ProjectNavigationTabs
           activeTab="overview"
           mode="detail"
-          onTabChange={() => {
-            router.push(`/projects/${id}`);
+          onTabChange={(tab) => {
+            if (tab === "overview") {
+              router.push(`/projects/${id}`);
+              return;
+            }
+
+            router.push(`/projects/${id}?tab=${tab}`);
           }}
           projectId={id}
         />

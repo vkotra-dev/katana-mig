@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Topbar } from "../../../components/Topbar";
 import { ProjectNavigationTabs } from "../../../components/projects/ProjectNavigationTabs";
 import { KnowledgeFreezePanel } from "../../../components/projects/KnowledgeFreezePanel";
@@ -14,10 +14,14 @@ import { loadUiSession, type SessionRole, type UiSession } from "../../../lib/se
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { id } = use(params);
+  const initialTab = searchParams.get("tab");
   const [session, setSession] = useState<UiSession | null>(null);
   const [project, setProject] = useState<ProjectRecord | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "sources" | "artifacts">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "sources" | "artifacts">(
+    initialTab === "sources" || initialTab === "artifacts" ? initialTab : "overview",
+  );
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 

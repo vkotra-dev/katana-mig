@@ -2,10 +2,11 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ProjectDetailPage from "./page";
 
-const { loadUiSessionMock, getProjectMock, routerPushMock } = vi.hoisted(() => ({
+const { loadUiSessionMock, getProjectMock, routerPushMock, searchParamsGetMock } = vi.hoisted(() => ({
   loadUiSessionMock: vi.fn(),
   getProjectMock: vi.fn(),
   routerPushMock: vi.fn(),
+  searchParamsGetMock: vi.fn(),
 }));
 
 vi.mock("../../../lib/session", () => ({
@@ -39,6 +40,7 @@ vi.mock("../../../components/Topbar", () => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: routerPushMock }),
+  useSearchParams: () => ({ get: searchParamsGetMock }),
 }));
 
 const SESSION = {
@@ -96,6 +98,7 @@ async function renderPage(id: string) {
 describe("ProjectDetailPage — SQL Bundle tab", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    searchParamsGetMock.mockReturnValue(null);
     loadUiSessionMock.mockReturnValue(SESSION);
     getProjectMock.mockResolvedValue(PROJECT);
   });
@@ -128,5 +131,11 @@ describe("ProjectDetailPage — SQL Bundle tab", () => {
     loadUiSessionMock.mockReturnValue(AUDITOR_SESSION);
     await renderPage("proj-1");
     expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
+  });
+
+  it("restores the requested project tab from the query string", async () => {
+    searchParamsGetMock.mockImplementation((key: string) => (key === "tab" ? "sources" : null));
+    await renderPage("proj-1");
+    expect(await screen.findByRole("button", { name: "Sources" })).toHaveClass("bg-primary");
   });
 });
