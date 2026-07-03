@@ -1,260 +1,239 @@
-# Admin User Edit & Delete Controls — Implementation Plan (001av)
+# Admin User Edit & Delete Controls Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Task:** [`tasks/001av-admin-user-edit-delete-controls.md`](../tasks/001av-admin-user-edit-delete-controls.md)
+**Goal:** Add an explicit edit action to admin user management and make delete keep the list state in sync after removal.
 
-**Goal:** Add a per-row "Edit" link to the admin user list and fix delete error handling so central-team operators can navigate to edit and recover from delete failures.
+**Architecture:** Keep `web/components/UserList.tsx` dumb and reusable: it should render one row per user and surface explicit Edit/Delete intents through callbacks. `web/app/admin/users/page.tsx` owns navigation and data refresh: it turns Edit into a route change to the existing user detail/update page and re-fetches the user list after a successful delete. The existing `web/app/admin/users/[userId]/page.tsx` already serves as the edit form, so no new backend route is needed.
 
-**Architecture:** Two small changes, no new files. `UserList.tsx` gains a `<Link>` per row that navigates to `/admin/users/[userId]` — no new prop needed. `AdminUsersPage` wraps `handleDelete` in try/catch and surfaces the error through the existing `errorMessage` / `role="alert"` pattern. `[userId]/page.tsx` gains a back link. All existing API calls and the edit form are already wired; this task connects the missing navigation and hardens the delete path.
-
-**Tech Stack:** Next.js App Router, React, TypeScript, Vitest + Testing Library
+**Tech Stack:** Next.js App Router, React, Vitest, existing management API client.
 
 ## Global Constraints
 
-- No backend changes
-- Keep existing `errorMessage` / `role="alert"` display pattern in `AdminUsersPage` — do not introduce a second error display mechanism
-- Edit link styling must match the Delete button: `rounded-md border border-outline-variant px-3 py-2 text-sm text-slate-700`
-- All authenticated roles see the Edit link (no role gate — same as Delete)
-- Do not remove `onSelect` from `UserListProps` — leave it optional as-is
+- `central_team` can create, update, and soft-delete users.
+- `project_stakeholder` cannot manage users or memberships.
+- `read_only_auditor` cannot manage users or memberships.
+- Administrative actions are auditable.
+- Keep admin access behind the existing authenticated admin layout.
 
----
+## Task
+
+- [001av-admin-user-edit-delete-controls](../tasks/001av-admin-user-edit-delete-controls.md)
+
+## Domain
+
+- [ui.md](/Users/vjkotra/projects/katana/docs/domain/ui.md)
+- [management.md](/Users/vjkotra/projects/katana/docs/domain/management.md)
+- [auth.md](/Users/vjkotra/projects/katana/docs/domain/auth.md)
+- [security.md](/Users/vjkotra/projects/katana/docs/domain/security.md)
+- [api.md](/Users/vjkotra/projects/katana/docs/domain/api.md)
+
+## Current State
+
+- `/admin/users` lists users and shows a create-user button.
+- `web/components/UserList.tsx` renders only the row label and Delete button.
+- `web/app/admin/users/[userId]/page.tsx` already loads and submits the edit form, but nothing routes users to it.
+- The delete path has no explicit failure handling in the page component.
+
+## Objective
+
+Expose an Edit action beside each user row, route that action to the existing user detail/update page, and make Delete refresh the list so the screen stays current after removal.
+
+## Out of Scope
+
+- Backend user-management API changes.
+- Membership screens.
+- Password-reset or login flow changes.
+- Any new admin route beyond the already existing user detail page.
+
+## Blast Radius
+
+- `web/components/UserList.tsx`
+- `web/app/admin/users/page.tsx`
+- `web/components/__tests__/UserList.test.tsx`
+- `web/app/admin/users/page.test.tsx`
+- `web/app/admin/users/[userId]/page.test.tsx` only if the detail page needs a small navigation affordance after review
 
 ## File Changes
 
-| Action | Path |
-|--------|------|
-| Modify | `web/components/UserList.tsx` |
-| Modify | `web/app/admin/users/page.tsx` |
-| Modify | `web/app/admin/users/[userId]/page.tsx` |
-| Modify | `web/app/admin/users/page.test.tsx` |
-| Modify | `web/app/admin/users/[userId]/page.test.tsx` |
+- Extend the shared list row component with an explicit Edit action and keep Delete actionable.
+- Wire the admin users page to route Edit clicks to `/admin/users/{userId}`.
+- Re-fetch users after delete and surface a visible error if delete fails.
+- Update the list/page tests to cover the new navigation and refresh behavior.
 
----
+## Tests
 
-## Task 1: Edit link in user list
+- `UserList` renders Edit and Delete buttons for each row.
+- Clicking Edit calls the supplied callback with the user ID.
+- Admin users page pushes to the existing detail route when Edit is clicked.
+- Delete calls the API, re-fetches the list, and removes the deleted row from the UI.
+- Delete failure renders an inline alert instead of silently no-oping.
+
+## Verification
+
+- Run the focused admin user tests in `web`.
+- Confirm the list page still renders the create-user link and the admin header.
+
+## Pitfalls
+
+- Keep the row component generic; the row should not hardcode routing.
+- Do not break the existing user detail/update page, because that route becomes the edit target.
+- Keep delete handling explicit so the UI does not look successful when the refresh fails.
+
+## Commit
+
+- `feat: add admin user edit and delete controls`
+
+### Task 1: Add row-level edit/delete wiring
 
 **Files:**
-- Modify: `web/components/UserList.tsx`
-- Modify: `web/app/admin/users/page.test.tsx`
+- Modify `web/components/UserList.tsx`
+- Modify `web/app/admin/users/page.tsx`
 
 **Interfaces:**
-- Produces: each row in `UserList` renders an `<a role="link" name="Edit">` pointing to `/admin/users/${userId}`
+- Consumes: `UserRecord`, `onDelete(userId)`, `onEdit(userId)`
+- Produces: user rows with an Edit button and a delete flow that re-fetches the list
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Write the failing tests**
 
-Add to `web/app/admin/users/page.test.tsx` inside the existing `describe("AdminUsersPage")` block:
+```tsx
+// web/components/__tests__/UserList.test.tsx
+it("renders edit and delete actions", () => {
+  const onDelete = vi.fn();
+  const onEdit = vi.fn();
 
-```ts
-it("renders an edit link for each user", async () => {
-  render(<AdminUsersPage />);
-  const editLink = await screen.findByRole("link", { name: "Edit" });
-  expect(editLink).toHaveAttribute("href", "/admin/users/user-2");
+  render(
+    <UserList
+      onDelete={onDelete}
+      onEdit={onEdit}
+      users={[
+        {
+          userId: "user-1",
+          email: "operator@example.com",
+          displayName: "Operator",
+          role: "central_team",
+          status: "active",
+        },
+      ]}
+    />
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+  expect(onEdit).toHaveBeenCalledWith("user-1");
+  expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
 });
 ```
 
-- [ ] **Step 2: Run to verify the test fails**
+```tsx
+// web/app/admin/users/page.test.tsx
+it("routes to the user detail page for edit and refreshes after delete", async () => {
+  render(<AdminUsersPage />);
+
+  await screen.findByText("stakeholder@example.com");
+  fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+  expect(routerPushMock).toHaveBeenCalledWith("/admin/users/user-2");
+
+  fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+  await waitFor(() => expect(deleteUserMock).toHaveBeenCalledWith("token-1", "user-2"));
+  await waitFor(() => expect(listUsersMock).toHaveBeenCalledTimes(2));
+  expect(screen.queryByText("stakeholder@example.com")).not.toBeInTheDocument();
+});
+```
+
+- [ ] **Step 2: Run the tests and confirm they fail for the expected reasons**
+
+Run:
 
 ```bash
-cd /Users/vjkotra/projects/katana/web
-npm test -- app/admin/users/page.test.tsx
+cd web && npm test -- components/__tests__/UserList.test.tsx app/admin/users/page.test.tsx
 ```
 
-Expected: FAIL — "Edit" link not found.
+Expected:
 
-- [ ] **Step 3: Add the Edit link to `UserList.tsx`**
+- `UserList` has no `Edit` action yet.
+- `AdminUsersPage` has no edit routing and does not refresh the list after delete.
 
-Add `import Link from "next/link";` at the top of `web/components/UserList.tsx` (after the existing `"use client"` directive).
+- [ ] **Step 3: Implement the minimal UI wiring**
 
-In the `<li>` row, wrap the Delete button in a `<div className="flex items-center gap-2">` and add the Edit `<Link>` before it:
-
-Replace:
 ```tsx
-            <button
-              className="rounded-md border border-outline-variant px-3 py-2 text-sm text-slate-700"
-              onClick={() => onDelete(user.userId)}
-              type="button"
-            >
-              Delete
-            </button>
-```
+// web/components/UserList.tsx
+export interface UserListProps {
+  users: UserRecord[];
+  onDelete: (userId: string) => void;
+  onEdit: (userId: string) => void;
+}
 
-With:
-```tsx
+export function UserList({ users, onDelete, onEdit }: UserListProps) {
+  return (
+    <div className="rounded-2xl border border-outline-variant bg-surface-container shadow-sm">
+      <div className="border-b border-outline-variant px-6 py-4">
+        <h2 className="text-lg font-semibold text-slate-900">Users</h2>
+      </div>
+      <ul>
+        {users.map((user) => (
+          <li key={user.userId} className="flex items-center justify-between border-b border-outline-variant px-6 py-4 last:border-b-0">
+            <div>
+              <div className="text-sm font-semibold text-slate-900">{user.email}</div>
+              <div className="text-xs text-slate-500">
+                {user.displayName ?? "No display name"} · {user.role} · {user.status}
+              </div>
+            </div>
             <div className="flex items-center gap-2">
-              <Link
-                href={`/admin/users/${user.userId}`}
-                className="rounded-md border border-outline-variant px-3 py-2 text-sm text-slate-700"
-              >
+              <button type="button" className="rounded-md border border-outline-variant px-3 py-2 text-sm text-slate-700" onClick={() => onEdit(user.userId)}>
                 Edit
-              </Link>
-              <button
-                className="rounded-md border border-outline-variant px-3 py-2 text-sm text-slate-700"
-                onClick={() => onDelete(user.userId)}
-                type="button"
-              >
+              </button>
+              <button type="button" className="rounded-md border border-outline-variant px-3 py-2 text-sm text-slate-700" onClick={() => onDelete(user.userId)}>
                 Delete
               </button>
             </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+```tsx
+// web/app/admin/users/page.tsx
+const router = useRouter();
+
+const handleEdit = (userId: string) => {
+  router.push(`/admin/users/${userId}`);
+};
+
+const handleDelete = async (userId: string) => {
+  if (!session) {
+    return;
+  }
+
+  try {
+    await deleteUser(session.accessToken, userId);
+    setUsers(await listUsers(session.accessToken));
+  } catch (error) {
+    setErrorMessage(error instanceof Error ? error.message : "Unable to delete user.");
+  }
+};
+
+<UserList onEdit={handleEdit} onDelete={(userId) => void handleDelete(userId)} users={users.map(toUserRecord)} />
+```
+
+- [ ] **Step 4: Re-run the tests and confirm they pass**
+
+Run:
 
 ```bash
-cd /Users/vjkotra/projects/katana/web
-npm test -- app/admin/users/page.test.tsx
+cd web && npm test -- components/__tests__/UserList.test.tsx app/admin/users/page.test.tsx
 ```
 
-Expected: all tests PASS including the new "Edit" link test.
+Expected:
+
+- `UserList` test passes with an `Edit` button.
+- `AdminUsersPage` test passes with edit navigation and list refresh after delete.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add web/components/UserList.tsx web/app/admin/users/page.test.tsx
-git commit -m "feat(001av): add per-row edit link to admin user list"
-```
-
----
-
-## Task 2: Delete error handling + back link on detail page
-
-**Files:**
-- Modify: `web/app/admin/users/page.tsx`
-- Modify: `web/app/admin/users/[userId]/page.tsx`
-- Modify: `web/app/admin/users/page.test.tsx`
-- Modify: `web/app/admin/users/[userId]/page.test.tsx`
-
-**Interfaces:**
-- Consumes: existing `errorMessage` state + `role="alert"` paragraph in `AdminUsersPage`
-- Produces: failed delete surfaces `errorMessage`; detail page has a back link to `/admin/users`
-
-- [ ] **Step 1: Write failing tests**
-
-Add to `web/app/admin/users/page.test.tsx` inside `describe("AdminUsersPage")`:
-
-```ts
-it("shows an error alert when delete fails", async () => {
-  deleteUserMock.mockRejectedValue(new Error("server error"));
-  render(<AdminUsersPage />);
-  await screen.findByText("stakeholder@example.com");
-  screen.getByRole("button", { name: "Delete" }).click();
-  expect(await screen.findByRole("alert")).toBeInTheDocument();
-});
-```
-
-Add to `web/app/admin/users/[userId]/page.test.tsx` inside `describe("UserDetailPage")`:
-
-```ts
-it("renders a back link to the users list", async () => {
-  render(<UserDetailPage params={{ userId: "user-2" }} />);
-  const backLink = await screen.findByRole("link", { name: /back to users/i });
-  expect(backLink).toHaveAttribute("href", "/admin/users");
-});
-```
-
-The `[userId]/page.test.tsx` mock block does not include `next/link` — add it:
-
-```ts
-vi.mock("next/link", () => ({
-  default: ({ href, children }: { href: string; children: React.ReactNode }) => (
-    <a href={href}>{children}</a>
-  ),
-}));
-```
-
-- [ ] **Step 2: Run to verify both tests fail**
-
-```bash
-cd /Users/vjkotra/projects/katana/web
-npm test -- app/admin/users/page.test.tsx app/admin/users/\\[userId\\]/page.test.tsx
-```
-
-Expected: FAIL — alert not found; back link not found.
-
-- [ ] **Step 3: Wrap `handleDelete` in try/catch in `AdminUsersPage`**
-
-In `web/app/admin/users/page.tsx`, replace `handleDelete`:
-
-```ts
-  const handleDelete = async (userId: string) => {
-    if (!session) {
-      return;
-    }
-    setErrorMessage(undefined);
-    try {
-      await deleteUser(session.accessToken, userId);
-      const nextUsers = await listUsers(session.accessToken);
-      setUsers(nextUsers);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to delete user.");
-    }
-  };
-```
-
-- [ ] **Step 4: Add back link to `[userId]/page.tsx`**
-
-Add `import Link from "next/link";` to the existing imports in `web/app/admin/users/[userId]/page.tsx`.
-
-In the JSX, add the back link as the first child of the `<div className="mx-auto max-w-3xl space-y-6">`:
-
-```tsx
-      <div className="mx-auto max-w-3xl space-y-6">
-        <Link href="/admin/users" className="text-sm text-slate-600 hover:underline">
-          ← Back to users
-        </Link>
-        {user ? (
-```
-
-- [ ] **Step 5: Run the tests to verify they pass**
-
-```bash
-cd /Users/vjkotra/projects/katana/web
-npm test -- app/admin/users/page.test.tsx app/admin/users/\\[userId\\]/page.test.tsx
-```
-
-Expected: all tests PASS.
-
-- [ ] **Step 6: Run the full web suite to verify no regressions**
-
-```bash
-cd /Users/vjkotra/projects/katana/web
-npm test
-```
-
-Expected: all tests PASS.
-
-- [ ] **Step 7: Commit**
-
-```bash
-git add \
-  web/app/admin/users/page.tsx \
-  web/app/admin/users/[userId]/page.tsx \
-  web/app/admin/users/page.test.tsx \
-  web/app/admin/users/[userId]/page.test.tsx
-git commit -m "feat(001av): fix delete error handling and add back link on user detail"
-```
-
----
-
-## Verification
-
-1. **Targeted tests:** `cd web && npm test -- app/admin/users`  
-   Expected: all pass
-
-2. **Full suite:** `cd web && npm test`  
-   Expected: no regressions
-
-3. **Browser smoke-check** (optional but recommended):
-   - `/admin/users` — each row shows Edit link beside Delete
-   - Click Edit → lands on `/admin/users/[userId]` with form pre-filled
-   - Save → success message below form
-   - Back link → returns to `/admin/users`
-   - Click Delete on a user → user disappears from list
-   - Simulate delete failure (network off) → error alert visible, list unchanged
-
-## Commit summary
-
-```
-feat(001av): add per-row edit link to admin user list
-feat(001av): fix delete error handling and add back link on user detail
+git add web/components/UserList.tsx web/app/admin/users/page.tsx web/components/__tests__/UserList.test.tsx web/app/admin/users/page.test.tsx
+git commit -m "feat: add admin user edit and delete controls"
 ```
