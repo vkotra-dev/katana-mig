@@ -1,58 +1,94 @@
-# Delivery Bundle Tab — Design Spec
+# Delivery Bundle Tab Design
 
-**Status:** Approved  
-**Date:** 2026-07-01
+## Goal
 
-## Problem
+Add a fourth project-detail tab, `SQL Bundle`, that links to the existing codegen
+page. The same tab row should appear on the codegen page with `SQL Bundle`
+shown as the active tab.
 
-The codegen/delivery page (`/projects/[id]/codegen`) is fully implemented but unreachable from the project detail page. Users who want to review or download the SQL delivery bundle have no navigation path to it.
+## Current State
 
-## Solution
+The project detail page currently renders three tabs:
 
-Add a fourth "SQL Bundle" tab to the project detail page that navigates to `/projects/[id]/codegen`. No new panel content is needed — the codegen page is the full destination.
+- `Overview`
+- `Sources`
+- `Artifacts`
+
+The codegen page already exists at `/projects/[id]/codegen`, but it does not use
+the same tab row as the project detail page. The current implementation therefore
+surfaces code generation as a standalone page rather than as part of the project
+navigation.
+
+## Intended Behavior
+
+### Project detail page
+
+Route: `/projects/[id]`
+
+The tab row should contain four pills:
+
+- `Overview`
+- `Sources`
+- `Artifacts`
+- `SQL Bundle`
+
+Clicking `SQL Bundle` should navigate to `/projects/[id]/codegen` with
+`router.push`.
+
+### Codegen page
+
+Route: `/projects/[id]/codegen`
+
+The same four-pill tab row should appear at the top of the page.
+
+- `SQL Bundle` is the active tab
+- `Overview`, `Sources`, and `Artifacts` should navigate back to `/projects/[id]`
+- The codegen page content itself remains unchanged
+
+### Role handling
+
+The tab row is visible to all roles exactly as it is today for the existing tabs.
+This change does not introduce any new role gate or permission rule.
+
+## Approach
+
+Use a shared tab-row component or a shared tab configuration constant if the
+existing page structure makes that simpler. The important part is that both pages
+render the same tab labels and active-state behavior without duplicating route
+strings in an inconsistent way.
+
+Recommended shape:
+
+- one shared tab definition list
+- one small renderer used by both pages
+- project detail marks `Overview` active by default
+- codegen marks `SQL Bundle` active by default
 
 ## Scope
 
-Single file change: `web/app/projects/[id]/page.tsx`.
+In scope:
 
-## Design
+- project detail tab row
+- codegen page tab row
+- navigation behavior between the two pages
+- tests for both routes
 
-### Tab addition
+Out of scope:
 
-The existing tab strip has three pills: Overview, Sources, Artifacts. Add a fourth:
+- backend API changes
+- permission model changes
+- codegen page content changes
+- new tabs beyond `SQL Bundle`
 
-```tsx
-<button
-  className={`rounded-full px-4 py-2 text-sm font-semibold ${
-    activeTab === "sql-bundle"
-      ? "bg-primary text-white"
-      : "border border-outline-variant bg-surface-container text-slate-700"
-  }`}
-  onClick={() => router.push(`/projects/${id}/codegen`)}
-  type="button"
->
-  SQL Bundle
-</button>
-```
+## Success Criteria
 
-### Behavior
+- `SQL Bundle` appears on the project detail page and routes to `/projects/[id]/codegen`
+- the codegen page shows the same tab row with `SQL Bundle` active
+- the codegen page keeps its existing content and behavior
+- all touched tests pass
 
-Clicking "SQL Bundle" calls `router.push(`/projects/${id}/codegen`)` — it navigates away rather than rendering a panel. `activeTab` does not need a `"sql-bundle"` value because the tab never renders inline content; it is purely a navigation affordance.
+## Verification
 
-### Roles
-
-All authenticated roles see the tab (`central_team`, `project_stakeholder`, `read_only_auditor`). The api.md spec states "any authenticated user with project access" may download the bundle.
-
-## What this is NOT
-
-This spec does not cover:
-- Dependency-ordered sequencing of SQL scripts (separate spec: AI-assisted delivery bundle sequencing)
-- Sequence number prefixes in the bundle output
-- Any changes to the codegen page itself
-
-## Test
-
-Add one test to the project detail page test suite:
-
-- Renders "SQL Bundle" tab button
-- Clicking it calls `router.push` with `/projects/${id}/codegen`
+- update the project detail page test to assert the new tab and click behavior
+- update the codegen page test to assert the active tab state
+- run the frontend test suite

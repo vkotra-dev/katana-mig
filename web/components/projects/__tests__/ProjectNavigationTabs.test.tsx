@@ -1,0 +1,30 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ProjectNavigationTabs } from "../ProjectNavigationTabs";
+
+const { routerPushMock } = vi.hoisted(() => ({
+  routerPushMock: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: routerPushMock }),
+}));
+
+describe("ProjectNavigationTabs", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("pushes to codegen from the project detail tab row", () => {
+    render(<ProjectNavigationTabs activeTab="overview" mode="detail" onTabChange={vi.fn()} projectId="proj-1" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "SQL Bundle" }));
+    expect(routerPushMock).toHaveBeenCalledWith("/projects/proj-1/codegen");
+  });
+
+  it("marks SQL Bundle active on the codegen tab row", () => {
+    render(<ProjectNavigationTabs activeTab="sql-bundle" mode="codegen" projectId="proj-1" />);
+
+    expect(screen.getByRole("button", { name: "SQL Bundle" })).toHaveClass("bg-primary");
+  });
+});

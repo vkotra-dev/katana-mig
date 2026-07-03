@@ -10,6 +10,7 @@ const {
   triggerCodegenMock,
   downloadCodegenDeliveryBundleMock,
   triggerSchemaAnalysisMock,
+  routerPushMock,
 } = vi.hoisted(() => ({
   loadUiSessionMock: vi.fn(),
   listFeedContractsMock: vi.fn(),
@@ -18,6 +19,7 @@ const {
   triggerCodegenMock: vi.fn(),
   downloadCodegenDeliveryBundleMock: vi.fn(),
   triggerSchemaAnalysisMock: vi.fn(),
+  routerPushMock: vi.fn(),
 }));
 
 vi.mock("../../../../components/Topbar", () => ({
@@ -38,6 +40,10 @@ vi.mock("../../../../lib/codegen-api", () => ({
   triggerCodegen: triggerCodegenMock,
   downloadCodegenDeliveryBundle: downloadCodegenDeliveryBundleMock,
   triggerSchemaAnalysis: triggerSchemaAnalysisMock,
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: routerPushMock }),
 }));
 
 describe("CodegenPage", () => {
@@ -113,11 +119,21 @@ describe("CodegenPage", () => {
     render(<CodegenPage params={Promise.resolve({ id: "project-1" })} />);
 
     expect(await screen.findByText("Customer extract")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "SQL Bundle" })).toHaveClass("bg-primary");
     expect(screen.getByRole("button", { name: "Generate SQL" })).toBeInTheDocument();
     expect(screen.getByText("CREATE TABLE stg_customer (customer_id INT);")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Download delivery bundle" })).toBeInTheDocument();
     expect(screen.getByText("Schema dependency analysis")).toBeInTheDocument();
     expect(await screen.findByText("Analyzed: 2026-06-30 00:00")).toBeInTheDocument();
+  });
+
+  it("routes back to the project detail page from the overview tab", async () => {
+    render(<CodegenPage params={Promise.resolve({ id: "project-1" })} />);
+
+    await screen.findByText("Customer extract");
+    fireEvent.click(screen.getByRole("button", { name: "Overview" }));
+
+    expect(routerPushMock).toHaveBeenCalledWith("/projects/project-1");
   });
 
   it("refreshes artifacts after generation", async () => {

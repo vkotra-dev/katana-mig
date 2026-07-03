@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Topbar } from "../../../components/Topbar";
+import { ProjectNavigationTabs } from "../../../components/projects/ProjectNavigationTabs";
 import { KnowledgeFreezePanel } from "../../../components/projects/KnowledgeFreezePanel";
 import { ProjectDetailView } from "../../../components/projects/ProjectDetailView";
 import { SourceArtifactsPanel } from "../../../components/projects/SourceArtifactsPanel";
@@ -56,6 +57,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   }, [id, session]);
 
   const role: SessionRole = session?.role ?? "read_only_auditor";
+  const navigationActiveTab = activeTab === "overview" || activeTab === "sources" || activeTab === "artifacts" ? activeTab : "overview";
 
   return (
     <main className="flex min-h-screen flex-col bg-surface text-slate-800">
@@ -71,41 +73,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           </button>
         </div>
 
-        <div className="flex gap-2">
-          <button
-            className={`rounded-full px-4 py-2 text-sm font-semibold ${
-              activeTab === "overview"
-                ? "bg-primary text-white"
-                : "border border-outline-variant bg-surface-container text-slate-700"
-            }`}
-            onClick={() => setActiveTab("overview")}
-            type="button"
-          >
-            Overview
-          </button>
-          <button
-            className={`rounded-full px-4 py-2 text-sm font-semibold ${
-              activeTab === "sources"
-                ? "bg-primary text-white"
-                : "border border-outline-variant bg-surface-container text-slate-700"
-            }`}
-            onClick={() => setActiveTab("sources")}
-            type="button"
-            >
-            Sources
-          </button>
-          <button
-            className={`rounded-full px-4 py-2 text-sm font-semibold ${
-              activeTab === "artifacts"
-                ? "bg-primary text-white"
-                : "border border-outline-variant bg-surface-container text-slate-700"
-            }`}
-            onClick={() => setActiveTab("artifacts")}
-            type="button"
-          >
-            Artifacts
-          </button>
-        </div>
+        <ProjectNavigationTabs
+          activeTab={navigationActiveTab}
+          mode="detail"
+          onTabChange={setActiveTab}
+          projectId={id}
+        />
 
         {loading ? (
           <div className="rounded-2xl border border-outline-variant bg-surface-container p-8 text-sm text-slate-600">

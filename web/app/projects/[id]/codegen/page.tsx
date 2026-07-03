@@ -2,6 +2,7 @@
 
 import { use, useEffect, useMemo, useState } from "react";
 import { Topbar } from "../../../../components/Topbar";
+import { ProjectNavigationTabs } from "../../../../components/projects/ProjectNavigationTabs";
 import {
   downloadCodegenDeliveryBundle,
   getSchemaAnalysis,
@@ -210,6 +211,8 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
                 {statusMessage}
               </div>
             ) : null}
+
+            <ProjectNavigationTabs activeTab="sql-bundle" mode="codegen" projectId={routeParams.id} />
 
             <section className="space-y-4 rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm">
               <div>
