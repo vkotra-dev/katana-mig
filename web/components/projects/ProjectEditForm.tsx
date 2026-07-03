@@ -56,12 +56,16 @@ export function ProjectEditForm({
   const [samplePolicy, setSamplePolicy] = useState(
     project.domainConfig?.samplePolicy ? JSON.stringify(project.domainConfig.samplePolicy, null, 2) : "",
   );
+  const [formError, setFormError] = useState<string | null>(null);
 
   return (
     <form
-      className="space-y-5 rounded-2xl border border-outline-variant bg-surface-container p-8 shadow-sm"
-      onSubmit={(event) => {
-        event.preventDefault();
+    className="space-y-5 rounded-2xl border border-outline-variant bg-surface-container p-8 shadow-sm"
+    onSubmit={(event) => {
+      event.preventDefault();
+      try {
+        const parsedSamplePolicy = parseSamplePolicy(samplePolicy);
+        setFormError(null);
         void onSubmit({
           name: name.trim(),
           goal: normalizeOptionalText(goal),
@@ -71,13 +75,16 @@ export function ProjectEditForm({
             targetDbEngine: targetDbEngine || null,
             stagingSchema: normalizeOptionalText(stagingSchema),
             dryRun,
-            samplePolicy: parseSamplePolicy(samplePolicy),
+            samplePolicy: parsedSamplePolicy,
             destinationSchemaDdl: normalizeOptionalText(destinationSchemaDdl),
             environments: project.domainConfig?.environments ?? null,
           },
         });
-      }}
-    >
+      } catch {
+        setFormError("Sample policy must be valid JSON.");
+      }
+    }}
+  >
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold text-slate-900">Edit project</h1>
         <p className="text-sm text-slate-600">
@@ -198,9 +205,9 @@ export function ProjectEditForm({
         />
       </div>
 
-      {errorMessage ? (
+      {formError || errorMessage ? (
         <p className="rounded-md border border-error/30 bg-error/10 px-3 py-2 text-sm text-error" role="alert">
-          {errorMessage}
+          {formError ?? errorMessage}
         </p>
       ) : null}
 

@@ -53,10 +53,6 @@ vi.mock("../../../../components/Topbar", () => ({
   Topbar: () => <nav>Topbar</nav>,
 }));
 
-vi.mock("../../../../components/projects/ProjectNavigationTabs", () => ({
-  ProjectNavigationTabs: () => <div>Project tabs</div>,
-}));
-
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: routerPushMock }),
 }));
@@ -84,6 +80,7 @@ describe("ProjectEditPage", () => {
   it("loads the project and saves updates", async () => {
     await renderPage("proj-1");
 
+    expect(await screen.findByRole("button", { name: "Overview" })).toBeInTheDocument();
     expect(await screen.findByDisplayValue("CRM Migration")).toBeInTheDocument();
     fireEvent.submit(
       screen.getByRole("button", { name: "Save changes" }).closest("form") as HTMLFormElement,

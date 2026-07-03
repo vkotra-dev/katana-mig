@@ -56,4 +56,20 @@ describe("ProjectEditForm", () => {
       }),
     );
   });
+
+  it("shows an inline error when sample policy JSON is invalid", async () => {
+    const onSubmit = vi.fn();
+
+    render(<ProjectEditForm project={project} onSubmit={onSubmit} />);
+
+    fireEvent.change(screen.getByLabelText("Sample policy"), {
+      target: { value: "{ not valid json" },
+    });
+    fireEvent.submit(
+      screen.getByRole("button", { name: "Save changes" }).closest("form") as HTMLFormElement,
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Sample policy must be valid JSON.");
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
 });

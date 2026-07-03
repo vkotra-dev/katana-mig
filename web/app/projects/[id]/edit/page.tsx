@@ -4,6 +4,7 @@ import { use, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Topbar } from "../../../../components/Topbar";
 import { ProjectEditForm } from "../../../../components/projects/ProjectEditForm";
+import { ProjectNavigationTabs } from "../../../../components/projects/ProjectNavigationTabs";
 import {
   getProject,
   projectErrorMessage,
@@ -87,6 +88,20 @@ export default function ProjectEditPage({ params }: { params: Promise<{ id: stri
             Back to project
           </button>
         </div>
+
+        <ProjectNavigationTabs
+          activeTab="overview"
+          mode="detail"
+          onTabChange={(tab) => {
+            if (tab === "sql-bundle") {
+              router.push(`/projects/${id}/codegen`);
+              return;
+            }
+
+            router.push(`/projects/${id}`);
+          }}
+          projectId={id}
+        />
 
         {loading ? (
           <div className="rounded-2xl border border-outline-variant bg-surface-container p-8 text-sm text-slate-600">
