@@ -23,7 +23,7 @@ def upgrade() -> None:
         sa.Column(
             "feed_id",
             sa.String(length=36),
-            sa.ForeignKey("feeds.source_definition_id"),
+            sa.ForeignKey("source_definitions.source_definition_id"),
             nullable=False,
         ),
         sa.Column(

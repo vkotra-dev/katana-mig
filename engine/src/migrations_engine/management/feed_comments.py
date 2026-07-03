@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from ..api.deps import AuthApiError
 from ..api.schemas import FeedCommentCreateRequest, FeedCommentResponse
 from ..db.models import Feed, FeedComment, ProjectMembership, User, new_id
+from ..db.session import SessionLocal
 from ..management.notifications import create_notification
 from ..roles import CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE
 
@@ -76,14 +77,16 @@ def create_feed_comment(
     try:
         recipient_ids = _get_notification_recipients(db, project_id=project_id, commenter_role=actor.role)
         for recipient_id in recipient_ids:
-            create_notification(
-                db,
-                user_id=recipient_id,
-                project_id=project_id,
-                event_type="feed_comment_added",
-                deep_link=f"/projects/{project_id}/feeds/{feed_id}",
-                payload={"feed_id": feed_id, "comment_id": comment.comment_id},
-            )
+            with SessionLocal() as notification_db:
+                create_notification(
+                    notification_db,
+                    user_id=recipient_id,
+                    project_id=project_id,
+                    event_type="feed_comment_added",
+                    deep_link=f"/projects/{project_id}/feeds/{feed_id}",
+                    payload={"feed_id": feed_id, "comment_id": comment.comment_id},
+                )
+                notification_db.commit()
     except Exception:  # noqa: BLE001
         _LOGGER.exception("Comment notification fan-out failed for feed %s", feed_id)
 
