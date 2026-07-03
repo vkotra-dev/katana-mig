@@ -8,6 +8,7 @@ Implemented threaded feed comments end to end:
 - exposed `GET /projects/{project_id}/feeds/{feed_id}/comments` and `POST /projects/{project_id}/feeds/{feed_id}/comments`
 - added best-effort notification fan-out for central-team and stakeholder comments
 - added the `FeedCommentThread` frontend component and `feeds-api` helpers
+- mounted the thread on the feed fiber detail screen so it is reachable in the app
 
 Verification:
 
@@ -18,7 +19,6 @@ Verification:
 
 Result:
 
-- backend comment tests: `13 passed`
+- backend comment tests: `15 passed`
 - focused web tests: `23 passed`
-- full web suite: `180 passed`
-
+- full web suite: `181 passed`

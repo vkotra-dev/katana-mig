@@ -53,12 +53,15 @@ def create_feed_comment(
     body: FeedCommentCreateRequest,
 ) -> FeedCommentResponse:
     _require_feed_in_project(db, project_id=project_id, feed_id=feed_id)
+    cleaned_body = body.body.strip()
+    if not cleaned_body:
+        raise AuthApiError("validation_error", "Comment body is required.", 422)
 
     comment = FeedComment(
         comment_id=new_id(),
         feed_id=feed_id,
         user_id=actor.user_id,
-        body=body.body.strip(),
+        body=cleaned_body,
         created_at=datetime.now(UTC),
     )
     db.add(comment)

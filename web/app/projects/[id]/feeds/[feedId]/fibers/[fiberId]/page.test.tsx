@@ -7,6 +7,8 @@ const {
   assignFiberMock,
   approveFiberMock,
   triggerFiberMock,
+  listFeedCommentsMock,
+  createFeedCommentMock,
   loadUiSessionMock,
   topbarMock,
   backMock,
@@ -15,6 +17,8 @@ const {
   assignFiberMock: vi.fn(),
   approveFiberMock: vi.fn(),
   triggerFiberMock: vi.fn(),
+  listFeedCommentsMock: vi.fn(),
+  createFeedCommentMock: vi.fn(),
   loadUiSessionMock: vi.fn(),
   topbarMock: vi.fn(),
   backMock: vi.fn(),
@@ -36,6 +40,8 @@ vi.mock("../../../../../../../lib/feeds-api", () => ({
   assignFiber: assignFiberMock,
   approveFiber: approveFiberMock,
   triggerFiber: triggerFiberMock,
+  listFeedComments: listFeedCommentsMock,
+  createFeedComment: createFeedCommentMock,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -92,6 +98,16 @@ const FIBER_LOOKUP_ASSIGNED = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  listFeedCommentsMock.mockResolvedValue([]);
+  createFeedCommentMock.mockResolvedValue({
+    commentId: "comment-1",
+    feedId: "feed-1",
+    userId: "user-central",
+    displayName: "Central Team",
+    role: "central_team",
+    body: "Comment",
+    createdAt: "2026-07-01T00:00:00Z",
+  });
 });
 
 describe("FiberDetailPage", () => {
@@ -290,6 +306,15 @@ describe("FiberDetailPage", () => {
     expect(screen.queryByRole("button", { name: /assign for review/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^approve$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^trigger$/i })).not.toBeInTheDocument();
+  });
+
+  it("renders the comment thread", async () => {
+    loadUiSessionMock.mockReturnValue(SESSION_CENTRAL);
+    getFiberMock.mockResolvedValue(FIBER_MAPPED);
+
+    render(<FiberDetailPage />);
+
+    expect(await screen.findByRole("heading", { name: /comments/i })).toBeInTheDocument();
   });
 
   it("shows error banner when fiber fetch fails", async () => {

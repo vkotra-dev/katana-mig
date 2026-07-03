@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Topbar } from "../../../../../../../components/Topbar";
+import { FeedCommentThread } from "../../../../../../../components/feeds/FeedCommentThread";
 import {
   approveFiber,
   assignFiber,
@@ -246,6 +247,14 @@ export default function FiberDetailPage() {
                   </pre>
                 </div>
               </section>
+            )}
+
+            {session && fiber && (
+              <FeedCommentThread
+                feedId={feedId}
+                projectId={projectId}
+                token={session.accessToken}
+              />
             )}
           </>
         )}

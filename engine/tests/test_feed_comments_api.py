@@ -333,3 +333,51 @@ def test_post_comment_notification_does_not_fail_if_stub_missing(admin_token: st
         )
 
     assert response.status_code == 201, response.text
+
+
+def test_post_comment_notifies_stakeholders_for_central_team_comment(admin_token: str) -> None:
+    project_id, feed_id = _seed_project_with_feed(admin_token, add_stakeholder=True)
+
+    recipient_ids: list[str] = []
+
+    def _record_notification(db, *, user_id: str, **kwargs):
+        recipient_ids.append(user_id)
+        return None
+
+    with mock.patch("migrations_engine.management.feed_comments.create_notification", side_effect=_record_notification):
+        response = client.post(
+            f"/projects/{project_id}/feeds/{feed_id}/comments",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            json={"body": "Operator comment"},
+        )
+
+    assert response.status_code == 201, response.text
+    with SessionLocal() as db:
+        stakeholder = db.scalar(select(User).where(User.email == _STAKEHOLDER_EMAIL))
+        assert stakeholder is not None
+    assert recipient_ids == [stakeholder.user_id]
+
+
+def test_post_comment_notifies_central_team_for_stakeholder_comment(
+    admin_token: str, stakeholder_token: str
+) -> None:
+    project_id, feed_id = _seed_project_with_feed(admin_token, add_stakeholder=True)
+
+    recipient_ids: list[str] = []
+
+    def _record_notification(db, *, user_id: str, **kwargs):
+        recipient_ids.append(user_id)
+        return None
+
+    with mock.patch("migrations_engine.management.feed_comments.create_notification", side_effect=_record_notification):
+        response = client.post(
+            f"/projects/{project_id}/feeds/{feed_id}/comments",
+            headers={"Authorization": f"Bearer {stakeholder_token}"},
+            json={"body": "Stakeholder comment"},
+        )
+
+    assert response.status_code == 201, response.text
+    with SessionLocal() as db:
+        admin = db.scalar(select(User).where(User.email == get_settings().bootstrap_admin_email.strip().lower()))
+        assert admin is not None
+    assert recipient_ids == [admin.user_id]
