@@ -9,7 +9,7 @@ const activeProject: ProjectRecord = {
   goal: "Migrate CRM",
   repos: null,
   workspace: null,
-  environment: null,
+  projectResources: null,
   executionEnvironments: ["STG", "PROD"],
   modelPolicy: null,
   canonicalTerms: null,

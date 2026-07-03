@@ -6,6 +6,7 @@ import {
   listProjects,
   type ProjectRecord,
 } from "./projects-api";
+import { PROJECT_RESOURCES_TEMPLATE } from "../components/projects/projectResourcesTemplate";
 
 const BASE = "http://127.0.0.1:8000";
 
@@ -15,7 +16,7 @@ const projectResponse = {
   goal: "Migrate CRM",
   repos: null,
   workspace: null,
-  environment: null,
+  project_resources: PROJECT_RESOURCES_TEMPLATE,
   execution_environments: ["STG", "PROD"],
   model_policy: null,
   canonical_terms: null,
@@ -49,7 +50,7 @@ const project: ProjectRecord = {
   goal: "Migrate CRM",
   repos: null,
   workspace: null,
-  environment: null,
+  projectResources: null,
   executionEnvironments: ["STG", "PROD"],
   modelPolicy: null,
   canonicalTerms: null,
@@ -101,6 +102,7 @@ describe("listProjects", () => {
       }),
     );
     expect(result[0].projectId).toBe("project-1");
+    expect(result[0].projectResources).toBe(PROJECT_RESOURCES_TEMPLATE);
   });
 
   it("adds include_archived when requested", async () => {
@@ -134,6 +136,7 @@ describe("getProject", () => {
       expect.anything(),
     );
     expect(result.name).toBe("Alpha Migration");
+    expect(result.projectResources).toBe(PROJECT_RESOURCES_TEMPLATE);
   });
 
   it("throws the API error code on 404", async () => {
@@ -166,6 +169,7 @@ describe("createProject", () => {
     const result = await createProject("token-1", {
       name: "Alpha Migration",
       goal: "Migrate CRM",
+      projectResources: PROJECT_RESOURCES_TEMPLATE,
       domainConfig: {
         targetDbEngine: "mssql",
         stagingSchema: "stg",
@@ -191,6 +195,7 @@ describe("createProject", () => {
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
       name: "Alpha Migration",
       goal: "Migrate CRM",
+      project_resources: PROJECT_RESOURCES_TEMPLATE,
       execution_environments: ["STG", "PROD"],
       constraints: ["GDPR"],
       domain_config: {

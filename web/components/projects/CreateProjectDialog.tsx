@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createProject, projectErrorMessage, type ProjectRecord, type TargetDbEngine } from "../../lib/projects-api";
+import { PROJECT_RESOURCES_TEMPLATE } from "./projectResourcesTemplate";
 
 export interface CreateProjectDialogProps {
   open?: boolean;
@@ -69,6 +70,7 @@ export function CreateProjectDialog({
               const project = await createProject(token, {
                 name: name.trim(),
                 goal: goal.trim() || null,
+                projectResources: PROJECT_RESOURCES_TEMPLATE,
                 domainConfig: {
                   targetDbEngine,
                   dryRun: false,

@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ProjectEditForm } from "../ProjectEditForm";
 import type { ProjectRecord } from "../../../lib/projects-api";
+import { PROJECT_RESOURCES_TEMPLATE } from "../projectResourcesTemplate";
 
 const project: ProjectRecord = {
   projectId: "project-abc",
@@ -9,7 +10,7 @@ const project: ProjectRecord = {
   goal: "Migrate all CRM data",
   repos: null,
   workspace: null,
-  environment: "PROD",
+  projectResources: "== PROD ==\nHost/IP: 10.0.0.1",
   executionEnvironments: ["STG", "UAT", "PROD"],
   modelPolicy: null,
   canonicalTerms: null,
@@ -50,11 +51,17 @@ describe("ProjectEditForm", () => {
       expect(onSubmit).toHaveBeenCalledWith({
         name: "CRM Migration v2",
         goal: "Migrate all CRM data",
-        environment: "PROD",
+        projectResources: "== PROD ==\nHost/IP: 10.0.0.1",
         executionEnvironments: ["STG", "UAT", "PROD"],
         domainConfig: expect.any(Object),
       }),
     );
+  });
+
+  it("prefills project resources with the structured template when empty", () => {
+    render(<ProjectEditForm project={{ ...project, projectResources: null }} onSubmit={vi.fn()} />);
+
+    expect(screen.getByLabelText("Project Resources")).toHaveValue(PROJECT_RESOURCES_TEMPLATE);
   });
 
   it("shows an inline error when sample policy JSON is invalid", async () => {

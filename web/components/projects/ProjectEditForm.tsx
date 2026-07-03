@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ProjectRecord, ProjectUpdateInput, TargetDbEngine } from "../../lib/projects-api";
+import { PROJECT_RESOURCES_TEMPLATE } from "./projectResourcesTemplate";
 
 export interface ProjectEditFormProps {
   project: ProjectRecord;
@@ -33,6 +34,11 @@ function parseSamplePolicy(value: string): Record<string, unknown> | null {
   return JSON.parse(trimmed) as Record<string, unknown>;
 }
 
+function initialProjectResources(value: string | null | undefined): string {
+  const trimmed = value?.trim();
+  return trimmed ? value : PROJECT_RESOURCES_TEMPLATE;
+}
+
 export function ProjectEditForm({
   project,
   loading = false,
@@ -41,7 +47,9 @@ export function ProjectEditForm({
 }: ProjectEditFormProps) {
   const [name, setName] = useState(project.name);
   const [goal, setGoal] = useState(project.goal ?? "");
-  const [environment, setEnvironment] = useState(project.environment ?? "");
+  const [projectResources, setProjectResources] = useState(
+    initialProjectResources(project.projectResources),
+  );
   const [executionEnvironments, setExecutionEnvironments] = useState(
     project.executionEnvironments?.join(", ") ?? "",
   );
@@ -76,7 +84,7 @@ export function ProjectEditForm({
       void onSubmit({
         name: name.trim(),
         goal: normalizeOptionalText(goal),
-        environment: normalizeOptionalText(environment),
+        projectResources: normalizeOptionalText(projectResources),
         executionEnvironments: parseList(executionEnvironments),
         domainConfig: {
           targetDbEngine: targetDbEngine || null,
@@ -122,14 +130,13 @@ export function ProjectEditForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Environment</label>
-          <input
-            aria-label="Environment"
-            className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
-            name="environment"
-            onChange={(event) => setEnvironment(event.target.value)}
-            type="text"
-            value={environment}
+          <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Project Resources</label>
+          <textarea
+            aria-label="Project Resources"
+            className="min-h-32 w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
+            name="projectResources"
+            onChange={(event) => setProjectResources(event.target.value)}
+            value={projectResources}
           />
         </div>
 

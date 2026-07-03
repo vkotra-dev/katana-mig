@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CreateProjectDialog } from "../CreateProjectDialog";
 import type { ProjectRecord } from "../../../lib/projects-api";
+import { PROJECT_RESOURCES_TEMPLATE } from "../projectResourcesTemplate";
 
 const stubResponse = {
   project_id: "project-3",
@@ -9,7 +10,7 @@ const stubResponse = {
   goal: "Migrate orders",
   repos: null,
   workspace: null,
-  environment: null,
+  project_resources: null,
   execution_environments: null,
   model_policy: null,
   canonical_terms: null,
@@ -39,6 +40,7 @@ const stub: ProjectRecord = {
   repos: null,
   workspace: null,
   environment: null,
+  projectResources: null,
   executionEnvironments: null,
   modelPolicy: null,
   canonicalTerms: null,
@@ -134,6 +136,7 @@ describe("CreateProjectDialog", () => {
         body: JSON.stringify({
           name: "New Project",
           goal: "Migrate orders",
+          project_resources: PROJECT_RESOURCES_TEMPLATE,
           domain_config: {
             target_db_engine: "mssql",
             dry_run: false,

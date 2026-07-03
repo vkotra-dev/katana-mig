@@ -33,7 +33,8 @@ export interface ProjectRecord {
   goal: string | null;
   repos: Record<string, unknown>[] | null;
   workspace: Record<string, unknown> | null;
-  environment: string | null;
+  environment?: string | null;
+  projectResources?: string | null;
   executionEnvironments: string[] | null;
   modelPolicy: Record<string, unknown> | null;
   canonicalTerms: string[] | null;
@@ -54,7 +55,7 @@ export interface ProjectCreateInput {
   goal?: string | null;
   repos?: Record<string, unknown>[] | null;
   workspace?: Record<string, unknown> | null;
-  environment?: string | null;
+  projectResources?: string | null;
   executionEnvironments?: string[] | null;
   modelPolicy?: Record<string, unknown> | null;
   canonicalTerms?: string[] | null;
@@ -178,7 +179,7 @@ function mapProjectRecord(record: {
   goal: string | null;
   repos: Record<string, unknown>[] | null;
   workspace: Record<string, unknown> | null;
-  environment: string | null;
+  project_resources: string | null;
   execution_environments: string[] | null;
   model_policy: Record<string, unknown> | null;
   canonical_terms: string[] | null;
@@ -211,7 +212,8 @@ function mapProjectRecord(record: {
     goal: record.goal,
     repos: record.repos,
     workspace: record.workspace,
-    environment: record.environment,
+    environment: record.project_resources,
+    projectResources: record.project_resources ?? null,
     executionEnvironments: record.execution_environments,
     modelPolicy: record.model_policy,
     canonicalTerms: record.canonical_terms,
@@ -241,7 +243,7 @@ function toProjectPayload(input: ProjectCreateInput | ProjectUpdateInput): Recor
     goal: input.goal,
     repos: input.repos,
     workspace: input.workspace,
-    environment: input.environment,
+    project_resources: input.projectResources,
     execution_environments: input.executionEnvironments,
     model_policy: input.modelPolicy,
     canonical_terms: input.canonicalTerms,

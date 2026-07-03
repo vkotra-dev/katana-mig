@@ -9,7 +9,7 @@ const active: ProjectRecord = {
   goal: "Migrate all CRM data",
   repos: null,
   workspace: null,
-  environment: "PROD",
+  projectResources: "== PROD ==\nHost/IP: 10.0.0.1",
   executionEnvironments: ["STG", "UAT", "PROD"],
   modelPolicy: null,
   canonicalTerms: null,
@@ -60,6 +60,20 @@ describe("ProjectDetailView", () => {
     expect(screen.getByText("GDPR, Art 6(1)(c)")).toBeInTheDocument();
     expect(screen.getByText("mssql")).toBeInTheDocument();
     expect(screen.getByText("create table crm(id int);")).toBeInTheDocument();
+  });
+
+  it("renders projectResources as a textarea", () => {
+    render(<ProjectDetailView project={{ ...active, projectResources: "== PROD ==\nHost/IP: 10.0.0.1" }} />);
+
+    const textarea = screen.getByRole("textbox", { name: /project resources/i });
+    expect(textarea).toHaveValue("== PROD ==\nHost/IP: 10.0.0.1");
+    expect(textarea).toHaveAttribute("readonly");
+  });
+
+  it("renders placeholder when projectResources is null", () => {
+    render(<ProjectDetailView project={{ ...active, projectResources: null }} />);
+
+    expect(screen.getByRole("textbox", { name: /project resources/i })).toHaveValue("");
   });
 
   it("renders the lifecycle timeline", () => {
