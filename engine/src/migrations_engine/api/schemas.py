@@ -613,6 +613,42 @@ class KnowledgeFreezeRecord(BaseModel):
     created_at: datetime
 
 
+class ChangeRequestPayload(BaseModel):
+    run_id: str
+    lookup_name: str
+    unmapped_value: str
+    destination_object_name: str
+
+
+class ChangeRequestSummary(BaseModel):
+    change_request_id: str
+    project_id: str
+    change_request_type: str
+    status: str
+    title: str
+    created_at: datetime
+
+
+class ChangeRequestDetail(BaseModel):
+    change_request_id: str
+    project_id: str
+    change_request_type: str
+    status: str
+    title: str
+    payload: ChangeRequestPayload | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ChangeRequestResolveRequest(BaseModel):
+    accepted_value: str = Field(min_length=1, max_length=128)
+
+
+class ChangeRequestResolveResponse(BaseModel):
+    change_request_id: str
+    status: Literal["resolved"]
+
+
 class ReconciliationCheckResult(BaseModel):
     check_name: str
     status: Literal["pass", "fail"]

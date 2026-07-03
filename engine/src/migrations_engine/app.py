@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from .api.deps import AuthApiError
 from .config import get_settings
 from .routes.auth import router as auth_router
+from .routes.change_requests import router as change_requests_router
 from .routes.projects import router as projects_router
 from .routes.runs import project_router as runs_project_router
 from .routes.runs import router as runs_router
@@ -52,6 +53,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(projects_router)
+app.include_router(change_requests_router)
 app.include_router(runs_router)
 app.include_router(runs_project_router)
 app.include_router(analysis_router)

@@ -902,6 +902,82 @@ Approve a generated lookup snapshot at the project level. Requires
 
 Response `200`: `LookupSnapshotResponse`
 
+## Change request endpoints
+
+Change requests are project-scoped review records. Lookup delta CRs are opened
+when a run pauses on an unmapped lookup value and are resolved by a project
+stakeholder.
+
+### `GET /projects/{project_id}/change-requests`
+
+List open change requests for a project. Any authenticated user with project
+access.
+
+Response `200`: array of `ChangeRequestSummary`
+
+### `GET /projects/{project_id}/change-requests/{cr_id}`
+
+Return one change request in detail. Any authenticated user with project access.
+
+Response `200`: `ChangeRequestDetail`
+
+### `POST /projects/{project_id}/change-requests/{cr_id}/resolve`
+
+Resolve a lookup delta change request by accepting a mapped value. Requires a
+`project_stakeholder` with project access.
+
+Request:
+
+```json
+{
+  "accepted_value": "RETIRED"
+}
+```
+
+Response `200`: `ChangeRequestResolveResponse`
+
+### `ChangeRequestSummary`
+
+```json
+{
+  "change_request_id": "...",
+  "project_id": "...",
+  "change_request_type": "lookup_delta",
+  "status": "open",
+  "title": "Lookup delta for account_type",
+  "created_at": "2026-07-01T10:00:00Z"
+}
+```
+
+### `ChangeRequestDetail`
+
+```json
+{
+  "change_request_id": "...",
+  "project_id": "...",
+  "change_request_type": "lookup_delta",
+  "status": "open",
+  "title": "Lookup delta for account_type",
+  "payload": {
+    "run_id": "...",
+    "lookup_name": "account_type",
+    "unmapped_value": "RETD",
+    "destination_object_name": "customers"
+  },
+  "created_at": "2026-07-01T10:00:00Z",
+  "updated_at": "2026-07-01T10:05:00Z"
+}
+```
+
+### `ChangeRequestResolveResponse`
+
+```json
+{
+  "change_request_id": "...",
+  "status": "resolved"
+}
+```
+
 ## Code generation endpoints
 
 Code generation is source-triggered but project-scoped in persistence. The
