@@ -1,669 +1,558 @@
-# Project Edit — Implementation Plan (001aw)
+# Project Edit Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Task:** [`tasks/001aw-project-edit.md`](../tasks/001aw-project-edit.md)
+**Goal:** Add a project edit flow from the project detail screen so central-team users can update project metadata with the existing project update API.
 
-**Goal:** Add an inline project edit form to the project detail overview tab, gated to `central_team`, covering all editable fields.
+**Architecture:** Keep the project detail page as the read-only summary and add an explicit Edit entry point that leads to a dedicated edit route. Build a focused `ProjectEditForm` component that owns field state, prefill logic, submit handling, and inline errors; the edit page fetches the current project and hands the record to that form. Reuse the existing project API client and error mapper rather than adding new transport code.
 
-**Architecture:** Inline toggle on the overview tab — `page.tsx` gains `isEditing` + `saveError` state. When `isEditing` is true, `ProjectDetailView` is replaced by a new `ProjectEditForm` component. On save, `updateProject` patches the project and the component re-enters view mode with the refreshed data. All string arrays are edited as newline-separated textareas; JSON blobs as raw JSON textareas. No new route is added.
-
-**Tech Stack:** Next.js App Router, React, TypeScript, Vitest + Testing Library
+**Tech Stack:** Next.js App Router, React, Vitest, existing project API client.
 
 ## Global Constraints
 
-- Edit button is visible only when `role === "central_team"` — same inline pattern used everywhere in the codebase (`role === "central_team" ? ... : null`)
-- Error display uses the `role="alert"` paragraph pattern already in `page.tsx` and `CreateProjectDialog`
-- Form field styling matches `CreateProjectDialog`: `rounded-md border border-outline-variant bg-white px-3 py-3 text-sm` inputs; `text-xs font-semibold uppercase tracking-[0.16em] text-slate-500` labels
-- `name` is the only required field (consistent with `CreateProjectDialog`)
-- JSON blob fields (`repos`, `workspace`, `modelPolicy`, `lexiconScope`, `samplePolicy`) are edited as raw JSON text and silently parsed to `null` on invalid JSON
-- Array fields (`executionEnvironments`, `constraints`, `unresolvedQuestions`, `assumptions`, `canonicalTerms`, `domainConfig.environments`) are edited as one-item-per-line textareas
-- `KnowledgeFreezePanel` stays visible below the form/view in both modes
+- The project remains the stable top-level container for a migration effort.
+- The destination schema remains client-owned and is not invented by Katana.
+- `central_team` lands on the portfolio dashboard.
+- `project_stakeholder` access is membership-scoped.
+- Preserve the existing authenticated top nav and project shell.
 
----
+## Task
+
+- [001aw-project-edit](../tasks/001aw-project-edit.md)
+
+## Domain
+
+- [ui.md](/Users/vjkotra/projects/katana/docs/domain/ui.md)
+- [project.md](/Users/vjkotra/projects/katana/docs/domain/project.md)
+- [api.md](/Users/vjkotra/projects/katana/docs/domain/api.md)
+
+## Current State
+
+- The project list and project detail routes already exist.
+- `web/app/projects/[id]/page.tsx` renders the overview summary and tabs but has no edit entry point.
+- `web/lib/projects-api.ts` already exposes `updateProject(token, id, body)`.
+- There is no shared project edit form component yet.
+
+## Objective
+
+Add a routeable project edit screen and expose it from the project detail page so central-team users can update project metadata without leaving the project shell.
+
+## Out of Scope
+
+- Project creation.
+- Archive/delete behavior.
+- Source, run, or approval workflows.
+- Backend project API changes unless the UI needs a missing client helper.
+
+## Blast Radius
+
+- `engine/src/migrations_engine/api/schemas.py`
+- `web/lib/projects-api.ts`
+- `web/app/projects/[id]/page.tsx`
+- `web/app/projects/[id]/edit/page.tsx`
+- `web/components/projects/ProjectEditForm.tsx`
+- `web/components/projects/ProjectDetailView.tsx`
+- `web/components/projects/__tests__/ProjectEditForm.test.tsx`
+- `web/app/projects/[id]/edit/page.test.tsx`
+- `web/app/projects/[id]/page.test.tsx`
+- `web/lib/projects-api.test.ts` only if the update client needs explicit coverage
 
 ## File Changes
 
-| Action | Path |
-|--------|------|
-| Create | `web/components/projects/ProjectEditForm.tsx` |
-| Create | `web/components/projects/__tests__/ProjectEditForm.test.tsx` |
-| Modify | `web/app/projects/[id]/page.tsx` |
-| Modify | `web/app/projects/[id]/page.test.tsx` |
+- Add `SamplePolicy` Pydantic model and `destination_schema` field to `MigrationProjectConfig` in the engine.
+- Add `SamplePolicy` TypeScript interface and `destinationSchema` field to the frontend domain config types.
+- Add a dedicated project edit page under the project route tree.
+- Extract a reusable form for project metadata fields so the edit page can prefill and submit cleanly.
+- The form renders `destinationSchema` as a text input and replaces the raw JSON `samplePolicy` textarea with a "Sample Policy" section: strategy picklist (random / top_n / full / stratified), max rows number input, and a conditional stratified-column text input shown only when strategy is `stratified`.
+- Update the project detail view to show `destinationSchema` and render sample policy as readable labelled values instead of raw JSON.
+- Add an Edit entry point to the project detail header.
+- Cover the form submit and navigation flow with Vitest.
 
----
+## Tests
 
-## Task 1: `ProjectEditForm` component
+- The edit form renders with the project’s current values prefilled.
+- Submit calls `updateProject(token, id, body)` with the expected payload.
+- Edit page shows inline errors and preserves form state on failure.
+- Project detail page shows an Edit action for central-team users.
+- Clicking Edit routes to `/projects/{id}/edit`.
+
+## Verification
+
+- Run the focused project edit tests in `web`.
+- Smoke-check the project detail page and the edit page in the browser.
+
+## Pitfalls
+
+- Do not turn the edit screen into a brand-new wizard; keep it aligned with the existing detail view and project API.
+- Keep the top nav and project shell intact.
+- Make sure edit failure does not lose the already-entered form state.
+
+## Commits
+
+- `feat(001aw): add SamplePolicy model and destination_schema to domain config`
+- `feat(001aw): add reusable project edit form and route`
+- `feat(001aw): add project detail edit entry point`
+
+### Task 0: Extend backend and frontend domain config types
 
 **Files:**
-- Create: `web/components/projects/ProjectEditForm.tsx`
-- Create: `web/components/projects/__tests__/ProjectEditForm.test.tsx`
+- Modify: `engine/src/migrations_engine/api/schemas.py`
+- Modify: `web/lib/projects-api.ts`
 
 **Interfaces:**
 - Produces:
-  ```ts
-  export interface ProjectEditFormProps {
-    project: ProjectRecord;
-    onSubmit: (body: ProjectUpdateInput) => Promise<void>;
-    onCancel: () => void;
-    errorMessage?: string;
-  }
-  export function ProjectEditForm(props: ProjectEditFormProps): JSX.Element
-  ```
+  - `SamplePolicyStrategy = Literal["random", "top_n", "full", "stratified"]`
+  - `class SamplePolicy(BaseModel): strategy / max_rows / stratified_column`
+  - `MigrationProjectConfig.destination_schema: str | None = None`
+  - `MigrationProjectConfig.sample_policy: SamplePolicy | None = None`
+  - Frontend `SamplePolicy` interface with camelCase keys
+  - Frontend `ProjectDomainConfig.destinationSchema: string | null`
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Write the failing test**
 
-Create `web/components/projects/__tests__/ProjectEditForm.test.tsx`:
+In `engine/tests/test_project_crud_api.py`, add a test that round-trips `destination_schema` and a structured `sample_policy`:
 
-```tsx
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ProjectEditForm } from "../ProjectEditForm";
-import type { ProjectRecord, ProjectUpdateInput } from "../../../lib/projects-api";
-
-const PROJECT: ProjectRecord = {
-  projectId: "proj-1",
-  name: "CRM Migration",
-  goal: "Migrate CRM data",
-  repos: null,
-  workspace: null,
-  environment: "PROD",
-  executionEnvironments: ["STG", "UAT"],
-  modelPolicy: null,
-  canonicalTerms: null,
-  constraints: ["GDPR", "Art 6"],
-  unresolvedQuestions: ["PHI present?"],
-  assumptions: ["Source is stable"],
-  domainConfig: {
-    targetDbEngine: "mssql",
-    stagingSchema: "stg",
-    dryRun: false,
-    samplePolicy: null,
-    destinationSchemaDdl: "create table t(id int);",
-    environments: ["dev", "prod"],
-  },
-  lexiconScope: null,
-  status: "active",
-  createdAt: "2026-07-01T00:00:00Z",
-  updatedAt: "2026-07-01T00:00:00Z",
-  archivedAt: null,
-  latestRunSummary: null,
-};
-
-describe("ProjectEditForm", () => {
-  let onSubmit: ReturnType<typeof vi.fn>;
-  let onCancel: ReturnType<typeof vi.fn>;
-
-  beforeEach(() => {
-    onSubmit = vi.fn().mockResolvedValue(undefined);
-    onCancel = vi.fn();
-  });
-
-  it("pre-fills the name and goal fields", () => {
-    render(<ProjectEditForm errorMessage={undefined} onCancel={onCancel} onSubmit={onSubmit} project={PROJECT} />);
-    expect(screen.getByDisplayValue("CRM Migration")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Migrate CRM data")).toBeInTheDocument();
-  });
-
-  it("pre-fills array fields as newline-separated lines", () => {
-    render(<ProjectEditForm errorMessage={undefined} onCancel={onCancel} onSubmit={onSubmit} project={PROJECT} />);
-    expect(screen.getByDisplayValue("GDPR\nArt 6")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("STG\nUAT")).toBeInTheDocument();
-  });
-
-  it("pre-fills the target DB engine select", () => {
-    render(<ProjectEditForm errorMessage={undefined} onCancel={onCancel} onSubmit={onSubmit} project={PROJECT} />);
-    expect(screen.getByDisplayValue("mssql")).toBeInTheDocument();
-  });
-
-  it("calls onSubmit with the updated name when saved", async () => {
-    render(<ProjectEditForm errorMessage={undefined} onCancel={onCancel} onSubmit={onSubmit} project={PROJECT} />);
-    const nameInput = screen.getByDisplayValue("CRM Migration");
-    fireEvent.change(nameInput, { target: { value: "New Name" } });
-    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form") as HTMLFormElement);
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
-    const payload = onSubmit.mock.calls[0][0] as ProjectUpdateInput;
-    expect(payload.name).toBe("New Name");
-  });
-
-  it("calls onSubmit with constraints as an array", async () => {
-    render(<ProjectEditForm errorMessage={undefined} onCancel={onCancel} onSubmit={onSubmit} project={PROJECT} />);
-    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form") as HTMLFormElement);
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
-    const payload = onSubmit.mock.calls[0][0] as ProjectUpdateInput;
-    expect(payload.constraints).toEqual(["GDPR", "Art 6"]);
-  });
-
-  it("calls onCancel when cancel is clicked", () => {
-    render(<ProjectEditForm errorMessage={undefined} onCancel={onCancel} onSubmit={onSubmit} project={PROJECT} />);
-    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
-    expect(onCancel).toHaveBeenCalledOnce();
-  });
-
-  it("renders error message when provided", () => {
-    render(<ProjectEditForm errorMessage="Save failed" onCancel={onCancel} onSubmit={onSubmit} project={PROJECT} />);
-    expect(screen.getByRole("alert")).toHaveTextContent("Save failed");
-  });
-});
+```python
+def test_create_project_with_domain_config_extensions(client, auth_headers):
+    body = {
+        "name": "Schema Test",
+        "goal": "Verify domain config extensions",
+        "domain_config": {
+            "target_db_engine": "mssql",
+            "staging_schema": "stg",
+            "destination_schema": "dbo",
+            "sample_policy": {
+                "strategy": "stratified",
+                "max_rows": 500,
+                "stratified_column": "region",
+            },
+        },
+    }
+    response = client.post("/projects", json=body, headers=auth_headers)
+    assert response.status_code == 201
+    data = response.json()
+    assert data["domain_config"]["destination_schema"] == "dbo"
+    assert data["domain_config"]["sample_policy"]["strategy"] == "stratified"
+    assert data["domain_config"]["sample_policy"]["max_rows"] == 500
+    assert data["domain_config"]["sample_policy"]["stratified_column"] == "region"
 ```
 
-- [ ] **Step 2: Run to verify tests fail**
+- [ ] **Step 2: Run the test and confirm it fails**
 
-```bash
-cd /Users/vjkotra/projects/katana/web
-npm test -- components/projects/__tests__/ProjectEditForm.test.tsx
+Run: `cd engine && python -m pytest tests/test_project_crud_api.py::test_create_project_with_domain_config_extensions -v`
+Expected: `destination_schema` key not present in response; `sample_policy` accepts the dict but returns it unvalidated.
+
+- [ ] **Step 3: Update the backend schema**
+
+In `engine/src/migrations_engine/api/schemas.py`, after the `ProjectStatus` line add:
+
+```python
+SamplePolicyStrategy = Literal["random", "top_n", "full", "stratified"]
+
+
+class SamplePolicy(BaseModel):
+    strategy: SamplePolicyStrategy = "random"
+    max_rows: int | None = None
+    stratified_column: str | None = None
 ```
 
-Expected: FAIL — `ProjectEditForm` module not found.
+In `MigrationProjectConfig`, replace `sample_policy` and add `destination_schema`:
 
-- [ ] **Step 3: Create `ProjectEditForm.tsx`**
+```python
+class MigrationProjectConfig(BaseModel):
+    target_db_engine: TargetDbEngine | None = None
+    staging_schema: str | None = None
+    destination_schema: str | None = None
+    dry_run: bool = False
+    sample_policy: SamplePolicy | None = None
+    destination_schema_ddl: str | None = None
+    environments: list[str] | None = None
+```
 
-Create `web/components/projects/ProjectEditForm.tsx`:
+- [ ] **Step 4: Update the frontend types**
 
-```tsx
-"use client";
+In `web/lib/projects-api.ts`, after `TargetDbEngine` add:
 
-import { useState } from "react";
-import type { ProjectRecord, ProjectUpdateInput, TargetDbEngine } from "../../lib/projects-api";
+```ts
+export type SamplePolicyStrategy = "random" | "top_n" | "full" | "stratified";
 
-export interface ProjectEditFormProps {
-  project: ProjectRecord;
-  onSubmit: (body: ProjectUpdateInput) => Promise<void>;
-  onCancel: () => void;
-  errorMessage?: string;
+export interface SamplePolicy {
+  strategy: SamplePolicyStrategy;
+  maxRows: number | null;
+  stratifiedColumn: string | null;
 }
+```
 
-interface FormState {
-  name: string;
-  goal: string;
-  environment: string;
-  executionEnvironments: string;
-  constraints: string;
-  unresolvedQuestions: string;
-  assumptions: string;
-  canonicalTerms: string;
-  targetDbEngine: TargetDbEngine | "";
-  stagingSchema: string;
+In `ProjectDomainConfig`, add `destinationSchema` and change `samplePolicy` type:
+
+```ts
+export interface ProjectDomainConfig {
+  targetDbEngine: TargetDbEngine | null;
+  stagingSchema: string | null;
+  destinationSchema: string | null;
   dryRun: boolean;
-  destinationSchemaDdl: string;
-  samplePolicyJson: string;
-  domainEnvironments: string;
-  reposJson: string;
-  workspaceJson: string;
-  modelPolicyJson: string;
-  lexiconScopeJson: string;
-}
-
-function toFormState(p: ProjectRecord): FormState {
-  const dc = p.domainConfig;
-  return {
-    name: p.name,
-    goal: p.goal ?? "",
-    environment: p.environment ?? "",
-    executionEnvironments: (p.executionEnvironments ?? []).join("\n"),
-    constraints: (p.constraints ?? []).join("\n"),
-    unresolvedQuestions: (p.unresolvedQuestions ?? []).join("\n"),
-    assumptions: (p.assumptions ?? []).join("\n"),
-    canonicalTerms: (p.canonicalTerms ?? []).join("\n"),
-    targetDbEngine: dc?.targetDbEngine ?? "",
-    stagingSchema: dc?.stagingSchema ?? "",
-    dryRun: dc?.dryRun ?? false,
-    destinationSchemaDdl: dc?.destinationSchemaDdl ?? "",
-    samplePolicyJson: dc?.samplePolicy ? JSON.stringify(dc.samplePolicy, null, 2) : "",
-    domainEnvironments: (dc?.environments ?? []).join("\n"),
-    reposJson: p.repos ? JSON.stringify(p.repos, null, 2) : "",
-    workspaceJson: p.workspace ? JSON.stringify(p.workspace, null, 2) : "",
-    modelPolicyJson: p.modelPolicy ? JSON.stringify(p.modelPolicy, null, 2) : "",
-    lexiconScopeJson: p.lexiconScope ? JSON.stringify(p.lexiconScope, null, 2) : "",
-  };
-}
-
-function parseLines(s: string): string[] | null {
-  const lines = s.split("\n").map((l) => l.trim()).filter(Boolean);
-  return lines.length ? lines : null;
-}
-
-function parseJson(s: string): Record<string, unknown> | null {
-  if (!s.trim()) return null;
-  try { return JSON.parse(s) as Record<string, unknown>; } catch { return null; }
-}
-
-function toUpdateInput(f: FormState): ProjectUpdateInput {
-  return {
-    name: f.name.trim(),
-    goal: f.goal.trim() || null,
-    environment: f.environment.trim() || null,
-    executionEnvironments: parseLines(f.executionEnvironments),
-    constraints: parseLines(f.constraints),
-    unresolvedQuestions: parseLines(f.unresolvedQuestions),
-    assumptions: parseLines(f.assumptions),
-    canonicalTerms: parseLines(f.canonicalTerms),
-    repos: parseJson(f.reposJson) as Record<string, unknown>[] | null,
-    workspace: parseJson(f.workspaceJson),
-    modelPolicy: parseJson(f.modelPolicyJson),
-    lexiconScope: parseJson(f.lexiconScopeJson),
-    domainConfig: {
-      targetDbEngine: f.targetDbEngine || null,
-      stagingSchema: f.stagingSchema.trim() || null,
-      dryRun: f.dryRun,
-      destinationSchemaDdl: f.destinationSchemaDdl.trim() || null,
-      samplePolicy: parseJson(f.samplePolicyJson),
-      environments: parseLines(f.domainEnvironments),
-    },
-  };
-}
-
-const INPUT = "w-full rounded-md border border-outline-variant bg-white px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20";
-const LABEL = "text-xs font-semibold uppercase tracking-[0.16em] text-slate-500";
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block space-y-1">
-      <span className={LABEL}>{label}</span>
-      {children}
-    </label>
-  );
-}
-
-export function ProjectEditForm({ project, onSubmit, onCancel, errorMessage }: ProjectEditFormProps) {
-  const [form, setForm] = useState<FormState>(() => toFormState(project));
-  const [submitting, setSubmitting] = useState(false);
-
-  const set = (key: keyof FormState) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => setForm((prev) => ({ ...prev, [key]: e.target.value }));
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (submitting || !form.name.trim()) return;
-    setSubmitting(true);
-    try {
-      await onSubmit(toUpdateInput(form));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <section className="space-y-6 rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm">
-      <h2 className="text-xl font-semibold text-slate-900">Edit project</h2>
-
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        {/* Identity */}
-        <Field label="Project name">
-          <input aria-label="Project name" className={INPUT} onChange={set("name")} required value={form.name} />
-        </Field>
-        <Field label="Goal">
-          <textarea aria-label="Goal" className={`${INPUT} min-h-20`} onChange={set("goal")} value={form.goal} />
-        </Field>
-        <Field label="Environment">
-          <input aria-label="Environment" className={INPUT} onChange={set("environment")} value={form.environment} />
-        </Field>
-        <Field label="Execution environments (one per line)">
-          <textarea aria-label="Execution environments" className={`${INPUT} min-h-20`} onChange={set("executionEnvironments")} value={form.executionEnvironments} />
-        </Field>
-
-        {/* Domain config */}
-        <Field label="Target database engine">
-          <select aria-label="Target database engine" className={INPUT} onChange={set("targetDbEngine")} value={form.targetDbEngine}>
-            <option value="">— none —</option>
-            <option value="mssql">mssql</option>
-            <option value="oracle">oracle</option>
-            <option value="postgresql">postgresql</option>
-            <option value="mysql">mysql</option>
-          </select>
-        </Field>
-        <Field label="Staging schema">
-          <input aria-label="Staging schema" className={INPUT} onChange={set("stagingSchema")} value={form.stagingSchema} />
-        </Field>
-        <label className="flex items-center gap-2 text-sm text-slate-700">
-          <input
-            checked={form.dryRun}
-            onChange={(e) => setForm((prev) => ({ ...prev, dryRun: e.target.checked }))}
-            type="checkbox"
-          />
-          Dry run
-        </label>
-        <Field label="Destination schema DDL">
-          <textarea aria-label="Destination schema DDL" className={`${INPUT} min-h-24 font-mono`} onChange={set("destinationSchemaDdl")} value={form.destinationSchemaDdl} />
-        </Field>
-        <Field label="Domain environments (one per line)">
-          <textarea aria-label="Domain environments" className={`${INPUT} min-h-20`} onChange={set("domainEnvironments")} value={form.domainEnvironments} />
-        </Field>
-        <Field label="Sample policy (JSON)">
-          <textarea aria-label="Sample policy" className={`${INPUT} min-h-20 font-mono`} onChange={set("samplePolicyJson")} value={form.samplePolicyJson} />
-        </Field>
-
-        {/* Arrays */}
-        <Field label="Constraints (one per line)">
-          <textarea aria-label="Constraints" className={`${INPUT} min-h-20`} onChange={set("constraints")} value={form.constraints} />
-        </Field>
-        <Field label="Unresolved questions (one per line)">
-          <textarea aria-label="Unresolved questions" className={`${INPUT} min-h-20`} onChange={set("unresolvedQuestions")} value={form.unresolvedQuestions} />
-        </Field>
-        <Field label="Assumptions (one per line)">
-          <textarea aria-label="Assumptions" className={`${INPUT} min-h-20`} onChange={set("assumptions")} value={form.assumptions} />
-        </Field>
-        <Field label="Canonical terms (one per line)">
-          <textarea aria-label="Canonical terms" className={`${INPUT} min-h-20`} onChange={set("canonicalTerms")} value={form.canonicalTerms} />
-        </Field>
-
-        {/* JSON blobs */}
-        <Field label="Repos (JSON array)">
-          <textarea aria-label="Repos" className={`${INPUT} min-h-20 font-mono`} onChange={set("reposJson")} value={form.reposJson} />
-        </Field>
-        <Field label="Workspace (JSON)">
-          <textarea aria-label="Workspace" className={`${INPUT} min-h-20 font-mono`} onChange={set("workspaceJson")} value={form.workspaceJson} />
-        </Field>
-        <Field label="Model policy (JSON)">
-          <textarea aria-label="Model policy" className={`${INPUT} min-h-20 font-mono`} onChange={set("modelPolicyJson")} value={form.modelPolicyJson} />
-        </Field>
-        <Field label="Lexicon scope (JSON)">
-          <textarea aria-label="Lexicon scope" className={`${INPUT} min-h-20 font-mono`} onChange={set("lexiconScopeJson")} value={form.lexiconScopeJson} />
-        </Field>
-
-        {errorMessage ? (
-          <p className="rounded-md border border-error/30 bg-error/10 px-3 py-2 text-sm text-error" role="alert">
-            {errorMessage}
-          </p>
-        ) : null}
-
-        <div className="flex items-center justify-end gap-3 pt-2">
-          <button
-            className="rounded-md border border-outline-variant px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-outline-variant"
-            onClick={onCancel}
-            type="button"
-          >
-            Cancel
-          </button>
-          <button
-            className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={!form.name.trim() || submitting}
-            type="submit"
-          >
-            {submitting ? "Saving…" : "Save changes"}
-          </button>
-        </div>
-      </form>
-    </section>
-  );
+  samplePolicy: SamplePolicy | null;
+  destinationSchemaDdl: string | null;
+  environments: string[] | null;
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
-
-```bash
-cd /Users/vjkotra/projects/katana/web
-npm test -- components/projects/__tests__/ProjectEditForm.test.tsx
-```
-
-Expected: all 7 tests PASS.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add web/components/projects/ProjectEditForm.tsx web/components/projects/__tests__/ProjectEditForm.test.tsx
-git commit -m "feat(001aw): add ProjectEditForm component"
-```
-
----
-
-## Task 2: Wire inline edit into the project detail page
-
-**Files:**
-- Modify: `web/app/projects/[id]/page.tsx`
-- Modify: `web/app/projects/[id]/page.test.tsx`
-
-**Interfaces:**
-- Consumes: `ProjectEditForm` (Task 1), `updateProject` from `projects-api` (already exists)
-- Produces: "Edit project" button visible when `role === "central_team"`; toggles to `ProjectEditForm`; save calls `updateProject` and returns to view mode
-
-- [ ] **Step 1: Write the failing tests**
-
-Add to `web/app/projects/[id]/page.test.tsx`:
-
-Add `updateUserMock` → `updateProjectMock` to the `vi.hoisted` block and extend the `projects-api` mock:
+In `ProjectDomainConfigInput`:
 
 ```ts
-const { loadUiSessionMock, getProjectMock, routerPushMock, updateProjectMock } = vi.hoisted(() => ({
-  loadUiSessionMock: vi.fn(),
-  getProjectMock: vi.fn(),
-  routerPushMock: vi.fn(),
-  updateProjectMock: vi.fn(),
-}));
+export interface ProjectDomainConfigInput {
+  targetDbEngine?: TargetDbEngine | null;
+  stagingSchema?: string | null;
+  destinationSchema?: string | null;
+  dryRun?: boolean;
+  samplePolicy?: SamplePolicy | null;
+  destinationSchemaDdl?: string | null;
+  environments?: string[] | null;
+}
 ```
 
-Update the `projects-api` mock to include `updateProject`:
+In `mapDomainConfig`, add the two new fields:
 
 ```ts
-vi.mock("../../../lib/projects-api", () => ({
-  getProject: getProjectMock,
-  updateProject: updateProjectMock,
-  projectErrorMessage: (e: unknown) => (e instanceof Error ? e.message : "Error"),
-}));
-```
-
-Add a mock for `ProjectEditForm` so page tests stay isolated from form internals:
-
-```ts
-const onSubmitCapture = vi.hoisted(() => ({ fn: null as null | ((body: unknown) => Promise<void>) }));
-
-vi.mock("../../../components/projects/ProjectEditForm", () => ({
-  ProjectEditForm: ({
-    onSubmit,
-    onCancel,
-    errorMessage,
-  }: {
-    onSubmit: (body: unknown) => Promise<void>;
-    onCancel: () => void;
-    errorMessage?: string;
-  }) => {
-    onSubmitCapture.fn = onSubmit;
-    return (
-      <div>
-        <span>Edit form</span>
-        {errorMessage ? <span role="alert">{errorMessage}</span> : null}
-        <button onClick={onCancel} type="button">Cancel edit</button>
-        <button onClick={() => void onSubmit({ name: "Updated" })} type="button">Save edit</button>
-      </div>
-    );
-  },
-}));
-```
-
-Add a `CENTRAL_TEAM_SESSION` constant and a new `describe` block:
-
-```ts
-const CENTRAL_TEAM_SESSION = {
-  accessToken: "tok-ct",
-  expiresAt: "2027-01-01T00:00:00Z",
-  role: "central_team" as const,
-  sessionVersion: 1,
-  userId: "user-ct",
+return {
+  targetDbEngine: config.target_db_engine ?? null,
+  stagingSchema: config.staging_schema ?? null,
+  destinationSchema: config.destination_schema ?? null,
+  dryRun: config.dry_run ?? false,
+  samplePolicy: config.sample_policy
+    ? {
+        strategy: config.sample_policy.strategy as SamplePolicyStrategy,
+        maxRows: config.sample_policy.max_rows ?? null,
+        stratifiedColumn: config.sample_policy.stratified_column ?? null,
+      }
+    : null,
+  destinationSchemaDdl: config.destination_schema_ddl ?? null,
+  environments: config.environments ?? null,
 };
 ```
 
-```ts
-describe("ProjectDetailPage — project edit", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    getProjectMock.mockResolvedValue(PROJECT);
-    updateProjectMock.mockResolvedValue({ ...PROJECT, name: "Updated" });
-  });
-
-  it("shows Edit project button for central_team", async () => {
-    loadUiSessionMock.mockReturnValue(CENTRAL_TEAM_SESSION);
-    await renderPage("proj-1");
-    expect(await screen.findByRole("button", { name: "Edit project" })).toBeInTheDocument();
-  });
-
-  it("does not show Edit project button for project_stakeholder", async () => {
-    loadUiSessionMock.mockReturnValue(SESSION);
-    await renderPage("proj-1");
-    await screen.findByText("Overview content");
-    expect(screen.queryByRole("button", { name: "Edit project" })).not.toBeInTheDocument();
-  });
-
-  it("shows the edit form when Edit project is clicked", async () => {
-    loadUiSessionMock.mockReturnValue(CENTRAL_TEAM_SESSION);
-    await renderPage("proj-1");
-    fireEvent.click(await screen.findByRole("button", { name: "Edit project" }));
-    expect(screen.getByText("Edit form")).toBeInTheDocument();
-  });
-
-  it("exits edit mode and refreshes project on successful save", async () => {
-    loadUiSessionMock.mockReturnValue(CENTRAL_TEAM_SESSION);
-    await renderPage("proj-1");
-    fireEvent.click(await screen.findByRole("button", { name: "Edit project" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save edit" }));
-    await waitFor(() => expect(updateProjectMock).toHaveBeenCalledWith("tok-ct", "proj-1", { name: "Updated" }));
-    await waitFor(() => expect(screen.queryByText("Edit form")).not.toBeInTheDocument());
-  });
-
-  it("shows save error in edit form on API failure", async () => {
-    loadUiSessionMock.mockReturnValue(CENTRAL_TEAM_SESSION);
-    updateProjectMock.mockRejectedValue(new Error("server error"));
-    await renderPage("proj-1");
-    fireEvent.click(await screen.findByRole("button", { name: "Edit project" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save edit" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("server error");
-    // form must stay open after failure
-    expect(screen.getByText("Edit form")).toBeInTheDocument();
-  });
-
-  it("exits edit mode when Cancel is clicked", async () => {
-    loadUiSessionMock.mockReturnValue(CENTRAL_TEAM_SESSION);
-    await renderPage("proj-1");
-    fireEvent.click(await screen.findByRole("button", { name: "Edit project" }));
-    fireEvent.click(screen.getByRole("button", { name: "Cancel edit" }));
-    await waitFor(() => expect(screen.queryByText("Edit form")).not.toBeInTheDocument());
-  });
-});
-```
-
-- [ ] **Step 2: Run to verify tests fail**
-
-```bash
-cd /Users/vjkotra/projects/katana/web
-npm test -- app/projects/\\[id\\]/page.test.tsx
-```
-
-Expected: FAIL — "Edit project" button not found.
-
-- [ ] **Step 3: Update `page.tsx`**
-
-Add imports at the top of `web/app/projects/[id]/page.tsx`:
+In `serializeDomainConfig`, add the two new fields:
 
 ```ts
-import { ProjectEditForm } from "../../../components/projects/ProjectEditForm";
-import { getProject, projectErrorMessage, updateProject, type ProjectRecord, type ProjectUpdateInput } from "../../../lib/projects-api";
+return {
+  target_db_engine: config.targetDbEngine,
+  staging_schema: config.stagingSchema,
+  destination_schema: config.destinationSchema,
+  dry_run: config.dryRun ?? false,
+  sample_policy: config.samplePolicy
+    ? {
+        strategy: config.samplePolicy.strategy,
+        max_rows: config.samplePolicy.maxRows,
+        stratified_column: config.samplePolicy.stratifiedColumn,
+      }
+    : null,
+  destination_schema_ddl: config.destinationSchemaDdl,
+  environments: config.environments,
+};
 ```
 
-(Replace the existing `projects-api` import line.)
+Also update the inline raw type annotation inside `mapDomainConfig` and `mapProjectRecord` to include `destination_schema` and the typed `sample_policy` shape.
 
-Add two new state variables alongside the existing state declarations:
+- [ ] **Step 5: Re-run the test and confirm it passes**
 
-```ts
-  const [isEditing, setIsEditing] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-```
-
-Add `handleProjectUpdate` before the `return`:
-
-```ts
-  const handleProjectUpdate = async (body: ProjectUpdateInput) => {
-    if (!session) return;
-    setSaveError(null);
-    try {
-      const updated = await updateProject(session.accessToken, id, body);
-      setProject(updated);
-      setIsEditing(false);
-    } catch (error) {
-      setSaveError(projectErrorMessage(error));
-    }
-  };
-```
-
-Replace the overview tab content (the `activeTab === "overview"` branch):
-
-```tsx
-          activeTab === "overview" ? (
-            <div className="space-y-4">
-              {isEditing ? (
-                <ProjectEditForm
-                  errorMessage={saveError ?? undefined}
-                  onCancel={() => { setIsEditing(false); setSaveError(null); }}
-                  onSubmit={handleProjectUpdate}
-                  project={project}
-                />
-              ) : (
-                <>
-                  {role === "central_team" ? (
-                    <div className="flex justify-end">
-                      <button
-                        className="rounded-md border border-outline-variant bg-surface-container px-3 py-2 text-sm font-medium text-slate-700 hover:bg-outline-variant"
-                        onClick={() => setIsEditing(true)}
-                        type="button"
-                      >
-                        Edit project
-                      </button>
-                    </div>
-                  ) : null}
-                  <ProjectDetailView project={project} />
-                </>
-              )}
-              <KnowledgeFreezePanel projectId={id} token={session.accessToken} />
-            </div>
-          )
-```
-
-- [ ] **Step 4: Run tests to verify they pass**
-
-```bash
-cd /Users/vjkotra/projects/katana/web
-npm test -- app/projects/\\[id\\]/page.test.tsx
-```
-
-Expected: all tests PASS including the existing SQL Bundle tests and the new edit tests.
-
-- [ ] **Step 5: Run the full web suite**
-
-```bash
-cd /Users/vjkotra/projects/katana/web
-npm test
-```
-
-Expected: all tests PASS with no regressions.
+Run: `cd engine && python -m pytest tests/test_project_crud_api.py::test_create_project_with_domain_config_extensions -v`
+Expected: passes; `destination_schema` and `sample_policy` structure round-trip correctly.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add web/app/projects/\[id\]/page.tsx web/app/projects/\[id\]/page.test.tsx
-git commit -m "feat(001aw): wire inline project edit into detail overview tab"
+git add engine/src/migrations_engine/api/schemas.py web/lib/projects-api.ts
+git commit -m "feat(001aw): add SamplePolicy model and destination_schema to domain config"
 ```
 
 ---
 
-## Verification
+### Task 1: Build the reusable edit form and edit route
 
-1. **Form unit tests:** `cd web && npm test -- components/projects/__tests__/ProjectEditForm.test.tsx`
-   Expected: 7 tests pass
+**Files:**
+- Create `web/components/projects/ProjectEditForm.tsx`
+- Create `web/app/projects/[id]/edit/page.tsx`
+- Create `web/components/projects/__tests__/ProjectEditForm.test.tsx`
+- Create `web/app/projects/[id]/edit/page.test.tsx`
 
-2. **Page integration tests:** `cd web && npm test -- app/projects/\\[id\\]/page.test.tsx`
-   Expected: all pass (existing SQL Bundle tests unaffected)
+**Interfaces:**
+- Consumes: `ProjectRecord`, `updateProject(token, id, body)`, `projectErrorMessage(error)`
+- Produces: a prefilled edit form and a submit handler that returns the updated project record
 
-3. **Full suite:** `cd web && npm test`
-   Expected: no regressions
+- [ ] **Step 1: Write the failing tests**
 
-4. **Browser smoke-check:**
-   - Log in as `central_team` → open any project → Overview tab → "Edit project" button visible
-   - Click "Edit project" → form appears with all fields pre-filled
-   - Edit name → Save → form closes, header reflects new name
-   - Log in as `project_stakeholder` → no "Edit project" button visible
+```tsx
+// web/components/projects/__tests__/ProjectEditForm.test.tsx
+it("prefills and submits the project update payload", async () => {
+  const onSubmit = vi.fn().mockResolvedValue(undefined);
 
-## Commit summary
+  render(<ProjectEditForm project={project} onSubmit={onSubmit} />);
 
+  expect(screen.getByDisplayValue("CRM Migration")).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Project name"), { target: { value: "CRM Migration v2" } });
+  fireEvent.submit(screen.getByRole("button", { name: "Save changes" }).closest("form") as HTMLFormElement);
+
+  await waitFor(() =>
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "CRM Migration v2",
+        goal: "Migrate all CRM data",
+        executionEnvironments: ["STG", "UAT", "PROD"],
+        domainConfig: expect.objectContaining({
+          stagingSchema: "stg",
+          destinationSchema: "dbo",
+          samplePolicy: expect.objectContaining({ strategy: "random" }),
+        }),
+      })
+    ));
+});
 ```
-feat(001aw): add ProjectEditForm component
-feat(001aw): wire inline project edit into detail overview tab
+
+```tsx
+// web/app/projects/[id]/edit/page.test.tsx
+it("loads the project and saves updates", async () => {
+  render(<ProjectEditPage params={Promise.resolve({ id: "proj-1" })} />);
+
+  expect(await screen.findByDisplayValue("CRM Migration")).toBeInTheDocument();
+  fireEvent.submit(screen.getByRole("button", { name: "Save changes" }).closest("form") as HTMLFormElement);
+
+  await waitFor(() => expect(updateProjectMock).toHaveBeenCalledWith("tok-1", "proj-1", expect.any(Object)));
+});
+```
+
+- [ ] **Step 2: Run the tests and confirm they fail for the expected reasons**
+
+Run:
+
+```bash
+cd web && npm test -- components/projects/__tests__/ProjectEditForm.test.tsx app/projects/[id]/edit/page.test.tsx
+```
+
+Expected:
+
+- There is no `ProjectEditForm` component yet.
+- There is no `/projects/[id]/edit` page yet.
+
+- [ ] **Step 3: Implement the reusable form and route**
+
+```tsx
+// web/components/projects/ProjectEditForm.tsx
+export interface ProjectEditFormProps {
+  project: ProjectRecord;
+  loading?: boolean;
+  errorMessage?: string;
+  onSubmit: (value: ProjectUpdateInput) => Promise<void> | void;
+}
+
+export function ProjectEditForm({ project, loading = false, errorMessage, onSubmit }: ProjectEditFormProps) {
+  // State: name, goal, executionEnvironments, targetDbEngine,
+  //        stagingSchema, destinationSchema, dryRun, destinationSchemaDdl,
+  //        sampleStrategy, sampleMaxRows, sampleStratifiedColumn
+  // Prefill from project and call onSubmit with the API payload.
+  // Sample policy section uses a visual divider heading before its fields.
+}
+```
+
+The form must include a **"Sample Policy" section divider** before the strategy/max-rows/stratified-column fields:
+
+```tsx
+{/* Section divider */}
+<div className="col-span-3 border-t border-outline-variant pt-4">
+  <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+    Sample Policy
+  </h3>
+  <p className="mt-1 text-xs text-slate-400">
+    Controls how many source rows are included in the approved source slice for AI analysis.
+  </p>
+</div>
+
+{/* Strategy picklist */}
+<div className="space-y-2">
+  <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+    Strategy
+  </label>
+  <select aria-label="Sample strategy" value={sampleStrategy} onChange={...}>
+    <option value="">None</option>
+    <option value="random">Random</option>
+    <option value="top_n">Top N</option>
+    <option value="full">Full</option>
+    <option value="stratified">Stratified</option>
+  </select>
+</div>
+
+{/* Max rows */}
+<div className="space-y-2">
+  <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+    Max rows
+  </label>
+  <input type="number" aria-label="Max rows" min={1} value={sampleMaxRows} onChange={...} />
+</div>
+
+{/* Stratified column — only when strategy === "stratified" */}
+{sampleStrategy === "stratified" && (
+  <div className="space-y-2">
+    <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+      Stratified column
+    </label>
+    <input type="text" aria-label="Stratified column" value={sampleStratifiedColumn} onChange={...} />
+  </div>
+)}
+```
+
+The submit payload constructs `samplePolicy` from the three fields:
+
+```ts
+domainConfig: {
+  targetDbEngine: targetDbEngine || null,
+  stagingSchema: normalizeOptionalText(stagingSchema),
+  destinationSchema: normalizeOptionalText(destinationSchema),
+  dryRun,
+  samplePolicy: sampleStrategy
+    ? {
+        strategy: sampleStrategy as SamplePolicyStrategy,
+        maxRows: sampleMaxRows ? parseInt(sampleMaxRows, 10) : null,
+        stratifiedColumn: sampleStrategy === "stratified"
+          ? normalizeOptionalText(sampleStratifiedColumn)
+          : null,
+      }
+    : null,
+  destinationSchemaDdl: normalizeOptionalText(destinationSchemaDdl),
+  environments: project.domainConfig?.environments ?? null,
+},
+```
+
+```tsx
+// web/app/projects/[id]/edit/page.tsx
+const session = useMemo(() => loadUiSession(), []);
+const [project, setProject] = useState<ProjectRecord | null>(null);
+const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+useEffect(() => {
+  if (!session) return;
+  void getProject(session.accessToken, id).then(setProject).catch((error) => {
+    setErrorMessage(projectErrorMessage(error));
+  });
+}, [id, session]);
+
+const handleSubmit = async (value: ProjectUpdateInput) => {
+  if (!session) return;
+  setErrorMessage(null);
+  try {
+    const next = await updateProject(session.accessToken, id, value);
+    router.push(`/projects/${next.projectId}`);
+  } catch (error) {
+    setErrorMessage(projectErrorMessage(error));
+  }
+};
+```
+
+Also update `ProjectDetailView` to show `destinationSchema` as a `KeyValue` alongside `stagingSchema`, and replace the `JSON.stringify(samplePolicy)` display with labelled readable values:
+
+```tsx
+<KeyValue label="Staging schema" value={domainConfig?.stagingSchema ?? "—"} />
+<KeyValue label="Destination schema" value={domainConfig?.destinationSchema ?? "—"} />
+...
+<KeyValue
+  label="Sample policy"
+  value={
+    domainConfig?.samplePolicy
+      ? `${domainConfig.samplePolicy.strategy}${domainConfig.samplePolicy.maxRows ? ` · ${domainConfig.samplePolicy.maxRows} rows` : ""}${domainConfig.samplePolicy.stratifiedColumn ? ` · by ${domainConfig.samplePolicy.stratifiedColumn}` : ""}`
+      : "—"
+  }
+/>
+```
+
+- [ ] **Step 4: Re-run the tests and confirm they pass**
+
+Run:
+
+```bash
+cd web && npm test -- components/projects/__tests__/ProjectEditForm.test.tsx app/projects/[id]/edit/page.test.tsx
+```
+
+Expected:
+
+- The edit form test passes with prefills and payload mapping.
+- The edit page test passes with load, submit, and navigation behavior.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add web/components/projects/ProjectEditForm.tsx web/app/projects/[id]/edit/page.tsx web/components/projects/__tests__/ProjectEditForm.test.tsx web/app/projects/[id]/edit/page.test.tsx
+git commit -m "feat: add reusable project edit form and route"
+```
+
+### Task 2: Expose the edit entry point from project detail
+
+**Files:**
+- Modify `web/app/projects/[id]/page.tsx`
+- Modify `web/app/projects/[id]/page.test.tsx`
+
+**Interfaces:**
+- Consumes: `session.role`, `useRouter`, the new edit route
+- Produces: a visible Edit action in the project detail header for central-team users
+
+- [ ] **Step 1: Write the failing tests**
+
+```tsx
+// web/app/projects/[id]/page.test.tsx
+it("shows an edit button for central team users", async () => {
+  await renderPage("proj-1");
+  expect(await screen.findByRole("link", { name: "Edit" })).toHaveAttribute("href", "/projects/proj-1/edit");
+});
+
+it("hides edit for read-only auditors", async () => {
+  loadUiSessionMock.mockReturnValue(AUDITOR_SESSION);
+  await renderPage("proj-1");
+  expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
+});
+```
+
+- [ ] **Step 2: Run the tests and confirm they fail for the expected reasons**
+
+Run:
+
+```bash
+cd web && npm test -- app/projects/[id]/page.test.tsx
+```
+
+Expected:
+
+- The detail page does not yet render an Edit action.
+
+- [ ] **Step 3: Implement the entry point**
+
+```tsx
+// web/app/projects/[id]/page.tsx
+<div className="flex items-center justify-between">
+  <button ...>Back to projects</button>
+  {role === "central_team" ? (
+    <Link
+      className="rounded-md border border-outline-variant bg-surface-container px-3 py-2 text-sm font-medium text-slate-700 hover:bg-outline-variant"
+      href={`/projects/${id}/edit`}
+    >
+      Edit
+    </Link>
+  ) : null}
+</div>
+```
+
+- [ ] **Step 4: Re-run the tests and confirm they pass**
+
+Run:
+
+```bash
+cd web && npm test -- app/projects/[id]/page.test.tsx
+```
+
+Expected:
+
+- The detail page shows Edit for central team users.
+- The link points to the edit route created in Task 1.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add web/app/projects/[id]/page.tsx web/app/projects/[id]/page.test.tsx
+git commit -m "feat: add project detail edit entry point"
 ```
