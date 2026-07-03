@@ -16,7 +16,6 @@
 
 | Task | Summary | Depends on |
 |---|---|---|
-| [001ag-delivery-bundle-tab](./001ag-delivery-bundle-tab.md) | Add SQL Bundle tab to project detail page navigating to codegen page | — |
 | [001aq-bundle-sequencing](./001aq-bundle-sequencing.md) | Lookup upsert SQL generator, trigger_fiber codegen, 0000/0001+ bundle ordering | 001ah, 001ak |
 
 ## Completed
@@ -25,6 +24,7 @@
 |---|---|
 | [001aa-reconciliation](./completed/001aa-reconciliation.md) | [summary](./summary/001aa-reconciliation.md) |
 | [001af-ui-compliance-gaps](./completed/001af-ui-compliance-gaps.md) | [summary](./summary/001af-ui-compliance-gaps.md) |
+| [001ag-delivery-bundle-tab](./completed/001ag-delivery-bundle-tab.md) | [summary](./summary/001ag-delivery-bundle-tab.md) |
 | [001ai-knowledge-freeze-history](./completed/001ai-knowledge-freeze-history.md) | [summary](./summary/001ai-knowledge-freeze-history.md) |
 | [001ap-lookup-delta-cr-review](./completed/001ap-lookup-delta-cr-review.md) | [summary](./summary/001ap-lookup-delta-cr-review.md) |
 | [001ar-dry-run-review](./completed/001ar-dry-run-review.md) | [summary](./summary/001ar-dry-run-review.md) |
