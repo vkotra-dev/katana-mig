@@ -902,6 +902,62 @@ Approve a generated lookup snapshot at the project level. Requires
 
 Response `200`: `LookupSnapshotResponse`
 
+## Dry-run review endpoints
+
+Dry-run review is project-scoped and run-scoped. The engine writes a
+`DryRunArtifact` for a run when the project is configured for dry-run mode.
+Central team operators can inspect the artifact, approve it to resume the run,
+or push it back with a comment.
+
+### `GET /projects/{project_id}/runs/{run_id}/dry-run`
+
+Return the dry-run artifact for one run. Any authenticated user with project
+access.
+
+Response `200`: `DryRunArtifactResponse`
+
+### `POST /projects/{project_id}/runs/{run_id}/dry-run/approve`
+
+Approve the dry-run artifact and resume the run. Requires `central_team`.
+
+Response `200`: `RunResponse`
+
+### `POST /projects/{project_id}/runs/{run_id}/dry-run/push-back`
+
+Push the dry-run back with a comment. Requires `central_team`.
+
+Request:
+
+```json
+{
+  "comment": "Row 142 maps RETD to the wrong destination."
+}
+```
+
+Response `200`: `RunResponse`
+
+### `DryRunArtifactResponse`
+
+```json
+{
+  "dry_run_artifact_id": "...",
+  "run_id": "...",
+  "project_id": "...",
+  "destination_object_name": "customers",
+  "success_count": 1840,
+  "failure_count": 2,
+  "field_coverage_pct": 94.3,
+  "pii_fields": [{"field": "SURNAME", "token": "EMAIL_XXXX"}],
+  "sample_rows": [{"source": {"CUST_ID": "100042"}, "mapped": {"customer_id": "100042"}}],
+  "failures": [{"row_index": 141, "reason": "unmapped_lookup", "field": "ACCT_TYPE", "value": "RETD"}],
+  "push_back_comment": null,
+  "status": "pending",
+  "created_at": "2026-07-01T10:00:00Z"
+}
+```
+
+`status` is one of `pending`, `approved`, or `pushed_back`.
+
 ## Change request endpoints
 
 Change requests are project-scoped review records. Lookup delta CRs are opened

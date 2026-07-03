@@ -590,6 +590,26 @@ class RunResponse(BaseModel):
     updated_at: datetime
 
 
+class DryRunArtifactResponse(BaseModel):
+    dry_run_artifact_id: str
+    run_id: str
+    project_id: str
+    destination_object_name: str
+    success_count: int
+    failure_count: int
+    field_coverage_pct: float | None
+    pii_fields: list[dict[str, Any]]
+    sample_rows: list[dict[str, Any]]
+    failures: list[dict[str, Any]]
+    push_back_comment: str | None
+    status: str
+    created_at: datetime
+
+
+class PushBackRequest(BaseModel):
+    comment: str = Field(min_length=1, max_length=2000)
+
+
 class RunCheckpointResponse(BaseModel):
     run_checkpoint_id: str
     run_id: str

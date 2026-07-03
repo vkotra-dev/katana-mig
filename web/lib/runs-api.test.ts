@@ -1,12 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  approveDryRun,
   createRun,
+  getDryRunArtifact,
   getRun,
   launchRun,
   listKnowledgeFreezes,
   listCheckpoints,
   listRuns,
+  pushBackDryRun,
   resumeRun,
+  type DryRunArtifactRecord,
   type KnowledgeFreezeRecord,
   type RunCheckpoint,
   type RunRecord,
@@ -84,6 +88,38 @@ const freezeRecord: KnowledgeFreezeRecord = {
   status: "completed",
   started_at: "2026-07-01T10:00:00Z",
   created_at: "2026-07-01T10:05:00Z",
+};
+
+const dryRunArtifactResponse = {
+  dry_run_artifact_id: "dra-1",
+  run_id: RUN_ID,
+  project_id: PROJECT_ID,
+  destination_object_name: "customers",
+  success_count: 1840,
+  failure_count: 2,
+  field_coverage_pct: 94.3,
+  pii_fields: [{ field: "SURNAME", token: "EMAIL_XXXX" }],
+  sample_rows: [{ source: { CUST_ID: "100042" }, mapped: { customer_id: "100042" } }],
+  failures: [{ row_index: 141, reason: "unmapped_lookup", field: "ACCT_TYPE", value: "RETD" }],
+  push_back_comment: null,
+  status: "pending",
+  created_at: "2026-07-01T00:00:00Z",
+};
+
+const dryRunArtifact: DryRunArtifactRecord = {
+  dryRunArtifactId: "dra-1",
+  runId: RUN_ID,
+  projectId: PROJECT_ID,
+  destinationObjectName: "customers",
+  successCount: 1840,
+  failureCount: 2,
+  fieldCoveragePct: 94.3,
+  piiFields: [{ field: "SURNAME", token: "EMAIL_XXXX" }],
+  sampleRows: [{ source: { CUST_ID: "100042" }, mapped: { customer_id: "100042" } }],
+  failures: [{ rowIndex: 141, reason: "unmapped_lookup", field: "ACCT_TYPE", value: "RETD" }],
+  pushBackComment: null,
+  status: "pending",
+  createdAt: "2026-07-01T00:00:00Z",
 };
 
 afterEach(() => {
@@ -224,5 +260,91 @@ describe("listCheckpoints", () => {
 
     const result = await listCheckpoints(TOKEN, PROJECT_ID, RUN_ID);
     expect(result).toEqual([checkpoint]);
+  });
+});
+
+describe("getDryRunArtifact", () => {
+  it("GETs /projects/{id}/runs/{run_id}/dry-run", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => dryRunArtifactResponse,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getDryRunArtifact(TOKEN, PROJECT_ID, RUN_ID);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${BASE}/projects/${PROJECT_ID}/runs/${RUN_ID}/dry-run`,
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          Authorization: `Bearer ${TOKEN}`,
+        }),
+      }),
+    );
+    expect(result).toEqual(dryRunArtifact);
+  });
+
+  it("throws RunApiError on 404", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: async () => ({ error: { code: "dry_run_artifact_not_found", message: "Not found." } }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getDryRunArtifact(TOKEN, PROJECT_ID, RUN_ID)).rejects.toMatchObject({
+      code: "dry_run_artifact_not_found",
+      status: 404,
+    });
+  });
+});
+
+describe("approveDryRun", () => {
+  it("POSTs to /dry-run/approve and returns RunRecord", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ...stub, status: "queued" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await approveDryRun(TOKEN, PROJECT_ID, RUN_ID);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${BASE}/projects/${PROJECT_ID}/runs/${RUN_ID}/dry-run/approve`,
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(result.status).toBe("queued");
+  });
+});
+
+describe("pushBackDryRun", () => {
+  it("POSTs to /dry-run/push-back with comment body", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ...stub, status: "dry_run_review" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await pushBackDryRun(TOKEN, PROJECT_ID, RUN_ID, "Row 142 is wrong.");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${BASE}/projects/${PROJECT_ID}/runs/${RUN_ID}/dry-run/push-back`,
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: `Bearer ${TOKEN}`,
+        }),
+      }),
+    );
+    const requestInit = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
+    const body = JSON.parse(String(requestInit?.body ?? "{}")) as {
+      comment: string;
+    };
+    expect(body.comment).toBe("Row 142 is wrong.");
+    expect(result.status).toBe("dry_run_review");
   });
 });

@@ -1,6 +1,13 @@
 import { API_BASE_URL } from "./api-base";
 
-export type RunStatus = "queued" | "running" | "paused" | "completed" | "failed" | "awaiting_approval";
+export type RunStatus =
+  | "queued"
+  | "running"
+  | "paused"
+  | "completed"
+  | "failed"
+  | "awaiting_approval"
+  | "dry_run_review";
 
 export interface RunRecord {
   run_id: string;
@@ -25,6 +32,39 @@ export interface RunRecord {
   last_checkpoint_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface DryRunFailure {
+  rowIndex: number;
+  reason: string;
+  field: string;
+  value: string;
+}
+
+export interface DryRunSampleRow {
+  source: Record<string, unknown>;
+  mapped: Record<string, unknown>;
+}
+
+export interface DryRunPiiField {
+  field: string;
+  token: string;
+}
+
+export interface DryRunArtifactRecord {
+  dryRunArtifactId: string;
+  runId: string;
+  projectId: string;
+  destinationObjectName: string;
+  successCount: number;
+  failureCount: number;
+  fieldCoveragePct: number | null;
+  piiFields: DryRunPiiField[];
+  sampleRows: DryRunSampleRow[];
+  failures: DryRunFailure[];
+  pushBackComment: string | null;
+  status: "pending" | "approved" | "pushed_back";
+  createdAt: string;
 }
 
 export interface KnowledgeFreezeRecord {
@@ -271,6 +311,85 @@ export async function listCheckpoints(token: string, projectId: string, runId: s
     { method: "GET", token },
   );
   return response.map(mapRunCheckpoint);
+}
+
+function mapDryRunFailure(raw: {
+  row_index: number;
+  reason: string;
+  field: string;
+  value: string;
+}): DryRunFailure {
+  return {
+    rowIndex: raw.row_index,
+    reason: raw.reason,
+    field: raw.field,
+    value: raw.value,
+  };
+}
+
+function mapDryRunArtifact(raw: {
+  dry_run_artifact_id: string;
+  run_id: string;
+  project_id: string;
+  destination_object_name: string;
+  success_count: number;
+  failure_count: number;
+  field_coverage_pct: number | null;
+  pii_fields: DryRunPiiField[];
+  sample_rows: DryRunSampleRow[];
+  failures: Array<{ row_index: number; reason: string; field: string; value: string }>;
+  push_back_comment: string | null;
+  status: "pending" | "approved" | "pushed_back";
+  created_at: string;
+}): DryRunArtifactRecord {
+  return {
+    dryRunArtifactId: raw.dry_run_artifact_id,
+    runId: raw.run_id,
+    projectId: raw.project_id,
+    destinationObjectName: raw.destination_object_name,
+    successCount: raw.success_count,
+    failureCount: raw.failure_count,
+    fieldCoveragePct: raw.field_coverage_pct,
+    piiFields: raw.pii_fields,
+    sampleRows: raw.sample_rows,
+    failures: raw.failures.map(mapDryRunFailure),
+    pushBackComment: raw.push_back_comment,
+    status: raw.status,
+    createdAt: raw.created_at,
+  };
+}
+
+export async function getDryRunArtifact(token: string, projectId: string, runId: string): Promise<DryRunArtifactRecord> {
+  const response = await requestJson<Parameters<typeof mapDryRunArtifact>[0]>(
+    `/projects/${projectId}/runs/${runId}/dry-run`,
+    { method: "GET", token },
+  );
+  return mapDryRunArtifact(response);
+}
+
+export async function approveDryRun(token: string, projectId: string, runId: string): Promise<RunRecord> {
+  const response = await requestJson<Parameters<typeof mapRunRecord>[0]>(
+    `/projects/${projectId}/runs/${runId}/dry-run/approve`,
+    { method: "POST", token },
+  );
+  return mapRunRecord(response);
+}
+
+export async function pushBackDryRun(
+  token: string,
+  projectId: string,
+  runId: string,
+  comment: string,
+): Promise<RunRecord> {
+  const response = await requestJson<Parameters<typeof mapRunRecord>[0]>(
+    `/projects/${projectId}/runs/${runId}/dry-run/push-back`,
+    {
+      method: "POST",
+      token,
+      body: JSON.stringify({ comment }),
+    },
+  );
+  return mapRunRecord(response);
 }
 
 export async function getImpactReport(

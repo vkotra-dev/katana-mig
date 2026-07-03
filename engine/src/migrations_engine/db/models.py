@@ -550,6 +550,30 @@ class ReconciliationLineageRow(Base):
     )
 
 
+class DryRunArtifact(Base):
+    __tablename__ = "dry_run_artifacts"
+
+    dry_run_artifact_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    run_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("run_records.run_id"), nullable=False, index=True
+    )
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("project_registry.project_id"), nullable=False
+    )
+    destination_object_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    success_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    failure_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    field_coverage_pct: Mapped[float | None] = mapped_column(Float)
+    pii_fields: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    sample_rows: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    failures: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    push_back_comment: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class ProjectSchemaAnalysis(Base):
     __tablename__ = "project_schema_analyses"
 
@@ -633,4 +657,3 @@ class Notification(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
     )
-

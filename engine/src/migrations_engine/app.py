@@ -17,6 +17,7 @@ from .routes.runs import router as runs_router
 from .routes.analysis import router as analysis_router
 from .routes.gates import router as gates_router
 from .routes.codegen import router as codegen_router
+from .routes.dry_run import router as dry_run_router
 from .routes.mapping import router as mapping_router
 from .routes.mapping_snapshots import router as mapping_snapshots_router
 from .routes.lookup import router as lookup_router
@@ -59,6 +60,7 @@ app.include_router(runs_project_router)
 app.include_router(analysis_router)
 app.include_router(gates_router)
 app.include_router(codegen_router)
+app.include_router(dry_run_router)
 app.include_router(mapping_router)
 app.include_router(mapping_snapshots_router)
 app.include_router(lookup_router)
