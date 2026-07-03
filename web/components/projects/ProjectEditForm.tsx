@@ -36,7 +36,10 @@ function parseSamplePolicy(value: string): Record<string, unknown> | null {
 
 function initialProjectResources(value: string | null | undefined): string {
   const trimmed = value?.trim();
-  return trimmed ? value : PROJECT_RESOURCES_TEMPLATE;
+  if (!trimmed) {
+    return PROJECT_RESOURCES_TEMPLATE;
+  }
+  return value ?? PROJECT_RESOURCES_TEMPLATE;
 }
 
 export function ProjectEditForm({
