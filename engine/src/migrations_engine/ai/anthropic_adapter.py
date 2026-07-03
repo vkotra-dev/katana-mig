@@ -8,6 +8,8 @@ from typing import Any, TypeVar
 from pydantic import BaseModel
 
 from .adapter import AICallError, ConfigurationError
+from .config import get_ai_config, resolve_model
+from ..api.schemas import ModelPolicy
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -46,12 +48,21 @@ class AnthropicAdapter:
     def model_id(self) -> str:
         return self._model_id
 
-    def call(self, system: str, user: str, response_model: type[T]) -> T:
+    def call(
+        self,
+        system: str,
+        user: str,
+        response_model: type[T],
+        *,
+        task: str | None = None,
+        model_policy: ModelPolicy | None = None,
+    ) -> T:
         schema = response_model.model_json_schema()
         prompt = f"{system}\n\nReturn valid JSON matching this schema:\n{schema}"
+        model_id = self._resolve_model(task=task, model_policy=model_policy)
         try:
             response = self._client.messages.create(
-                model=self._model_id,
+                model=model_id,
                 max_tokens=4096,
                 system=prompt,
                 messages=[{"role": "user", "content": user}],
@@ -62,6 +73,11 @@ class AnthropicAdapter:
         content = getattr(response, "content", None)
         text = _extract_text(content)
         return response_model.model_validate_json(text)
+
+    def _resolve_model(self, *, task: str | None, model_policy: ModelPolicy | None) -> str:
+        if task is None:
+            return self._model_id
+        return resolve_model(task, model_policy, get_ai_config())
 
 
 def _extract_text(content: Any) -> str:

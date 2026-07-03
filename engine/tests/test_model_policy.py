@@ -3,9 +3,16 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+from pydantic import BaseModel
 
 from migrations_engine.ai.config import AIConfig, MigrationModelConfig, PlatformModelConfig, ProviderConfig, resolve_model
+from migrations_engine.ai.anthropic_adapter import AnthropicAdapter
+from migrations_engine.ai.openai_adapter import OpenAIAdapter
 from migrations_engine.api.schemas import ModelPolicy, ProjectCreateRequest, ProjectResponse, ProjectUpdateRequest
+
+
+class DemoResponse(BaseModel):
+    value: str
 
 
 def _make_config() -> AIConfig:
@@ -134,3 +141,73 @@ def test_project_schema_model_policy_fields_use_the_typed_model() -> None:
     assert ProjectResponse.model_fields["model_policy"].annotation == expected
     assert ProjectCreateRequest.model_fields["model_policy"].annotation == expected
     assert ProjectUpdateRequest.model_fields["model_policy"].annotation == expected
+
+
+def test_openai_adapter_uses_project_override_for_task_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_response = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content='{"value":"ok"}'))]
+    )
+    calls: dict[str, str] = {}
+
+    class FakeCompletions:
+        def create(self, **kwargs: object) -> SimpleNamespace:
+            calls["model"] = str(kwargs["model"])
+            return fake_response
+
+    class FakeChat:
+        def __init__(self) -> None:
+            self.completions = FakeCompletions()
+
+    class FakeOpenAIClient:
+        def __init__(self, *, api_key: str) -> None:
+            calls["api_key"] = api_key
+            self.chat = FakeChat()
+
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-secret")
+    monkeypatch.setattr("migrations_engine.ai.openai_adapter.get_ai_config", lambda: _make_config())
+    monkeypatch.setattr("openai.OpenAI", FakeOpenAIClient)
+
+    adapter = OpenAIAdapter(model_id="global-script-generation", api_key_env="OPENAI_API_KEY")
+    result = adapter.call(
+        "system prompt",
+        "user prompt",
+        DemoResponse,
+        task="script_generation",
+        model_policy=ModelPolicy(script_generation="project-script-generation"),
+    )
+
+    assert result.value == "ok"
+    assert calls["api_key"] == "openai-secret"
+    assert calls["model"] == "project-script-generation"
+
+
+def test_anthropic_adapter_falls_back_to_global_model_for_task(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_response = SimpleNamespace(content=[SimpleNamespace(text='{"value":"ok"}')])
+    calls: dict[str, str] = {}
+
+    class FakeMessages:
+        def create(self, **kwargs: object) -> SimpleNamespace:
+            calls["model"] = str(kwargs["model"])
+            return fake_response
+
+    class FakeAnthropicClient:
+        def __init__(self, *, api_key: str) -> None:
+            calls["api_key"] = api_key
+            self.messages = FakeMessages()
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "anthropic-secret")
+    monkeypatch.setattr("migrations_engine.ai.anthropic_adapter.get_ai_config", lambda: _make_config())
+    monkeypatch.setattr("anthropic.Anthropic", FakeAnthropicClient)
+
+    adapter = AnthropicAdapter(model_id="global-field-mapping", api_key_env="ANTHROPIC_API_KEY")
+    result = adapter.call(
+        "system prompt",
+        "user prompt",
+        DemoResponse,
+        task="field_mapping",
+        model_policy=None,
+    )
+
+    assert result.value == "ok"
+    assert calls["api_key"] == "anthropic-secret"
+    assert calls["model"] == "global-field-mapping"
