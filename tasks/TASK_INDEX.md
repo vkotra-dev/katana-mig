@@ -7,7 +7,7 @@
 | [001al-lookup-fiber-ai-flow](./completed/001al-lookup-fiber-ai-flow.md) | [summary](./summary/001al-lookup-fiber-ai-flow.md) | 001ak |
 | [001am-mapping-fiber-ai-flow](./completed/001am-mapping-fiber-ai-flow.md) | [summary](./summary/001am-mapping-fiber-ai-flow.md) | 001ak |
 | [001au-notification-email-delivery](./completed/001au-notification-email-delivery.md) | [summary](./summary/001au-notification-email-delivery.md) | 001at |
-| [001ao-feed-comment](./001ao-feed-comment.md) | FeedComment model (0020), thread endpoint, notifications | 001ak |
+| [001ao-feed-comment](./completed/001ao-feed-comment.md) | [summary](./summary/001ao-feed-comment.md) | 001ak |
 | [001ai-knowledge-freeze-history](./001ai-knowledge-freeze-history.md) | Read-only freeze history panel in project detail Overview tab | — |
 | [001ap-lookup-delta-cr-review](./001ap-lookup-delta-cr-review.md) | List/get/resolve CR endpoints + review page (no new DB model) | 001ai |
 | [001ar-dry-run-review](./001ar-dry-run-review.md) | DryRunArtifact model, GET/approve/push-back routes, review screen | 001ak |

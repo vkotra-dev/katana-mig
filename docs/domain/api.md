@@ -679,6 +679,32 @@ Request:
 
 Response `200`: `SourceSliceResponse`
 
+## Feed comment endpoints
+
+Feed comments belong to a feed and are used for threaded operator/stakeholder
+discussion. Comments are project-scoped for access and feed-scoped for storage.
+
+### `GET /projects/{project_id}/feeds/{feed_id}/comments`
+
+List comments for one feed. Any authenticated user with access to the project.
+
+Response `200`: array of `FeedCommentResponse`
+
+### `POST /projects/{project_id}/feeds/{feed_id}/comments`
+
+Create a comment on one feed. Requires an authenticated non-auditor user with
+project access.
+
+Request:
+
+```json
+{
+  "body": "ACCT_TYPE value RETD should map to Retired."
+}
+```
+
+Response `201`: `FeedCommentResponse`
+
 ## Fiber endpoints
 
 Fibers are project-scoped records attached to a feed. They live under the feed

@@ -285,6 +285,20 @@ class FeedSliceRow(Base):
     )
 
 
+class FeedComment(Base):
+    __tablename__ = "feed_comments"
+
+    comment_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    feed_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("source_definitions.source_definition_id"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.user_id"), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 # Backward-compatible aliases while the rename propagates through tests and docs.
 SourceDefinition = Feed
 SourceContract = Feed
@@ -619,3 +633,4 @@ class Notification(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
     )
+

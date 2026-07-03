@@ -442,3 +442,62 @@ export async function triggerFiber(
   );
   return mapFiberResponse(response);
 }
+
+export interface FeedCommentRecord {
+  commentId: string;
+  feedId: string;
+  userId: string;
+  displayName: string | null;
+  role: string;
+  body: string;
+  createdAt: string;
+}
+
+function mapFeedCommentResponse(response: {
+  comment_id: string;
+  feed_id: string;
+  user_id: string;
+  display_name: string | null;
+  role: string;
+  body: string;
+  created_at: string;
+}): FeedCommentRecord {
+  return {
+    commentId: response.comment_id,
+    feedId: response.feed_id,
+    userId: response.user_id,
+    displayName: response.display_name,
+    role: response.role,
+    body: response.body,
+    createdAt: response.created_at,
+  };
+}
+
+export async function listFeedComments(
+  token: string,
+  projectId: string,
+  feedId: string,
+): Promise<FeedCommentRecord[]> {
+  const response = await requestJson<Array<Parameters<typeof mapFeedCommentResponse>[0]>>(
+    `/projects/${projectId}/feeds/${feedId}/comments`,
+    { method: "GET", token },
+  );
+  return response.map(mapFeedCommentResponse);
+}
+
+export async function createFeedComment(
+  token: string,
+  projectId: string,
+  feedId: string,
+  body: string,
+): Promise<FeedCommentRecord> {
+  const response = await requestJson<Parameters<typeof mapFeedCommentResponse>[0]>(
+    `/projects/${projectId}/feeds/${feedId}/comments`,
+    {
+      method: "POST",
+      token,
+      body: JSON.stringify({ body }),
+    },
+  );
+  return mapFeedCommentResponse(response);
+}

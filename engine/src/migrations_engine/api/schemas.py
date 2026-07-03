@@ -270,6 +270,22 @@ class NotificationMarkAllResponse(BaseModel):
     marked_count: int
 
 
+class FeedCommentCreateRequest(BaseModel):
+    body: str = Field(min_length=1)
+
+
+class FeedCommentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    comment_id: str
+    feed_id: str
+    user_id: str
+    display_name: str | None
+    role: str
+    body: str
+    created_at: datetime
+
+
 class FiberCreateRequest(BaseModel):
     fiber_type: Literal["lookup", "domain_object"]
     fiber_key: str = Field(min_length=1, max_length=255)
@@ -660,3 +676,19 @@ class ReconciliationExportResponse(BaseModel):
     overall_status: Literal["in_progress", "pass", "fail"]
     row_count_summary: RowCountSummary | None
     lineage_rows: list[LineageRowResponse]
+
+
+class FeedCommentCreateRequest(BaseModel):
+    body: str = Field(min_length=1)
+
+
+class FeedCommentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    comment_id: str
+    feed_id: str
+    user_id: str
+    display_name: str | None
+    role: str
+    body: str
+    created_at: datetime

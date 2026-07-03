@@ -29,6 +29,7 @@ const stubResponse = {
   created_at: "2026-06-30T00:00:00Z",
   updated_at: "2026-06-30T00:00:00Z",
   archived_at: null,
+  latest_run_summary: null,
 };
 
 const stub: ProjectRecord = {
@@ -57,6 +58,7 @@ const stub: ProjectRecord = {
   createdAt: "2026-06-30T00:00:00Z",
   updatedAt: "2026-06-30T00:00:00Z",
   archivedAt: null,
+  latestRunSummary: null,
 };
 
 afterEach(() => {

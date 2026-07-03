@@ -1,17 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   approveFiber,
+  createFeedComment,
   getFeedContract,
   getFiber,
   createFeedContract,
   assignFiber,
   listFeedContracts,
+  listFeedComments,
   listFeedValueSummaries,
   listFeedSlices,
   listFeedSchema,
   triggerFiber,
   uploadFeedCopybook,
   uploadFeedSlice,
+  type FeedCommentRecord,
   type FeedContractRecord,
   type FiberRecord,
   type FeedSliceRecord,
@@ -145,6 +148,26 @@ const fiberRecord: FiberRecord = {
   outputSql: null,
   createdAt: "2026-06-30T00:00:00Z",
   updatedAt: "2026-06-30T00:00:00Z",
+};
+
+const commentResponse = {
+  comment_id: "comment-1",
+  feed_id: "feed-1",
+  user_id: "user-1",
+  display_name: "Janet Smith",
+  role: "project_stakeholder",
+  body: "ACCT_TYPE value RETD should map to Retired.",
+  created_at: "2026-07-01T10:00:00Z",
+};
+
+const comment: FeedCommentRecord = {
+  commentId: "comment-1",
+  feedId: "feed-1",
+  userId: "user-1",
+  displayName: "Janet Smith",
+  role: "project_stakeholder",
+  body: "ACCT_TYPE value RETD should map to Retired.",
+  createdAt: "2026-07-01T10:00:00Z",
 };
 
 afterEach(() => {
@@ -362,5 +385,69 @@ describe("feeds-api", () => {
 
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({});
     expect(result.projectId).toBe("project-1");
+  });
+});
+
+describe("feeds-api comment helpers", () => {
+  it("listFeedComments fetches and maps comments", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [commentResponse],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await listFeedComments("token-1", "project-1", "feed-1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${BASE}/projects/project-1/feeds/feed-1/comments`,
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          Authorization: "Bearer token-1",
+        }),
+      }),
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject(comment);
+  });
+
+  it("createFeedComment posts body and returns mapped comment", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => commentResponse,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await createFeedComment(
+      "token-1",
+      "project-1",
+      "feed-1",
+      "ACCT_TYPE value RETD should map to Retired.",
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${BASE}/projects/project-1/feeds/feed-1/comments`,
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          body: "ACCT_TYPE value RETD should map to Retired.",
+        }),
+        headers: expect.objectContaining({
+          Authorization: "Bearer token-1",
+        }),
+      }),
+    );
+    expect(result).toMatchObject(comment);
+  });
+
+  it("listFeedComments throws FeedApiError on non-ok response", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: async () => ({ error: { code: "forbidden", message: "No access" } }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(listFeedComments("bad-token", "project-1", "feed-1")).rejects.toThrow("No access");
   });
 });
