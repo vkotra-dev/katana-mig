@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Topbar } from "../../../components/Topbar";
 import { ProjectNavigationTabs } from "../../../components/projects/ProjectNavigationTabs";
@@ -71,6 +72,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           >
             Back to projects
           </button>
+
+          {role === "central_team" ? (
+            <Link
+              className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white"
+              href={`/projects/${id}/edit`}
+            >
+              Edit
+            </Link>
+          ) : null}
         </div>
 
         <ProjectNavigationTabs

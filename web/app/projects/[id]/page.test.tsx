@@ -49,6 +49,14 @@ const SESSION = {
   userId: "user-1",
 };
 
+const CENTRAL_TEAM_SESSION = {
+  accessToken: "tok-3",
+  expiresAt: "2027-01-01T00:00:00Z",
+  role: "central_team" as const,
+  sessionVersion: 1,
+  userId: "user-3",
+};
+
 const AUDITOR_SESSION = {
   accessToken: "tok-2",
   expiresAt: "2027-01-01T00:00:00Z",
@@ -108,5 +116,17 @@ describe("ProjectDetailPage — SQL Bundle tab", () => {
     loadUiSessionMock.mockReturnValue(AUDITOR_SESSION);
     await renderPage("proj-1");
     expect(await screen.findByRole("button", { name: "SQL Bundle" })).toBeInTheDocument();
+  });
+
+  it("shows an edit link for central team users", async () => {
+    loadUiSessionMock.mockReturnValue(CENTRAL_TEAM_SESSION);
+    await renderPage("proj-1");
+    expect(await screen.findByRole("link", { name: "Edit" })).toHaveAttribute("href", "/projects/proj-1/edit");
+  });
+
+  it("hides edit for read-only auditors", async () => {
+    loadUiSessionMock.mockReturnValue(AUDITOR_SESSION);
+    await renderPage("proj-1");
+    expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
   });
 });

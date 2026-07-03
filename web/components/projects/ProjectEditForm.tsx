@@ -63,26 +63,30 @@ export function ProjectEditForm({
     className="space-y-5 rounded-2xl border border-outline-variant bg-surface-container p-8 shadow-sm"
     onSubmit={(event) => {
       event.preventDefault();
+
+      let parsedSamplePolicy: Record<string, unknown> | null;
       try {
-        const parsedSamplePolicy = parseSamplePolicy(samplePolicy);
-        setFormError(null);
-        void onSubmit({
-          name: name.trim(),
-          goal: normalizeOptionalText(goal),
-          environment: normalizeOptionalText(environment),
-          executionEnvironments: parseList(executionEnvironments),
-          domainConfig: {
-            targetDbEngine: targetDbEngine || null,
-            stagingSchema: normalizeOptionalText(stagingSchema),
-            dryRun,
-            samplePolicy: parsedSamplePolicy,
-            destinationSchemaDdl: normalizeOptionalText(destinationSchemaDdl),
-            environments: project.domainConfig?.environments ?? null,
-          },
-        });
+        parsedSamplePolicy = parseSamplePolicy(samplePolicy);
       } catch {
         setFormError("Sample policy must be valid JSON.");
+        return;
       }
+
+      setFormError(null);
+      void onSubmit({
+        name: name.trim(),
+        goal: normalizeOptionalText(goal),
+        environment: normalizeOptionalText(environment),
+        executionEnvironments: parseList(executionEnvironments),
+        domainConfig: {
+          targetDbEngine: targetDbEngine || null,
+          stagingSchema: normalizeOptionalText(stagingSchema),
+          dryRun,
+          samplePolicy: parsedSamplePolicy,
+          destinationSchemaDdl: normalizeOptionalText(destinationSchemaDdl),
+          environments: project.domainConfig?.environments ?? null,
+        },
+      });
     }}
   >
       <div className="space-y-2">

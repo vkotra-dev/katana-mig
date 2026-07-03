@@ -92,12 +92,7 @@ export default function ProjectEditPage({ params }: { params: Promise<{ id: stri
         <ProjectNavigationTabs
           activeTab="overview"
           mode="detail"
-          onTabChange={(tab) => {
-            if (tab === "sql-bundle") {
-              router.push(`/projects/${id}/codegen`);
-              return;
-            }
-
+          onTabChange={() => {
             router.push(`/projects/${id}`);
           }}
           projectId={id}
