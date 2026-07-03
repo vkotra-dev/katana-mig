@@ -738,6 +738,103 @@ Request body: `{ "comment": string | null }` or `{}`.
 
 Response `200`: `FiberResponse`
 
+### `POST /projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/lookup-inputs`
+
+Submit the lookup source values and destination reference CSV for a lookup
+fiber. Requires `central_team`.
+
+Request:
+
+```json
+{
+  "source_values": ["active", "inactive"],
+  "destination_lookup_csv": "code,label\nA,Active\nI,Inactive"
+}
+```
+
+| Field | Type | Required |
+|---|---|---|
+| `source_values` | array of strings | yes |
+| `destination_lookup_csv` | string | yes |
+
+Response `200`: `FiberResponse`
+
+### `GET /projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/source-entries`
+
+List the source lookup values recorded for one lookup fiber. Any authenticated
+user with access to the project.
+
+Response `200`: array of `LookupSourceEntryResponse`
+
+### `POST /projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/source-entries`
+
+Append source lookup values to one lookup fiber. Requires `central_team`.
+
+Request:
+
+```json
+{
+  "values": ["active", "inactive"],
+  "discovery_type": "sample"
+}
+```
+
+Response `201`: array of `LookupSourceEntryResponse`
+
+### `POST /projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/dest-feed`
+
+Create or replace the destination lookup feed for one lookup fiber. Requires
+`central_team`.
+
+Request:
+
+```json
+{
+  "columns": ["code", "label"],
+  "rows": [
+    {"code": "A", "label": "Active"},
+    {"code": "I", "label": "Inactive"}
+  ]
+}
+```
+
+Response `201`: `LookupDestFeedResponse`
+
+### `GET /projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/dest-feed/entries`
+
+List the destination rows recorded for one lookup fiber. Any authenticated user
+with access to the project.
+
+Response `200`: array of `LookupDestEntryResponse`
+
+### `GET /projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/mappings`
+
+List the lookup mappings for one lookup fiber. Any authenticated user with
+access to the project.
+
+Response `200`: array of `LookupMappingResponse`
+
+### `PATCH /projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/mappings/{mapping_id}`
+
+Update a proposed mapping after operator review. Requires a non-auditor user
+with project access.
+
+Request:
+
+```json
+{
+  "dest_entry_id": "1a2b3c4d-5e6f-7890-abcd-ef1234567890",
+  "status": "confirmed"
+}
+```
+
+| Field | Type | Required |
+|---|---|---|
+| `dest_entry_id` | string | yes |
+| `status` | `confirmed` or `overridden` | yes |
+
+Response `200`: `LookupMappingResponse`
+
 ## Lookup mapping endpoints
 
 Lookup drafts remain source-scoped because they are created from a specific
