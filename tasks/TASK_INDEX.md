@@ -8,6 +8,7 @@
 | [001ax-project-resources-field](./001ax-project-resources-field.md) | Replace unused environment field with project_resources CLOB and infra template |
 | [001aw-project-edit](./001aw-project-edit.md) | Add a project detail edit flow for project metadata (depends on 001ax) |
 | [001ay-project-resources-rich-editor](./001ay-project-resources-rich-editor.md) | Rich text editor (bold/bullets/center) for project resources field, 3-col form grid (depends on 001ax, 001aw) |
+| [001az-model-policy-overrides](./001az-model-policy-overrides.md) | Per-project AI model overrides with global fallback via resolve_model (depends on 001aw) |
 
 ## Completed
 
