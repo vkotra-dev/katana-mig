@@ -22,8 +22,9 @@
 ## Verification
 - `PYTHONPATH=engine/src python -m pytest engine/tests/test_model_policy.py engine/tests/test_ai_adapter.py -q`
 - `npm test -- lib/projects-api.test.ts components/projects/__tests__/ProjectEditForm.test.tsx components/projects/__tests__/CreateProjectDialog.test.tsx`
+- `python -m pytest tests/test_project_crud_api.py -q` against the local MySQL database
 
 ## Notes
 - The DB-backed `engine/tests/test_project_crud_api.py` integration suite could not
-  be rerun in this sandbox because the local MySQL endpoint was unavailable.
+  be rerun in the sandbox, but it passed out of sandbox after the persistence fix.
 - The task commit is `ffcf417` (`feat(001az): add per-project model policy overrides with global fallback`).

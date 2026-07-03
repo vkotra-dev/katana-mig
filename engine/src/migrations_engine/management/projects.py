@@ -34,7 +34,7 @@ def create_project(db: Session, *, actor: User, body: ProjectCreateRequest) -> P
         workspace=body.workspace,
         project_resources=body.project_resources,
         execution_environments=body.execution_environments,
-        model_policy=body.model_policy,
+        model_policy=_dump_model_policy(body.model_policy),
         canonical_terms=body.canonical_terms,
         constraints=body.constraints,
         unresolved_questions=body.unresolved_questions,
@@ -140,7 +140,7 @@ def update_project(
             else current_definition.execution_environments
         ),
         model_policy=(
-            body.model_policy
+            _dump_model_policy(body.model_policy)
             if "model_policy" in update_fields
             else current_definition.model_policy
         ),
@@ -210,6 +210,14 @@ def _dump_domain_config(domain_config: MigrationProjectConfig | None) -> dict[st
     if domain_config is None:
         return None
     return domain_config.model_dump(exclude_unset=True)
+
+
+def _dump_model_policy(model_policy: object | None) -> dict[str, object] | None:
+    if model_policy is None:
+        return None
+    if hasattr(model_policy, "model_dump"):
+        return model_policy.model_dump(exclude_none=True)
+    return model_policy  # type: ignore[return-value]
 
 
 def _merge_domain_config(
