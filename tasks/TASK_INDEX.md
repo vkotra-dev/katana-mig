@@ -10,7 +10,7 @@
 | [001ao-feed-comment](./completed/001ao-feed-comment.md) | [summary](./summary/001ao-feed-comment.md) | 001ak |
 | [001ai-knowledge-freeze-history](./completed/001ai-knowledge-freeze-history.md) | [summary](./summary/001ai-knowledge-freeze-history.md) | — |
 | [001ap-lookup-delta-cr-review](./completed/001ap-lookup-delta-cr-review.md) | [summary](./summary/001ap-lookup-delta-cr-review.md) | 001ai |
-| [001ar-dry-run-review](./001ar-dry-run-review.md) | DryRunArtifact model, GET/approve/push-back routes, review screen | 001ak |
+| [001ar-dry-run-review](./completed/001ar-dry-run-review.md) | [summary](./summary/001ar-dry-run-review.md) | 001ak |
 
 ## Later Phase
 
@@ -27,6 +27,7 @@
 | [001af-ui-compliance-gaps](./completed/001af-ui-compliance-gaps.md) | [summary](./summary/001af-ui-compliance-gaps.md) |
 | [001ai-knowledge-freeze-history](./completed/001ai-knowledge-freeze-history.md) | [summary](./summary/001ai-knowledge-freeze-history.md) |
 | [001ap-lookup-delta-cr-review](./completed/001ap-lookup-delta-cr-review.md) | [summary](./summary/001ap-lookup-delta-cr-review.md) |
+| [001ar-dry-run-review](./completed/001ar-dry-run-review.md) | [summary](./summary/001ar-dry-run-review.md) |
 | [001h-ui-portfolio-project-screens](./completed/001h-ui-portfolio-project-screens.md) | [summary](./summary/001h-ui-portfolio-project-screens.md) |
 | [001i-ui-template-foundation](./completed/001i-ui-template-foundation.md) | [summary](./summary/001i-ui-template-foundation.md) |
 | [001q-source-intake](./completed/001q-source-intake.md) | [summary](./summary/001q-source-intake.md) |
