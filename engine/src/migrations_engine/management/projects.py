@@ -136,7 +136,7 @@ def update_project(
         ),
         execution_environments=(
             body.execution_environments
-            if "execution_environments" in update_fields
+            if body.execution_environments is not None
             else current_definition.execution_environments
         ),
         model_policy=body.model_policy if body.model_policy is not None else current_definition.model_policy,

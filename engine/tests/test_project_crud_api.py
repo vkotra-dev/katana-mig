@@ -334,14 +334,12 @@ def test_update_can_clear_project_resources_and_lexicon_scope(admin_token: str) 
     assert body["lexicon_scope"] is None
 
     with SessionLocal() as db:
-        definition = db.scalar(
-            select(ProjectDefinition).where(ProjectDefinition.project_id == project["project_id"])
-        )
         registry = db.scalar(select(ProjectRegistry).where(ProjectRegistry.project_id == project["project_id"]))
-    assert definition is not None
-    assert definition.project_resources is None
-    assert registry is not None
-    assert registry.lexicon_scope is None
+        assert registry is not None
+        definition = db.get(ProjectDefinition, registry.definition_id)
+        assert definition is not None
+        assert definition.project_resources is None
+        assert registry.lexicon_scope is None
 
 
 def test_update_rejected_for_archived_project(admin_token: str) -> None:
