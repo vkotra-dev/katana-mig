@@ -3,9 +3,11 @@ import {
   createRun,
   getRun,
   launchRun,
+  listKnowledgeFreezes,
   listCheckpoints,
   listRuns,
   resumeRun,
+  type KnowledgeFreezeRecord,
   type RunCheckpoint,
   type RunRecord,
 } from "./runs-api";
@@ -74,6 +76,16 @@ const checkpoint: RunCheckpoint = {
   created_at: "2026-06-29T00:10:00Z",
 };
 
+const freezeRecord: KnowledgeFreezeRecord = {
+  run_id: RUN_ID,
+  knowledge_freeze_version: "cga-123",
+  destination_object_name: "Customer",
+  environment: "prod",
+  status: "completed",
+  started_at: "2026-07-01T10:00:00Z",
+  created_at: "2026-07-01T10:05:00Z",
+};
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -99,6 +111,30 @@ describe("listRuns", () => {
     );
     expect(result).toHaveLength(1);
     expect(result[0].run_id).toBe(RUN_ID);
+  });
+});
+
+describe("listKnowledgeFreezes", () => {
+  it("GETs /projects/{id}/knowledge-freezes", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [freezeRecord],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await listKnowledgeFreezes(TOKEN, PROJECT_ID);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${BASE}/projects/${PROJECT_ID}/knowledge-freezes`,
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          Authorization: `Bearer ${TOKEN}`,
+        }),
+      }),
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].knowledge_freeze_version).toBe("cga-123");
   });
 });
 

@@ -119,6 +119,31 @@ def list_runs_for_project(db: Session, *, project_id: str) -> list[dict[str, Any
     return [_serialize_run(run, last_checkpoint_at=_latest_checkpoint_timestamp(db, run_id=run.run_id)) for run in runs]
 
 
+def list_knowledge_freezes(db: Session, *, project_id: str) -> list[dict[str, Any]]:
+    runs = list(
+        db.scalars(
+            select(RunRecord)
+            .where(RunRecord.project_id == project_id, RunRecord.knowledge_freeze_version.is_not(None))
+            .order_by(RunRecord.created_at.desc(), RunRecord.updated_at.desc())
+        )
+    )
+    result: list[dict[str, Any]] = []
+    for run in runs:
+        serialized = _serialize_run(run, last_checkpoint_at=_latest_checkpoint_timestamp(db, run_id=run.run_id))
+        result.append(
+            {
+                "run_id": serialized["run_id"],
+                "knowledge_freeze_version": serialized["knowledge_freeze_version"],
+                "destination_object_name": serialized["destination_object_name"],
+                "environment": serialized["environment"],
+                "status": serialized["status"],
+                "started_at": serialized["started_at"],
+                "created_at": serialized["created_at"],
+            }
+        )
+    return result
+
+
 def get_run(db: Session, *, project_id: str, run_id: str) -> dict[str, Any]:
     run = _require_run(db, run_id=run_id, project_id=project_id)
     return _serialize_run(run, last_checkpoint_at=_latest_checkpoint_timestamp(db, run_id=run.run_id))

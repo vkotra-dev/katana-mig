@@ -603,6 +603,16 @@ class RunCheckpointResponse(BaseModel):
     created_at: datetime
 
 
+class KnowledgeFreezeRecord(BaseModel):
+    run_id: str
+    knowledge_freeze_version: str
+    destination_object_name: str
+    environment: str | None
+    status: str
+    started_at: datetime | None
+    created_at: datetime
+
+
 class ReconciliationCheckResult(BaseModel):
     check_name: str
     status: Literal["pass", "fail"]

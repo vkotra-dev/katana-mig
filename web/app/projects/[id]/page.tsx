@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Topbar } from "../../../components/Topbar";
+import { KnowledgeFreezePanel } from "../../../components/projects/KnowledgeFreezePanel";
 import { ProjectDetailView } from "../../../components/projects/ProjectDetailView";
 import { SourceArtifactsPanel } from "../../../components/projects/SourceArtifactsPanel";
 import { SourceList } from "../../../components/projects/SourceList";
@@ -116,7 +117,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           </div>
         ) : project && session ? (
           activeTab === "overview" ? (
-            <ProjectDetailView project={project} />
+            <div className="space-y-4">
+              <ProjectDetailView project={project} />
+              <KnowledgeFreezePanel projectId={id} token={session.accessToken} />
+            </div>
           ) : activeTab === "sources" ? (
             <SourceList
               projectId={id}

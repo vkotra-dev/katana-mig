@@ -27,6 +27,16 @@ export interface RunRecord {
   updated_at: string;
 }
 
+export interface KnowledgeFreezeRecord {
+  run_id: string;
+  knowledge_freeze_version: string;
+  destination_object_name: string;
+  environment: string | null;
+  status: string;
+  started_at: string | null;
+  created_at: string;
+}
+
 export interface RunCheckpoint {
   checkpoint_id: string;
   run_id: string;
@@ -172,12 +182,35 @@ function mapRunCheckpoint(record: {
   };
 }
 
+function mapKnowledgeFreezeRecord(record: {
+  run_id: string;
+  knowledge_freeze_version: string;
+  destination_object_name: string;
+  environment: string | null;
+  status: string;
+  started_at: string | null;
+  created_at: string;
+}): KnowledgeFreezeRecord {
+  return record;
+}
+
 export async function listRuns(token: string, projectId: string): Promise<RunRecord[]> {
   const response = await requestJson<Array<Parameters<typeof mapRunRecord>[0]>>(
     `/projects/${projectId}/runs`,
     { method: "GET", token },
   );
   return response.map(mapRunRecord);
+}
+
+export async function listKnowledgeFreezes(
+  token: string,
+  projectId: string,
+): Promise<KnowledgeFreezeRecord[]> {
+  const response = await requestJson<Array<Parameters<typeof mapKnowledgeFreezeRecord>[0]>>(
+    `/projects/${projectId}/knowledge-freezes`,
+    { method: "GET", token },
+  );
+  return response.map(mapKnowledgeFreezeRecord);
 }
 
 export async function getRun(token: string, projectId: string, runId: string): Promise<RunRecord> {

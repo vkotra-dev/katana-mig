@@ -4,15 +4,23 @@ from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError, get_central_team_user, get_current_user, get_db
-from ..api.schemas import RunCheckpointResponse, RunCreateRequest, RunResponse
+from ..api.schemas import KnowledgeFreezeRecord, RunCheckpointResponse, RunCreateRequest, RunResponse
 from ..db.models import RunRecord, User
-from ..execution.engine import execute_run, get_run, list_run_checkpoints, list_runs_for_project, pause_run
+from ..execution.engine import (
+    execute_run,
+    get_run,
+    list_knowledge_freezes,
+    list_run_checkpoints,
+    list_runs_for_project,
+    pause_run,
+)
 from ..management.access import require_project_access
 from ..management.platform import record_management_audit
 from ..db.models import Feed, new_id
 from sqlalchemy import select
 
 router = APIRouter(prefix="/projects/{project_id}/runs", tags=["runs"])
+project_router = APIRouter(prefix="/projects/{project_id}", tags=["runs"])
 
 
 @router.post("", response_model=RunResponse, status_code=status.HTTP_201_CREATED)
@@ -63,6 +71,16 @@ def get_runs(
 ) -> list[RunResponse]:
     require_project_access(db, user=actor, project_id=project_id)
     return [RunResponse.model_validate(item) for item in list_runs_for_project(db, project_id=project_id)]
+
+
+@project_router.get("/knowledge-freezes", response_model=list[KnowledgeFreezeRecord])
+def get_knowledge_freezes(
+    project_id: str,
+    actor: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[KnowledgeFreezeRecord]:
+    require_project_access(db, user=actor, project_id=project_id)
+    return [KnowledgeFreezeRecord.model_validate(item) for item in list_knowledge_freezes(db, project_id=project_id)]
 
 
 @router.get("/{run_id}", response_model=RunResponse)

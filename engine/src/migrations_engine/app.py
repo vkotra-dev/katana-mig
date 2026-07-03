@@ -11,6 +11,7 @@ from .api.deps import AuthApiError
 from .config import get_settings
 from .routes.auth import router as auth_router
 from .routes.projects import router as projects_router
+from .routes.runs import project_router as runs_project_router
 from .routes.runs import router as runs_router
 from .routes.analysis import router as analysis_router
 from .routes.gates import router as gates_router
@@ -52,6 +53,7 @@ app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(projects_router)
 app.include_router(runs_router)
+app.include_router(runs_project_router)
 app.include_router(analysis_router)
 app.include_router(gates_router)
 app.include_router(codegen_router)
