@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from typing import Any
+
 from .adapter import AIAdapter, ConfigurationError
 from .anthropic_adapter import AnthropicAdapter
-from .config import get_ai_config
+from .config import get_ai_config, resolve_model
+from ..api.schemas import ModelPolicy
 from .openai_adapter import OpenAIAdapter
 
 
@@ -21,12 +24,21 @@ _SLOT_MAP = {
 }
 
 
-def get_adapter(task: str) -> AIAdapter:
+def _coerce_model_policy(model_policy: ModelPolicy | dict[str, Any] | None) -> ModelPolicy | None:
+    if model_policy is None:
+        return None
+    if isinstance(model_policy, ModelPolicy):
+        return model_policy
+    return ModelPolicy.model_validate(model_policy)
+
+
+def get_adapter(task: str, model_policy: ModelPolicy | dict[str, Any] | None = None) -> AIAdapter:
     config = get_ai_config()
     if task not in _SLOT_MAP:
         raise ConfigurationError(f"Unknown AI task: {task}")
 
-    model_id = _SLOT_MAP[task](config)
+    policy = _coerce_model_policy(model_policy)
+    model_id = resolve_model(task, policy, config)
     if model_id.startswith("claude-") or model_id.startswith("anthropic/"):
         return AnthropicAdapter(model_id=model_id, api_key_env=config.providers.anthropic_api_key_env)
     if model_id.startswith("gpt-") or model_id.startswith("o1-"):

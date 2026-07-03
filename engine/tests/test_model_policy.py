@@ -6,6 +6,7 @@ import pytest
 from pydantic import BaseModel
 
 from migrations_engine.ai.config import AIConfig, MigrationModelConfig, PlatformModelConfig, ProviderConfig, resolve_model
+from migrations_engine.ai.factory import get_adapter
 from migrations_engine.ai.anthropic_adapter import AnthropicAdapter
 from migrations_engine.ai.openai_adapter import OpenAIAdapter
 from migrations_engine.api.schemas import ModelPolicy, ProjectCreateRequest, ProjectResponse, ProjectUpdateRequest
@@ -211,3 +212,12 @@ def test_anthropic_adapter_falls_back_to_global_model_for_task(monkeypatch: pyte
     assert result.value == "ok"
     assert calls["api_key"] == "anthropic-secret"
     assert calls["model"] == "global-field-mapping"
+
+
+def test_get_adapter_uses_project_override_for_task_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-secret")
+    monkeypatch.setattr("migrations_engine.ai.factory.get_ai_config", lambda: _make_config())
+
+    adapter = get_adapter("script_generation", ModelPolicy(script_generation="gpt-4.1"))
+
+    assert adapter.model_id == "gpt-4.1"

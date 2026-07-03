@@ -4,6 +4,7 @@ import {
   createProject,
   getProject,
   listProjects,
+  updateProject,
   type ProjectRecord,
 } from "./projects-api";
 import { PROJECT_RESOURCES_TEMPLATE } from "../components/projects/projectResourcesTemplate";
@@ -18,7 +19,10 @@ const projectResponse = {
   workspace: null,
   project_resources: PROJECT_RESOURCES_TEMPLATE,
   execution_environments: ["STG", "PROD"],
-  model_policy: null,
+  model_policy: {
+    field_mapping: "claude-opus-4-8",
+    planning: "gpt-5",
+  },
   canonical_terms: null,
   constraints: ["GDPR"],
   unresolved_questions: null,
@@ -101,8 +105,21 @@ describe("listProjects", () => {
         }),
       }),
     );
-    expect(result[0].projectId).toBe("project-1");
-    expect(result[0].projectResources).toBe(PROJECT_RESOURCES_TEMPLATE);
+  expect(result[0].projectId).toBe("project-1");
+  expect(result[0].projectResources).toBe(PROJECT_RESOURCES_TEMPLATE);
+    expect(result[0].modelPolicy).toEqual({
+      fieldMapping: "claude-opus-4-8",
+      planning: "gpt-5",
+      piiReview: null,
+      lookupMapping: null,
+      scriptGeneration: null,
+      scriptCorrection: null,
+      schemaDependency: null,
+      impactAnalysis: null,
+      feedAnalysis: null,
+      review: null,
+      implementation: null,
+    });
   });
 
   it("adds include_archived when requested", async () => {
@@ -170,6 +187,10 @@ describe("createProject", () => {
       name: "Alpha Migration",
       goal: "Migrate CRM",
       projectResources: PROJECT_RESOURCES_TEMPLATE,
+      modelPolicy: {
+        fieldMapping: "claude-opus-4-8",
+        review: "gpt-4.1",
+      },
       domainConfig: {
         targetDbEngine: "mssql",
         stagingSchema: "stg",
@@ -206,8 +227,42 @@ describe("createProject", () => {
         destination_schema_ddl: "create table crm(id int);",
         environments: ["dev", "prod"],
       },
+      model_policy: {
+        field_mapping: "claude-opus-4-8",
+        review: "gpt-4.1",
+      },
     });
     expect(result.projectId).toBe("project-1");
+  });
+});
+
+describe("updateProject", () => {
+  it("sends explicit null to clear model policy overrides", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => projectResponse,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await updateProject("token-1", "project-1", {
+      name: "Alpha Migration",
+      modelPolicy: null,
+      domainConfig: {
+        targetDbEngine: "mssql",
+        stagingSchema: "stg",
+        dryRun: false,
+        samplePolicy: null,
+        destinationSchemaDdl: "create table crm(id int);",
+        environments: ["dev", "prod"],
+      },
+    });
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual(
+      expect.objectContaining({
+        model_policy: null,
+      }),
+    );
   });
 });
 

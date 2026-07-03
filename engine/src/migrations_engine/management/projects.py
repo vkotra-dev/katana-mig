@@ -139,7 +139,11 @@ def update_project(
             if body.execution_environments is not None
             else current_definition.execution_environments
         ),
-        model_policy=body.model_policy if body.model_policy is not None else current_definition.model_policy,
+        model_policy=(
+            body.model_policy
+            if "model_policy" in update_fields
+            else current_definition.model_policy
+        ),
         canonical_terms=body.canonical_terms if body.canonical_terms is not None else current_definition.canonical_terms,
         constraints=body.constraints if body.constraints is not None else current_definition.constraints,
         unresolved_questions=(

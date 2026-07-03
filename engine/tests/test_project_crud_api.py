@@ -317,6 +317,10 @@ def test_update_can_clear_project_resources_and_lexicon_scope(admin_token: str) 
             "name": "Clearable",
             "project_resources": "DEV notes",
             "lexicon_scope": "domain vocabulary",
+            "model_policy": {
+                "field_mapping": "claude-opus-4-8",
+                "planning": "gpt-5",
+            },
         },
     )
 
@@ -326,6 +330,7 @@ def test_update_can_clear_project_resources_and_lexicon_scope(admin_token: str) 
         json={
             "project_resources": None,
             "lexicon_scope": None,
+            "model_policy": None,
         },
     )
     assert response.status_code == 200, response.text
@@ -340,6 +345,7 @@ def test_update_can_clear_project_resources_and_lexicon_scope(admin_token: str) 
         assert definition is not None
         assert definition.project_resources is None
         assert registry.lexicon_scope is None
+        assert definition.model_policy is None
 
 
 def test_update_rejected_for_archived_project(admin_token: str) -> None:

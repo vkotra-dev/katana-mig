@@ -88,7 +88,7 @@ def generate_codegen_artifact(
         mapping_snapshot=mapping_snapshot,
     )
 
-    adapter = get_adapter("script_generation")
+    adapter = get_adapter("script_generation", project_definition.model_policy)
     generated_sql = adapter.call(
         system=_build_system_prompt(project_config=project_config, destination_object_name=destination_object_name),
         user=_build_user_prompt(

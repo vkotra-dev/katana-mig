@@ -21,6 +21,8 @@ from ..db.models import (
     SourceSchemaArtifact,
     FeedSlice,
     FeedSliceRow,
+    ProjectDefinition,
+    ProjectRegistry,
     SourceValueSummary,
     User,
 )
@@ -57,6 +59,7 @@ def analyze_source_slice(
     source_definition_id: str,
 ) -> SourceAnalysisResponse:
     source_definition = _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
+    project_definition = _get_project_definition(db, project_id=project_id)
     source_slice = _latest_approved_source_slice(db, source_definition_id=source_definition_id)
     existing_artifact = db.scalar(
         select(SourceSchemaArtifact).where(
@@ -73,7 +76,7 @@ def analyze_source_slice(
 
     if get_adapter is None:
         raise AuthApiError("ai_adapter_unavailable", "AI adapter dependency is unavailable.", 503)
-    adapter = get_adapter("field_mapping")
+    adapter = get_adapter("field_mapping", project_definition.model_policy)
     analysis_result = adapter.call(system_prompt, sample_text, AnalysisResult)
 
     schema_artifact = SourceSchemaArtifact(
@@ -152,6 +155,17 @@ def _get_source_definition(db: Session, *, project_id: str, source_definition_id
     if source_definition is None or source_definition.project_id != project_id:
         raise AuthApiError("source_not_found", "Source contract not found.", 404)
     return source_definition
+
+
+def _get_project_definition(db: Session, *, project_id: str) -> ProjectDefinition:
+    registry = db.get(ProjectRegistry, project_id)
+    if registry is None:
+        raise AuthApiError("project_not_found", "Project not found.", 404)
+
+    project_definition = db.get(ProjectDefinition, registry.definition_id)
+    if project_definition is None:
+        raise AuthApiError("project_not_found", "Project not found.", 404)
+    return project_definition
 
 
 def _latest_approved_source_slice(db: Session, *, source_definition_id: str) -> FeedSlice:

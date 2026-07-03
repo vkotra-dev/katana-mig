@@ -27,6 +27,34 @@ export interface ProjectDomainConfigInput {
   environments?: string[] | null;
 }
 
+export interface ModelPolicy {
+  piiReview?: string | null;
+  fieldMapping?: string | null;
+  lookupMapping?: string | null;
+  scriptGeneration?: string | null;
+  scriptCorrection?: string | null;
+  schemaDependency?: string | null;
+  impactAnalysis?: string | null;
+  feedAnalysis?: string | null;
+  planning?: string | null;
+  review?: string | null;
+  implementation?: string | null;
+}
+
+type RawModelPolicy = {
+  pii_review?: string | null;
+  field_mapping?: string | null;
+  lookup_mapping?: string | null;
+  script_generation?: string | null;
+  script_correction?: string | null;
+  schema_dependency?: string | null;
+  impact_analysis?: string | null;
+  feed_analysis?: string | null;
+  planning?: string | null;
+  review?: string | null;
+  implementation?: string | null;
+};
+
 export interface ProjectRecord {
   projectId: string;
   name: string;
@@ -35,7 +63,7 @@ export interface ProjectRecord {
   workspace: Record<string, unknown> | null;
   projectResources?: string | null;
   executionEnvironments: string[] | null;
-  modelPolicy: Record<string, unknown> | null;
+  modelPolicy: ModelPolicy | null;
   canonicalTerms: string[] | null;
   constraints: string[] | null;
   unresolvedQuestions: string[] | null;
@@ -56,7 +84,7 @@ export interface ProjectCreateInput {
   workspace?: Record<string, unknown> | null;
   projectResources?: string | null;
   executionEnvironments?: string[] | null;
-  modelPolicy?: Record<string, unknown> | null;
+  modelPolicy?: ModelPolicy | null;
   canonicalTerms?: string[] | null;
   constraints?: string[] | null;
   unresolvedQuestions?: string[] | null;
@@ -148,6 +176,78 @@ function mapDomainConfig(config: {
   };
 }
 
+function mapModelPolicy(policy: RawModelPolicy | null): ModelPolicy | null {
+  if (!policy) {
+    return null;
+  }
+
+  return {
+    piiReview: policy.pii_review ?? null,
+    fieldMapping: policy.field_mapping ?? null,
+    lookupMapping: policy.lookup_mapping ?? null,
+    scriptGeneration: policy.script_generation ?? null,
+    scriptCorrection: policy.script_correction ?? null,
+    schemaDependency: policy.schema_dependency ?? null,
+    impactAnalysis: policy.impact_analysis ?? null,
+    feedAnalysis: policy.feed_analysis ?? null,
+    planning: policy.planning ?? null,
+    review: policy.review ?? null,
+    implementation: policy.implementation ?? null,
+  };
+}
+
+function serializeModelPolicy(policy: ModelPolicy | null | undefined):
+  | {
+      pii_review?: string | null;
+      field_mapping?: string | null;
+      lookup_mapping?: string | null;
+      script_generation?: string | null;
+      script_correction?: string | null;
+      schema_dependency?: string | null;
+      impact_analysis?: string | null;
+      feed_analysis?: string | null;
+      planning?: string | null;
+    review?: string | null;
+    implementation?: string | null;
+  }
+  | null
+  | undefined {
+  if (policy === null) {
+    return null;
+  }
+  if (!policy) {
+    return undefined;
+  }
+
+  const serialized: {
+    pii_review?: string;
+    field_mapping?: string;
+    lookup_mapping?: string;
+    script_generation?: string;
+    script_correction?: string;
+    schema_dependency?: string;
+    impact_analysis?: string;
+    feed_analysis?: string;
+    planning?: string;
+    review?: string;
+    implementation?: string;
+  } = {};
+
+  if (policy.piiReview) serialized.pii_review = policy.piiReview;
+  if (policy.fieldMapping) serialized.field_mapping = policy.fieldMapping;
+  if (policy.lookupMapping) serialized.lookup_mapping = policy.lookupMapping;
+  if (policy.scriptGeneration) serialized.script_generation = policy.scriptGeneration;
+  if (policy.scriptCorrection) serialized.script_correction = policy.scriptCorrection;
+  if (policy.schemaDependency) serialized.schema_dependency = policy.schemaDependency;
+  if (policy.impactAnalysis) serialized.impact_analysis = policy.impactAnalysis;
+  if (policy.feedAnalysis) serialized.feed_analysis = policy.feedAnalysis;
+  if (policy.planning) serialized.planning = policy.planning;
+  if (policy.review) serialized.review = policy.review;
+  if (policy.implementation) serialized.implementation = policy.implementation;
+
+  return Object.keys(serialized).length > 0 ? serialized : null;
+}
+
 function serializeDomainConfig(config: ProjectDomainConfigInput | null | undefined):
   | {
       target_db_engine?: TargetDbEngine | null;
@@ -213,7 +313,7 @@ function mapProjectRecord(record: {
     workspace: record.workspace,
     projectResources: record.project_resources ?? null,
     executionEnvironments: record.execution_environments,
-    modelPolicy: record.model_policy,
+    modelPolicy: mapModelPolicy(record.model_policy as RawModelPolicy | null),
     canonicalTerms: record.canonical_terms,
     constraints: record.constraints,
     unresolvedQuestions: record.unresolved_questions,
@@ -243,7 +343,7 @@ function toProjectPayload(input: ProjectCreateInput | ProjectUpdateInput): Recor
     workspace: input.workspace,
     project_resources: input.projectResources,
     execution_environments: input.executionEnvironments,
-    model_policy: input.modelPolicy,
+    model_policy: serializeModelPolicy(input.modelPolicy),
     canonical_terms: input.canonicalTerms,
     constraints: input.constraints,
     unresolved_questions: input.unresolvedQuestions,

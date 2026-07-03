@@ -169,6 +169,17 @@ def _latest_source_columns(
     return [column.name for column in artifact.columns]
 
 
+def _get_project_definition(db: Session, *, project_id: str) -> ProjectDefinition:
+    registry = db.get(ProjectRegistry, project_id)
+    if registry is None:
+        raise AuthApiError("project_not_found", "Project not found.", 404)
+
+    project_definition = db.get(ProjectDefinition, registry.definition_id)
+    if project_definition is None:
+        raise AuthApiError("project_not_found", "Project not found.", 404)
+    return project_definition
+
+
 def propose_mapping(
     db: Session,
     *,
@@ -185,7 +196,8 @@ def propose_mapping(
         project_id=project_id,
         source_definition_id=source_definition_id,
     )
-    adapter = get_adapter("field_mapping")
+    project_definition = _get_project_definition(db, project_id=project_id)
+    adapter = get_adapter("field_mapping", project_definition.model_policy)
     proposal = adapter.call(
         (
             "You are a data migration specialist. Given source column names and destination "

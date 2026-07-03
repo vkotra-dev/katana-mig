@@ -15,7 +15,7 @@ from ..api.schemas import (
     ImpactReportResponse,
     RunResponse,
 )
-from ..db.models import MappingSnapshot, RunRecord
+from ..db.models import MappingSnapshot, ProjectDefinition, ProjectRegistry, RunRecord
 from ..management.platform import record_management_audit
 
 
@@ -89,11 +89,12 @@ def _compute_replay_scope(
 
 def _call_impact_ai(
     *,
+    model_policy: dict[str, Any] | None,
     required_changes: str,
     affected_objects: list[str],
     field_bindings: list[dict[str, Any]],
 ) -> _ImpactAnalysisAIResponse:
-    adapter = get_adapter("impact_analysis")
+    adapter = get_adapter("impact_analysis", model_policy)
     system = (
         "You are a data migration expert. Analyse the Gate 1 pushback and produce a structured "
         "remediation recommendation. Return JSON matching the schema exactly."
@@ -141,6 +142,7 @@ def _run_to_response(run: RunRecord) -> RunResponse:
 
 def get_impact_report(db: Session, *, project_id: str, run_id: str) -> ImpactReportResponse:
     run = _get_run_or_404(db, project_id=project_id, run_id=run_id)
+    project_definition = _get_project_definition(db, project_id=project_id)
     rejection = _find_gate1_rejection(run)
     if rejection is None:
         raise AuthApiError("gate_1_not_rejected", "Gate 1 has not been rejected for this run.", 404)
@@ -164,6 +166,7 @@ def get_impact_report(db: Session, *, project_id: str, run_id: str) -> ImpactRep
         affected_objects=affected_objects,
     )
     ai_result = _call_impact_ai(
+        model_policy=project_definition.model_policy,
         required_changes=required_changes,
         affected_objects=affected_objects,
         field_bindings=field_bindings,
@@ -203,3 +206,14 @@ def acknowledge_impact(db: Session, *, project_id: str, run_id: str, actor_user_
     db.commit()
     db.refresh(run)
     return _run_to_response(run)
+
+
+def _get_project_definition(db: Session, *, project_id: str) -> ProjectDefinition:
+    registry = db.get(ProjectRegistry, project_id)
+    if registry is None:
+        raise AuthApiError("project_not_found", "Project not found.", 404)
+
+    project_definition = db.get(ProjectDefinition, registry.definition_id)
+    if project_definition is None:
+        raise AuthApiError("project_not_found", "Project not found.", 404)
+    return project_definition

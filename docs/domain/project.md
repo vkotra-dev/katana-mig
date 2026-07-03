@@ -76,6 +76,10 @@ Relevant fields:
 - `domain_config`
 - `status`
 
+`model_policy` stores the per-project AI model override set used by the engine
+adapter layer. Each field is optional; a null value falls back to the global
+`engine.yaml` model for that task.
+
 For migration workloads, `domain_config` carries the frozen
 `MigrationProjectConfig`. The known fields are:
 
@@ -139,6 +143,13 @@ Relevant fields:
 
 The registry record does not replace the frozen project definition. It points to
 it.
+
+## Model policy
+
+Project-level AI execution may override the default model selected for a task.
+The override set is stored on `ProjectDefinition.model_policy` as a structured
+`ModelPolicy` object. Downstream AI stages consult this policy first and use the
+global model from `engine.yaml` only when the project leaves a field null.
 
 ## What a project owns
 

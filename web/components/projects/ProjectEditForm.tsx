@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import type { ProjectRecord, ProjectUpdateInput, TargetDbEngine } from "../../lib/projects-api";
+import type {
+  ModelPolicy,
+  ProjectRecord,
+  ProjectUpdateInput,
+  TargetDbEngine,
+} from "../../lib/projects-api";
 import { ProjectResourcesEditor } from "./ProjectResourcesEditor";
 
 export interface ProjectEditFormProps {
@@ -34,6 +39,51 @@ function parseSamplePolicy(value: string): Record<string, unknown> | null {
   return JSON.parse(trimmed) as Record<string, unknown>;
 }
 
+const MODEL_POLICY_FIELDS = [
+  { key: "fieldMapping", label: "Field mapping model" },
+  { key: "scriptGeneration", label: "Script generation model" },
+  { key: "scriptCorrection", label: "Script correction model" },
+  { key: "lookupMapping", label: "Lookup mapping model" },
+  { key: "piiReview", label: "PII review model" },
+  { key: "impactAnalysis", label: "Impact analysis model" },
+  { key: "schemaDependency", label: "Schema dependency model" },
+  { key: "feedAnalysis", label: "Feed analysis model" },
+  { key: "planning", label: "Planning model" },
+  { key: "review", label: "Review model" },
+  { key: "implementation", label: "Implementation model" },
+] as const satisfies ReadonlyArray<{ key: keyof ModelPolicy; label: string }>;
+
+function initializeModelPolicyDraft(policy: ModelPolicy | null | undefined): Record<keyof ModelPolicy, string> {
+  return {
+    piiReview: policy?.piiReview ?? "",
+    fieldMapping: policy?.fieldMapping ?? "",
+    lookupMapping: policy?.lookupMapping ?? "",
+    scriptGeneration: policy?.scriptGeneration ?? "",
+    scriptCorrection: policy?.scriptCorrection ?? "",
+    schemaDependency: policy?.schemaDependency ?? "",
+    impactAnalysis: policy?.impactAnalysis ?? "",
+    feedAnalysis: policy?.feedAnalysis ?? "",
+    planning: policy?.planning ?? "",
+    review: policy?.review ?? "",
+    implementation: policy?.implementation ?? "",
+  };
+}
+
+function buildModelPolicyPayload(draft: Record<keyof ModelPolicy, string>): ModelPolicy | null {
+  const entries = MODEL_POLICY_FIELDS.map(({ key }) => [key, draft[key].trim()] as const).filter(
+    ([, value]) => value.length > 0,
+  );
+
+  if (entries.length === 0) {
+    return null;
+  }
+
+  return entries.reduce<ModelPolicy>((acc, [key, value]) => {
+    acc[key] = value;
+    return acc;
+  }, {});
+}
+
 export function ProjectEditForm({
   project,
   loading = false,
@@ -43,6 +93,7 @@ export function ProjectEditForm({
   const [name, setName] = useState(project.name);
   const [goal, setGoal] = useState(project.goal ?? "");
   const [projectResources, setProjectResources] = useState(project.projectResources ?? "");
+  const [modelPolicy, setModelPolicy] = useState(() => initializeModelPolicyDraft(project.modelPolicy));
   const [executionEnvironments, setExecutionEnvironments] = useState(
     project.executionEnvironments?.join(", ") ?? "",
   );
@@ -74,11 +125,13 @@ export function ProjectEditForm({
         }
 
         setFormError(null);
+        const nextModelPolicy = buildModelPolicyPayload(modelPolicy);
         void onSubmit({
           name: name.trim(),
           goal: normalizeOptionalText(goal),
           projectResources: normalizeOptionalText(projectResources),
           executionEnvironments: parseList(executionEnvironments),
+          modelPolicy: nextModelPolicy,
           domainConfig: {
             targetDbEngine: targetDbEngine || null,
             stagingSchema: normalizeOptionalText(stagingSchema),
@@ -194,6 +247,31 @@ export function ProjectEditForm({
             value={samplePolicy}
           />
         </div>
+
+        <div className="space-y-2 lg:col-span-3">
+          <div className="border-t border-outline-variant pt-4">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Model Policy</h3>
+            <p className="mt-1 text-xs text-slate-400">
+              Override the AI model used for a task. Leave blank to use the global default.
+            </p>
+          </div>
+        </div>
+
+        {MODEL_POLICY_FIELDS.map(({ key, label }) => (
+          <div className="space-y-2" key={key}>
+            <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+              {label}
+            </label>
+            <input
+              aria-label={label}
+              className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
+              onChange={(event) => setModelPolicy((current) => ({ ...current, [key]: event.target.value }))}
+              placeholder="Global default"
+              type="text"
+              value={modelPolicy[key]}
+            />
+          </div>
+        ))}
 
         <div className="space-y-2 lg:col-span-3">
           <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Project Resources</label>

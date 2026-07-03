@@ -322,7 +322,7 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
         )
 
     source_headers = _parse_header_csv(approved_slice.header_csv)
-    feed_analysis_adapter = get_adapter("feed_analysis")
+    feed_analysis_adapter = get_adapter("feed_analysis", project_definition.model_policy)
     feed_analysis_result = feed_analysis_adapter.call(
         _FEED_ANALYSIS_SYSTEM,
         json.dumps(
@@ -366,7 +366,7 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
     db.flush()
 
     for fiber in domain_fibers:
-        field_mapping_adapter = get_adapter("field_mapping")
+        field_mapping_adapter = get_adapter("field_mapping", project_definition.model_policy)
         field_mapping_result = field_mapping_adapter.call(
             _FIELD_MAPPING_SYSTEM,
             json.dumps(
@@ -429,7 +429,7 @@ def submit_lookup_inputs(
     fiber.status = "inputs_ready"
     db.flush()
 
-    adapter = get_adapter("lookup_mapping")
+    adapter = get_adapter("lookup_mapping", project_definition.model_policy)
     ai_result = adapter.call(
         _LOOKUP_MAPPING_SYSTEM_PROMPT,
         json.dumps(
