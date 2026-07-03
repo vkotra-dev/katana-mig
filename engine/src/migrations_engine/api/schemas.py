@@ -113,6 +113,20 @@ class LatestRunSummary(BaseModel):
     stage_entered_at: datetime
 
 
+class ModelPolicy(BaseModel):
+    pii_review: str | None = None
+    field_mapping: str | None = None
+    lookup_mapping: str | None = None
+    script_generation: str | None = None
+    script_correction: str | None = None
+    schema_dependency: str | None = None
+    impact_analysis: str | None = None
+    feed_analysis: str | None = None
+    planning: str | None = None
+    review: str | None = None
+    implementation: str | None = None
+
+
 class MigrationProjectConfig(BaseModel):
     target_db_engine: TargetDbEngine | None = None
     staging_schema: str | None = None
@@ -130,7 +144,7 @@ class ProjectResponse(BaseModel):
     workspace: dict[str, Any] | None
     project_resources: str | None
     execution_environments: list[str] | None
-    model_policy: dict[str, Any] | None
+    model_policy: ModelPolicy | None
     canonical_terms: list[str] | None
     constraints: list[str] | None
     unresolved_questions: list[str] | None
@@ -151,7 +165,7 @@ class ProjectCreateRequest(BaseModel):
     workspace: dict[str, Any] | None = None
     project_resources: str | None = None
     execution_environments: list[str] | None = None
-    model_policy: dict[str, Any] | None = None
+    model_policy: ModelPolicy | None = None
     canonical_terms: list[str] | None = None
     constraints: list[str] | None = None
     unresolved_questions: list[str] | None = None
@@ -167,7 +181,7 @@ class ProjectUpdateRequest(BaseModel):
     workspace: dict[str, Any] | None = None
     project_resources: str | None = None
     execution_environments: list[str] | None = None
-    model_policy: dict[str, Any] | None = None
+    model_policy: ModelPolicy | None = None
     canonical_terms: list[str] | None = None
     constraints: list[str] | None = None
     unresolved_questions: list[str] | None = None

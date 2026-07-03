@@ -10,6 +10,7 @@ from typing import Any, cast
 import yaml
 
 from .adapter import ConfigurationError
+from ..api.schemas import ModelPolicy
 
 
 _ENV_PATTERN = re.compile(r"^\$\{([A-Z0-9_]+)\}$")
@@ -45,6 +46,21 @@ class AIConfig:
     models: PlatformModelConfig
     migration_models: MigrationModelConfig
     providers: ProviderConfig
+
+
+_TASK_TO_MODEL_ATTR = {
+    "planning": ("models", "planning"),
+    "review": ("models", "review"),
+    "implementation": ("models", "implementation"),
+    "pii_review": ("migration_models", "pii_review"),
+    "field_mapping": ("migration_models", "field_mapping"),
+    "lookup_mapping": ("migration_models", "lookup_mapping"),
+    "script_generation": ("migration_models", "script_generation"),
+    "script_correction": ("migration_models", "script_correction"),
+    "schema_dependency": ("migration_models", "schema_dependency"),
+    "impact_analysis": ("migration_models", "impact_analysis"),
+    "feed_analysis": ("migration_models", "feed_analysis"),
+}
 
 
 def _resolve_config_path(config_path: Path | str | None = None) -> Path:
@@ -147,6 +163,20 @@ def _require_str(raw: dict[str, Any], key: str, path: str) -> str:
     if not isinstance(value, str) or not value:
         raise ConfigurationError(f"AI config is missing required string: {path}")
     return value
+
+
+def resolve_model(task: str, policy: ModelPolicy | None, config: AIConfig) -> str:
+    try:
+        slot, attr = _TASK_TO_MODEL_ATTR[task]
+    except KeyError as exc:
+        raise ValueError(f"Unknown AI task: {task}") from exc
+
+    if policy is not None:
+        override = getattr(policy, task)
+        if override is not None:
+            return override
+
+    return getattr(getattr(config, slot), attr)
 
 
 @lru_cache(maxsize=1)
