@@ -2,7 +2,9 @@
 
 ## Ready
 
-No ready tasks.
+| Task | Summary |
+|---|---|
+| [001av-admin-user-edit-delete-controls](./001av-admin-user-edit-delete-controls.md) | Add edit access and enable delete in admin user management |
 
 ## Completed
 
