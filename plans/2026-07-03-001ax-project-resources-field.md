@@ -71,7 +71,11 @@ Notes:
 - Modify: `engine/tests/test_project_crud_api.py`
 
 **Interfaces:**
-- Produces: `ProjectDefinition.project_resources: str | None`, `ProjectCreateRequest.project_resources: str | None = None`, `ProjectUpdateRequest.project_resources: str | None = None`
+- Produces:
+  - `ProjectRecord.project_resources: str | None` — free-text infra notes
+  - `ProjectRecord.lexicon_scope: str | None` — free-text domain vocabulary (was JSON)
+  - `ProjectCreateRequest.project_resources: str | None = None`
+  - `ProjectCreateRequest.lexicon_scope: str | None = None`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -102,7 +106,7 @@ Expected: failures because `project_resources` field does not exist yet and `env
 Create `engine/migrations/versions/0022_project_resources.py`:
 
 ```python
-"""project_resources field
+"""project_resources and lexicon_scope fields
 
 Revision ID: 0022
 Revises: 0021
@@ -119,10 +123,18 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Drop the unused singular environment string
     op.drop_column("project_records", "environment")
+    # Add free-text infra notes column
     op.add_column(
         "project_records",
         sa.Column("project_resources", sa.Text(), nullable=True),
+    )
+    # Change lexicon_scope from JSON to Text
+    op.drop_column("project_records", "lexicon_scope")
+    op.add_column(
+        "project_records",
+        sa.Column("lexicon_scope", sa.Text(), nullable=True),
     )
 
 
@@ -131,6 +143,11 @@ def downgrade() -> None:
     op.add_column(
         "project_records",
         sa.Column("environment", sa.String(length=64), nullable=True),
+    )
+    op.drop_column("project_records", "lexicon_scope")
+    op.add_column(
+        "project_records",
+        sa.Column("lexicon_scope", sa.JSON(), nullable=True),
     )
 ```
 
@@ -147,36 +164,37 @@ With:
 project_resources: Mapped[str | None] = mapped_column(Text)
 ```
 
-Add `Text` to the SQLAlchemy imports if not already present.
+Replace:
+```python
+lexicon_scope: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+```
+With:
+```python
+lexicon_scope: Mapped[str | None] = mapped_column(Text)
+```
+
+Add `Text` to the SQLAlchemy imports if not already present. Remove `Any` from typing imports if it becomes unused.
 
 Do NOT touch `RunRecord.environment` or `RunCheckpoint.current_environment`.
 
 - [ ] **Step 5: Update Pydantic schemas**
 
-In `engine/src/migrations_engine/api/schemas.py`:
+In `engine/src/migrations_engine/api/schemas.py`, update `ProjectResponse`, `ProjectCreateRequest`, and `ProjectUpdateRequest`:
 
-In `ProjectDefinition`:
 ```python
-# Replace:
+# In ProjectResponse — replace:
 environment: str | None
+lexicon_scope: dict[str, Any] | None
 # With:
 project_resources: str | None
-```
+lexicon_scope: str | None
 
-In `ProjectCreateRequest`:
-```python
-# Replace:
+# In ProjectCreateRequest and ProjectUpdateRequest — replace:
 environment: str | None = None
+lexicon_scope: dict[str, Any] | None = None
 # With:
 project_resources: str | None = None
-```
-
-In `ProjectUpdateRequest`:
-```python
-# Replace:
-environment: str | None = None
-# With:
-project_resources: str | None = None
+lexicon_scope: str | None = None
 ```
 
 - [ ] **Step 6: Update CRUD passthrough**

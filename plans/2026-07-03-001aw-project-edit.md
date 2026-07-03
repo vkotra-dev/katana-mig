@@ -399,6 +399,26 @@ The form must include a **"Sample Policy" section divider** before the strategy/
 )}
 ```
 
+Add a `lexiconScope` textarea after `assumptions` and before the Sample Policy section:
+
+```tsx
+<div className="col-span-3 space-y-2">
+  <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+    Lexicon
+  </label>
+  <p className="text-xs text-slate-400">
+    Domain vocabulary, business term definitions, and abbreviation expansions used by the AI during mapping.
+  </p>
+  <textarea
+    aria-label="Lexicon"
+    className="min-h-24 w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
+    name="lexiconScope"
+    onChange={(event) => setLexiconScope(event.target.value)}
+    value={lexiconScope}
+  />
+</div>
+```
+
 The submit payload constructs `samplePolicy` from the three fields:
 
 ```ts
