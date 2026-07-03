@@ -9,7 +9,7 @@ from sqlalchemy import select
 from migrations_engine.app import app
 from migrations_engine.auth.passwords import hash_password
 from migrations_engine.config import get_settings
-from migrations_engine.db.models import AuthSession, ProjectDefinition, ProjectMembership, User
+from migrations_engine.db.models import AuditEvent, AuthSession, Notification, ProjectDefinition, ProjectMembership, User
 from migrations_engine.db.session import SessionLocal
 from migrations_engine.roles import PROJECT_STAKEHOLDER_ROLE, READ_ONLY_AUDITOR_ROLE
 
@@ -55,6 +55,10 @@ def _make_user(role: str) -> tuple[str, str, str]:
 
 def _cleanup_user(user_id: str) -> None:
     with SessionLocal() as db:
+        for row in db.scalars(select(AuditEvent).where(AuditEvent.actor_user_id == user_id)):
+            db.delete(row)
+        for row in db.scalars(select(Notification).where(Notification.user_id == user_id)):
+            db.delete(row)
         for row in db.scalars(select(AuthSession).where(AuthSession.user_id == user_id)):
             db.delete(row)
         for row in db.scalars(select(ProjectMembership).where(ProjectMembership.user_id == user_id)):
@@ -101,8 +105,8 @@ def test_create_full_domain_config_roundtrips(admin_token: str) -> None:
         "assumptions": ["Replica stable"],
         "unresolved_questions": ["PII present?"],
         "canonical_terms": ["customer_id"],
-        "lexicon_scope": {"domain": "finance"},
-        "environment": "STG",
+        "project_resources": "== PROD ==\nHost/IP: 10.0.0.1\nPort: 5432",
+        "lexicon_scope": "finance domain vocabulary",
         "domain_config": {
             "target_db_engine": "mssql",
             "staging_schema": "stg",
@@ -117,10 +121,12 @@ def test_create_full_domain_config_roundtrips(admin_token: str) -> None:
     assert project["name"] == "Full Project"
     assert project["status"] == "active"
     assert project["execution_environments"] == ["STG", "UAT", "PROD"]
-    assert project["lexicon_scope"] == {"domain": "finance"}
+    assert project["project_resources"] == "== PROD ==\nHost/IP: 10.0.0.1\nPort: 5432"
+    assert project["lexicon_scope"] == "finance domain vocabulary"
     assert project["domain_config"]["target_db_engine"] == "mssql"
     assert project["domain_config"]["destination_schema_ddl"] == "CREATE TABLE t (id INT);"
     assert project["domain_config"]["environments"] == ["dev", "uat", "prod"]
+    assert "environment" not in project
 
     with SessionLocal() as db:
         definition = db.scalar(
@@ -232,6 +238,8 @@ def test_get_project_returns_definition_and_registry_fields(admin_token: str) ->
             "name": "Readable",
             "constraints": ["GDPR"],
             "execution_environments": ["PROD"],
+            "project_resources": "Prod resources",
+            "lexicon_scope": "readable lexicon scope",
             "domain_config": {
                 "target_db_engine": "postgresql",
                 "destination_schema_ddl": "create table x(id int);",
@@ -246,7 +254,10 @@ def test_get_project_returns_definition_and_registry_fields(admin_token: str) ->
     body = response.json()
     assert body["constraints"] == ["GDPR"]
     assert body["execution_environments"] == ["PROD"]
+    assert body["project_resources"] == "Prod resources"
+    assert body["lexicon_scope"] == "readable lexicon scope"
     assert body["domain_config"]["target_db_engine"] == "postgresql"
+    assert "environment" not in body
 
 
 def test_update_clones_definition_and_preserves_previous_row(admin_token: str) -> None:

@@ -32,7 +32,7 @@ def create_project(db: Session, *, actor: User, body: ProjectCreateRequest) -> P
         goal=body.goal,
         repos=body.repos,
         workspace=body.workspace,
-        environment=body.environment,
+        project_resources=body.project_resources,
         execution_environments=body.execution_environments,
         model_policy=body.model_policy,
         canonical_terms=body.canonical_terms,
@@ -128,7 +128,11 @@ def update_project(
         goal=body.goal if body.goal is not None else current_definition.goal,
         repos=body.repos if body.repos is not None else current_definition.repos,
         workspace=body.workspace if body.workspace is not None else current_definition.workspace,
-        environment=body.environment if body.environment is not None else current_definition.environment,
+        project_resources=(
+            body.project_resources
+            if body.project_resources is not None
+            else current_definition.project_resources
+        ),
         execution_environments=(
             body.execution_environments
             if body.execution_environments is not None
@@ -274,7 +278,7 @@ def _project_response(
         goal=definition.goal,
         repos=definition.repos,
         workspace=definition.workspace,
-        environment=definition.environment,
+        project_resources=definition.project_resources,
         execution_environments=definition.execution_environments,
         model_policy=definition.model_policy,
         canonical_terms=definition.canonical_terms,

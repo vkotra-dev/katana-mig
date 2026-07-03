@@ -45,7 +45,7 @@ class ProjectDefinition(Base):
     goal: Mapped[str | None] = mapped_column(Text)
     repos: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
     workspace: Mapped[dict[str, Any] | None] = mapped_column(JSON)
-    environment: Mapped[str | None] = mapped_column(String(64))
+    project_resources: Mapped[str | None] = mapped_column(Text)
     execution_environments: Mapped[list[str] | None] = mapped_column(JSON)
     model_policy: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     canonical_terms: Mapped[list[str] | None] = mapped_column(JSON)
@@ -70,7 +70,7 @@ class ProjectRegistry(Base):
     definition_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("project_definitions.definition_id"), nullable=False, unique=True
     )
-    lexicon_scope: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    lexicon_scope: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

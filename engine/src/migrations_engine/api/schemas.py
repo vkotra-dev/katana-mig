@@ -128,7 +128,7 @@ class ProjectResponse(BaseModel):
     goal: str | None
     repos: list[dict[str, Any]] | None
     workspace: dict[str, Any] | None
-    environment: str | None
+    project_resources: str | None
     execution_environments: list[str] | None
     model_policy: dict[str, Any] | None
     canonical_terms: list[str] | None
@@ -136,7 +136,7 @@ class ProjectResponse(BaseModel):
     unresolved_questions: list[str] | None
     assumptions: list[str] | None
     domain_config: MigrationProjectConfig | None
-    lexicon_scope: dict[str, Any] | None
+    lexicon_scope: str | None
     status: ProjectStatus
     created_at: datetime
     updated_at: datetime
@@ -149,7 +149,7 @@ class ProjectCreateRequest(BaseModel):
     goal: str | None = None
     repos: list[dict[str, Any]] | None = None
     workspace: dict[str, Any] | None = None
-    environment: str | None = None
+    project_resources: str | None = None
     execution_environments: list[str] | None = None
     model_policy: dict[str, Any] | None = None
     canonical_terms: list[str] | None = None
@@ -157,7 +157,7 @@ class ProjectCreateRequest(BaseModel):
     unresolved_questions: list[str] | None = None
     assumptions: list[str] | None = None
     domain_config: MigrationProjectConfig | None = None
-    lexicon_scope: dict[str, Any] | None = None
+    lexicon_scope: str | None = None
 
 
 class ProjectUpdateRequest(BaseModel):
@@ -165,7 +165,7 @@ class ProjectUpdateRequest(BaseModel):
     goal: str | None = None
     repos: list[dict[str, Any]] | None = None
     workspace: dict[str, Any] | None = None
-    environment: str | None = None
+    project_resources: str | None = None
     execution_environments: list[str] | None = None
     model_policy: dict[str, Any] | None = None
     canonical_terms: list[str] | None = None
@@ -173,7 +173,7 @@ class ProjectUpdateRequest(BaseModel):
     unresolved_questions: list[str] | None = None
     assumptions: list[str] | None = None
     domain_config: MigrationProjectConfig | None = None
-    lexicon_scope: dict[str, Any] | None = None
+    lexicon_scope: str | None = None
 
 
 class FeedCreateRequest(BaseModel):
