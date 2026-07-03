@@ -7,6 +7,7 @@
 | [001av-admin-user-edit-delete-controls](./001av-admin-user-edit-delete-controls.md) | Add edit access and enable delete in admin user management |
 | [001ax-project-resources-field](./001ax-project-resources-field.md) | Replace unused environment field with project_resources CLOB and infra template |
 | [001aw-project-edit](./001aw-project-edit.md) | Add a project detail edit flow for project metadata (depends on 001ax) |
+| [001ay-project-resources-rich-editor](./001ay-project-resources-rich-editor.md) | Rich text editor (bold/bullets/center) for project resources field, 3-col form grid (depends on 001ax, 001aw) |
 
 ## Completed
 
