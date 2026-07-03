@@ -102,6 +102,11 @@ describe("codegen-api", () => {
   it("loads schema analysis and returns null when missing", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => null,
+      })
+      .mockResolvedValueOnce({
         ok: false,
         status: 404,
         json: async () => ({
@@ -137,10 +142,12 @@ describe("codegen-api", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
+    const nullBody = await getSchemaAnalysis("token-1", "project-1");
     const missing = await getSchemaAnalysis("token-1", "project-1");
     const analysis = await getSchemaAnalysis("token-1", "project-1");
     const triggered = await triggerSchemaAnalysis("token-1", "project-1");
 
+    expect(nullBody).toBeNull();
     expect(missing).toBeNull();
     expect(analysis?.identifiedCount).toBe(2);
     expect(triggered.processedCount).toBe(2);

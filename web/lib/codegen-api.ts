@@ -240,10 +240,13 @@ export async function getSchemaAnalysis(
   projectId: string,
 ): Promise<SchemaAnalysisRecord | null> {
   try {
-    const response = await requestJson<Parameters<typeof mapSchemaAnalysisResponse>[0]>(
+    const response = await requestJson<Parameters<typeof mapSchemaAnalysisResponse>[0] | null>(
       `/projects/${projectId}/schema-analysis`,
       { method: "GET", token },
     );
+    if (response === null) {
+      return null;
+    }
     return mapSchemaAnalysisResponse(response);
   } catch (error) {
     if (error instanceof CodegenApiError && error.status === 404) {
