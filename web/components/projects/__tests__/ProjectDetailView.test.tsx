@@ -62,18 +62,25 @@ describe("ProjectDetailView", () => {
     expect(screen.getByText("create table crm(id int);")).toBeInTheDocument();
   });
 
-  it("renders projectResources as a textarea", () => {
-    render(<ProjectDetailView project={{ ...active, projectResources: "== PROD ==\nHost/IP: 10.0.0.1" }} />);
+  it("renders projectResources as HTML content", () => {
+    render(
+      <ProjectDetailView
+        project={{
+          ...active,
+          projectResources: "<p><strong>PROD</strong></p><ul><li>Host/IP: 10.0.0.1</li></ul>",
+        }}
+      />,
+    );
 
-    const textarea = screen.getByRole("textbox", { name: /project resources/i });
-    expect(textarea).toHaveValue("== PROD ==\nHost/IP: 10.0.0.1");
-    expect(textarea).toHaveAttribute("readonly");
+    expect(screen.getByText("PROD")).toBeInTheDocument();
+    expect(screen.getByText("Host/IP: 10.0.0.1")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: /project resources/i })).not.toBeInTheDocument();
   });
 
   it("renders placeholder when projectResources is null", () => {
     render(<ProjectDetailView project={{ ...active, projectResources: null }} />);
 
-    expect(screen.getByRole("textbox", { name: /project resources/i })).toHaveValue("");
+    expect(screen.getByLabelText("Project Resources")).toBeInTheDocument();
   });
 
   it("renders the lifecycle timeline", () => {

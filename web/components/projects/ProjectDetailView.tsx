@@ -41,6 +41,7 @@ function KeyValue({
 
 export function ProjectDetailView({ project }: ProjectDetailViewProps) {
   const domainConfig = project.domainConfig;
+  const projectResources = project.projectResources ?? "";
 
   return (
     <section className="space-y-6 rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm">
@@ -94,16 +95,13 @@ export function ProjectDetailView({ project }: ProjectDetailViewProps) {
           value={project.lexiconScope ? JSON.stringify(project.lexiconScope) : "—"}
         />
         <div className="space-y-1 rounded-xl border border-outline-variant bg-surface px-4 py-3 md:col-span-2 xl:col-span-3">
-          <label htmlFor="project-resources" className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
             Project Resources
-          </label>
-          <textarea
-            id="project-resources"
+          </div>
+          <div
             aria-label="Project Resources"
-            readOnly
-            rows={12}
-            className="mt-2 w-full rounded-md border border-outline-variant bg-surface px-3 py-2 font-mono text-sm text-slate-800"
-            value={project.projectResources ?? ""}
+            className="mt-2 min-h-32 w-full rounded-md border border-outline-variant bg-surface px-3 py-2 text-sm text-slate-800"
+            dangerouslySetInnerHTML={{ __html: projectResources }}
           />
         </div>
       </div>

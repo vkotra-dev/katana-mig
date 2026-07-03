@@ -33,7 +33,6 @@ export interface ProjectRecord {
   goal: string | null;
   repos: Record<string, unknown>[] | null;
   workspace: Record<string, unknown> | null;
-  environment?: string | null;
   projectResources?: string | null;
   executionEnvironments: string[] | null;
   modelPolicy: Record<string, unknown> | null;
@@ -212,7 +211,6 @@ function mapProjectRecord(record: {
     goal: record.goal,
     repos: record.repos,
     workspace: record.workspace,
-    environment: record.project_resources,
     projectResources: record.project_resources ?? null,
     executionEnvironments: record.execution_environments,
     modelPolicy: record.model_policy,

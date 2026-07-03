@@ -58,10 +58,20 @@ describe("ProjectEditForm", () => {
     );
   });
 
-  it("prefills project resources with the structured template when empty", () => {
+  it("renders the project resources editor when empty", () => {
     render(<ProjectEditForm project={{ ...project, projectResources: null }} onSubmit={vi.fn()} />);
 
-    expect(screen.getByLabelText("Project Resources")).toHaveValue(PROJECT_RESOURCES_TEMPLATE);
+    expect(screen.getByRole("button", { name: "Bold" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Bullet list" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Center" })).toBeInTheDocument();
+  });
+
+  it("renders the rich text toolbar", () => {
+    render(<ProjectEditForm project={project} onSubmit={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "Bold" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Bullet list" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Center" })).toBeInTheDocument();
   });
 
   it("shows an inline error when sample policy JSON is invalid", async () => {

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { ProjectRecord, ProjectUpdateInput, TargetDbEngine } from "../../lib/projects-api";
-import { PROJECT_RESOURCES_TEMPLATE } from "./projectResourcesTemplate";
+import { ProjectResourcesEditor } from "./ProjectResourcesEditor";
 
 export interface ProjectEditFormProps {
   project: ProjectRecord;
@@ -34,14 +34,6 @@ function parseSamplePolicy(value: string): Record<string, unknown> | null {
   return JSON.parse(trimmed) as Record<string, unknown>;
 }
 
-function initialProjectResources(value: string | null | undefined): string {
-  const trimmed = value?.trim();
-  if (!trimmed) {
-    return PROJECT_RESOURCES_TEMPLATE;
-  }
-  return value ?? PROJECT_RESOURCES_TEMPLATE;
-}
-
 export function ProjectEditForm({
   project,
   loading = false,
@@ -50,9 +42,7 @@ export function ProjectEditForm({
 }: ProjectEditFormProps) {
   const [name, setName] = useState(project.name);
   const [goal, setGoal] = useState(project.goal ?? "");
-  const [projectResources, setProjectResources] = useState(
-    initialProjectResources(project.projectResources),
-  );
+  const [projectResources, setProjectResources] = useState(project.projectResources ?? "");
   const [executionEnvironments, setExecutionEnvironments] = useState(
     project.executionEnvironments?.join(", ") ?? "",
   );
@@ -71,35 +61,35 @@ export function ProjectEditForm({
 
   return (
     <form
-    className="space-y-5 rounded-2xl border border-outline-variant bg-surface-container p-8 shadow-sm"
-    onSubmit={(event) => {
-      event.preventDefault();
+      className="space-y-5 rounded-2xl border border-outline-variant bg-surface-container p-8 shadow-sm"
+      onSubmit={(event) => {
+        event.preventDefault();
 
-      let parsedSamplePolicy: Record<string, unknown> | null;
-      try {
-        parsedSamplePolicy = parseSamplePolicy(samplePolicy);
-      } catch {
-        setFormError("Sample policy must be valid JSON.");
-        return;
-      }
+        let parsedSamplePolicy: Record<string, unknown> | null;
+        try {
+          parsedSamplePolicy = parseSamplePolicy(samplePolicy);
+        } catch {
+          setFormError("Sample policy must be valid JSON.");
+          return;
+        }
 
-      setFormError(null);
-      void onSubmit({
-        name: name.trim(),
-        goal: normalizeOptionalText(goal),
-        projectResources: normalizeOptionalText(projectResources),
-        executionEnvironments: parseList(executionEnvironments),
-        domainConfig: {
-          targetDbEngine: targetDbEngine || null,
-          stagingSchema: normalizeOptionalText(stagingSchema),
-          dryRun,
-          samplePolicy: parsedSamplePolicy,
-          destinationSchemaDdl: normalizeOptionalText(destinationSchemaDdl),
-          environments: project.domainConfig?.environments ?? null,
-        },
-      });
-    }}
-  >
+        setFormError(null);
+        void onSubmit({
+          name: name.trim(),
+          goal: normalizeOptionalText(goal),
+          projectResources: normalizeOptionalText(projectResources),
+          executionEnvironments: parseList(executionEnvironments),
+          domainConfig: {
+            targetDbEngine: targetDbEngine || null,
+            stagingSchema: normalizeOptionalText(stagingSchema),
+            dryRun,
+            samplePolicy: parsedSamplePolicy,
+            destinationSchemaDdl: normalizeOptionalText(destinationSchemaDdl),
+            environments: project.domainConfig?.environments ?? null,
+          },
+        });
+      }}
+    >
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold text-slate-900">Edit project</h1>
         <p className="text-sm text-slate-600">
@@ -131,19 +121,8 @@ export function ProjectEditForm({
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Project Resources</label>
-          <textarea
-            aria-label="Project Resources"
-            className="min-h-32 w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
-            name="projectResources"
-            onChange={(event) => setProjectResources(event.target.value)}
-            value={projectResources}
-          />
-        </div>
-
-        <div className="space-y-2">
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="space-y-2 lg:col-span-3">
           <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Target database engine</label>
           <select
             aria-label="Target database engine"
@@ -159,20 +138,18 @@ export function ProjectEditForm({
             <option value="mysql">mysql</option>
           </select>
         </div>
-      </div>
 
-      <div className="space-y-2">
-        <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Execution environments</label>
-        <textarea
-          aria-label="Execution environments"
-          className="min-h-24 w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
-          name="executionEnvironments"
-          onChange={(event) => setExecutionEnvironments(event.target.value)}
-          value={executionEnvironments}
-        />
-      </div>
+        <div className="space-y-2 lg:col-span-3">
+          <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Execution environments</label>
+          <textarea
+            aria-label="Execution environments"
+            className="min-h-24 w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
+            name="executionEnvironments"
+            onChange={(event) => setExecutionEnvironments(event.target.value)}
+            value={executionEnvironments}
+          />
+        </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Staging schema</label>
           <input
@@ -195,28 +172,33 @@ export function ProjectEditForm({
           />
           Dry run
         </label>
-      </div>
 
-      <div className="space-y-2">
-        <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Destination schema DDL</label>
-        <textarea
-          aria-label="Destination schema DDL"
-          className="min-h-32 w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
-          name="destinationSchemaDdl"
-          onChange={(event) => setDestinationSchemaDdl(event.target.value)}
-          value={destinationSchemaDdl}
-        />
-      </div>
+        <div className="space-y-2">
+          <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Destination schema DDL</label>
+          <textarea
+            aria-label="Destination schema DDL"
+            className="min-h-32 w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
+            name="destinationSchemaDdl"
+            onChange={(event) => setDestinationSchemaDdl(event.target.value)}
+            value={destinationSchemaDdl}
+          />
+        </div>
 
-      <div className="space-y-2">
-        <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Sample policy</label>
-        <textarea
-          aria-label="Sample policy"
-          className="min-h-24 w-full rounded-md border border-outline-variant bg-white px-3 py-3 font-mono text-sm text-slate-900"
-          name="samplePolicy"
-          onChange={(event) => setSamplePolicy(event.target.value)}
-          value={samplePolicy}
-        />
+        <div className="space-y-2 lg:col-span-3">
+          <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Sample policy</label>
+          <textarea
+            aria-label="Sample policy"
+            className="min-h-24 w-full rounded-md border border-outline-variant bg-white px-3 py-3 font-mono text-sm text-slate-900"
+            name="samplePolicy"
+            onChange={(event) => setSamplePolicy(event.target.value)}
+            value={samplePolicy}
+          />
+        </div>
+
+        <div className="space-y-2 lg:col-span-3">
+          <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Project Resources</label>
+          <ProjectResourcesEditor value={projectResources} onChange={setProjectResources} />
+        </div>
       </div>
 
       {formError || errorMessage ? (

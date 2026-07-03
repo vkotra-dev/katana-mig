@@ -39,7 +39,6 @@ const stub: ProjectRecord = {
   goal: "Migrate orders",
   repos: null,
   workspace: null,
-  environment: null,
   projectResources: null,
   executionEnvironments: null,
   modelPolicy: null,
