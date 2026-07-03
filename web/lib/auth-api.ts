@@ -10,6 +10,7 @@ export interface LoginResponse {
   tokenType: "bearer";
   expiresAt: string;
   sessionVersion: number;
+  projectIds: string[];
   user: {
     user_id: string;
     email: string;
@@ -27,6 +28,7 @@ export interface SessionResponse {
   status: "active" | "disabled";
   expires_at: string;
   session_version: number;
+  project_ids: string[];
 }
 
 export interface PasswordResetAccepted {
@@ -39,6 +41,7 @@ export async function login(email: string, password: string): Promise<LoginRespo
     token_type: "bearer";
     expires_at: string;
     session_version: number;
+    project_ids: string[];
     user: LoginResponse["user"];
   }>("/auth/login", {
     method: "POST",
@@ -50,6 +53,7 @@ export async function login(email: string, password: string): Promise<LoginRespo
     tokenType: response.token_type,
     expiresAt: response.expires_at,
     sessionVersion: response.session_version,
+    projectIds: response.project_ids,
     user: response.user,
   };
 }

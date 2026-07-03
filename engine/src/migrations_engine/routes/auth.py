@@ -49,10 +49,11 @@ def post_login(
 
 @router.get("/session", response_model=SessionResponse)
 def get_session(
+    db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
     claims: SessionClaims = Depends(get_session_claims),
 ) -> SessionResponse:
-    return session_for_user(user, claims)
+    return session_for_user(db, user, claims)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

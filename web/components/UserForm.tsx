@@ -62,6 +62,7 @@ export function UserForm({
         <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Email</label>
         <input
           className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
+          autoComplete="email"
           defaultValue={initialValue?.email ?? ""}
           name="email"
           placeholder="operator@example.com"
@@ -75,6 +76,7 @@ export function UserForm({
           <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Password</label>
           <input
             className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
+            autoComplete="new-password"
             name="password"
             placeholder="Initial password"
             required
@@ -87,6 +89,7 @@ export function UserForm({
         <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Display name</label>
         <input
           className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
+          autoComplete="name"
           defaultValue={initialValue?.displayName ?? ""}
           name="displayName"
           placeholder="Operator"

@@ -8,6 +8,7 @@ describe("session storage", () => {
     saveUiSession({
       accessToken: "token-abc",
       expiresAt: "2026-06-30T12:00:00Z",
+      projectIds: ["project-1", "project-2"],
       role: "project_stakeholder",
       sessionVersion: 3,
       userId: "user-42",
@@ -16,6 +17,7 @@ describe("session storage", () => {
     expect(loadUiSession()).toEqual({
       accessToken: "token-abc",
       expiresAt: "2026-06-30T12:00:00Z",
+      projectIds: ["project-1", "project-2"],
       role: "project_stakeholder",
       sessionVersion: 3,
       userId: "user-42",

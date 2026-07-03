@@ -7,6 +7,10 @@ const { loadUiSessionMock, replaceMock } = vi.hoisted(() => ({
   replaceMock: vi.fn(),
 }));
 
+vi.mock("../../components/Topbar", () => ({
+  Topbar: ({ role }: { role: string }) => <header>Topbar for {role}</header>,
+}));
+
 vi.mock("../../lib/session", () => ({
   loadUiSession: loadUiSessionMock,
 }));
@@ -37,6 +41,7 @@ describe("AdminLayout", () => {
       </AdminLayout>
     );
 
+    expect(await screen.findByText("Topbar for central_team")).toBeInTheDocument();
     expect(await screen.findByText("Admin content")).toBeInTheDocument();
     expect(replaceMock).not.toHaveBeenCalled();
   });

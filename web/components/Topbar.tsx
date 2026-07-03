@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { logout } from "../lib/auth-api";
 import { navItemsForRole, type NavItem } from "../lib/ui-model";
 import { getPendingApprovalCount } from "../lib/feed-slice-approval-api";
-import { loadUiSession } from "../lib/session";
+import { clearUiSession, loadUiSession } from "../lib/session";
 import { NotificationBell } from "./notifications/NotificationBell";
 
 export interface TopbarProps {
@@ -42,6 +43,18 @@ export function Topbar({ role }: TopbarProps) {
     };
   }, [role]);
 
+  const handleLogout = async () => {
+    const session = loadUiSession();
+    try {
+      if (session) {
+        await logout(session.accessToken);
+      }
+    } finally {
+      clearUiSession();
+      window.location.assign("/");
+    }
+  };
+
   return (
     <header className="sticky top-0 z-50 flex h-12 w-full items-center border-b border-outline-variant bg-surface px-6">
       <div className="mr-8 flex items-center">
@@ -68,6 +81,21 @@ export function Topbar({ role }: TopbarProps) {
       <div className="ml-auto flex items-center">
         <NotificationBell />
         <div className="mono-id">AD</div>
+        <button
+          aria-label="Log out"
+          className="ml-4 inline-flex h-9 w-9 items-center justify-center rounded-md border border-outline-variant text-slate-700 hover:bg-outline-variant"
+          onClick={() => {
+            void handleLogout();
+          }}
+          title="Log out"
+          type="button"
+        >
+          <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" className="h-4 w-4 stroke-current stroke-2">
+            <path d="M15 17l5-5-5-5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M20 12H9" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M13 7V5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5a2 2 0 0 0 2-2v-2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
       </div>
     </header>
   );

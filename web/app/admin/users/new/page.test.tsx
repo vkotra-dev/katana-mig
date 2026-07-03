@@ -39,6 +39,9 @@ describe("NewUserPage", () => {
   it("creates a new user and shows success", async () => {
     render(<NewUserPage />);
 
+    expect(screen.getByRole("heading", { name: "New user" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to users" })).toHaveAttribute("href", "/admin/users");
+
     fireEvent.change(screen.getByPlaceholderText("operator@example.com"), {
       target: { value: "stakeholder@example.com" },
     });

@@ -44,6 +44,27 @@ describe("ProjectsLayout", () => {
     expect(replaceMock).not.toHaveBeenCalled();
   });
 
+  it("renders project children when the stakeholder has membership for the project", async () => {
+    pathnameMock.mockReturnValue("/projects/project-1");
+    loadUiSessionMock.mockReturnValue({
+      accessToken: "token-1",
+      expiresAt: "2026-06-30T12:00:00Z",
+      role: "project_stakeholder",
+      sessionVersion: 1,
+      userId: "user-1",
+      projectIds: ["project-1"],
+    });
+
+    render(
+      <ProjectsLayout>
+        <div>Projects content</div>
+      </ProjectsLayout>
+    );
+
+    expect(await screen.findByText("Projects content")).toBeInTheDocument();
+    expect(replaceMock).not.toHaveBeenCalled();
+  });
+
   it("rejects project-stakeholder access when the project is not in scope", async () => {
     pathnameMock.mockReturnValue("/projects/project-1");
     loadUiSessionMock.mockReturnValue({

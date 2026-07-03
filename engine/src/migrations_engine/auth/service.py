@@ -10,7 +10,7 @@ from ..auth.jwt import SessionClaims, create_access_token, encode_access_token
 from ..auth.passwords import hash_password, verify_password
 from ..auth.reset_tokens import generate_reset_token, hash_reset_token
 from ..config import Settings
-from ..db.models import AuthSession, PasswordResetToken, User
+from ..db.models import AuthSession, PasswordResetToken, ProjectMembership, User
 from ..api.deps import AuthApiError
 from ..api.schemas import (
     AuthenticatedUserResponse,
@@ -70,10 +70,11 @@ def login_user(
         expires_at=claims.expires_at,
         session_version=user.session_version,
         user=user_to_authenticated_response(user),
+        project_ids=_project_ids_for_user(db, user=user),
     )
 
 
-def session_for_user(user: User, claims: SessionClaims) -> SessionResponse:
+def session_for_user(db: Session, user: User, claims: SessionClaims) -> SessionResponse:
     return SessionResponse(
         user_id=user.user_id,
         email=user.email,
@@ -82,6 +83,7 @@ def session_for_user(user: User, claims: SessionClaims) -> SessionResponse:
         status=user.status,  # type: ignore[arg-type]
         expires_at=claims.expires_at,
         session_version=user.session_version,
+        project_ids=_project_ids_for_user(db, user=user),
     )
 
 
@@ -206,5 +208,13 @@ def _record_auth_session(
             expires_at=claims.expires_at,
             revocation_version=user.session_version,
             principal_kind="human",
+        )
+    )
+
+
+def _project_ids_for_user(db: Session, *, user: User) -> list[str]:
+    return list(
+        db.scalars(
+            select(ProjectMembership.project_id).where(ProjectMembership.user_id == user.user_id)
         )
     )

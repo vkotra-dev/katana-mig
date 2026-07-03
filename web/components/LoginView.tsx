@@ -34,6 +34,7 @@ export function LoginView({ onSubmit, errorMessage, loading = false }: LoginView
           </label>
           <input
             className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+            autoComplete="username"
             name="email"
             placeholder="operator@katana.io"
             type="email"
@@ -47,6 +48,7 @@ export function LoginView({ onSubmit, errorMessage, loading = false }: LoginView
           </label>
           <input
             className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+            autoComplete="current-password"
             name="password"
             placeholder="••••••••••••"
             type="password"

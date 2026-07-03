@@ -45,6 +45,7 @@ describe("HomePage", () => {
       tokenType: "bearer",
       expiresAt: "2026-06-30T12:00:00Z",
       sessionVersion: 1,
+      projectIds: ["project-1"],
       user: {
         user_id: "user-1",
         email: "operator@example.com",
@@ -61,12 +62,14 @@ describe("HomePage", () => {
       status: "active",
       expires_at: "2026-06-30T12:00:00Z",
       session_version: 1,
+      project_ids: ["project-1"],
     });
   });
 
   it("renders the login form when no session exists", async () => {
     render(<HomePage />);
 
+    expect(screen.getByText("Restoring your session...")).toBeInTheDocument();
     await waitFor(() => expect(bootstrapStatusMock).toHaveBeenCalled());
     expect(screen.getByText("Katana Console")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Log out" })).not.toBeInTheDocument();
@@ -75,7 +78,7 @@ describe("HomePage", () => {
   it("logs in and switches to the authenticated shell", async () => {
     render(<HomePage />);
 
-    fireEvent.change(screen.getByPlaceholderText("operator@katana.io"), {
+    fireEvent.change(await screen.findByPlaceholderText("operator@katana.io"), {
       target: { value: "operator@example.com" },
     });
     fireEvent.change(screen.getByPlaceholderText("••••••••••••"), {
@@ -84,7 +87,13 @@ describe("HomePage", () => {
     fireEvent.submit(screen.getByRole("button", { name: "Log in" }).closest("form") as HTMLFormElement);
 
     await waitFor(() => expect(loginMock).toHaveBeenCalledWith("operator@example.com", "secret-password"));
-    await waitFor(() => expect(saveUiSessionMock).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(saveUiSessionMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectIds: ["project-1"],
+        })
+      )
+    );
     await waitFor(() => expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument());
   });
 
@@ -93,12 +102,14 @@ describe("HomePage", () => {
       accessToken: "token-abc",
       expiresAt: "2026-06-30T12:00:00Z",
       role: "central_team",
+      projectIds: ["project-1"],
       sessionVersion: 2,
       userId: "user-1",
     });
 
     render(<HomePage />);
 
+    expect(screen.getByText("Restoring your session...")).toBeInTheDocument();
     await waitFor(() => expect(fetchSessionMock).toHaveBeenCalledWith("token-abc"));
     await waitFor(() => expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument());
   });

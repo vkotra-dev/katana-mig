@@ -47,6 +47,7 @@ def test_login_and_session_round_trip() -> None:
     session = client.get("/auth/session", headers={"Authorization": f"Bearer {token}"})
     assert session.status_code == 200
     assert session.json()["email"] == settings.bootstrap_admin_email.lower()
+    assert session.json()["project_ids"] == []
 
 
 def test_invalid_login_is_rejected() -> None:
@@ -118,6 +119,7 @@ def test_soft_deleted_user_is_rejected() -> None:
 def test_production_jwt_secret_guard_blocks_dev_default(monkeypatch: pytest.MonkeyPatch) -> None:
     settings = get_settings()
     monkeypatch.setenv("KATANA_ENV", "production")
+    monkeypatch.setattr(settings, "jwt_secret", "dev-only-change-me")
 
     with pytest.raises(RuntimeError, match="Production JWT secret"):
         _validate_runtime_settings(settings)

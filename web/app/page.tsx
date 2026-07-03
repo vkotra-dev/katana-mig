@@ -7,11 +7,10 @@ import {
   fetchSession,
   getBootstrapStatus,
   login,
-  logout,
   type LoginResponse,
   type SessionResponse,
 } from "../lib/auth-api";
-import { clearUiSession, loadUiSession, saveUiSession, type SessionRole, type UiSession } from "../lib/session";
+import { loadUiSession, saveUiSession, type SessionRole, type UiSession } from "../lib/session";
 
 type AuthStatus = "loading" | "unauthenticated" | "authenticated";
 
@@ -25,6 +24,7 @@ function toUiSession(
     role: response.user.role,
     sessionVersion: response.sessionVersion,
     userId: response.user.user_id,
+    projectIds: response.projectIds,
   };
 }
 
@@ -38,31 +38,19 @@ function toUiSessionFromCurrentSession(
     role: response.role,
     sessionVersion: response.session_version,
     userId: response.user_id,
+    projectIds: response.project_ids,
   };
 }
 
 function AuthenticatedShell({
   role,
-  onLogout,
 }: {
   role: SessionRole;
-  onLogout: () => Promise<void>;
 }) {
   return (
     <main className="flex min-h-screen flex-col bg-surface text-slate-800">
       <Topbar role={role} />
       <section className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-4 px-6 py-4">
-        <div className="flex justify-end">
-          <button
-            className="rounded-md border border-outline-variant bg-surface-container px-3 py-2 text-sm font-medium text-slate-700 hover:bg-outline-variant"
-            onClick={() => {
-              void onLogout();
-            }}
-            type="button"
-          >
-            Log out
-          </button>
-        </div>
         <div className="min-h-[600px] rounded-xl border border-outline-variant bg-surface-container-lowest" />
       </section>
     </main>
@@ -140,24 +128,18 @@ export default function HomePage() {
     }
   };
 
-  const handleLogout = async () => {
-    if (!session) {
-      clearUiSession();
-      setStatus("unauthenticated");
-      return;
-    }
-
-    try {
-      await logout(session.accessToken);
-    } finally {
-      clearUiSession();
-      setSession(null);
-      setStatus("unauthenticated");
-    }
-  };
-
   if (status === "authenticated" && session) {
-    return <AuthenticatedShell onLogout={handleLogout} role={session.role} />;
+    return <AuthenticatedShell role={session.role} />;
+  }
+
+  if (status === "loading") {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-surface px-6 py-12 text-slate-800">
+        <div className="w-full max-w-lg rounded-2xl border border-outline-variant bg-surface-container px-4 py-3 text-sm text-slate-700">
+          Restoring your session...
+        </div>
+      </main>
+    );
   }
 
   return (

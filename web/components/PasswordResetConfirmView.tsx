@@ -44,6 +44,7 @@ export function PasswordResetConfirmView({
           </label>
           <input
             className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+            autoComplete="one-time-code"
             name="resetToken"
             placeholder="Opaque reset token"
             required
@@ -57,6 +58,7 @@ export function PasswordResetConfirmView({
           </label>
           <input
             className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+            autoComplete="new-password"
             name="newPassword"
             placeholder="New password"
             required
