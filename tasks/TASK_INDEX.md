@@ -2,29 +2,15 @@
 
 ## Ready
 
-| Task | Summary | Depends on |
-|---|---|---|
-| [001al-lookup-fiber-ai-flow](./completed/001al-lookup-fiber-ai-flow.md) | [summary](./summary/001al-lookup-fiber-ai-flow.md) | 001ak |
-| [001am-mapping-fiber-ai-flow](./completed/001am-mapping-fiber-ai-flow.md) | [summary](./summary/001am-mapping-fiber-ai-flow.md) | 001ak |
-| [001au-notification-email-delivery](./completed/001au-notification-email-delivery.md) | [summary](./summary/001au-notification-email-delivery.md) | 001at |
-| [001ao-feed-comment](./completed/001ao-feed-comment.md) | [summary](./summary/001ao-feed-comment.md) | 001ak |
-| [001ai-knowledge-freeze-history](./completed/001ai-knowledge-freeze-history.md) | [summary](./summary/001ai-knowledge-freeze-history.md) | — |
-| [001ap-lookup-delta-cr-review](./completed/001ap-lookup-delta-cr-review.md) | [summary](./summary/001ap-lookup-delta-cr-review.md) | 001ai |
-| [001ar-dry-run-review](./completed/001ar-dry-run-review.md) | [summary](./summary/001ar-dry-run-review.md) | 001ak |
-
-## Later Phase
-
-| Task | Summary | Depends on |
-|---|---|---|
-| [001aq-bundle-sequencing](./001aq-bundle-sequencing.md) | Lookup upsert SQL generator, trigger_fiber codegen, 0000/0001+ bundle ordering | 001ah, 001ak |
+No ready tasks.
 
 ## Completed
 
 | Task | Summary |
 |---|---|
 | [001aa-reconciliation](./completed/001aa-reconciliation.md) | [summary](./summary/001aa-reconciliation.md) |
-| [001af-ui-compliance-gaps](./completed/001af-ui-compliance-gaps.md) | [summary](./summary/001af-ui-compliance-gaps.md) |
 | [001ag-delivery-bundle-tab](./completed/001ag-delivery-bundle-tab.md) | [summary](./summary/001ag-delivery-bundle-tab.md) |
+| [001aq-bundle-sequencing](./completed/001aq-bundle-sequencing.md) | [summary](./summary/001aq-bundle-sequencing.md) |
 | [001ai-knowledge-freeze-history](./completed/001ai-knowledge-freeze-history.md) | [summary](./summary/001ai-knowledge-freeze-history.md) |
 | [001ap-lookup-delta-cr-review](./completed/001ap-lookup-delta-cr-review.md) | [summary](./summary/001ap-lookup-delta-cr-review.md) |
 | [001ar-dry-run-review](./completed/001ar-dry-run-review.md) | [summary](./summary/001ar-dry-run-review.md) |
@@ -58,8 +44,8 @@
 | [001b-password-reset](./completed/001b-password-reset.md) | [summary](./summary/001b-password-reset.md) |
 | [001c-roles-and-membership](./completed/001c-roles-and-membership.md) | [summary](./summary/001c-roles-and-membership.md) |
 | [001d-minimal-mapping-slice](./completed/001d-minimal-mapping-slice.md) | [summary](./summary/001d-minimal-mapping-slice.md) |
-| [001af-ui-compliance-gaps](./completed/001af-ui-compliance-gaps.md) | [summary](./summary/001af-ui-compliance-gaps.md) |
 | [001an-fiber-approval-chain](./completed/001an-fiber-approval-chain.md) | [summary](./summary/001an-fiber-approval-chain.md) |
+| [001af-ui-compliance-gaps](./completed/001af-ui-compliance-gaps.md) | [summary](./summary/001af-ui-compliance-gaps.md) |
 | [001at-notifications](./completed/001at-notifications.md) | [summary](./summary/001at-notifications.md) |
 
 ## Archived / Superseded
