@@ -47,6 +47,8 @@ Add a routeable project edit screen and expose it from the project detail page s
 ## Blast Radius
 
 - `engine/src/migrations_engine/api/schemas.py`
+- `engine/src/migrations_engine/codegen/service.py`
+- `engine/src/migrations_engine/management/fibers.py`
 - `web/lib/projects-api.ts`
 - `web/app/projects/[id]/page.tsx`
 - `web/app/projects/[id]/edit/page.tsx`
@@ -107,6 +109,9 @@ Add a routeable project edit screen and expose it from the project detail page s
   - `MigrationProjectConfig.sample_policy: SamplePolicy | None = None`
   - Frontend `SamplePolicy` interface with camelCase keys
   - Frontend `ProjectDomainConfig.destinationSchema: string | null`
+
+**Why destination_schema matters for codegen:**
+The codegen layer (`codegen/service.py`) already injects `staging_schema` into every system prompt and user prompt so the AI knows to prefix staging tables as `{staging_schema}.stg_{table}` and lookup tables as `{staging_schema}.{lookup_table}`. The `destination_schema` name completes this — migration procedures read from `{staging_schema}.stg_{table}` and write to `{destination_schema}.{table}`. Without it, the AI cannot generate fully-qualified destination table references. Both names must be in the prompt.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -258,11 +263,81 @@ Also update the inline raw type annotation inside `mapDomainConfig` and `mapProj
 Run: `cd engine && python -m pytest tests/test_project_crud_api.py::test_create_project_with_domain_config_extensions -v`
 Expected: passes; `destination_schema` and `sample_policy` structure round-trip correctly.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: Inject destination_schema into codegen prompts**
+
+In `engine/src/migrations_engine/codegen/service.py`, update both prompt builders to include `destination_schema`:
+
+```python
+def _build_system_prompt(*, project_config: MigrationProjectConfig, destination_object_name: str) -> str:
+    return (
+        "You generate SQL bundles for migration delivery.\n"
+        f"Destination object: {destination_object_name}\n"
+        f"Target DB engine: {project_config.target_db_engine or 'unknown'}\n"
+        f"Staging schema: {project_config.staging_schema or 'unknown'}\n"
+        f"Destination schema: {project_config.destination_schema or 'unknown'}"
+    )
+
+
+def _build_user_prompt(...) -> str:
+    lines = [
+        ...
+        f"Target DB engine: {project_config.target_db_engine or 'unknown'}",
+        f"Staging schema: {project_config.staging_schema or 'unknown'}",
+        f"Destination schema: {project_config.destination_schema or 'unknown'}",
+        "Field bindings:",
+    ]
+```
+
+Write a focused test in `engine/tests/test_codegen_service.py` (or the existing codegen test file) verifying the prompts include both schema names:
+
+```python
+def test_system_prompt_includes_both_schemas():
+    config = MigrationProjectConfig(
+        target_db_engine="mssql",
+        staging_schema="stg",
+        destination_schema="dbo",
+    )
+    prompt = _build_system_prompt(project_config=config, destination_object_name="Customer")
+    assert "Staging schema: stg" in prompt
+    assert "Destination schema: dbo" in prompt
+```
+
+Run: `cd engine && python -m pytest tests/test_codegen_service.py -v`
+Expected: new prompt tests pass; existing codegen tests unaffected.
+
+- [ ] **Step 7: Inject both schema names into the fiber feed-analysis prompt**
+
+In `engine/src/migrations_engine/management/fibers.py`, the feed analysis call currently passes only `destination_schema_ddl`. Lookups are always placed on `staging_schema`, so the AI needs both names to generate correct table references.
+
+Read `fibers.py` around line 307 to find the `get("destination_schema_ddl", "")` read, then also extract `staging_schema` and `destination_schema` from `project_definition.domain_config` and pass them in the same payload:
+
+```python
+staging_schema = ""
+destination_schema = ""
+destination_schema_ddl = ""
+if project_definition is not None and project_definition.domain_config:
+    cfg = project_definition.domain_config
+    destination_schema_ddl = str(cfg.get("destination_schema_ddl", ""))
+    staging_schema = str(cfg.get("staging_schema", ""))
+    destination_schema = str(cfg.get("destination_schema", ""))
+
+# In the feed_analysis_adapter.call payload:
+{
+    "source_headers": source_headers,
+    "destination_schema_ddl": destination_schema_ddl,
+    "staging_schema": staging_schema,
+    "destination_schema": destination_schema,
+}
+```
+
+- [ ] **Step 8: Commit**
 
 ```bash
-git add engine/src/migrations_engine/api/schemas.py web/lib/projects-api.ts
-git commit -m "feat(001aw): add SamplePolicy model and destination_schema to domain config"
+git add engine/src/migrations_engine/api/schemas.py \
+        engine/src/migrations_engine/codegen/service.py \
+        engine/src/migrations_engine/management/fibers.py \
+        web/lib/projects-api.ts
+git commit -m "feat(001aw): add destination_schema to domain config, codegen and fiber prompts"
 ```
 
 ---
