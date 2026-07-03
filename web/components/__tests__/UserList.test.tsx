@@ -3,13 +3,15 @@ import { describe, expect, it, vi } from "vitest";
 import { UserList } from "../UserList";
 
 describe("UserList", () => {
-  it("renders users and delete actions", () => {
+  it("renders edit and delete actions", () => {
     const onDelete = vi.fn();
+    const onEdit = vi.fn();
     const onSelect = vi.fn();
 
     render(
       <UserList
         onDelete={onDelete}
+        onEdit={onEdit}
         onSelect={onSelect}
         users={[
           {
@@ -24,6 +26,8 @@ describe("UserList", () => {
     );
 
     expect(screen.getByText("operator@example.com")).toBeInTheDocument();
+    screen.getByRole("button", { name: "Edit" }).click();
+    expect(onEdit).toHaveBeenCalledWith("user-1");
     expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
   });
 });

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { UserList, type UserRecord } from "../../../components/UserList";
 import { deleteUser, listUsers, type UserResponse } from "../../../lib/management-api";
 import { loadUiSession } from "../../../lib/session";
@@ -20,6 +21,7 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const session = useMemo(() => loadUiSession(), []);
+  const router = useRouter();
 
   useEffect(() => {
     if (!session) {
@@ -38,9 +40,19 @@ export default function AdminUsersPage() {
       return;
     }
 
-    await deleteUser(session.accessToken, userId);
-    const nextUsers = await listUsers(session.accessToken);
-    setUsers(nextUsers);
+    setErrorMessage(undefined);
+
+    try {
+      await deleteUser(session.accessToken, userId);
+      const nextUsers = await listUsers(session.accessToken);
+      setUsers(nextUsers);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to delete user.");
+    }
+  };
+
+  const handleEdit = (userId: string) => {
+    router.push(`/admin/users/${userId}`);
   };
 
   return (
@@ -62,7 +74,7 @@ export default function AdminUsersPage() {
           </p>
         ) : null}
 
-        <UserList onDelete={(userId) => void handleDelete(userId)} users={users.map(toUserRecord)} />
+        <UserList onDelete={(userId) => void handleDelete(userId)} onEdit={handleEdit} users={users.map(toUserRecord)} />
       </div>
     </main>
   );

@@ -2,11 +2,11 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminUsersPage from "./page";
 
-const { loadUiSessionMock, listUsersMock, deleteUserMock, replaceMock } = vi.hoisted(() => ({
+const { loadUiSessionMock, listUsersMock, deleteUserMock, pushMock } = vi.hoisted(() => ({
   loadUiSessionMock: vi.fn(),
   listUsersMock: vi.fn(),
   deleteUserMock: vi.fn(),
-  replaceMock: vi.fn(),
+  pushMock: vi.fn(),
 }));
 
 vi.mock("../../../lib/session", () => ({
@@ -20,7 +20,7 @@ vi.mock("../../../lib/management-api", () => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
-    replace: replaceMock,
+    push: pushMock,
   }),
 }));
 
@@ -34,7 +34,7 @@ describe("AdminUsersPage", () => {
       sessionVersion: 1,
       userId: "user-1",
     });
-    listUsersMock.mockResolvedValue([
+    listUsersMock.mockResolvedValueOnce([
       {
         userId: "user-2",
         email: "stakeholder@example.com",
@@ -43,6 +43,7 @@ describe("AdminUsersPage", () => {
         status: "active",
       },
     ]);
+    listUsersMock.mockResolvedValue([]);
     deleteUserMock.mockResolvedValue(undefined);
   });
 
@@ -53,12 +54,28 @@ describe("AdminUsersPage", () => {
     expect(screen.getByRole("link", { name: "Create user" })).toHaveAttribute("href", "/admin/users/new");
   });
 
-  it("deletes a user from the list", async () => {
+  it("routes to the user detail page for edit and refreshes after delete", async () => {
+    render(<AdminUsersPage />);
+
+    await screen.findByText("stakeholder@example.com");
+    screen.getByRole("button", { name: "Edit" }).click();
+    expect(pushMock).toHaveBeenCalledWith("/admin/users/user-2");
+
+    screen.getByRole("button", { name: "Delete" }).click();
+
+    await waitFor(() => expect(deleteUserMock).toHaveBeenCalledWith("token-1", "user-2"));
+    await waitFor(() => expect(listUsersMock).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText("stakeholder@example.com")).not.toBeInTheDocument();
+  });
+
+  it("shows an inline error when delete fails", async () => {
+    deleteUserMock.mockRejectedValueOnce(new Error("Unable to delete user."));
+
     render(<AdminUsersPage />);
 
     await screen.findByText("stakeholder@example.com");
     screen.getByRole("button", { name: "Delete" }).click();
 
-    await waitFor(() => expect(deleteUserMock).toHaveBeenCalledWith("token-1", "user-2"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Unable to delete user.");
   });
 });

@@ -13,10 +13,11 @@ export interface UserRecord {
 export interface UserListProps {
   users: UserRecord[];
   onDelete: (userId: string) => void;
+  onEdit: (userId: string) => void;
   onSelect?: (userId: string) => void;
 }
 
-export function UserList({ users, onDelete, onSelect }: UserListProps) {
+export function UserList({ users, onDelete, onEdit, onSelect }: UserListProps) {
   return (
     <div className="rounded-2xl border border-outline-variant bg-surface-container shadow-sm">
       <div className="border-b border-outline-variant px-6 py-4">
@@ -31,13 +32,22 @@ export function UserList({ users, onDelete, onSelect }: UserListProps) {
                 {user.displayName ?? "No display name"} · {user.role} · {user.status}
               </div>
             </button>
-            <button
-              className="rounded-md border border-outline-variant px-3 py-2 text-sm text-slate-700"
-              onClick={() => onDelete(user.userId)}
-              type="button"
-            >
-              Delete
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                className="rounded-md border border-outline-variant px-3 py-2 text-sm text-slate-700"
+                onClick={() => onEdit(user.userId)}
+                type="button"
+              >
+                Edit
+              </button>
+              <button
+                className="rounded-md border border-outline-variant px-3 py-2 text-sm text-slate-700"
+                onClick={() => onDelete(user.userId)}
+                type="button"
+              >
+                Delete
+              </button>
+            </div>
           </li>
         ))}
       </ul>
