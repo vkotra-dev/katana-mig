@@ -9,7 +9,7 @@ from sqlalchemy import select
 from migrations_engine.app import app
 from migrations_engine.auth.passwords import hash_password
 from migrations_engine.config import get_settings
-from migrations_engine.db.models import AuditEvent, AuthSession, Notification, ProjectDefinition, ProjectMembership, User
+from migrations_engine.db.models import AuditEvent, AuthSession, Notification, ProjectDefinition, ProjectMembership, ProjectRegistry, User
 from migrations_engine.db.session import SessionLocal
 from migrations_engine.roles import PROJECT_STAKEHOLDER_ROLE, READ_ONLY_AUDITOR_ROLE
 
@@ -308,6 +308,40 @@ def test_update_clones_definition_and_preserves_previous_row(admin_token: str) -
     assert len(rows) == 2
     assert registry is not None
     assert registry.goal == original_goal
+
+
+def test_update_can_clear_project_resources_and_lexicon_scope(admin_token: str) -> None:
+    project = _create_project(
+        admin_token,
+        {
+            "name": "Clearable",
+            "project_resources": "DEV notes",
+            "lexicon_scope": "domain vocabulary",
+        },
+    )
+
+    response = client.patch(
+        f"/projects/{project['project_id']}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "project_resources": None,
+            "lexicon_scope": None,
+        },
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["project_resources"] is None
+    assert body["lexicon_scope"] is None
+
+    with SessionLocal() as db:
+        definition = db.scalar(
+            select(ProjectDefinition).where(ProjectDefinition.project_id == project["project_id"])
+        )
+        registry = db.scalar(select(ProjectRegistry).where(ProjectRegistry.project_id == project["project_id"]))
+    assert definition is not None
+    assert definition.project_resources is None
+    assert registry is not None
+    assert registry.lexicon_scope is None
 
 
 def test_update_rejected_for_archived_project(admin_token: str) -> None:

@@ -121,6 +121,7 @@ def update_project(
         raise AuthApiError("project_archived", "Cannot update an archived project.", 409)
 
     new_definition_id = new_id()
+    update_fields = body.model_fields_set
     new_definition = ProjectDefinition(
         definition_id=new_definition_id,
         project_id=project_id,
@@ -130,12 +131,12 @@ def update_project(
         workspace=body.workspace if body.workspace is not None else current_definition.workspace,
         project_resources=(
             body.project_resources
-            if body.project_resources is not None
+            if "project_resources" in update_fields
             else current_definition.project_resources
         ),
         execution_environments=(
             body.execution_environments
-            if body.execution_environments is not None
+            if "execution_environments" in update_fields
             else current_definition.execution_environments
         ),
         model_policy=body.model_policy if body.model_policy is not None else current_definition.model_policy,
@@ -160,7 +161,7 @@ def update_project(
     if body.name is not None:
         registry.name = body.name
     registry.definition_id = new_definition_id
-    if body.lexicon_scope is not None:
+    if "lexicon_scope" in update_fields:
         registry.lexicon_scope = body.lexicon_scope
 
     record_management_audit(
@@ -171,7 +172,7 @@ def update_project(
         payload={
             "project_id": project_id,
             "new_definition_id": new_definition_id,
-            "changed_fields": list(body.model_dump(exclude_none=True).keys()),
+            "changed_fields": sorted(update_fields),
         },
     )
     db.commit()
