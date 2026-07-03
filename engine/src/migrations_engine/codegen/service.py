@@ -182,29 +182,39 @@ def build_delivery_bundle_text(
         )
         .order_by(CodeGenerationArtifact.destination_object_name.asc(), CodeGenerationArtifact.created_at.desc())
     ).all()
+    lookup_artifacts = sorted(
+        [artifact for artifact in artifacts if artifact.destination_object_name.startswith("0000_")],
+        key=lambda artifact: (artifact.destination_object_name, artifact.created_at),
+    )
+    domain_artifacts = [artifact for artifact in artifacts if not artifact.destination_object_name.startswith("0000_")]
     if sequence is not None:
         positions = {name: index for index, name in enumerate(sequence)}
-        artifacts = sorted(
-            artifacts,
+        domain_artifacts = sorted(
+            domain_artifacts,
             key=lambda artifact: (
                 positions.get(artifact.destination_object_name, len(sequence)),
                 artifact.destination_object_name,
                 artifact.created_at,
             ),
         )
-    bundle_parts: list[str] = []
-    for index, artifact in enumerate(artifacts, start=1):
-        heading = (
-            f"-- [{index:02d}] {artifact.destination_object_name}"
-            if sequence is not None
-            else f"-- {artifact.destination_object_name}"
+    else:
+        domain_artifacts = sorted(
+            domain_artifacts,
+            key=lambda artifact: (artifact.destination_object_name, artifact.created_at),
         )
+    bundle_parts: list[str] = []
+    for artifact in lookup_artifacts:
+        bundle_parts.append(f"-- {artifact.destination_object_name}")
+        if artifact.sql_bundle:
+            bundle_parts.append(artifact.sql_bundle.strip())
+    for index, artifact in enumerate(domain_artifacts, start=1):
+        heading = f"-- [{index:02d}] {artifact.destination_object_name}" if sequence is not None else f"-- {artifact.destination_object_name}"
         bundle_parts.append(heading)
         if artifact.sql_bundle:
             bundle_parts.append(artifact.sql_bundle.strip())
     return DeliveryBundleResponse(
         sql_bundle="\n\n".join(bundle_parts).strip(),
-        artifact_count=len(artifacts),
+        artifact_count=len(lookup_artifacts) + len(domain_artifacts),
     )
 
 

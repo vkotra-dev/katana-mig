@@ -4,10 +4,11 @@ import csv
 import io
 import json
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from ..ai.factory import get_adapter
@@ -25,16 +26,22 @@ from ..api.schemas import (
     LookupSourceEntriesCreateRequest,
     LookupSourceEntryResponse,
 )
+from ..codegen.lookup_upsert import generate_lookup_upsert_sql
 from ..db.models import (
+    CodeGenerationArtifact,
     Feed,
     LookupDestEntry,
     LookupDestFeed,
     LookupMapping,
     LookupSourceEntry,
+    ProjectDefinition,
     ProjectFiber,
+    ProjectRegistry,
     User,
     new_id,
 )
+from ..mapping.exceptions import SnapshotNotFoundError
+from ..mapping.snapshots import select_latest_approved_lookup_snapshot
 from ..management.access import require_project_access
 from ..roles import PROJECT_STAKEHOLDER_ROLE
 
@@ -198,26 +205,93 @@ def trigger_fiber(
     if fiber.status != "business_approved":
         raise AuthApiError("fiber_not_ready", "Fiber is not in the expected state.", 409)
 
-    fiber_key = fiber.fiber_key
-    fiber.status = "operator_triggered"
-    db.flush()
+    if fiber.fiber_type == "lookup":
+        try:
+            snapshot = select_latest_approved_lookup_snapshot(
+                db,
+                project_id=project_id,
+                lookup_name=fiber.fiber_key,
+            )
+        except SnapshotNotFoundError:
+            logger.warning("Skipping lookup codegen for %s: no approved snapshot found.", fiber.fiber_key)
+            fiber.status = "operator_triggered"
+            db.commit()
+            db.refresh(fiber)
+            return _fiber_response(fiber)
 
-    remaining = db.scalar(
-        select(func.count(ProjectFiber.fiber_id)).where(
-            ProjectFiber.project_id == project_id,
-            ProjectFiber.fiber_key == fiber_key,
-            ProjectFiber.status != "operator_triggered",
+        target_db_engine = _get_target_db_engine(db, project_id=project_id)
+        sql_bundle = generate_lookup_upsert_sql(
+            fiber.fiber_key,
+            snapshot.value_map or {},
+            target_db_engine,
         )
-    )
-    should_queue = (remaining or 0) == 0
+        destination_object_name = f"0000_{fiber.fiber_key}"
+        _supersede_lookup_artifact(
+            db,
+            project_id=project_id,
+            destination_object_name=destination_object_name,
+        )
+        db.add(
+            CodeGenerationArtifact(
+                codegen_artifact_id=new_id(),
+                project_id=project_id,
+                destination_object_name=destination_object_name,
+                run_id=None,
+                source_slice_version=None,
+                mapping_snapshot_version=None,
+                lookup_snapshot_version=snapshot.lookup_snapshot_version,
+                sql_bundle=sql_bundle,
+                status="active",
+            )
+        )
+        fiber.output_sql = sql_bundle
+        fiber.status = "codegen_complete"
+    else:
+        fiber.status = "operator_triggered"
+
+        fiber_key = fiber.fiber_key
+        db.flush()
+
+        remaining = db.scalar(
+            select(func.count(ProjectFiber.fiber_id)).where(
+                ProjectFiber.project_id == project_id,
+                ProjectFiber.fiber_key == fiber_key,
+                ProjectFiber.status != "operator_triggered",
+            )
+        )
+        should_queue = (remaining or 0) == 0
+
+        if should_queue:
+            logger.info("codegen queued for %s", fiber_key)
 
     db.commit()
     db.refresh(fiber)
 
-    if should_queue:
-        logger.info("codegen queued for %s", fiber_key)
-
     return _fiber_response(fiber)
+
+
+def _get_target_db_engine(db: Session, *, project_id: str) -> str | None:
+    registry = db.get(ProjectRegistry, project_id)
+    if registry is None:
+        return None
+    definition = db.get(ProjectDefinition, registry.definition_id)
+    if definition is None:
+        return None
+    domain_config = definition.domain_config or {}
+    return domain_config.get("target_db_engine")
+
+
+def _supersede_lookup_artifact(db: Session, *, project_id: str, destination_object_name: str) -> None:
+    now = datetime.now(UTC)
+    db.execute(
+        update(CodeGenerationArtifact)
+        .where(
+            CodeGenerationArtifact.project_id == project_id,
+            CodeGenerationArtifact.destination_object_name == destination_object_name,
+            CodeGenerationArtifact.status == "active",
+        )
+        .values(status="superseded", superseded_at=now)
+    )
 
 
 def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> list[FiberResponse]:
