@@ -5,7 +5,7 @@
 | Task | Summary | Depends on |
 |---|---|---|
 | [001al-lookup-fiber-ai-flow](./completed/001al-lookup-fiber-ai-flow.md) | [summary](./summary/001al-lookup-fiber-ai-flow.md) | 001ak |
-| [001am-mapping-fiber-ai-flow](./001am-mapping-fiber-ai-flow.md) | feed_analysis AI slot, analyze_feed endpoint, field bindings | 001ak |
+| [001am-mapping-fiber-ai-flow](./completed/001am-mapping-fiber-ai-flow.md) | [summary](./summary/001am-mapping-fiber-ai-flow.md) | 001ak |
 | [001au-notification-email-delivery](./001au-notification-email-delivery.md) | SMTP-backed notification emails and delivery docs | 001at |
 | [001ao-feed-comment](./001ao-feed-comment.md) | FeedComment model (0020), thread endpoint, notifications | 001ak |
 | [001ai-knowledge-freeze-history](./001ai-knowledge-freeze-history.md) | Read-only freeze history panel in project detail Overview tab | — |

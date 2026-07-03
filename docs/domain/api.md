@@ -738,6 +738,13 @@ Request body: `{ "comment": string | null }` or `{}`.
 
 Response `200`: `FiberResponse`
 
+### `POST /projects/{project_id}/feeds/{feed_id}/analyze`
+
+Analyze one approved feed slice and create or update the fibers attached to the
+feed. Requires `central_team`.
+
+Response `200`: array of `FiberResponse`
+
 ### `POST /projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/lookup-inputs`
 
 Submit the lookup source values and destination reference CSV for a lookup
