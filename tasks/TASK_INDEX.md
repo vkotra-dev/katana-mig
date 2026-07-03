@@ -4,7 +4,6 @@
 
 | Task | Summary |
 |---|---|
-| [001av-admin-user-edit-delete-controls](./001av-admin-user-edit-delete-controls.md) | Add edit access and enable delete in admin user management |
 | [001ax-project-resources-field](./001ax-project-resources-field.md) | Replace unused environment field with project_resources CLOB and infra template |
 | [001aw-project-edit](./001aw-project-edit.md) | Add a project detail edit flow for project metadata (depends on 001ax) |
 | [001ay-project-resources-rich-editor](./001ay-project-resources-rich-editor.md) | Rich text editor (bold/bullets/center) for project resources field, 3-col form grid (depends on 001ax, 001aw) |
@@ -33,6 +32,7 @@
 | [001o-project-crud](./completed/001o-project-crud.md) | [summary](./summary/001o-project-crud.md) |
 | [001p-project-crud-ui](./completed/001p-project-crud-ui.md) | [summary](./summary/001p-project-crud-ui.md) |
 | [001ab-source-slice-approval](./completed/001ab-source-slice-approval.md) | [summary](./summary/001ab-source-slice-approval.md) |
+| [001av-admin-user-edit-delete-controls](./completed/001av-admin-user-edit-delete-controls.md) | [summary](./summary/001av-admin-user-edit-delete-controls.md) |
 | [001az-model-policy-overrides](./completed/001az-model-policy-overrides.md) | [summary](./summary/001az-model-policy-overrides.md) |
 | [001ah-delivery-bundle-sequencing](./completed/001ah-delivery-bundle-sequencing.md) | [summary](./summary/001ah-delivery-bundle-sequencing.md) |
 | [001x-lookup-value-mapping](./completed/001x-lookup-value-mapping.md) | [summary](./summary/001x-lookup-value-mapping.md) |
