@@ -71,11 +71,23 @@ describe("ProjectDetailView", () => {
     render(<ProjectDetailView project={active} />);
 
     expect(screen.getByText("Migrate all CRM data")).toBeInTheDocument();
-    expect(screen.getByText("STG → UAT → PROD")).toBeInTheDocument();
     expect(screen.getByText("GDPR, Art 6(1)(c)")).toBeInTheDocument();
     expect(screen.getByText("mssql")).toBeInTheDocument();
+    expect(screen.getByText("stg")).toBeInTheDocument();
     expect(screen.getByText("dbo")).toBeInTheDocument();
+    expect(screen.getByText("false")).toBeInTheDocument();
     expect(screen.getByText("create table crm(id int);")).toBeInTheDocument();
+    expect(screen.getByText("Goal")).toBeInTheDocument();
+    expect(screen.getByText("Target DB engine")).toBeInTheDocument();
+    expect(screen.getByText("Staging schema")).toBeInTheDocument();
+    expect(screen.getByText("Destination schema")).toBeInTheDocument();
+    expect(screen.getByText("Dry run")).toBeInTheDocument();
+    expect(screen.getByText("Destination schema DDL")).toBeInTheDocument();
+    expect(screen.getByText("Sample policy")).toBeInTheDocument();
+    expect(screen.getByText("Constraints")).toBeInTheDocument();
+    expect(screen.getByText("Unresolved questions")).toBeInTheDocument();
+    expect(screen.getByText("Assumptions")).toBeInTheDocument();
+    expect(screen.getByText("Lexicon scope")).toBeInTheDocument();
   });
 
   it("renders projectResources as a read-only textarea", () => {

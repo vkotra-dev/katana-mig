@@ -51,7 +51,7 @@ function getStatusClassName(status: ProjectRecord["status"]): string {
     : "bg-primary-container text-on-primary-container";
 }
 
-function KeyValue({
+function ReadOnlyField({
   label,
   value,
 }: {
@@ -59,9 +59,11 @@ function KeyValue({
   value: string;
 }) {
   return (
-    <div className="space-y-1 rounded-xl border border-outline-variant bg-surface px-4 py-3">
+    <div className="space-y-2">
       <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</div>
-      <div className="whitespace-pre-wrap text-sm text-slate-900">{value}</div>
+      <div className="rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900">
+        <div className="whitespace-pre-wrap">{value}</div>
+      </div>
     </div>
   );
 }
@@ -88,43 +90,30 @@ export function ProjectDetailView({ project, modelDefaults = null }: ProjectDeta
 
       <StageTimeline latestRunSummary={project.latestRunSummary ?? null} />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <KeyValue label="Goal" value={project.goal ?? "—"} />
-        <KeyValue
-          label="Environments"
-          value={project.executionEnvironments?.join(" → ") ?? "—"}
-        />
-        <KeyValue label="Target DB engine" value={domainConfig?.targetDbEngine ?? "—"} />
-        <KeyValue
-          label="Staging schema"
-          value={domainConfig?.stagingSchema ?? "—"}
-        />
-        <KeyValue
-          label="Destination schema"
-          value={domainConfig?.destinationSchema ?? "—"}
-        />
-        <KeyValue label="Dry run" value={displayValue(domainConfig?.dryRun)} />
-        <KeyValue
-          label="Destination schema DDL"
-          value={domainConfig?.destinationSchemaDdl ?? "—"}
-        />
-        <KeyValue
-          label="Sample policy"
-          value={formatSamplePolicy(domainConfig?.samplePolicy)}
-        />
-        <KeyValue
-          label="Constraints"
-          value={project.constraints?.join(", ") ?? "—"}
-        />
-        <KeyValue
-          label="Unresolved questions"
-          value={project.unresolvedQuestions?.join("; ") ?? "—"}
-        />
-        <KeyValue label="Assumptions" value={project.assumptions?.join("; ") ?? "—"} />
-        <KeyValue
-          label="Lexicon scope"
-          value={project.lexiconScope ? JSON.stringify(project.lexiconScope) : "—"}
-        />
+      <div className="space-y-4">
+        <ReadOnlyField label="Goal" value={project.goal ?? "—"} />
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          <ReadOnlyField label="Target DB engine" value={domainConfig?.targetDbEngine ?? "—"} />
+          <ReadOnlyField label="Staging schema" value={domainConfig?.stagingSchema ?? "—"} />
+          <ReadOnlyField label="Destination schema" value={domainConfig?.destinationSchema ?? "—"} />
+          <ReadOnlyField label="Dry run" value={displayValue(domainConfig?.dryRun)} />
+          <ReadOnlyField
+            label="Destination schema DDL"
+            value={domainConfig?.destinationSchemaDdl ?? "—"}
+          />
+          <ReadOnlyField label="Sample policy" value={formatSamplePolicy(domainConfig?.samplePolicy)} />
+          <ReadOnlyField label="Constraints" value={project.constraints?.join(", ") ?? "—"} />
+          <ReadOnlyField
+            label="Unresolved questions"
+            value={project.unresolvedQuestions?.join("; ") ?? "—"}
+          />
+          <ReadOnlyField label="Assumptions" value={project.assumptions?.join("; ") ?? "—"} />
+          <ReadOnlyField
+            label="Lexicon scope"
+            value={project.lexiconScope ? JSON.stringify(project.lexiconScope) : "—"}
+          />
+        </div>
       </div>
 
       <div className="space-y-3">

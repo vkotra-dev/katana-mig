@@ -92,7 +92,7 @@ This is the high-level operational surface for cross-project monitoring.
 
 Full lifecycle view for one project. Four tabs:
 
-- **Overview** — stage timeline, key–value metadata (goal, environments, target DB engine, staging schema, destination schema, dry-run flag, destination schema DDL, sample policy, constraints, unresolved questions, assumptions, lexicon scope), and a model policy block that shows the effective model and whether it came from a project override or `engine.yaml`
+- **Overview** — stage timeline, read-only metadata fields in the same project layout order as the edit screen (goal, target DB engine, staging schema, destination schema, dry-run flag, destination schema DDL, sample policy, constraints, unresolved questions, assumptions, lexicon scope), and a model policy block that shows the effective model and whether it came from a project override or `engine.yaml`
 - **Feeds** — list of feeds with add-feed action; DDL analysis prompt banner (see below)
 - **Artifacts** — feed slice versions and approval status
 - **SQL Bundle** — navigates to the SQL bundle delivery page (see SQL bundle delivery)
@@ -111,10 +111,10 @@ This is the project-local drilldown view.
 Route: `/projects/[id]/edit`
 
 The edit screen uses the same project metadata layout as the detail screen for
-non-editable fields, but keeps the model policy section collapsed by default.
-Each model override input shows the current global default model name directly
-below the input so operators can see what will be used if they leave the field
-blank.
+non-editable fields. The model policy section is collapsed by default and
+expands into the same three-column model override grid used elsewhere. Each
+model override input shows the current global default model name directly below
+the input so operators can see what will be used if they leave the field blank.
 
 ### SQL bundle delivery
 

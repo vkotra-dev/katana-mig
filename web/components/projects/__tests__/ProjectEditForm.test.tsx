@@ -95,16 +95,23 @@ describe("ProjectEditForm", () => {
     expect(screen.getByRole("button", { name: "Center" })).toBeInTheDocument();
   });
 
-  it("renders the rich text toolbar", () => {
+  it("keeps the model policy collapsed until expanded", () => {
     render(<ProjectEditForm modelDefaults={modelDefaults} project={project} onSubmit={vi.fn()} />);
 
-    expect(screen.getByRole("button", { name: "Bold" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Bullet list" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Center" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /model policy/i })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("textbox", { name: "Field mapping model" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /model policy/i }));
+
+    expect(screen.getByRole("button", { name: /model policy/i })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("textbox", { name: "Field mapping model" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Script generation model" })).toBeInTheDocument();
   });
 
   it("renders the Model Policy section with task inputs", () => {
     render(<ProjectEditForm modelDefaults={modelDefaults} project={project} onSubmit={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /model policy/i }));
 
     expect(screen.getByText("Model Policy")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Field mapping model" })).toBeInTheDocument();
@@ -138,6 +145,7 @@ describe("ProjectEditForm", () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<ProjectEditForm modelDefaults={modelDefaults} project={project} onSubmit={onSubmit} />);
 
+    fireEvent.click(screen.getByRole("button", { name: /model policy/i }));
     fireEvent.change(screen.getByRole("textbox", { name: "Field mapping model" }), {
       target: { value: "" },
     });
