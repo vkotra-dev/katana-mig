@@ -79,7 +79,7 @@ export interface ProjectRecord {
   unresolvedQuestions: string[] | null;
   assumptions: string[] | null;
   domainConfig: ProjectDomainConfig | null;
-  lexiconScope: Record<string, unknown> | null;
+  lexiconScope: string | null;
   status: "active" | "archived";
   createdAt: string;
   updatedAt: string;
@@ -100,7 +100,7 @@ export interface ProjectCreateInput {
   unresolvedQuestions?: string[] | null;
   assumptions?: string[] | null;
   domainConfig?: ProjectDomainConfigInput | null;
-  lexiconScope?: Record<string, unknown> | null;
+  lexiconScope?: string | null;
 }
 
 export interface ProjectUpdateInput extends ProjectCreateInput {}
@@ -332,7 +332,7 @@ function mapProjectRecord(record: {
     destination_schema_ddl?: string | null;
     environments?: string[] | null;
   } | null;
-  lexicon_scope: Record<string, unknown> | null;
+  lexicon_scope: string | null;
   status: "active" | "archived";
   created_at: string;
   updated_at: string;

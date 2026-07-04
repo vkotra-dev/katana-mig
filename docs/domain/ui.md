@@ -92,7 +92,7 @@ This is the high-level operational surface for cross-project monitoring.
 
 Full lifecycle view for one project. Four tabs:
 
-- **Overview** — stage timeline, key–value metadata (goal, environments, target DB engine, staging schema, destination schema, dry-run flag, destination schema DDL, sample policy, constraints, unresolved questions, assumptions, lexicon scope), and a model policy block that shows the effective model and whether it came from a project override or `engine.yaml`
+- **Overview** — stage timeline, metadata layout (matching the edit form layout: goal, execution environments, target database engine, staging schema, destination schema, dry run, destination schema DDL, sample policy, constraints, unresolved questions, assumptions, lexicon scope), and a model policy block that shows the effective model and whether it came from a project override or `engine.yaml`
 - **Feeds** — list of feeds with add-feed action; DDL analysis prompt banner (see below)
 - **Artifacts** — feed slice versions and approval status
 - **SQL Bundle** — navigates to the SQL bundle delivery page (see SQL bundle delivery)

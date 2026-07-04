@@ -156,6 +156,7 @@ export function ProjectEditForm({
     initializeSamplePolicyDraft(project.domainConfig?.samplePolicy),
   );
   const [formError, setFormError] = useState<string | null>(null);
+  const [modelPolicyOpen, setModelPolicyOpen] = useState(false);
 
   return (
     <form
@@ -366,32 +367,38 @@ export function ProjectEditForm({
         </div>
 
         <div className="space-y-2 lg:col-span-3">
-          <div className="border-t border-outline-variant pt-4">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Model Policy</h3>
-            <p className="mt-1 text-xs text-slate-400">
-              Override the AI model used for a task. Leave blank to use the global default.
-            </p>
-          </div>
+          <button
+            className="flex w-full items-center justify-between rounded-xl border border-outline-variant bg-surface px-4 py-4 text-left"
+            onClick={() => setModelPolicyOpen((value) => !value)}
+            type="button"
+          >
+            <span className="text-sm font-semibold text-slate-900">Model Policy</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+              {modelPolicyOpen ? "Collapse" : "Expand"}
+            </span>
+          </button>
         </div>
 
-        {MODEL_POLICY_FIELDS.map(({ key, label }) => (
-          <div className="space-y-2" key={key}>
-            <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-              {label}
-            </label>
-            <input
-              aria-label={label}
-              className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
-              onChange={(event) => setModelPolicy((current) => ({ ...current, [key]: event.target.value }))}
-              placeholder="Global default"
-              type="text"
-              value={modelPolicy[key]}
-            />
-            <p className="text-xs text-slate-500">
-              {modelDefaults?.[key] ? `Global default: ${modelDefaults[key]}` : "Global default unavailable"}
-            </p>
-          </div>
-        ))}
+        {modelPolicyOpen
+          ? MODEL_POLICY_FIELDS.map(({ key, label }) => (
+              <div className="space-y-2" key={key}>
+                <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  {label}
+                </label>
+                <input
+                  aria-label={label}
+                  className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
+                  onChange={(event) => setModelPolicy((current) => ({ ...current, [key]: event.target.value }))}
+                  placeholder="Global default"
+                  type="text"
+                  value={modelPolicy[key]}
+                />
+                <p className="text-xs text-slate-500">
+                  {modelDefaults?.[key] ? `Global default: ${modelDefaults[key]}` : "Global default unavailable"}
+                </p>
+              </div>
+            ))
+          : null}
 
         <div className="space-y-2 lg:col-span-3">
           <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Project Resources</label>

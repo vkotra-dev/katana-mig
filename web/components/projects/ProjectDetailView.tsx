@@ -54,12 +54,14 @@ function getStatusClassName(status: ProjectRecord["status"]): string {
 function KeyValue({
   label,
   value,
+  className = "",
 }: {
   label: string;
   value: string;
+  className?: string;
 }) {
   return (
-    <div className="space-y-1 rounded-xl border border-outline-variant bg-surface px-4 py-3">
+    <div className={`space-y-2 ${className}`}>
       <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</div>
       <div className="whitespace-pre-wrap text-sm text-slate-900">{value}</div>
     </div>
@@ -88,13 +90,17 @@ export function ProjectDetailView({ project, modelDefaults = null }: ProjectDeta
 
       <StageTimeline latestRunSummary={project.latestRunSummary ?? null} />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <KeyValue label="Goal" value={project.goal ?? "—"} />
+      <div className="space-y-2">
+        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Goal</div>
+        <div className="whitespace-pre-wrap text-sm text-slate-900">{project.goal ?? "—"}</div>
+      </div>
+
+      <div className="grid gap-x-6 gap-y-5 lg:grid-cols-3">
         <KeyValue
-          label="Environments"
+          label="Execution environments"
           value={project.executionEnvironments?.join(" → ") ?? "—"}
         />
-        <KeyValue label="Target DB engine" value={domainConfig?.targetDbEngine ?? "—"} />
+        <KeyValue label="Target database engine" value={domainConfig?.targetDbEngine ?? "—"} />
         <KeyValue
           label="Staging schema"
           value={domainConfig?.stagingSchema ?? "—"}
@@ -105,25 +111,30 @@ export function ProjectDetailView({ project, modelDefaults = null }: ProjectDeta
         />
         <KeyValue label="Dry run" value={displayValue(domainConfig?.dryRun)} />
         <KeyValue
+          className="lg:col-span-3"
           label="Destination schema DDL"
           value={domainConfig?.destinationSchemaDdl ?? "—"}
         />
         <KeyValue
+          className="lg:col-span-3"
           label="Sample policy"
           value={formatSamplePolicy(domainConfig?.samplePolicy)}
         />
         <KeyValue
+          className="lg:col-span-3"
           label="Constraints"
           value={project.constraints?.join(", ") ?? "—"}
         />
         <KeyValue
+          className="lg:col-span-3"
           label="Unresolved questions"
           value={project.unresolvedQuestions?.join("; ") ?? "—"}
         />
-        <KeyValue label="Assumptions" value={project.assumptions?.join("; ") ?? "—"} />
+        <KeyValue className="lg:col-span-3" label="Assumptions" value={project.assumptions?.join("; ") ?? "—"} />
         <KeyValue
+          className="lg:col-span-3"
           label="Lexicon scope"
-          value={project.lexiconScope ? JSON.stringify(project.lexiconScope) : "—"}
+          value={project.lexiconScope ?? "—"}
         />
       </div>
 

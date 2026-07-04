@@ -106,7 +106,11 @@ describe("ProjectEditForm", () => {
   it("renders the Model Policy section with task inputs", () => {
     render(<ProjectEditForm modelDefaults={modelDefaults} project={project} onSubmit={vi.fn()} />);
 
-    expect(screen.getByText("Model Policy")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Model Policy/i })).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Field mapping model" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Model Policy/i }));
+
     expect(screen.getByRole("textbox", { name: "Field mapping model" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Script generation model" })).toBeInTheDocument();
     expect(screen.getByText("Global default: field-model")).toBeInTheDocument();
@@ -137,6 +141,8 @@ describe("ProjectEditForm", () => {
   it("includes modelPolicy and structured sample policy overrides in submit payload", async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<ProjectEditForm modelDefaults={modelDefaults} project={project} onSubmit={onSubmit} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Model Policy/i }));
 
     fireEvent.change(screen.getByRole("textbox", { name: "Field mapping model" }), {
       target: { value: "" },

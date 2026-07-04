@@ -78,6 +78,17 @@ describe("ProjectDetailView", () => {
     expect(screen.getByText("create table crm(id int);")).toBeInTheDocument();
   });
 
+  it("renders detail view with same field labels as edit", () => {
+    render(<ProjectDetailView project={active} />);
+
+    expect(screen.getByText("Target database engine")).toBeInTheDocument();
+    expect(screen.getByText("Staging schema")).toBeInTheDocument();
+    expect(screen.getByText("Destination schema")).toBeInTheDocument();
+    expect(screen.getByText("Dry run")).toBeInTheDocument();
+    expect(screen.getByText("Destination schema DDL")).toBeInTheDocument();
+    expect(screen.getByText("Sample policy")).toBeInTheDocument();
+  });
+
   it("renders projectResources HTML as formatted content", () => {
     render(
       <ProjectDetailView
