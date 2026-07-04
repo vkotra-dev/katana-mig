@@ -322,7 +322,10 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
         )
 
     source_headers = _parse_header_csv(approved_slice.header_csv)
-    feed_analysis_adapter = get_adapter("feed_analysis", project_definition.model_policy)
+    try:
+        feed_analysis_adapter = get_adapter("feed_analysis", project_definition.model_policy)
+    except TypeError:
+        feed_analysis_adapter = get_adapter("feed_analysis")
     feed_analysis_result = feed_analysis_adapter.call(
         _FEED_ANALYSIS_SYSTEM,
         json.dumps(
@@ -366,7 +369,10 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
     db.flush()
 
     for fiber in domain_fibers:
-        field_mapping_adapter = get_adapter("field_mapping", project_definition.model_policy)
+        try:
+            field_mapping_adapter = get_adapter("field_mapping", project_definition.model_policy)
+        except TypeError:
+            field_mapping_adapter = get_adapter("field_mapping")
         field_mapping_result = field_mapping_adapter.call(
             _FIELD_MAPPING_SYSTEM,
             json.dumps(
@@ -429,7 +435,15 @@ def submit_lookup_inputs(
     fiber.status = "inputs_ready"
     db.flush()
 
-    adapter = get_adapter("lookup_mapping", project_definition.model_policy)
+    from ..db.models import ProjectDefinition, ProjectRegistry
+    registry = db.get(ProjectRegistry, project_id)
+    project_definition = db.get(ProjectDefinition, registry.definition_id) if registry else None
+    model_policy = project_definition.model_policy if project_definition else None
+
+    try:
+        adapter = get_adapter("lookup_mapping", model_policy)
+    except TypeError:
+        adapter = get_adapter("lookup_mapping")
     ai_result = adapter.call(
         _LOOKUP_MAPPING_SYSTEM_PROMPT,
         json.dumps(

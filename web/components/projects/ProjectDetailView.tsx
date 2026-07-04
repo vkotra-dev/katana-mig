@@ -1,5 +1,6 @@
 "use client";
 
+import DOMPurify from "dompurify";
 import type { AIModelDefaultsRecord } from "../../lib/ai-model-defaults-api";
 import type { ProjectRecord, SamplePolicy } from "../../lib/projects-api";
 import { StageTimeline } from "./StageTimeline";
@@ -7,7 +8,7 @@ import { MODEL_POLICY_FIELDS } from "./modelPolicyCatalog";
 
 export interface ProjectDetailViewProps {
   project: ProjectRecord;
-  modelDefaults?: AIModelDefaultsRecord["migrationModels"] | null;
+  modelDefaults?: (AIModelDefaultsRecord["migrationModels"] & AIModelDefaultsRecord["platformModels"]) | null;
 }
 
 function formatDate(value: string | null): string {
@@ -166,7 +167,9 @@ export function ProjectDetailView({ project, modelDefaults = null }: ProjectDeta
             <div
               aria-label="Project Resources"
               className="prose prose-sm max-w-none mt-2 rounded-md border border-outline-variant bg-surface px-3 py-2 text-slate-800"
-              dangerouslySetInnerHTML={{ __html: project.projectResources }}
+              dangerouslySetInnerHTML={{
+                __html: typeof window !== "undefined" ? DOMPurify.sanitize(project.projectResources) : ""
+              }}
             />
           </div>
         </div>

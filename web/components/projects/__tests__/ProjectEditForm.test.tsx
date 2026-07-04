@@ -120,7 +120,7 @@ describe("ProjectEditForm", () => {
   it("renders structured sample policy controls", () => {
     render(<ProjectEditForm modelDefaults={modelDefaults} project={project} onSubmit={vi.fn()} />);
 
-    expect(screen.queryByLabelText("Execution environments")).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Execution environments" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Staging schema" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Destination schema" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Sample policy strategy" })).toBeInTheDocument();

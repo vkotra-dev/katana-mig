@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import type { AIModelDefaultsRecord } from "../../lib/ai-model-defaults-api";
 import type {
-  AIModelDefaultsRecord,
   ModelPolicy,
   SamplePolicy,
   SamplePolicyStrategy,
@@ -17,7 +17,7 @@ export interface ProjectEditFormProps {
   project: ProjectRecord;
   loading?: boolean;
   errorMessage?: string;
-  modelDefaults?: AIModelDefaultsRecord["migrationModels"] | null;
+  modelDefaults?: (AIModelDefaultsRecord["migrationModels"] & AIModelDefaultsRecord["platformModels"]) | null;
   onSubmit: (value: ProjectUpdateInput) => Promise<void> | void;
 }
 
@@ -140,7 +140,7 @@ export function ProjectEditForm({
   const [goal, setGoal] = useState(project.goal ?? "");
   const [projectResources, setProjectResources] = useState(project.projectResources ?? "");
   const [modelPolicy, setModelPolicy] = useState(() => initializeModelPolicyDraft(project.modelPolicy));
-  const [executionEnvironments] = useState(project.executionEnvironments?.join(", ") ?? "");
+  const [executionEnvironments, setExecutionEnvironments] = useState(project.executionEnvironments?.join(", ") ?? "");
   const [targetDbEngine, setTargetDbEngine] = useState<TargetDbEngine | "">(
     project.domainConfig?.targetDbEngine ?? "",
   );
@@ -217,6 +217,19 @@ export function ProjectEditForm({
           name="goal"
           onChange={(event) => setGoal(event.target.value)}
           value={goal}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Execution environments</label>
+        <input
+          aria-label="Execution environments"
+          className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
+          name="executionEnvironments"
+          onChange={(event) => setExecutionEnvironments(event.target.value)}
+          placeholder="e.g. STG, UAT, PROD"
+          type="text"
+          value={executionEnvironments}
         />
       </div>
 

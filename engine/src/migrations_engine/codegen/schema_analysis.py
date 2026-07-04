@@ -35,7 +35,10 @@ def run_schema_analysis(db: Session, *, project_id: str) -> ProjectSchemaAnalysi
     if not ddl:
         raise AuthApiError("missing_ddl", "Project has no destination_schema_ddl.", 422)
 
-    adapter = get_adapter("schema_dependency", project_definition.model_policy)
+    try:
+        adapter = get_adapter("schema_dependency", project_definition.model_policy)
+    except TypeError:
+        adapter = get_adapter("schema_dependency")
     result = adapter.call(SYSTEM_PROMPT, ddl, DDLAnalysisResult)
     sequence = _topological_sort(result.objects)
 

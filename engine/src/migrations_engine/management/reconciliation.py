@@ -99,7 +99,14 @@ def _parse_first_csv_field(row_csv: str) -> str | None:
 
 
 def _binding_rules(field_bindings: list[dict[str, Any]]) -> list[str]:
-    return [f"{binding['source_field']} → {binding['destination_field']}" for binding in field_bindings]
+    rules = []
+    for binding in field_bindings:
+        src = binding.get("source_field")
+        dst = binding.get("destination_field")
+        if not src or not dst:
+            raise ValueError("malformed field binding — missing source_field or destination_field")
+        rules.append(f"{src} → {dst}")
+    return rules
 
 
 def _destination_field(field_bindings: list[dict[str, Any]]) -> str | None:
@@ -165,21 +172,23 @@ def _build_lineage_rows(
                 destination_row_id = value if value not in {"", None} else None
 
             if mapped_row.get("destination_row_id") not in {None, ""} and destination_row_id is None:
-                destination_row_id = str(mapped_row["destination_row_id"])
+                destination_row_id = str(mapped_row.get("destination_row_id"))
 
-            if any(
-                mapped_row.get(binding["destination_field"]) in {None, ""}
+            if destination_row_id is not None and destination_row_id in seen_destination_ids:
+                outcome = "duplicated"
+                outcome_detail = f"duplicate destination row id {destination_row_id}."
+            elif any(
+                mapped_row.get(binding.get("destination_field")) in {None, ""}
                 for binding in field_bindings
                 if binding.get("destination_field")
             ):
                 outcome = "partially_mapped"
                 outcome_detail = "one or more mapped destination fields are null."
+                if destination_row_id is not None:
+                    seen_destination_ids.add(destination_row_id)
             elif destination_row_id is None:
                 outcome = "rejected"
                 outcome_detail = "no destination row produced."
-            elif destination_row_id in seen_destination_ids:
-                outcome = "duplicated"
-                outcome_detail = f"duplicate destination row id {destination_row_id}."
             else:
                 outcome = "confirmed"
                 seen_destination_ids.add(destination_row_id)
@@ -237,8 +246,8 @@ def _count_lineages(db: Session, *, report_id: str) -> dict[str, int]:
         )
     )
     return {
-        "source_rows": len(rows),
-        "destination_rows": len(rows),
+        "source_rows": sum(1 for row in rows if row.source_row_index is not None),
+        "destination_rows": sum(1 for row in rows if row.destination_row_id is not None),
         "rejected": sum(1 for row in rows if row.outcome == "rejected"),
         "duplicated": sum(1 for row in rows if row.outcome == "duplicated"),
         "partially_mapped": sum(1 for row in rows if row.outcome == "partially_mapped"),
@@ -295,7 +304,7 @@ def _evaluate_key_integrity_check(
 
 
 def _evaluate_null_rate_check(*, mapped_rows: list[dict[str, Any]], field_bindings: list[dict[str, Any]]) -> ReconciliationCheckResult:
-    destination_fields = [binding["destination_field"] for binding in field_bindings if binding.get("destination_field")]
+    destination_fields = [str(binding.get("destination_field")) for binding in field_bindings if binding.get("destination_field")]
     if not destination_fields:
         return _to_check("null_rate", "pass", "no destination fields were available for null-rate analysis.")
     failed_fields: list[str] = []
@@ -315,9 +324,12 @@ def _evaluate_lookup_coverage_check(*, mapped_rows: list[dict[str, Any]], field_
         return _to_check("lookup_coverage", "pass", "no lookup-translated fields were present.")
     missing: list[str] = []
     for binding in lookup_fields:
-        destination_field = str(binding["destination_field"])
-        if any(row.get(destination_field) in {None, ""} for row in mapped_rows):
-            missing.append(destination_field)
+        destination_field = binding.get("destination_field")
+        if not destination_field:
+            continue
+        destination_field_str = str(destination_field)
+        if any(row.get(destination_field_str) in {None, ""} for row in mapped_rows):
+            missing.append(destination_field_str)
     if missing:
         return _to_check("lookup_coverage", "fail", f"lookup coverage is missing for: {', '.join(sorted(set(missing)))}.")
     return _to_check("lookup_coverage", "pass", "all lookup-translated fields are populated.")

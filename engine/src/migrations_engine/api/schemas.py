@@ -116,6 +116,8 @@ class LatestRunSummary(BaseModel):
 
 
 class ModelPolicy(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     pii_review: str | None = None
     field_mapping: str | None = None
     lookup_mapping: str | None = None
@@ -741,6 +743,9 @@ class ReconciliationReportResponse(BaseModel):
     run_id: str
     checks: list[ReconciliationCheckResult]
     overall_status: Literal["in_progress", "pass", "fail"]
+    row_count_summary: RowCountSummary | None = None
+    created_at: datetime
+    completed_at: datetime | None = None
 
 
 class GateRejectionDetail(BaseModel):

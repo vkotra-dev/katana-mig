@@ -20,7 +20,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const initialTab = searchParams.get("tab");
   const [session, setSession] = useState<UiSession | null>(null);
   const [project, setProject] = useState<ProjectRecord | null>(null);
-  const [modelDefaults, setModelDefaults] = useState<AIModelDefaultsRecord["migrationModels"] | null>(null);
+  const [modelDefaults, setModelDefaults] = useState<(AIModelDefaultsRecord["migrationModels"] & AIModelDefaultsRecord["platformModels"]) | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "sources" | "artifacts">(
     initialTab === "sources" || initialTab === "artifacts" ? initialTab : "overview",
   );
@@ -74,7 +74,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     void getAiModelDefaults(session.accessToken)
       .then((response) => {
         if (active) {
-          setModelDefaults(response.migrationModels);
+          setModelDefaults({ ...response.migrationModels, ...response.platformModels });
         }
       })
       .catch(() => {

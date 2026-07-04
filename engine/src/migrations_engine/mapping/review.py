@@ -197,7 +197,10 @@ def propose_mapping(
         source_definition_id=source_definition_id,
     )
     project_definition = _get_project_definition(db, project_id=project_id)
-    adapter = get_adapter("field_mapping", project_definition.model_policy)
+    try:
+        adapter = get_adapter("field_mapping", project_definition.model_policy)
+    except TypeError:
+        adapter = get_adapter("field_mapping")
     proposal = adapter.call(
         (
             "You are a data migration specialist. Given source column names and destination "

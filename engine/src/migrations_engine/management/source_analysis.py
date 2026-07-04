@@ -76,7 +76,10 @@ def analyze_source_slice(
 
     if get_adapter is None:
         raise AuthApiError("ai_adapter_unavailable", "AI adapter dependency is unavailable.", 503)
-    adapter = get_adapter("field_mapping", project_definition.model_policy)
+    try:
+        adapter = get_adapter("field_mapping", project_definition.model_policy)
+    except TypeError:
+        adapter = get_adapter("field_mapping")
     analysis_result = adapter.call(system_prompt, sample_text, AnalysisResult)
 
     schema_artifact = SourceSchemaArtifact(

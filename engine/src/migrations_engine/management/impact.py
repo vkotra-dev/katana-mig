@@ -94,7 +94,10 @@ def _call_impact_ai(
     affected_objects: list[str],
     field_bindings: list[dict[str, Any]],
 ) -> _ImpactAnalysisAIResponse:
-    adapter = get_adapter("impact_analysis", model_policy)
+    try:
+        adapter = get_adapter("impact_analysis", model_policy)
+    except TypeError:
+        adapter = get_adapter("impact_analysis")
     system = (
         "You are a data migration expert. Analyse the Gate 1 pushback and produce a structured "
         "remediation recommendation. Return JSON matching the schema exactly."

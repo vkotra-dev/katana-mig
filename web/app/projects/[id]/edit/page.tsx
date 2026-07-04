@@ -20,7 +20,7 @@ export default function ProjectEditPage({ params }: { params: Promise<{ id: stri
   const session = useMemo(() => loadUiSession(), []);
   const { id } = use(params);
   const [project, setProject] = useState<ProjectRecord | null>(null);
-  const [modelDefaults, setModelDefaults] = useState<AIModelDefaultsRecord["migrationModels"] | null>(null);
+  const [modelDefaults, setModelDefaults] = useState<(AIModelDefaultsRecord["migrationModels"] & AIModelDefaultsRecord["platformModels"]) | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -68,7 +68,7 @@ export default function ProjectEditPage({ params }: { params: Promise<{ id: stri
     void getAiModelDefaults(session.accessToken)
       .then((response) => {
         if (active) {
-          setModelDefaults(response.migrationModels);
+          setModelDefaults({ ...response.migrationModels, ...response.platformModels });
         }
       })
       .catch(() => {

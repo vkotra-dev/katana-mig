@@ -37,9 +37,20 @@ class FakeAdapter:
         return self.analysis_result
 
 
+from sqlalchemy import create_engine
+from sqlalchemy.pool import StaticPool
+
+_sqlite_engine = create_engine(
+    "sqlite+pysqlite:///:memory:",
+    future=True,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+
+
 @pytest.fixture(scope="module", autouse=True)
 def _setup_sqlite_db() -> None:
-    Base.metadata.create_all(bind=TEST_ENGINE)
+    Base.metadata.create_all(bind=_sqlite_engine)
 
     settings = get_settings()
     if not settings.bootstrap_admin_email or not settings.bootstrap_admin_password:
