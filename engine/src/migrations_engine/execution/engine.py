@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import or_, select
+from sqlalchemy import case, or_, select
 from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
@@ -53,7 +53,15 @@ def _select_latest_approved_mapping_snapshot(db: Session, *, project_id: str, so
             MappingSnapshot.destination_object_name == destination_object_name,
             MappingSnapshot.status == "approved",
         )
-        .order_by(MappingSnapshot.approved_at.is_(None), MappingSnapshot.approved_at.desc(), MappingSnapshot.created_at.desc())
+        .order_by(
+            case(
+                (MappingSnapshot.source_definition_id == source_definition_id, 0),
+                else_=1
+            ).asc(),
+            MappingSnapshot.approved_at.is_(None),
+            MappingSnapshot.approved_at.desc(),
+            MappingSnapshot.created_at.desc()
+        )
     )
     if mapping_snapshot is None:
         raise ValueError("missing_mapping_snapshot")
