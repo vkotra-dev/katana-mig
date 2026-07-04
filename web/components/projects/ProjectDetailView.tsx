@@ -147,16 +147,17 @@ export function ProjectDetailView({ project, modelDefaults = null }: ProjectDeta
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <div className="space-y-1 rounded-xl border border-outline-variant bg-surface px-4 py-3 md:col-span-2 xl:col-span-3">
+        <label className="space-y-1 rounded-xl border border-outline-variant bg-surface px-4 py-3 md:col-span-2 xl:col-span-3">
           <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
             Project Resources
           </div>
-          <div
+          <textarea
             aria-label="Project Resources"
             className="mt-2 min-h-32 w-full rounded-md border border-outline-variant bg-surface px-3 py-2 text-sm text-slate-800"
-            dangerouslySetInnerHTML={{ __html: projectResources }}
+            readOnly
+            value={projectResources}
           />
-        </div>
+        </label>
       </div>
     </section>
   );
