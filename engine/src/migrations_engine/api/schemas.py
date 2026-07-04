@@ -127,11 +127,46 @@ class ModelPolicy(BaseModel):
     implementation: str | None = None
 
 
+class PlatformModelDefaults(BaseModel):
+    planning: str
+    review: str
+    implementation: str
+
+
+class MigrationModelDefaults(BaseModel):
+    pii_review: str
+    field_mapping: str
+    lookup_mapping: str
+    script_generation: str
+    script_correction: str
+    schema_dependency: str
+    impact_analysis: str
+    feed_analysis: str
+
+
+class AIModelDefaultsResponse(BaseModel):
+    source: Literal["engine.yaml"]
+    platform_models: PlatformModelDefaults
+    migration_models: MigrationModelDefaults
+
+
+SamplePolicyStrategy = Literal["random", "top_n", "full", "stratified"]
+
+
+class SamplePolicy(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    strategy: SamplePolicyStrategy = "random"
+    max_rows: int | None = None
+    stratified_column: str | None = None
+
+
 class MigrationProjectConfig(BaseModel):
     target_db_engine: TargetDbEngine | None = None
     staging_schema: str | None = None
+    destination_schema: str | None = None
     dry_run: bool = False
-    sample_policy: dict[str, Any] | None = None
+    sample_policy: SamplePolicy | None = None
     destination_schema_ddl: str | None = None
     environments: list[str] | None = None
 

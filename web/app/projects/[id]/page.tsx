@@ -9,6 +9,7 @@ import { KnowledgeFreezePanel } from "../../../components/projects/KnowledgeFree
 import { ProjectDetailView } from "../../../components/projects/ProjectDetailView";
 import { SourceArtifactsPanel } from "../../../components/projects/SourceArtifactsPanel";
 import { SourceList } from "../../../components/projects/SourceList";
+import { getAiModelDefaults, type AIModelDefaultsRecord } from "../../../lib/ai-model-defaults-api";
 import { getProject, projectErrorMessage, type ProjectRecord } from "../../../lib/projects-api";
 import { loadUiSession, type SessionRole, type UiSession } from "../../../lib/session";
 
@@ -19,6 +20,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const initialTab = searchParams.get("tab");
   const [session, setSession] = useState<UiSession | null>(null);
   const [project, setProject] = useState<ProjectRecord | null>(null);
+  const [modelDefaults, setModelDefaults] = useState<AIModelDefaultsRecord["migrationModels"] | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "sources" | "artifacts">(
     initialTab === "sources" || initialTab === "artifacts" ? initialTab : "overview",
   );
@@ -60,6 +62,31 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       active = false;
     };
   }, [id, session]);
+
+  useEffect(() => {
+    if (!session) {
+      setModelDefaults(null);
+      return;
+    }
+
+    let active = true;
+
+    void getAiModelDefaults(session.accessToken)
+      .then((response) => {
+        if (active) {
+          setModelDefaults(response.migrationModels);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setModelDefaults(null);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [session]);
 
   const role: SessionRole = session?.role ?? "read_only_auditor";
   const navigationActiveTab = activeTab === "overview" || activeTab === "sources" || activeTab === "artifacts" ? activeTab : "overview";
@@ -105,7 +132,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         ) : project && session ? (
           activeTab === "overview" ? (
             <div className="space-y-4">
-              <ProjectDetailView project={project} />
+              <ProjectDetailView modelDefaults={modelDefaults} project={project} />
               <KnowledgeFreezePanel projectId={id} token={session.accessToken} />
             </div>
           ) : activeTab === "sources" ? (

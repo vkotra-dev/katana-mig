@@ -80,6 +80,10 @@ Relevant fields:
 adapter layer. Each field is optional; a null value falls back to the global
 `engine.yaml` model for that task.
 
+The resolved global defaults are not stored on the project itself. The UI
+reads them from the authenticated `GET /config/ai-model-defaults` API when it
+needs to show the live fallback value for a slot.
+
 For migration workloads, `domain_config` carries the frozen
 `MigrationProjectConfig`. The known fields are:
 
@@ -94,12 +98,26 @@ MigrationProjectConfig:
                           If null, staging tables land in the default schema.
                           Combined with the naming convention stg_{destination_object_name}
                           to form the full table reference used in generated scripts.
+  destination_schema      string | null
+                          Schema name where generated destination tables are
+                          written. The code generation layer uses this alongside
+                          staging_schema to produce fully qualified SQL.
   dry_run                 bool (default false)
                           When true, generated scripts are validated but not executed
                           in the target environment.
-  sample_policy           object | null
-                          Controls how many source rows are included in the approved
-                          source slice for analysis purposes.
+  sample_policy           SamplePolicy | null
+                          Controls how the approved feed slice is selected for
+                          analysis.
+                          Fields:
+                            strategy: "random" | "top_n" | "full" | "stratified"
+                              Selects the row extraction strategy used when the
+                              approved slice is built.
+                            max_rows: int | null
+                              Upper bound on the number of source rows included in
+                              the approved slice.
+                            stratified_column: string | null
+                              Required when strategy is "stratified"; identifies the
+                              source column used to balance the sampled rows.
   destination_schema_ddl  string | null
                           Raw DDL of the client-owned destination schema, submitted
                           during project initiation (stitch 07, Step 3). Stored verbatim.
@@ -112,9 +130,9 @@ MigrationProjectConfig:
                           one environment by name.
 ```
 
-`target_db_engine` and `staging_schema` are required before any code generation
-run can start. They must be set on the project definition before the baton
-reaches the code generation stage.
+`target_db_engine`, `staging_schema`, and `destination_schema` are required
+before any code generation run can start. They must be set on the project
+definition before the baton reaches the code generation stage.
 
 `destination_schema_ddl` is required before the mapping stage can propose field
 bindings — the mapping AI reads it to know which destination fields exist.
@@ -156,7 +174,7 @@ global model from `engine.yaml` only when the project leaves a field null.
 - destination schema ownership
 - structured source definitions
 - source approval scope
-- source slice policy
+- feed slice policy
 - object-level run grouping
 - audit boundaries
 - per-project lifecycle state
@@ -188,7 +206,7 @@ approved under the project.
 - A project may declare a source approval scope that is narrower than the full
   source contract.
 - A project may declare a composite source contract, but the project still owns
-  the resulting approved source slice as a project-scoped artifact.
+  the resulting approved feed slice as a project-scoped artifact.
 - Source contracts are versioned; changing the contract requires a new frozen
   project definition.
 
@@ -203,6 +221,10 @@ The destination schema belongs in the project definition because downstream
 analysis and generation require it as an explicit input, not as an inferred
 runtime fact.
 
+The approved feed slice is materialized separately as a staged feed table
+under the project `staging_schema`; downstream SQL reads from that staging
+layer and writes into `destination_schema`.
+
 Destination ownership is exclusive at the project-definition level. A given
 destination schema is owned by one project definition at a time.
 
@@ -212,7 +234,7 @@ Project-level source and run behavior is snapshot-driven.
 
 The project declares which approved artifacts are authoritative for execution:
 
-- source slice versions
+- feed slice versions
 - mapping snapshot versions
 - lookup snapshot versions
 - code generation input versions
@@ -220,8 +242,8 @@ The project declares which approved artifacts are authoritative for execution:
 
 The selection rule is explicit:
 
-- source analysis produces an immutable approved source slice
-- object runs consume a pinned source slice version
+- source analysis produces an immutable approved feed slice
+- object runs consume a pinned feed slice version
 - mapping and lookup approvals produce immutable snapshots
 - code generation selects the latest approved mapping and lookup snapshots that
   are available when the codegen stage starts
@@ -236,10 +258,14 @@ Once a run has selected a snapshot set for a stage, that set is pinned in the
 run record and checkpoint. Resume uses the pinned set rather than silently
 switching to newer approvals mid-run.
 
+`sample_policy` governs how the approved feed slice is built before analysis.
+When present, the extraction process uses the configured strategy and row cap
+instead of a hidden default.
+
 ### Snapshot coherence rule
 
 The system must not silently mix incompatible versions. A run must be able to
-explain exactly which approved source slice, mapping snapshot, lookup snapshot,
+explain exactly which approved feed slice, mapping snapshot, lookup snapshot,
 and code-generation input it consumed.
 
 ## Lifecycle
@@ -290,6 +316,7 @@ project world existed at the time a run began.
 ## Changelog
 
 - 2026-06-29: Defined MigrationProjectConfig explicitly — target_db_engine, staging_schema, dry_run, sample_policy.
+- 2026-07-03: Expanded sample_policy into a structured SamplePolicy contract with strategy, max_rows, and stratified_column.
 - 2026-06-29: Expanded into a spec-style project page covering ownership,
   frozen definition identity, registry relationship, snapshot policy, failure
   modes, and acceptance criteria.

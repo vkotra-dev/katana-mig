@@ -3,9 +3,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import ProjectEditPage from "./page";
 import type { ProjectRecord } from "../../../../lib/projects-api";
 
-const { loadUiSessionMock, getProjectMock, updateProjectMock, routerPushMock } = vi.hoisted(() => ({
+const {
+  loadUiSessionMock,
+  getProjectMock,
+  getAiModelDefaultsMock,
+  updateProjectMock,
+  routerPushMock,
+} = vi.hoisted(() => ({
   loadUiSessionMock: vi.fn(),
   getProjectMock: vi.fn(),
+  getAiModelDefaultsMock: vi.fn(),
   updateProjectMock: vi.fn(),
   routerPushMock: vi.fn(),
 }));
@@ -26,6 +33,7 @@ const project: ProjectRecord = {
   domainConfig: {
     targetDbEngine: "mssql",
     stagingSchema: "stg",
+    destinationSchema: "dbo",
     dryRun: false,
     samplePolicy: null,
     destinationSchemaDdl: "create table crm(id int);",
@@ -49,8 +57,25 @@ vi.mock("../../../../lib/projects-api", () => ({
   projectErrorMessage: (error: unknown) => (error instanceof Error ? error.message : "Error"),
 }));
 
+vi.mock("../../../../lib/ai-model-defaults-api", () => ({
+  getAiModelDefaults: getAiModelDefaultsMock,
+}));
+
 vi.mock("../../../../components/Topbar", () => ({
   Topbar: () => <nav>Topbar</nav>,
+}));
+
+vi.mock("../../../../components/projects/ProjectEditForm", () => ({
+  ProjectEditForm: (props: {
+    modelDefaults: Record<string, string> | null;
+    project: ProjectRecord;
+  }) => (
+    <div>
+      <div>Project edit form</div>
+      <div data-testid="model-defaults">{JSON.stringify(props.modelDefaults)}</div>
+      <div data-testid="project-name">{props.project.name}</div>
+    </div>
+  ),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -68,6 +93,24 @@ describe("ProjectEditPage", () => {
       userId: "user-1",
     });
     getProjectMock.mockResolvedValue(project);
+    getAiModelDefaultsMock.mockResolvedValue({
+      source: "engine.yaml",
+      platformModels: {
+        planning: "planning-model",
+        review: "review-model",
+        implementation: "implementation-model",
+      },
+      migrationModels: {
+        piiReview: "pii-model",
+        fieldMapping: "field-model",
+        lookupMapping: "lookup-model",
+        scriptGeneration: "script-generation-model",
+        scriptCorrection: "script-correction-model",
+        schemaDependency: "schema-dependency-model",
+        impactAnalysis: "impact-model",
+        feedAnalysis: "feed-analysis-model",
+      },
+    });
     updateProjectMock.mockResolvedValue(project);
   });
 
@@ -77,23 +120,12 @@ describe("ProjectEditPage", () => {
     });
   }
 
-  it("loads the project and saves updates", async () => {
+  it("loads the project and passes model defaults into the form", async () => {
     await renderPage("proj-1");
 
-    expect(await screen.findByRole("button", { name: "Overview" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Overview" }));
-    expect(routerPushMock).toHaveBeenCalledWith("/projects/proj-1");
-    fireEvent.click(screen.getByRole("button", { name: "Sources" }));
-    expect(routerPushMock).toHaveBeenCalledWith("/projects/proj-1?tab=sources");
-    fireEvent.click(screen.getByRole("button", { name: "Artifacts" }));
-    expect(routerPushMock).toHaveBeenCalledWith("/projects/proj-1?tab=artifacts");
-    expect(await screen.findByDisplayValue("CRM Migration")).toBeInTheDocument();
-    fireEvent.submit(
-      screen.getByRole("button", { name: "Save changes" }).closest("form") as HTMLFormElement,
-    );
-
-    await waitFor(() =>
-      expect(updateProjectMock).toHaveBeenCalledWith("tok-1", "proj-1", expect.any(Object)),
-    );
+    expect(await screen.findByText("Project edit form")).toBeInTheDocument();
+    expect(screen.getByTestId("project-name")).toHaveTextContent("CRM Migration");
+    await waitFor(() => expect(getAiModelDefaultsMock).toHaveBeenCalledWith("tok-1"));
+    expect(screen.getByTestId("model-defaults")).toHaveTextContent("field-model");
   });
 });

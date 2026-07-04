@@ -5,8 +5,9 @@
 | Task | Summary |
 |---|---|
 | [001ax-project-resources-field](./001ax-project-resources-field.md) | Replace unused environment field with project_resources CLOB and infra template |
-| [001aw-project-edit](./001aw-project-edit.md) | Add a project detail edit flow for project metadata (depends on 001ax) |
 | [001ay-project-resources-rich-editor](./001ay-project-resources-rich-editor.md) | Rich text editor (bold/bullets/center) for project resources field, 3-col form grid (depends on 001ax, 001aw) |
+| [001bb-project-edit-layout-parity](./001bb-project-edit-layout-parity.md) | Collapse model policy in project edit and align project detail layout with edit |
+| [001bc-project-model-policy-default-hints](./001bc-project-model-policy-default-hints.md) | Show live engine.yaml model defaults under project overrides and in project detail |
 
 ## Completed
 
@@ -34,6 +35,8 @@
 | [001ab-source-slice-approval](./completed/001ab-source-slice-approval.md) | [summary](./summary/001ab-source-slice-approval.md) |
 | [001av-admin-user-edit-delete-controls](./completed/001av-admin-user-edit-delete-controls.md) | [summary](./summary/001av-admin-user-edit-delete-controls.md) |
 | [001az-model-policy-overrides](./completed/001az-model-policy-overrides.md) | [summary](./summary/001az-model-policy-overrides.md) |
+| [001aw-project-edit](./completed/001aw-project-edit.md) | [summary](./summary/001aw-project-edit.md) |
+| [001ba-feed-slice-terminology-sweep](./completed/001ba-feed-slice-terminology-sweep.md) | Replace remaining human-facing source slice wording with feed slice terminology |
 | [001ah-delivery-bundle-sequencing](./completed/001ah-delivery-bundle-sequencing.md) | [summary](./summary/001ah-delivery-bundle-sequencing.md) |
 | [001x-lookup-value-mapping](./completed/001x-lookup-value-mapping.md) | [summary](./summary/001x-lookup-value-mapping.md) |
 | [001y-codegen-service](./completed/001y-codegen-service.md) | [summary](./summary/001y-codegen-service.md) |

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Topbar } from "../../../../components/Topbar";
 import { ProjectEditForm } from "../../../../components/projects/ProjectEditForm";
 import { ProjectNavigationTabs } from "../../../../components/projects/ProjectNavigationTabs";
+import { getAiModelDefaults, type AIModelDefaultsRecord } from "../../../../lib/ai-model-defaults-api";
 import {
   getProject,
   projectErrorMessage,
@@ -19,6 +20,7 @@ export default function ProjectEditPage({ params }: { params: Promise<{ id: stri
   const session = useMemo(() => loadUiSession(), []);
   const { id } = use(params);
   const [project, setProject] = useState<ProjectRecord | null>(null);
+  const [modelDefaults, setModelDefaults] = useState<AIModelDefaultsRecord["migrationModels"] | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -54,6 +56,31 @@ export default function ProjectEditPage({ params }: { params: Promise<{ id: stri
       active = false;
     };
   }, [id, session]);
+
+  useEffect(() => {
+    if (!session) {
+      setModelDefaults(null);
+      return;
+    }
+
+    let active = true;
+
+    void getAiModelDefaults(session.accessToken)
+      .then((response) => {
+        if (active) {
+          setModelDefaults(response.migrationModels);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setModelDefaults(null);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [session]);
 
   const handleSubmit = async (value: ProjectUpdateInput) => {
     if (!session) {
@@ -111,6 +138,7 @@ export default function ProjectEditPage({ params }: { params: Promise<{ id: stri
           <ProjectEditForm
             errorMessage={errorMessage ?? undefined}
             loading={saving}
+            modelDefaults={modelDefaults}
             onSubmit={handleSubmit}
             project={project}
           />

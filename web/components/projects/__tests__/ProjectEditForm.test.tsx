@@ -2,7 +2,6 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ProjectEditForm } from "../ProjectEditForm";
 import type { ProjectRecord } from "../../../lib/projects-api";
-import { PROJECT_RESOURCES_TEMPLATE } from "../projectResourcesTemplate";
 
 const project: ProjectRecord = {
   projectId: "project-abc",
@@ -23,6 +22,7 @@ const project: ProjectRecord = {
   domainConfig: {
     targetDbEngine: "mssql",
     stagingSchema: "stg",
+    destinationSchema: "dbo",
     dryRun: false,
     samplePolicy: null,
     destinationSchemaDdl: "create table crm(id int);",
@@ -36,11 +36,25 @@ const project: ProjectRecord = {
   latestRunSummary: null,
 };
 
+const modelDefaults = {
+  piiReview: "pii-model",
+  fieldMapping: "field-model",
+  lookupMapping: "lookup-model",
+  scriptGeneration: "script-generation-model",
+  scriptCorrection: "script-correction-model",
+  schemaDependency: "schema-dependency-model",
+  impactAnalysis: "impact-model",
+  feedAnalysis: "feed-analysis-model",
+  planning: "planning-model",
+  review: "review-model",
+  implementation: "implementation-model",
+};
+
 describe("ProjectEditForm", () => {
   it("prefills and submits the project update payload", async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
 
-    render(<ProjectEditForm project={project} onSubmit={onSubmit} />);
+    render(<ProjectEditForm modelDefaults={modelDefaults} project={project} onSubmit={onSubmit} />);
 
     expect(screen.getByDisplayValue("CRM Migration")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Project name"), {
@@ -68,7 +82,13 @@ describe("ProjectEditForm", () => {
   });
 
   it("renders the project resources editor when empty", () => {
-    render(<ProjectEditForm project={{ ...project, projectResources: null }} onSubmit={vi.fn()} />);
+    render(
+      <ProjectEditForm
+        modelDefaults={modelDefaults}
+        project={{ ...project, projectResources: null }}
+        onSubmit={vi.fn()}
+      />,
+    );
 
     expect(screen.getByRole("button", { name: "Bold" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Bullet list" })).toBeInTheDocument();
@@ -76,7 +96,7 @@ describe("ProjectEditForm", () => {
   });
 
   it("renders the rich text toolbar", () => {
-    render(<ProjectEditForm project={project} onSubmit={vi.fn()} />);
+    render(<ProjectEditForm modelDefaults={modelDefaults} project={project} onSubmit={vi.fn()} />);
 
     expect(screen.getByRole("button", { name: "Bold" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Bullet list" })).toBeInTheDocument();
@@ -84,20 +104,54 @@ describe("ProjectEditForm", () => {
   });
 
   it("renders the Model Policy section with task inputs", () => {
-    render(<ProjectEditForm project={project} onSubmit={vi.fn()} />);
+    render(<ProjectEditForm modelDefaults={modelDefaults} project={project} onSubmit={vi.fn()} />);
 
     expect(screen.getByText("Model Policy")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Field mapping model" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Script generation model" })).toBeInTheDocument();
-    expect(screen.getAllByPlaceholderText("Global default")).toHaveLength(11);
+    expect(screen.getByText("Global default: field-model")).toBeInTheDocument();
+    expect(screen.getByText("Global default: planning-model")).toBeInTheDocument();
   });
 
-  it("includes modelPolicy overrides in submit payload", async () => {
+  it("renders structured sample policy controls", () => {
+    render(<ProjectEditForm modelDefaults={modelDefaults} project={project} onSubmit={vi.fn()} />);
+
+    expect(screen.queryByLabelText("Execution environments")).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Staging schema" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Destination schema" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Sample policy strategy" })).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "Sample policy max rows" })).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Sample policy stratified column" })).not.toBeInTheDocument();
+  });
+
+  it("shows the stratified column field when stratified sampling is selected", () => {
+    render(<ProjectEditForm modelDefaults={modelDefaults} project={project} onSubmit={vi.fn()} />);
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Sample policy strategy" }), {
+      target: { value: "stratified" },
+    });
+
+    expect(screen.getByRole("textbox", { name: "Sample policy stratified column" })).toBeInTheDocument();
+  });
+
+  it("includes modelPolicy and structured sample policy overrides in submit payload", async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<ProjectEditForm project={project} onSubmit={onSubmit} />);
+    render(<ProjectEditForm modelDefaults={modelDefaults} project={project} onSubmit={onSubmit} />);
 
     fireEvent.change(screen.getByRole("textbox", { name: "Field mapping model" }), {
       target: { value: "" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "Destination schema" }), {
+      target: { value: "archive" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "Sample policy strategy" }), {
+      target: { value: "stratified" },
+    });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Sample policy max rows" }), {
+      target: { value: "500" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "Sample policy stratified column" }), {
+      target: { value: "region" },
     });
     fireEvent.submit(
       screen.getByRole("button", { name: "Save changes" }).closest("form") as HTMLFormElement,
@@ -109,6 +163,14 @@ describe("ProjectEditForm", () => {
           modelPolicy: expect.objectContaining({
             planning: "gpt-5",
           }),
+          domainConfig: expect.objectContaining({
+            destinationSchema: "archive",
+            samplePolicy: {
+              strategy: "stratified",
+              maxRows: 500,
+              stratifiedColumn: "region",
+            },
+          }),
         }),
       ),
     );
@@ -117,7 +179,13 @@ describe("ProjectEditForm", () => {
 
   it("clears the model policy when every override is blank", async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<ProjectEditForm project={{ ...project, modelPolicy: null }} onSubmit={onSubmit} />);
+    render(
+      <ProjectEditForm
+        modelDefaults={modelDefaults}
+        project={{ ...project, modelPolicy: null }}
+        onSubmit={onSubmit}
+      />,
+    );
 
     fireEvent.submit(
       screen.getByRole("button", { name: "Save changes" }).closest("form") as HTMLFormElement,
@@ -127,24 +195,28 @@ describe("ProjectEditForm", () => {
       expect(onSubmit).toHaveBeenCalledWith(
         expect.objectContaining({
           modelPolicy: null,
+          domainConfig: expect.objectContaining({
+            destinationSchema: "dbo",
+            samplePolicy: null,
+          }),
         }),
       ),
     );
   });
 
-  it("shows an inline error when sample policy JSON is invalid", async () => {
+  it("shows an inline error when sample policy max rows is invalid", async () => {
     const onSubmit = vi.fn();
 
-    render(<ProjectEditForm project={project} onSubmit={onSubmit} />);
+    render(<ProjectEditForm modelDefaults={modelDefaults} project={project} onSubmit={onSubmit} />);
 
-    fireEvent.change(screen.getByLabelText("Sample policy"), {
-      target: { value: "{ not valid json" },
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Sample policy max rows" }), {
+      target: { value: "0" },
     });
     fireEvent.submit(
       screen.getByRole("button", { name: "Save changes" }).closest("form") as HTMLFormElement,
     );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Sample policy must be valid JSON.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Sample policy max rows must be a positive integer.");
     expect(onSubmit).not.toHaveBeenCalled();
   });
 });

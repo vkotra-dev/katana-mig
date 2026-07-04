@@ -2,17 +2,22 @@
 
 import { useState } from "react";
 import type {
+  AIModelDefaultsRecord,
   ModelPolicy,
+  SamplePolicy,
+  SamplePolicyStrategy,
   ProjectRecord,
   ProjectUpdateInput,
   TargetDbEngine,
 } from "../../lib/projects-api";
 import { ProjectResourcesEditor } from "./ProjectResourcesEditor";
+import { MODEL_POLICY_FIELDS } from "./modelPolicyCatalog";
 
 export interface ProjectEditFormProps {
   project: ProjectRecord;
   loading?: boolean;
   errorMessage?: string;
+  modelDefaults?: AIModelDefaultsRecord["migrationModels"] | null;
   onSubmit: (value: ProjectUpdateInput) => Promise<void> | void;
 }
 
@@ -30,28 +35,68 @@ function parseList(value: string): string[] | null {
   return items.length > 0 ? items : null;
 }
 
-function parseSamplePolicy(value: string): Record<string, unknown> | null {
-  const trimmed = value.trim();
-  if (!trimmed) {
+type SamplePolicyDraft = {
+  strategy: SamplePolicyStrategy | "";
+  maxRows: string;
+  stratifiedColumn: string;
+};
+
+const SAMPLE_POLICY_STRATEGIES: Array<{ value: SamplePolicyStrategy; label: string }> = [
+  { value: "random", label: "Random" },
+  { value: "top_n", label: "Top N" },
+  { value: "full", label: "Full" },
+  { value: "stratified", label: "Stratified" },
+];
+
+function initializeSamplePolicyDraft(policy: SamplePolicy | null | undefined): SamplePolicyDraft {
+  return {
+    strategy: policy?.strategy ?? "",
+    maxRows: policy?.maxRows?.toString() ?? "",
+    stratifiedColumn: policy?.stratifiedColumn ?? "",
+  };
+}
+
+function buildSamplePolicyPayload(draft: SamplePolicyDraft): SamplePolicy | null {
+  const maxRows = draft.maxRows.trim();
+  const stratifiedColumn = draft.stratifiedColumn.trim();
+  const inferredStrategy: SamplePolicyStrategy | null =
+    draft.strategy || stratifiedColumn.length > 0 || maxRows.length > 0 ? draft.strategy || "random" : null;
+
+  if (!inferredStrategy && stratifiedColumn.length === 0 && maxRows.length === 0) {
     return null;
   }
 
-  return JSON.parse(trimmed) as Record<string, unknown>;
-}
+  if (inferredStrategy === "stratified" && stratifiedColumn.length === 0) {
+    throw new Error("Sample policy stratified column is required for stratified sampling.");
+  }
 
-const MODEL_POLICY_FIELDS = [
-  { key: "fieldMapping", label: "Field mapping model" },
-  { key: "scriptGeneration", label: "Script generation model" },
-  { key: "scriptCorrection", label: "Script correction model" },
-  { key: "lookupMapping", label: "Lookup mapping model" },
-  { key: "piiReview", label: "PII review model" },
-  { key: "impactAnalysis", label: "Impact analysis model" },
-  { key: "schemaDependency", label: "Schema dependency model" },
-  { key: "feedAnalysis", label: "Feed analysis model" },
-  { key: "planning", label: "Planning model" },
-  { key: "review", label: "Review model" },
-  { key: "implementation", label: "Implementation model" },
-] as const satisfies ReadonlyArray<{ key: keyof ModelPolicy; label: string }>;
+  if (maxRows.length > 0) {
+    const parsedMaxRows = Number(maxRows);
+    if (!Number.isInteger(parsedMaxRows) || parsedMaxRows <= 0) {
+      throw new Error("Sample policy max rows must be a positive integer.");
+    }
+
+    return {
+      strategy: inferredStrategy ?? "random",
+      maxRows: parsedMaxRows,
+      stratifiedColumn: inferredStrategy === "stratified" ? stratifiedColumn || null : null,
+    };
+  }
+
+  if (inferredStrategy === "stratified") {
+    return {
+      strategy: inferredStrategy,
+      maxRows: null,
+      stratifiedColumn,
+    };
+  }
+
+  return {
+    strategy: inferredStrategy,
+    maxRows: null,
+    stratifiedColumn: null,
+  };
+}
 
 function initializeModelPolicyDraft(policy: ModelPolicy | null | undefined): Record<keyof ModelPolicy, string> {
   return {
@@ -88,25 +133,27 @@ export function ProjectEditForm({
   project,
   loading = false,
   errorMessage,
+  modelDefaults = null,
   onSubmit,
 }: ProjectEditFormProps) {
   const [name, setName] = useState(project.name);
   const [goal, setGoal] = useState(project.goal ?? "");
   const [projectResources, setProjectResources] = useState(project.projectResources ?? "");
   const [modelPolicy, setModelPolicy] = useState(() => initializeModelPolicyDraft(project.modelPolicy));
-  const [executionEnvironments, setExecutionEnvironments] = useState(
-    project.executionEnvironments?.join(", ") ?? "",
-  );
+  const [executionEnvironments] = useState(project.executionEnvironments?.join(", ") ?? "");
   const [targetDbEngine, setTargetDbEngine] = useState<TargetDbEngine | "">(
     project.domainConfig?.targetDbEngine ?? "",
   );
   const [stagingSchema, setStagingSchema] = useState(project.domainConfig?.stagingSchema ?? "");
+  const [destinationSchema, setDestinationSchema] = useState(
+    project.domainConfig?.destinationSchema ?? "",
+  );
   const [dryRun, setDryRun] = useState(project.domainConfig?.dryRun ?? false);
   const [destinationSchemaDdl, setDestinationSchemaDdl] = useState(
     project.domainConfig?.destinationSchemaDdl ?? "",
   );
-  const [samplePolicy, setSamplePolicy] = useState(
-    project.domainConfig?.samplePolicy ? JSON.stringify(project.domainConfig.samplePolicy, null, 2) : "",
+  const [samplePolicy, setSamplePolicy] = useState(() =>
+    initializeSamplePolicyDraft(project.domainConfig?.samplePolicy),
   );
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -116,31 +163,29 @@ export function ProjectEditForm({
       onSubmit={(event) => {
         event.preventDefault();
 
-        let parsedSamplePolicy: Record<string, unknown> | null;
         try {
-          parsedSamplePolicy = parseSamplePolicy(samplePolicy);
-        } catch {
-          setFormError("Sample policy must be valid JSON.");
-          return;
+          const parsedSamplePolicy = buildSamplePolicyPayload(samplePolicy);
+          setFormError(null);
+          const nextModelPolicy = buildModelPolicyPayload(modelPolicy);
+          void onSubmit({
+            name: name.trim(),
+            goal: normalizeOptionalText(goal),
+            projectResources: normalizeOptionalText(projectResources),
+            executionEnvironments: parseList(executionEnvironments),
+            modelPolicy: nextModelPolicy,
+            domainConfig: {
+              targetDbEngine: targetDbEngine || null,
+              stagingSchema: normalizeOptionalText(stagingSchema),
+              destinationSchema: normalizeOptionalText(destinationSchema),
+              dryRun,
+              samplePolicy: parsedSamplePolicy,
+              destinationSchemaDdl: normalizeOptionalText(destinationSchemaDdl),
+              environments: project.domainConfig?.environments ?? null,
+            },
+          });
+        } catch (error) {
+          setFormError(error instanceof Error ? error.message : "Sample policy is invalid.");
         }
-
-        setFormError(null);
-        const nextModelPolicy = buildModelPolicyPayload(modelPolicy);
-        void onSubmit({
-          name: name.trim(),
-          goal: normalizeOptionalText(goal),
-          projectResources: normalizeOptionalText(projectResources),
-          executionEnvironments: parseList(executionEnvironments),
-          modelPolicy: nextModelPolicy,
-          domainConfig: {
-            targetDbEngine: targetDbEngine || null,
-            stagingSchema: normalizeOptionalText(stagingSchema),
-            dryRun,
-            samplePolicy: parsedSamplePolicy,
-            destinationSchemaDdl: normalizeOptionalText(destinationSchemaDdl),
-            environments: project.domainConfig?.environments ?? null,
-          },
-        });
       }}
     >
       <div className="space-y-2">
@@ -192,27 +237,34 @@ export function ProjectEditForm({
           </select>
         </div>
 
-        <div className="space-y-2 lg:col-span-3">
-          <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Execution environments</label>
-          <textarea
-            aria-label="Execution environments"
-            className="min-h-24 w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
-            name="executionEnvironments"
-            onChange={(event) => setExecutionEnvironments(event.target.value)}
-            value={executionEnvironments}
-          />
-        </div>
+        <div className="space-y-4 lg:col-span-1">
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Staging schema
+            </label>
+            <input
+              aria-label="Staging schema"
+              className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
+              name="stagingSchema"
+              onChange={(event) => setStagingSchema(event.target.value)}
+              type="text"
+              value={stagingSchema}
+            />
+          </div>
 
-        <div className="space-y-2">
-          <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Staging schema</label>
-          <input
-            aria-label="Staging schema"
-            className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
-            name="stagingSchema"
-            onChange={(event) => setStagingSchema(event.target.value)}
-            type="text"
-            value={stagingSchema}
-          />
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Destination schema
+            </label>
+            <input
+              aria-label="Destination schema"
+              className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
+              name="destinationSchema"
+              onChange={(event) => setDestinationSchema(event.target.value)}
+              type="text"
+              value={destinationSchema}
+            />
+          </div>
         </div>
 
         <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900">
@@ -226,7 +278,7 @@ export function ProjectEditForm({
           Dry run
         </label>
 
-        <div className="space-y-2">
+        <div className="space-y-2 lg:col-span-1">
           <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Destination schema DDL</label>
           <textarea
             aria-label="Destination schema DDL"
@@ -239,13 +291,78 @@ export function ProjectEditForm({
 
         <div className="space-y-2 lg:col-span-3">
           <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Sample policy</label>
-          <textarea
-            aria-label="Sample policy"
-            className="min-h-24 w-full rounded-md border border-outline-variant bg-white px-3 py-3 font-mono text-sm text-slate-900"
-            name="samplePolicy"
-            onChange={(event) => setSamplePolicy(event.target.value)}
-            value={samplePolicy}
-          />
+          <p className="text-xs text-slate-400">Leave the fields blank to keep sample policy unset.</p>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Strategy
+              </label>
+              <select
+                aria-label="Sample policy strategy"
+                className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
+                name="samplePolicyStrategy"
+                onChange={(event) =>
+                  setSamplePolicy((current) => ({
+                    ...current,
+                    strategy: event.target.value as SamplePolicyStrategy | "",
+                    stratifiedColumn:
+                      event.target.value === "stratified" ? current.stratifiedColumn : "",
+                  }))
+                }
+                value={samplePolicy.strategy}
+              >
+                <option value="">Select a strategy</option>
+                {SAMPLE_POLICY_STRATEGIES.map(({ value, label }) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Max rows
+              </label>
+              <input
+                aria-label="Sample policy max rows"
+                className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
+                min={1}
+                name="samplePolicyMaxRows"
+                onChange={(event) =>
+                  setSamplePolicy((current) => ({
+                    ...current,
+                    maxRows: event.target.value,
+                  }))
+                }
+                placeholder="Optional"
+                type="number"
+                value={samplePolicy.maxRows}
+              />
+            </div>
+
+            {samplePolicy.strategy === "stratified" ? (
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  Stratified column
+                </label>
+                <input
+                  aria-label="Sample policy stratified column"
+                  className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
+                  name="samplePolicyStratifiedColumn"
+                  onChange={(event) =>
+                    setSamplePolicy((current) => ({
+                      ...current,
+                      stratifiedColumn: event.target.value,
+                    }))
+                  }
+                  placeholder="region"
+                  type="text"
+                  value={samplePolicy.stratifiedColumn}
+                />
+              </div>
+            ) : null}
+          </div>
         </div>
 
         <div className="space-y-2 lg:col-span-3">
@@ -270,6 +387,9 @@ export function ProjectEditForm({
               type="text"
               value={modelPolicy[key]}
             />
+            <p className="text-xs text-slate-500">
+              {modelDefaults?.[key] ? `Global default: ${modelDefaults[key]}` : "Global default unavailable"}
+            </p>
           </div>
         ))}
 

@@ -385,7 +385,7 @@ Request fields (all optional except `name`):
 | `constraints` | array of strings or null | Compliance constraints |
 | `unresolved_questions` | array of strings or null | Open governance questions |
 | `assumptions` | array of strings or null | Baseline assumptions |
-| `domain_config` | object or null | `MigrationProjectConfig`: `target_db_engine` ("mssql"\|"oracle"\|"postgresql"\|"mysql"), `staging_schema` (string\|null), `dry_run` (bool), `sample_policy` (object\|null), `destination_schema_ddl` (string\|null), `environments` (array of strings\|null) |
+| `domain_config` | object or null | `MigrationProjectConfig`: `target_db_engine` ("mssql"\|"oracle"\|"postgresql"\|"mysql"), `staging_schema` (string\|null), `destination_schema` (string\|null), `dry_run` (bool), `sample_policy` (`SamplePolicy`: `strategy`, `max_rows`, `stratified_column`), `destination_schema_ddl` (string\|null), `environments` (array of strings\|null) |
 | `lexicon_scope` | object or null | Vocabulary scope; stored on registry |
 
 Response `201`: `ProjectResponse` — all fields above plus `project_id`,
@@ -438,6 +438,22 @@ Response `200`: `ProjectResponse`.
 Failures:
 - `409` + `project_archived`
 - `404` + `project_not_found`
+
+### `GET /config/ai-model-defaults`
+
+Fetch the resolved global AI model defaults from `engine.yaml`. Requires
+authentication.
+
+Response `200`:
+
+| Field | Type | Notes |
+|---|---|---|
+| `source` | string | Always `engine.yaml` |
+| `platform_models` | object | Resolved defaults for `planning`, `review`, `implementation` |
+| `migration_models` | object | Resolved defaults for `pii_review`, `field_mapping`, `lookup_mapping`, `script_generation`, `script_correction`, `schema_dependency`, `impact_analysis`, `feed_analysis` |
+
+The response contains the live resolved model names only. It does not expose
+provider API keys or environment variable names.
 
 ### `POST /projects/{project_id}/archive`
 
@@ -608,26 +624,26 @@ Upload a data file. Requires `central_team`. JSON body:
 
 Triggers parse → mask → store pipeline. Advances contract status to `active`.
 
-Response `201`: `SourceSliceResponse`
+Response `201`: `FeedSliceResponse`
 
 ### `GET /projects/{project_id}/sources/{contract_id}/slices`
 
 List slices for a contract. Any authenticated user.
 
-Response `200`: array of `SourceSliceResponse`
+Response `200`: array of `FeedSliceResponse`
 
 ### `GET /projects/{project_id}/sources/{contract_id}/slices/{slice_id}`
 
 Get one slice with header and row preview. Any authenticated user.
 
-Response `200`: `SourceSliceResponse`
+Response `200`: `FeedSliceResponse`
 
 ### `GET /approvals`
 
-List pending source-slice approvals visible to the caller. Any authenticated
+List pending feed-slice approvals visible to the caller. Any authenticated
 user. `project_stakeholder` callers only see member projects.
 
-Response `200`: array of `SourceSliceApprovalItemResponse`
+Response `200`: array of `FeedSliceApprovalItemResponse`
 
 ### `GET /approvals/count`
 
@@ -645,7 +661,7 @@ Response `200`:
 
 Approve a pending slice. Requires `central_team`.
 
-Response `200`: `SourceSliceResponse`
+Response `200`: `FeedSliceResponse`
 
 ### `POST /projects/{project_id}/sources/{contract_id}/slices/{slice_id}/reject`
 
@@ -659,7 +675,7 @@ Request:
 }
 ```
 
-Response `200`: `SourceSliceResponse`
+Response `200`: `FeedSliceResponse`
 
 ### `POST /projects/{project_id}/sources/{contract_id}/slices/{slice_id}/resubmit`
 
@@ -677,7 +693,7 @@ Request:
 }
 ```
 
-Response `200`: `SourceSliceResponse`
+Response `200`: `FeedSliceResponse`
 
 ## Feed comment endpoints
 
@@ -1155,7 +1171,7 @@ stage when field mapping is approved, and contains the destination object names 
 feeds (e.g. `["Customer", "Address"]`). Generated SQL artifacts are tracked separately as
 `CodeGenerationArtifact` records linked to the run, not stored on the source contract.
 
-### `SourceSliceResponse`
+### `FeedSliceResponse`
 
 ```json
 {
@@ -1173,7 +1189,7 @@ feeds (e.g. `["Customer", "Address"]`). Generated SQL artifacts are tracked sepa
 }
 ```
 
-### `SourceSliceApprovalItemResponse`
+### `FeedSliceApprovalItemResponse`
 
 ```json
 {
@@ -1191,7 +1207,7 @@ feeds (e.g. `["Customer", "Address"]`). Generated SQL artifacts are tracked sepa
 }
 ```
 
-### `SourceSliceApprovalCountResponse`
+### `FeedSliceApprovalCountResponse`
 
 ```json
 {

@@ -2,9 +2,16 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ProjectDetailPage from "./page";
 
-const { loadUiSessionMock, getProjectMock, routerPushMock, searchParamsGetMock } = vi.hoisted(() => ({
+const {
+  loadUiSessionMock,
+  getProjectMock,
+  getAiModelDefaultsMock,
+  routerPushMock,
+  searchParamsGetMock,
+} = vi.hoisted(() => ({
   loadUiSessionMock: vi.fn(),
   getProjectMock: vi.fn(),
+  getAiModelDefaultsMock: vi.fn(),
   routerPushMock: vi.fn(),
   searchParamsGetMock: vi.fn(),
 }));
@@ -18,8 +25,17 @@ vi.mock("../../../lib/projects-api", () => ({
   projectErrorMessage: (e: unknown) => (e instanceof Error ? e.message : "Error"),
 }));
 
+vi.mock("../../../lib/ai-model-defaults-api", () => ({
+  getAiModelDefaults: getAiModelDefaultsMock,
+}));
+
 vi.mock("../../../components/projects/ProjectDetailView", () => ({
-  ProjectDetailView: () => <div>Overview content</div>,
+  ProjectDetailView: (props: { modelDefaults: Record<string, string> | null }) => (
+    <div>
+      <div>Overview content</div>
+      <div data-testid="model-defaults">{JSON.stringify(props.modelDefaults)}</div>
+    </div>
+  ),
 }));
 
 vi.mock("../../../components/projects/SourceList", () => ({
@@ -95,12 +111,30 @@ async function renderPage(id: string) {
   });
 }
 
-describe("ProjectDetailPage — SQL Bundle tab", () => {
+describe("ProjectDetailPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     searchParamsGetMock.mockReturnValue(null);
     loadUiSessionMock.mockReturnValue(SESSION);
     getProjectMock.mockResolvedValue(PROJECT);
+    getAiModelDefaultsMock.mockResolvedValue({
+      source: "engine.yaml",
+      platformModels: {
+        planning: "planning-model",
+        review: "review-model",
+        implementation: "implementation-model",
+      },
+      migrationModels: {
+        piiReview: "pii-model",
+        fieldMapping: "field-model",
+        lookupMapping: "lookup-model",
+        scriptGeneration: "script-generation-model",
+        scriptCorrection: "script-correction-model",
+        schemaDependency: "schema-dependency-model",
+        impactAnalysis: "impact-model",
+        feedAnalysis: "feed-analysis-model",
+      },
+    });
   });
 
   it("renders the SQL Bundle tab button", async () => {
@@ -137,5 +171,13 @@ describe("ProjectDetailPage — SQL Bundle tab", () => {
     searchParamsGetMock.mockImplementation((key: string) => (key === "tab" ? "sources" : null));
     await renderPage("proj-1");
     expect(await screen.findByRole("button", { name: "Sources" })).toHaveClass("bg-primary");
+  });
+
+  it("passes the model defaults into the project detail view", async () => {
+    await renderPage("proj-1");
+
+    expect(await screen.findByText("Overview content")).toBeInTheDocument();
+    expect(getAiModelDefaultsMock).toHaveBeenCalledWith("tok-1");
+    expect(screen.getByTestId("model-defaults")).toHaveTextContent("field-model");
   });
 });

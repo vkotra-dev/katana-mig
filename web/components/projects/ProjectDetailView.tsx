@@ -1,10 +1,13 @@
 "use client";
 
-import type { ProjectRecord } from "../../lib/projects-api";
+import type { AIModelDefaultsRecord } from "../../lib/ai-model-defaults-api";
+import type { ProjectRecord, SamplePolicy } from "../../lib/projects-api";
 import { StageTimeline } from "./StageTimeline";
+import { MODEL_POLICY_FIELDS } from "./modelPolicyCatalog";
 
 export interface ProjectDetailViewProps {
   project: ProjectRecord;
+  modelDefaults?: AIModelDefaultsRecord["migrationModels"] | null;
 }
 
 function formatDate(value: string | null): string {
@@ -16,6 +19,30 @@ function displayValue(value: string | number | boolean | null | undefined): stri
     return "—";
   }
   return String(value);
+}
+
+function formatSamplePolicy(policy: SamplePolicy | null | undefined): string {
+  if (!policy) {
+    return "—";
+  }
+
+  const strategyLabels: Record<SamplePolicy["strategy"], string> = {
+    random: "Random",
+    top_n: "Top N",
+    full: "Full",
+    stratified: "Stratified",
+  };
+
+  const lines = [
+    `Strategy: ${strategyLabels[policy.strategy]}`,
+    `Max rows: ${policy.maxRows ?? "—"}`,
+  ];
+
+  if (policy.strategy === "stratified") {
+    lines.push(`Stratified column: ${policy.stratifiedColumn ?? "—"}`);
+  }
+
+  return lines.join("\n");
 }
 
 function getStatusClassName(status: ProjectRecord["status"]): string {
@@ -39,7 +66,7 @@ function KeyValue({
   );
 }
 
-export function ProjectDetailView({ project }: ProjectDetailViewProps) {
+export function ProjectDetailView({ project, modelDefaults = null }: ProjectDetailViewProps) {
   const domainConfig = project.domainConfig;
   const projectResources = project.projectResources ?? "";
 
@@ -72,6 +99,10 @@ export function ProjectDetailView({ project }: ProjectDetailViewProps) {
           label="Staging schema"
           value={domainConfig?.stagingSchema ?? "—"}
         />
+        <KeyValue
+          label="Destination schema"
+          value={domainConfig?.destinationSchema ?? "—"}
+        />
         <KeyValue label="Dry run" value={displayValue(domainConfig?.dryRun)} />
         <KeyValue
           label="Destination schema DDL"
@@ -79,7 +110,7 @@ export function ProjectDetailView({ project }: ProjectDetailViewProps) {
         />
         <KeyValue
           label="Sample policy"
-          value={domainConfig?.samplePolicy ? JSON.stringify(domainConfig.samplePolicy) : "—"}
+          value={formatSamplePolicy(domainConfig?.samplePolicy)}
         />
         <KeyValue
           label="Constraints"
@@ -94,6 +125,28 @@ export function ProjectDetailView({ project }: ProjectDetailViewProps) {
           label="Lexicon scope"
           value={project.lexiconScope ? JSON.stringify(project.lexiconScope) : "—"}
         />
+      </div>
+
+      <div className="space-y-3">
+        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Model Policy</div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          {MODEL_POLICY_FIELDS.map(({ key, label }) => {
+            const overrideModel = project.modelPolicy?.[key];
+            const effectiveModel = overrideModel ?? modelDefaults?.[key] ?? "Global default unavailable";
+            const sourceLabel = overrideModel ? "Source: project override" : "Source: engine.yaml";
+
+            return (
+              <div className="space-y-1 rounded-xl border border-outline-variant bg-surface px-4 py-3" key={key}>
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</div>
+                <div className="text-sm text-slate-900">{effectiveModel}</div>
+                <div className="text-xs text-slate-500">{sourceLabel}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <div className="space-y-1 rounded-xl border border-outline-variant bg-surface px-4 py-3 md:col-span-2 xl:col-span-3">
           <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
             Project Resources

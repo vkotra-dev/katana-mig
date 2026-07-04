@@ -57,7 +57,7 @@ Role is session-scoped, and `project_stakeholder` access is membership-scoped.
 | **Lookup Fiber** | A unit of work mapping unique source values for one lookup column to destination reference rows |
 | **Mapping Fiber** | A unit of work mapping source columns to destination table columns for one domain object |
 
-`SourceDefinition` and `SourceSlice` in the codebase correspond to Feed and FeedSlice respectively. The rename is tracked in task 001aj.
+`SourceDefinition` and `FeedSlice` in the codebase correspond to Feed and FeedSlice respectively. The rename is tracked in task 001aj.
 
 ## Screens
 
@@ -92,9 +92,9 @@ This is the high-level operational surface for cross-project monitoring.
 
 Full lifecycle view for one project. Four tabs:
 
-- **Overview** — stage timeline, key–value metadata (goal, environments, target DB engine, staging schema, dry-run flag, destination schema DDL, sample policy, constraints, unresolved questions, assumptions, lexicon scope)
+- **Overview** — stage timeline, key–value metadata (goal, environments, target DB engine, staging schema, destination schema, dry-run flag, destination schema DDL, sample policy, constraints, unresolved questions, assumptions, lexicon scope), and a model policy block that shows the effective model and whether it came from a project override or `engine.yaml`
 - **Feeds** — list of feeds with add-feed action; DDL analysis prompt banner (see below)
-- **Artifacts** — source slice versions and approval status
+- **Artifacts** — feed slice versions and approval status
 - **SQL Bundle** — navigates to the SQL bundle delivery page (see SQL bundle delivery)
 
 The **DDL analysis prompt banner** appears in the Feeds tab when at least one feed exists but no schema analysis has been run yet. It shows a prompt with an "Analyze DDL" button. The button is disabled if the project has no `destination_schema_ddl` set. Clicking it triggers AI analysis and hides the banner on success.
@@ -106,6 +106,16 @@ The Overview tab also shows:
 
 This is the project-local drilldown view.
 
+### Project edit
+
+Route: `/projects/[id]/edit`
+
+The edit screen uses the same project metadata layout as the detail screen for
+non-editable fields, but keeps the model policy section collapsed by default.
+Each model override input shows the current global default model name directly
+below the input so operators can see what will be used if they leave the field
+blank.
+
 ### SQL bundle delivery
 
 Audience: all authenticated roles with project access.
@@ -115,7 +125,7 @@ Route: `/projects/{id}/codegen`
 Panels:
 
 - **Sources** — list of source contracts with "Generate SQL" action per row (`central_team` only)
-- **Latest active artifact** — destination name, artifact ID, created date, source slice version; "Copy SQL" and "Download delivery bundle" buttons; full SQL preview in a scrollable code block
+- **Latest active artifact** — destination name, artifact ID, created date, feed slice version; "Copy SQL" and "Download delivery bundle" buttons; full SQL preview in a scrollable code block
 - **Delivery bundle sidebar** — active artifact count; note that the download saves as `delivery-bundle.sql`
 - **Schema dependency analysis** — shows identified / processed / pending counts for destination objects; "Re-analyze DDL" button to re-run AI analysis; "analyzed at" timestamp. Empty state if no analysis has been run.
 - **Artifact history** — all artifacts (active and superseded) with timestamps

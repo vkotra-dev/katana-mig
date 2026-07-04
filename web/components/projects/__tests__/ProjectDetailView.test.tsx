@@ -19,6 +19,7 @@ const active: ProjectRecord = {
   domainConfig: {
     targetDbEngine: "mssql",
     stagingSchema: "stg",
+    destinationSchema: "dbo",
     dryRun: false,
     samplePolicy: null,
     destinationSchemaDdl: "create table crm(id int);",
@@ -43,6 +44,20 @@ const archived: ProjectRecord = {
   archivedAt: "2026-06-30T12:00:00Z",
 };
 
+const modelDefaults = {
+  piiReview: "pii-model",
+  fieldMapping: "field-default",
+  lookupMapping: "lookup-default",
+  scriptGeneration: "script-default",
+  scriptCorrection: "script-correction-default",
+  schemaDependency: "schema-dependency-default",
+  impactAnalysis: "impact-default",
+  feedAnalysis: "feed-analysis-default",
+  planning: "planning-model",
+  review: "review-model",
+  implementation: "implementation-model",
+};
+
 describe("ProjectDetailView", () => {
   it("renders project identity and status", () => {
     render(<ProjectDetailView project={active} />);
@@ -59,6 +74,7 @@ describe("ProjectDetailView", () => {
     expect(screen.getByText("STG → UAT → PROD")).toBeInTheDocument();
     expect(screen.getByText("GDPR, Art 6(1)(c)")).toBeInTheDocument();
     expect(screen.getByText("mssql")).toBeInTheDocument();
+    expect(screen.getByText("dbo")).toBeInTheDocument();
     expect(screen.getByText("create table crm(id int);")).toBeInTheDocument();
   });
 
@@ -96,5 +112,26 @@ describe("ProjectDetailView", () => {
 
     expect(screen.getByText("archived", { selector: "span" })).toBeInTheDocument();
     expect(screen.getByText(/2026-06-30/)).toBeInTheDocument();
+  });
+
+  it("renders the model policy section with effective values and sources", () => {
+    render(
+      <ProjectDetailView
+        modelDefaults={modelDefaults}
+        project={{
+          ...active,
+          modelPolicy: {
+            fieldMapping: "field-model",
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Model Policy")).toBeInTheDocument();
+    expect(screen.getByText("Field mapping model")).toBeInTheDocument();
+    expect(screen.getByText("field-model")).toBeInTheDocument();
+    expect(screen.getByText("planning-model")).toBeInTheDocument();
+    expect(screen.getByText("Source: project override")).toBeInTheDocument();
+    expect(screen.getAllByText("Source: engine.yaml").length).toBeGreaterThan(0);
   });
 });
