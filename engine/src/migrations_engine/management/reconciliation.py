@@ -103,9 +103,10 @@ def _binding_rules(field_bindings: list[dict[str, Any]]) -> list[str]:
     for binding in field_bindings:
         src = binding.get("source_field")
         dst = binding.get("destination_field")
-        if not src or not dst:
-            raise ValueError("malformed field binding — missing source_field or destination_field")
-        rules.append(f"{src} → {dst}")
+        if not dst:
+            raise ValueError("malformed field binding — missing destination_field")
+        src_str = str(src) if src is not None else ""
+        rules.append(f"{src_str} → {dst}")
     return rules
 
 
@@ -174,18 +175,19 @@ def _build_lineage_rows(
             if mapped_row.get("destination_row_id") not in {None, ""} and destination_row_id is None:
                 destination_row_id = str(mapped_row.get("destination_row_id"))
 
-            if destination_row_id is not None and destination_row_id in seen_destination_ids:
-                outcome = "duplicated"
-                outcome_detail = f"duplicate destination row id {destination_row_id}."
-            elif any(
+            is_partially_mapped = any(
                 mapped_row.get(binding.get("destination_field")) in {None, ""}
                 for binding in field_bindings
                 if binding.get("destination_field")
-            ):
+            )
+            if is_partially_mapped:
                 outcome = "partially_mapped"
                 outcome_detail = "one or more mapped destination fields are null."
                 if destination_row_id is not None:
                     seen_destination_ids.add(destination_row_id)
+            elif destination_row_id is not None and destination_row_id in seen_destination_ids:
+                outcome = "duplicated"
+                outcome_detail = f"duplicate destination row id {destination_row_id}."
             elif destination_row_id is None:
                 outcome = "rejected"
                 outcome_detail = "no destination row produced."

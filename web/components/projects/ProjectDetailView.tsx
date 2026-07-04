@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import DOMPurify from "dompurify";
 import type { AIModelDefaultsRecord } from "../../lib/ai-model-defaults-api";
 import type { ProjectRecord, SamplePolicy } from "../../lib/projects-api";
@@ -72,6 +73,11 @@ function KeyValue({
 export function ProjectDetailView({ project, modelDefaults = null }: ProjectDetailViewProps) {
   const domainConfig = project.domainConfig;
   const projectResources = project.projectResources ?? "";
+  const [purifiedHtml, setPurifiedHtml] = useState("");
+
+  useEffect(() => {
+    setPurifiedHtml(DOMPurify.sanitize(projectResources));
+  }, [projectResources]);
 
   return (
     <section className="space-y-6 rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm">
@@ -168,7 +174,7 @@ export function ProjectDetailView({ project, modelDefaults = null }: ProjectDeta
               aria-label="Project Resources"
               className="prose prose-sm max-w-none mt-2 rounded-md border border-outline-variant bg-surface px-3 py-2 text-slate-800"
               dangerouslySetInnerHTML={{
-                __html: typeof window !== "undefined" ? DOMPurify.sanitize(project.projectResources) : ""
+                __html: purifiedHtml
               }}
             />
           </div>

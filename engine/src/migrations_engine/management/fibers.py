@@ -437,8 +437,12 @@ def submit_lookup_inputs(
 
     from ..db.models import ProjectDefinition, ProjectRegistry
     registry = db.get(ProjectRegistry, project_id)
-    project_definition = db.get(ProjectDefinition, registry.definition_id) if registry else None
-    model_policy = project_definition.model_policy if project_definition else None
+    if registry is None:
+        raise AuthApiError("project_not_found", "Project not found.", 404)
+    project_definition = db.get(ProjectDefinition, registry.definition_id)
+    if project_definition is None:
+        raise AuthApiError("project_definition_not_found", "Project definition not found.", 404)
+    model_policy = project_definition.model_policy
 
     try:
         adapter = get_adapter("lookup_mapping", model_policy)
