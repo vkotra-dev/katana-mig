@@ -20,10 +20,41 @@ from ..roles import PROJECT_STAKEHOLDER_ROLE
 from .platform import record_management_audit
 
 
+PROJECT_RESOURCES_TEMPLATE = """== DEV ==
+Host/IP:
+Port:
+Database:
+Username:
+Password:
+VPN:
+Notes:
+
+== STG ==
+Host/IP:
+Port:
+Database:
+Username:
+Password:
+VPN:
+Notes:
+
+== PROD ==
+Host/IP:
+Port:
+Database:
+Username:
+Password:
+VPN:
+Notes:"""
+
 def create_project(db: Session, *, actor: User, body: ProjectCreateRequest) -> ProjectResponse:
     project_id = new_id()
     definition_id = new_id()
     domain_config = _dump_domain_config(body.domain_config)
+    
+    project_resources = body.project_resources
+    if not project_resources:
+        project_resources = PROJECT_RESOURCES_TEMPLATE
 
     definition = ProjectDefinition(
         definition_id=definition_id,
@@ -32,7 +63,7 @@ def create_project(db: Session, *, actor: User, body: ProjectCreateRequest) -> P
         goal=body.goal,
         repos=body.repos,
         workspace=body.workspace,
-        project_resources=body.project_resources,
+        project_resources=project_resources,
         execution_environments=body.execution_environments,
         model_policy=_dump_model_policy(body.model_policy),
         canonical_terms=body.canonical_terms,
