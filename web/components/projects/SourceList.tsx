@@ -188,7 +188,7 @@ export function SourceList({ projectId, token, role, destinationSchemaDdl = null
                 <th className="px-4 py-3">Encoding</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Created</th>
-                <th className="px-4 py-3">Lookup</th>
+                <th className="px-4 py-3">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -203,12 +203,20 @@ export function SourceList({ projectId, token, role, destinationSchemaDdl = null
                   <td className="px-4 py-3 text-sm text-slate-700">{source.status}</td>
                   <td className="px-4 py-3 text-sm text-slate-700">{formatDate(source.createdAt)}</td>
                   <td className="px-4 py-3">
-                    <a
-                      className="inline-flex rounded-md border border-outline-variant px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-outline-variant/40"
-                      href={`/projects/${projectId}/sources/${source.sourceDefinitionId}/lookup`}
-                    >
-                      Open lookup
-                    </a>
+                    <div className="flex gap-2">
+                      <a
+                        className="inline-flex rounded-md border border-outline-variant px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-outline-variant/40"
+                        href={`/projects/${projectId}/sources/${source.sourceDefinitionId}/mapping`}
+                      >
+                        Open mapping
+                      </a>
+                      <a
+                        className="inline-flex rounded-md border border-outline-variant px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-outline-variant/40"
+                        href={`/projects/${projectId}/sources/${source.sourceDefinitionId}/lookup`}
+                      >
+                        Open lookup
+                      </a>
+                    </div>
                   </td>
                 </tr>
               ))}

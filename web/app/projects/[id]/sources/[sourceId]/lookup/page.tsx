@@ -496,6 +496,26 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
                 <p className="text-sm text-slate-500">Only central team members can run source analysis.</p>
               )}
             </div>
+          ) : pageError.includes("destination object reference") || pageError.includes("No mapping snapshot exists") ? (
+            <div className="rounded-2xl border border-primary/30 bg-primary/5 p-8 text-center space-y-4">
+              <div className="mx-auto max-w-md space-y-2">
+                <h2 className="text-xl font-semibold text-slate-900">Field Mapping Required</h2>
+                <p className="text-sm text-slate-600">
+                  You must complete and approve the field mapping snapshot before you can map lookup values.
+                </p>
+              </div>
+              <button
+                className="rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90"
+                onClick={() => {
+                  if (routeParams) {
+                    router.push(`/projects/${routeParams.id}/sources/${routeParams.sourceId}/mapping`);
+                  }
+                }}
+                type="button"
+              >
+                Go to Field Mapping
+              </button>
+            </div>
           ) : (
             <div role="alert" className="rounded-2xl border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
               {pageError}

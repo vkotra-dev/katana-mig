@@ -73,8 +73,8 @@ describe("SourceList", () => {
     render(<SourceList {...baseProps} destinationSchemaDdl="CREATE TABLE customers (id INT);" />);
 
     expect(await screen.findByText("Customer Extract")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Re-analyze DDL" })).toBeInTheDocument();
-    expect(screen.getByText("Destination schema was last analyzed at 2026-06-30.")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Re-analyze DDL" })).toBeInTheDocument();
+    expect(await screen.findByText("Destination schema was last analyzed at 2026-06-30.")).toBeInTheDocument();
   });
 
   it("renders source rows", async () => {
