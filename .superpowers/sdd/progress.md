@@ -7,3 +7,4 @@
 - Task 001az: complete (code commit ffcf417)
 - Task 001ba: complete (commits 6af7230..eb7b918, review clean after Critical fix)
 - Task 001bc: complete (commit 088c9f8, verified with engine/tests/test_config_api.py and web model-default tests)
+- Task 001bb: complete (commit 8d36531, verified with components/projects/__tests__/ProjectEditForm.test.tsx and components/projects/__tests__/ProjectDetailView.test.tsx)
