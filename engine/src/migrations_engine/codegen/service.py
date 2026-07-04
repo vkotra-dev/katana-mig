@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
@@ -80,6 +80,7 @@ def generate_codegen_artifact(
     mapping_snapshot = _select_latest_approved_mapping_snapshot(
         db,
         project_id=project_id,
+        source_definition_id=source_definition_id,
         destination_object_name=destination_object_name,
     )
     lookup_snapshot_version = _select_lookup_snapshot_version(
@@ -305,12 +306,17 @@ def _select_latest_approved_mapping_snapshot(
     db: Session,
     *,
     project_id: str,
+    source_definition_id: str,
     destination_object_name: str,
 ) -> MappingSnapshot:
     mapping_snapshot = db.scalar(
         select(MappingSnapshot)
         .where(
             MappingSnapshot.project_id == project_id,
+            or_(
+                MappingSnapshot.source_definition_id == source_definition_id,
+                MappingSnapshot.source_definition_id.is_(None)
+            ),
             MappingSnapshot.destination_object_name == destination_object_name,
             MappingSnapshot.status == "approved",
         )

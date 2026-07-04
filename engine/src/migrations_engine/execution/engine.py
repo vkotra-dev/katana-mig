@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
@@ -41,11 +41,15 @@ def _select_latest_approved_source_slice(db: Session, *, source_definition_id: s
     return source_slice
 
 
-def _select_latest_approved_mapping_snapshot(db: Session, *, project_id: str, destination_object_name: str) -> MappingSnapshot:
+def _select_latest_approved_mapping_snapshot(db: Session, *, project_id: str, source_definition_id: str, destination_object_name: str) -> MappingSnapshot:
     mapping_snapshot = db.scalar(
         select(MappingSnapshot)
         .where(
             MappingSnapshot.project_id == project_id,
+            or_(
+                MappingSnapshot.source_definition_id == source_definition_id,
+                MappingSnapshot.source_definition_id.is_(None)
+            ),
             MappingSnapshot.destination_object_name == destination_object_name,
             MappingSnapshot.status == "approved",
         )
@@ -234,6 +238,7 @@ def execute_run(
         mapping_snapshot = _select_latest_approved_mapping_snapshot(
             db,
             project_id=run.project_id,
+            source_definition_id=source_definition_id,
             destination_object_name=run.destination_object_name,
         )
         lookup_names = sorted(

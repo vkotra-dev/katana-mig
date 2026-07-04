@@ -17,6 +17,7 @@ from ..api.schemas import (
 )
 from ..db.models import LookupSnapshot, LookupValueMap, Feed, User, new_id
 from ..mapping.snapshots import select_latest_approved_mapping_snapshot
+from ..mapping.exceptions import SnapshotNotFoundError
 from .platform import record_management_audit
 from .source_analysis import list_source_value_summaries
 
@@ -241,16 +242,25 @@ def _latest_mapping_snapshot_for_lookup(
     if not destination_object_names:
         raise AuthApiError("mapping_snapshot_not_found", "Source contract has no destination object reference.", 404)
 
-    destination_object_name = str(destination_object_names[0]).strip()
-    if not destination_object_name:
-        raise AuthApiError("mapping_snapshot_not_found", "Source contract has no destination object reference.", 404)
+    snapshot = None
+    for tbl in destination_object_names:
+        tbl_name = str(tbl).strip()
+        if not tbl_name:
+            continue
+        try:
+            candidate = select_latest_approved_mapping_snapshot(
+                db,
+                project_id=project_id,
+                destination_object_name=tbl_name,
+                source_definition_id=source_definition.source_definition_id,
+            )
+            if any(str(binding.get("lookup_name")) == lookup_name for binding in candidate.field_bindings):
+                snapshot = candidate
+                break
+        except SnapshotNotFoundError:
+            continue
 
-    snapshot = select_latest_approved_mapping_snapshot(
-        db,
-        project_id=project_id,
-        destination_object_name=destination_object_name,
-    )
-    if not any(str(binding.get("lookup_name")) == lookup_name for binding in snapshot.field_bindings):
+    if snapshot is None:
         raise AuthApiError(
             "mapping_snapshot_not_found",
             "Approved mapping snapshot does not define this lookup field.",

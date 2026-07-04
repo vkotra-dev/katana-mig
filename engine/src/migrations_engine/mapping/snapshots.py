@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from ..db.models import LookupSnapshot, MappingSnapshot, new_id
@@ -92,15 +92,25 @@ def select_latest_approved_mapping_snapshot(
     *,
     project_id: str,
     destination_object_name: str,
+    source_definition_id: str | None = None,
 ) -> MappingSnapshot:
+    filters = [
+        MappingSnapshot.project_id == project_id,
+        MappingSnapshot.destination_object_name == destination_object_name,
+        MappingSnapshot.status == APPROVED_SNAPSHOT_STATUS,
+    ]
+    if source_definition_id is not None:
+        filters.append(
+            or_(
+                MappingSnapshot.source_definition_id == source_definition_id,
+                MappingSnapshot.source_definition_id.is_(None)
+            )
+        )
+
     snapshots = db.scalars(
         select(MappingSnapshot)
-        .where(
-            MappingSnapshot.project_id == project_id,
-            MappingSnapshot.destination_object_name == destination_object_name,
-            MappingSnapshot.status == APPROVED_SNAPSHOT_STATUS,
-        )
-        .order_by(MappingSnapshot.created_at.desc())
+        .where(*filters)
+        .order_by(MappingSnapshot.created_at.desc(), MappingSnapshot.mapping_snapshot_id.desc())
     ).all()
     if not snapshots:
         raise SnapshotNotFoundError(

@@ -19,6 +19,7 @@ router = APIRouter(prefix="/projects/{project_id}/sources/{source_definition_id}
 def get_latest_mapping_snapshot(
     project_id: str,
     source_definition_id: str,
+    destination_object_name: str | None = None,
     actor: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> MappingSnapshotResponse:
@@ -28,11 +29,16 @@ def get_latest_mapping_snapshot(
     if not source_contract.destination_object_references:
         raise AuthApiError("mapping_snapshot_not_found", "Source contract has no destination object reference.", 404)
 
+    target_table = destination_object_name
+    if not target_table:
+        target_table = source_contract.destination_object_references[0]
+
     try:
         mapping_snapshot = select_latest_approved_mapping_snapshot(
             db,
             project_id=project_id,
-            destination_object_name=source_contract.destination_object_references[0],
+            destination_object_name=target_table,
+            source_definition_id=source_definition_id,
         )
     except SnapshotNotFoundError as exc:
         raise AuthApiError("mapping_snapshot_not_found", str(exc), 404) from exc

@@ -75,6 +75,7 @@ def get_gate1_evidence(db: Session, *, project_id: str, run_id: str) -> Gate1Evi
             db,
             project_id=project_id,
             destination_object_name=run.destination_object_name,
+            source_definition_id=run.source_definition_reference,
         )
         mapping_snapshot_version = mapping_snapshot.mapping_snapshot_version
         for binding in mapping_snapshot.field_bindings:
@@ -134,6 +135,7 @@ def get_gate2_evidence(db: Session, *, project_id: str, run_id: str) -> Gate2Evi
             db,
             project_id=project_id,
             destination_object_name=run.destination_object_name,
+            source_definition_id=source_definition_id,
         )
     except SnapshotNotFoundError:
         mapping_snapshot = None
