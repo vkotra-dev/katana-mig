@@ -8,7 +8,7 @@ import {
   markNotificationRead,
   type NotificationRecord,
 } from "../../lib/notifications-api";
-import { loadUiSession } from "../../lib/session";
+import { loadUiSession, type UiSession } from "../../lib/session";
 
 function formatTimestamp(value: string): string {
   return value.slice(0, 16).replace("T", " ");
@@ -21,7 +21,11 @@ export function NotificationBell() {
   const [loadingList, setLoadingList] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const session = useMemo(() => loadUiSession(), []);
+  const [session, setSession] = useState<UiSession | null>(null);
+
+  useEffect(() => {
+    setSession(loadUiSession());
+  }, []);
 
   useEffect(() => {
     if (!session) {
@@ -35,9 +39,18 @@ export function NotificationBell() {
         if (active) {
           setCount(unreadCount);
         }
-      } catch {
+      } catch (error: unknown) {
         if (active) {
           setCount(null);
+          // If unauthenticated (401), clear session and redirect to login
+          if (error && typeof error === "object" && "status" in error && error.status === 401) {
+            if (typeof window !== "undefined") {
+              try {
+                window.localStorage.removeItem("katana.ui.session");
+              } catch {}
+              window.location.assign("/");
+            }
+          }
         }
       }
     };

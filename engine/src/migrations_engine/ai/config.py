@@ -8,6 +8,10 @@ from pathlib import Path
 from typing import Any, cast
 
 import yaml
+from dotenv import load_dotenv
+
+_ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
+load_dotenv(dotenv_path=_ENV_FILE)
 
 from .adapter import ConfigurationError
 from ..api.schemas import ModelPolicy

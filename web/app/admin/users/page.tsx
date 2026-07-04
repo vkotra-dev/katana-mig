@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { UserList, type UserRecord } from "../../../components/UserList";
 import { deleteUser, listUsers, type UserResponse } from "../../../lib/management-api";
-import { loadUiSession } from "../../../lib/session";
+import { loadUiSession, type UiSession } from "../../../lib/session";
 
 function toUserRecord(user: UserResponse): UserRecord {
   return {
@@ -20,8 +20,12 @@ function toUserRecord(user: UserResponse): UserRecord {
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
-  const session = useMemo(() => loadUiSession(), []);
+  const [session, setSession] = useState<UiSession | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    setSession(loadUiSession());
+  }, []);
 
   useEffect(() => {
     if (!session) {

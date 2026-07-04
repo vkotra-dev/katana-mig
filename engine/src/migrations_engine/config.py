@@ -7,7 +7,10 @@ from sqlalchemy.engine import URL
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+from dotenv import load_dotenv
+
 ENGINE_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+load_dotenv(dotenv_path=ENGINE_ENV_FILE)
 
 
 class Settings(BaseSettings):

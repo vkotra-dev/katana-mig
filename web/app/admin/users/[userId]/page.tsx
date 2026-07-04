@@ -3,13 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { UserForm, type UserFormValue } from "../../../../components/UserForm";
 import { getUser, updateUser, type UserResponse } from "../../../../lib/management-api";
-import { loadUiSession } from "../../../../lib/session";
+import { loadUiSession, type UiSession } from "../../../../lib/session";
 
 export default function UserDetailPage({ params }: any) {
-  const session = useMemo(() => loadUiSession(), []);
+  const [session, setSession] = useState<UiSession | null>(null);
   const [user, setUser] = useState<UserResponse | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | undefined>();
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
+
+  useEffect(() => {
+    setSession(loadUiSession());
+  }, []);
 
   useEffect(() => {
     if (!session) {

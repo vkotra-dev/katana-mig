@@ -10,7 +10,7 @@ import {
   type ProjectMemberResponse,
   type UserResponse,
 } from "../../../../../lib/management-api";
-import { loadUiSession } from "../../../../../lib/session";
+import { loadUiSession, type UiSession } from "../../../../../lib/session";
 
 function joinMembers(
   members: ProjectMemberResponse[],
@@ -30,9 +30,13 @@ function joinMembers(
 }
 
 export default function ProjectMembersPage({ params }: any) {
-  const session = useMemo(() => loadUiSession(), []);
+  const [session, setSession] = useState<UiSession | null>(null);
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [warning, setWarning] = useState<string | undefined>();
+
+  useEffect(() => {
+    setSession(loadUiSession());
+  }, []);
 
   useEffect(() => {
     if (!session) {

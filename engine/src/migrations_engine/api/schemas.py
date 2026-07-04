@@ -42,6 +42,7 @@ class LoginResponse(BaseModel):
     expires_at: datetime
     session_version: int
     user: AuthenticatedUserResponse
+    project_ids: list[str] = Field(default_factory=list)
 
 
 class SessionResponse(BaseModel):
@@ -52,6 +53,7 @@ class SessionResponse(BaseModel):
     status: UserStatus
     expires_at: datetime
     session_version: int
+    project_ids: list[str] = Field(default_factory=list)
 
 
 class PasswordResetRequest(BaseModel):
