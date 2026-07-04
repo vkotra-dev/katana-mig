@@ -220,7 +220,7 @@ export function ProjectEditForm({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="space-y-2 lg:col-span-3">
+        <div className="space-y-2 lg:col-span-1">
           <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Target database engine</label>
           <select
             aria-label="Target database engine"
@@ -237,48 +237,48 @@ export function ProjectEditForm({
           </select>
         </div>
 
-        <div className="space-y-4 lg:col-span-1">
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Staging schema
-            </label>
-            <input
-              aria-label="Staging schema"
-              className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
-              name="stagingSchema"
-              onChange={(event) => setStagingSchema(event.target.value)}
-              type="text"
-              value={stagingSchema}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Destination schema
-            </label>
-            <input
-              aria-label="Destination schema"
-              className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
-              name="destinationSchema"
-              onChange={(event) => setDestinationSchema(event.target.value)}
-              type="text"
-              value={destinationSchema}
-            />
-          </div>
+        <div className="space-y-2 lg:col-span-1">
+          <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+            Staging schema
+          </label>
+          <input
+            aria-label="Staging schema"
+            className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
+            name="stagingSchema"
+            onChange={(event) => setStagingSchema(event.target.value)}
+            type="text"
+            value={stagingSchema}
+          />
         </div>
 
-        <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900">
-          <input
-            aria-label="Dry run"
-            checked={dryRun}
-            name="dryRun"
-            onChange={(event) => setDryRun(event.target.checked)}
-            type="checkbox"
-          />
-          Dry run
-        </label>
-
         <div className="space-y-2 lg:col-span-1">
+          <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+            Destination schema
+          </label>
+          <input
+            aria-label="Destination schema"
+            className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
+            name="destinationSchema"
+            onChange={(event) => setDestinationSchema(event.target.value)}
+            type="text"
+            value={destinationSchema}
+          />
+        </div>
+
+        <div className="flex items-end lg:col-span-3">
+          <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900 w-full lg:w-auto">
+            <input
+              aria-label="Dry run"
+              checked={dryRun}
+              name="dryRun"
+              onChange={(event) => setDryRun(event.target.checked)}
+              type="checkbox"
+            />
+            Dry run
+          </label>
+        </div>
+
+        <div className="space-y-2 lg:col-span-3">
           <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Destination schema DDL</label>
           <textarea
             aria-label="Destination schema DDL"

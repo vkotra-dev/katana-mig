@@ -219,4 +219,28 @@ describe("ProjectEditForm", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Sample policy max rows must be a positive integer.");
     expect(onSubmit).not.toHaveBeenCalled();
   });
+
+  it("includes projectResources in the submit payload", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<ProjectEditForm project={project} onSubmit={onSubmit} />);
+
+    fireEvent.submit(screen.getByRole("button", { name: "Save changes" }).closest("form") as HTMLFormElement);
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectResources: expect.any(String),
+        })
+      )
+    );
+  });
+
+  it("renders the Project Resources editor last in the form", () => {
+    render(<ProjectEditForm project={project} onSubmit={vi.fn()} />);
+    const buttons = screen.getAllByRole("button");
+    const saveIndex = buttons.findIndex((b) => b.textContent === "Save changes");
+    const boldIndex = buttons.findIndex((b) => b.getAttribute("aria-label") === "Bold");
+    // Bold toolbar button appears before Save changes
+    expect(boldIndex).toBeLessThan(saveIndex);
+  });
 });

@@ -4,7 +4,6 @@
 
 | Task | Summary |
 |---|---|
-| [001ay-project-resources-rich-editor](./001ay-project-resources-rich-editor.md) | Rich text editor (bold/bullets/center) for project resources field, 3-col form grid (depends on 001ax, 001aw) |
 | [001bb-project-edit-layout-parity](./001bb-project-edit-layout-parity.md) | Collapse model policy in project edit and align project detail layout with edit |
 | [001bc-project-model-policy-default-hints](./001bc-project-model-policy-default-hints.md) | Show live engine.yaml model defaults under project overrides and in project detail |
 
@@ -12,6 +11,7 @@
 
 | Task | Summary |
 |---|---|
+| [001ay-project-resources-rich-editor](./completed/001ay-project-resources-rich-editor.md) | [summary](./summary/001ay-project-resources-rich-editor.md) |
 | [001ax-project-resources-field](./completed/001ax-project-resources-field.md) | [summary](./summary/001ax-project-resources-field.md) |
 | [001aa-reconciliation](./completed/001aa-reconciliation.md) | [summary](./summary/001aa-reconciliation.md) |
 | [001ag-delivery-bundle-tab](./completed/001ag-delivery-bundle-tab.md) | [summary](./summary/001ag-delivery-bundle-tab.md) |
