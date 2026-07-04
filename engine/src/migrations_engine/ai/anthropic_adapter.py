@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from types import ModuleType
@@ -12,6 +13,8 @@ from .config import get_ai_config, resolve_model
 from ..api.schemas import ModelPolicy
 
 T = TypeVar("T", bound=BaseModel)
+
+logger = logging.getLogger(__name__)
 
 
 try:  # pragma: no cover - exercised indirectly through adapter tests
@@ -60,6 +63,9 @@ class AnthropicAdapter:
         schema = response_model.model_json_schema()
         prompt = f"{system}\n\nReturn valid JSON matching this schema:\n{schema}"
         model_id = self._resolve_model(task=task, model_policy=model_policy)
+        logger.info("Anthropic AI Call - Model: %s", model_id)
+        logger.info("System Prompt:\n%s", prompt)
+        logger.info("User Prompt:\n%s", user)
         try:
             response = self._client.messages.create(
                 model=model_id,
@@ -68,10 +74,12 @@ class AnthropicAdapter:
                 messages=[{"role": "user", "content": user}],
             )
         except anthropic.APIError as exc:  # pragma: no cover - exercised via adapter test doubles
+            logger.error("Anthropic AI Call Failed - Model: %s, Error: %s", model_id, exc)
             raise AICallError(str(exc)) from exc
 
         content = getattr(response, "content", None)
         text = _extract_text(content)
+        logger.info("Anthropic Response:\n%s", text)
         return response_model.model_validate_json(text)
 
     def _resolve_model(self, *, task: str | None, model_policy: ModelPolicy | None) -> str:

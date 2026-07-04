@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from types import ModuleType
@@ -12,6 +13,8 @@ from .config import get_ai_config, resolve_model
 from ..api.schemas import ModelPolicy
 
 T = TypeVar("T", bound=BaseModel)
+
+logger = logging.getLogger(__name__)
 
 
 try:  # pragma: no cover - exercised indirectly through adapter tests
@@ -64,6 +67,9 @@ class OpenAIAdapter:
         schema = response_model.model_json_schema()
         prompt = f"{system}\n\nReturn valid JSON matching this schema:\n{schema}"
         model_id = self._resolve_model(task=task, model_policy=model_policy)
+        logger.info("OpenAI AI Call - Model: %s", model_id)
+        logger.info("System Prompt:\n%s", prompt)
+        logger.info("User Prompt:\n%s", user)
         try:
             response = self._client.chat.completions.create(
                 model=model_id,
@@ -74,11 +80,14 @@ class OpenAIAdapter:
                 response_format={"type": "json_object"},
             )
         except openai.OpenAIError as exc:  # pragma: no cover - exercised via adapter test doubles
+            logger.error("OpenAI AI Call Failed - Model: %s, Error: %s", model_id, exc)
             raise AICallError(str(exc)) from exc
 
         content = response.choices[0].message.content
         if not isinstance(content, str):
+            logger.error("OpenAI response did not contain text content.")
             raise AICallError("OpenAI response did not contain text content.")
+        logger.info("OpenAI Response:\n%s", content)
         return response_model.model_validate_json(content)
 
     def _resolve_model(self, *, task: str | None, model_policy: ModelPolicy | None) -> str:
