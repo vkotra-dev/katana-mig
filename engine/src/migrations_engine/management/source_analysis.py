@@ -178,7 +178,7 @@ def _latest_approved_source_slice(db: Session, *, source_definition_id: str) -> 
             FeedSlice.source_definition_id == source_definition_id,
             FeedSlice.status == "approved",
         )
-        .order_by(FeedSlice.approved_at.desc().nullslast(), FeedSlice.created_at.desc())
+        .order_by(FeedSlice.approved_at.is_(None), FeedSlice.approved_at.desc(), FeedSlice.created_at.desc())
     )
     if source_slice is None:
         raise AuthApiError("source_analysis_not_ready", "An approved source slice is required.", 409)
@@ -192,7 +192,7 @@ def _latest_source_slice_version(db: Session, *, source_definition_id: str) -> s
             FeedSlice.source_definition_id == source_definition_id,
             FeedSlice.status == "approved",
         )
-        .order_by(FeedSlice.approved_at.desc().nullslast(), FeedSlice.created_at.desc())
+        .order_by(FeedSlice.approved_at.is_(None), FeedSlice.approved_at.desc(), FeedSlice.created_at.desc())
     )
     return source_slice
 

@@ -312,7 +312,7 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
         select(FeedSlice)
         .where(FeedSlice.source_definition_id == feed.source_definition_id)
         .where(FeedSlice.status == "approved")
-        .order_by(FeedSlice.approved_at.desc().nullslast(), FeedSlice.created_at.desc())
+        .order_by(FeedSlice.approved_at.is_(None), FeedSlice.approved_at.desc(), FeedSlice.created_at.desc())
     )
     if approved_slice is None:
         raise AuthApiError(

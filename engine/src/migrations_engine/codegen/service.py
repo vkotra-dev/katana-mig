@@ -294,7 +294,7 @@ def _select_latest_approved_source_slice(db: Session, *, source_definition_id: s
             FeedSlice.source_definition_id == source_definition_id,
             FeedSlice.status == "approved",
         )
-        .order_by(FeedSlice.approved_at.desc().nullslast(), FeedSlice.created_at.desc())
+        .order_by(FeedSlice.approved_at.is_(None), FeedSlice.approved_at.desc(), FeedSlice.created_at.desc())
     )
     if source_slice is None:
         raise AuthApiError("codegen_source_slice_missing", "An approved source slice is required.", 409)
@@ -314,7 +314,7 @@ def _select_latest_approved_mapping_snapshot(
             MappingSnapshot.destination_object_name == destination_object_name,
             MappingSnapshot.status == "approved",
         )
-        .order_by(MappingSnapshot.approved_at.desc().nullslast(), MappingSnapshot.created_at.desc())
+        .order_by(MappingSnapshot.approved_at.is_(None), MappingSnapshot.approved_at.desc(), MappingSnapshot.created_at.desc())
     )
     if mapping_snapshot is None:
         raise AuthApiError("mapping_not_found", "Mapping snapshot not found.", 404)

@@ -34,7 +34,7 @@ def _select_latest_approved_source_slice(db: Session, *, source_definition_id: s
             FeedSlice.source_definition_id == source_definition_id,
             FeedSlice.status == "approved",
         )
-        .order_by(FeedSlice.approved_at.desc().nullslast(), FeedSlice.created_at.desc())
+        .order_by(FeedSlice.approved_at.is_(None), FeedSlice.approved_at.desc(), FeedSlice.created_at.desc())
     )
     if source_slice is None:
         raise ValueError("missing_source_slice")
@@ -49,7 +49,7 @@ def _select_latest_approved_mapping_snapshot(db: Session, *, project_id: str, de
             MappingSnapshot.destination_object_name == destination_object_name,
             MappingSnapshot.status == "approved",
         )
-        .order_by(MappingSnapshot.approved_at.desc().nullslast(), MappingSnapshot.created_at.desc())
+        .order_by(MappingSnapshot.approved_at.is_(None), MappingSnapshot.approved_at.desc(), MappingSnapshot.created_at.desc())
     )
     if mapping_snapshot is None:
         raise ValueError("missing_mapping_snapshot")
@@ -64,7 +64,7 @@ def _select_latest_approved_lookup_snapshot(db: Session, *, project_id: str, loo
             LookupSnapshot.lookup_name == lookup_name,
             LookupSnapshot.status == "approved",
         )
-        .order_by(LookupSnapshot.approved_at.desc().nullslast(), LookupSnapshot.created_at.desc())
+        .order_by(LookupSnapshot.approved_at.is_(None), LookupSnapshot.approved_at.desc(), LookupSnapshot.created_at.desc())
     )
     if lookup_snapshot is None:
         raise ValueError("missing_lookup_snapshot")
