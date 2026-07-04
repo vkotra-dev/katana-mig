@@ -19,6 +19,7 @@ const activeProject: ProjectRecord = {
   domainConfig: {
     targetDbEngine: "mssql",
     stagingSchema: "stg",
+    destinationSchema: "dbo",
     dryRun: false,
     samplePolicy: null,
     destinationSchemaDdl: null,

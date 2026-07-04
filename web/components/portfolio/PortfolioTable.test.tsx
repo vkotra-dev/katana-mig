@@ -20,6 +20,7 @@ function makeProject(overrides: Partial<ProjectRecord>): ProjectRecord {
     domainConfig: {
       targetDbEngine: "postgresql",
       stagingSchema: null,
+      destinationSchema: null,
       dryRun: false,
       samplePolicy: null,
       destinationSchemaDdl: null,

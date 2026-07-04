@@ -53,11 +53,12 @@ const mockProject = {
   constraints: null,
   unresolvedQuestions: null,
   assumptions: null,
-    domainConfig: {
-      targetDbEngine: "postgresql" as const,
-      stagingSchema: null,
-      dryRun: false,
-      samplePolicy: null,
+  domainConfig: {
+    targetDbEngine: "postgresql" as const,
+    stagingSchema: null,
+    destinationSchema: null,
+    dryRun: false,
+    samplePolicy: null,
     destinationSchemaDdl: null,
     environments: ["dev"],
   },

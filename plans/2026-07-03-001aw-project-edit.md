@@ -111,7 +111,7 @@ Add a routeable project edit screen and expose it from the project detail page s
   - Frontend `ProjectDomainConfig.destinationSchema: string | null`
 
 **Why destination_schema matters for codegen:**
-The codegen layer (`codegen/service.py`) already injects `staging_schema` into every system prompt and user prompt so the AI knows to prefix staging tables as `{staging_schema}.stg_{table}` and lookup tables as `{staging_schema}.{lookup_table}`. The `destination_schema` name completes this — migration procedures read from `{staging_schema}.stg_{table}` and write to `{destination_schema}.{table}`. Without it, the AI cannot generate fully-qualified destination table references. Both names must be in the prompt.
+The codegen layer (`codegen/service.py`) already injects `staging_schema` into every system prompt and user prompt so the AI knows the staged feed table lives under `{staging_schema}`. The `destination_schema` name completes this — migration procedures read from the staged feed table under `{staging_schema}` and write to `{destination_schema}.{table}`. Without it, the AI cannot generate fully-qualified destination table references. Both names must be in the prompt.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -307,7 +307,7 @@ Expected: new prompt tests pass; existing codegen tests unaffected.
 
 - [ ] **Step 7: Inject both schema names into the fiber feed-analysis prompt**
 
-In `engine/src/migrations_engine/management/fibers.py`, the feed analysis call currently passes only `destination_schema_ddl`. Lookups are always placed on `staging_schema`, so the AI needs both names to generate correct table references.
+In `engine/src/migrations_engine/management/fibers.py`, the feed analysis call currently passes only `destination_schema_ddl`. The AI needs the staging and destination schemas too, so it can reason about the staged feed table namespace and the destination write namespace.
 
 Read `fibers.py` around line 307 to find the `get("destination_schema_ddl", "")` read, then also extract `staging_schema` and `destination_schema` from `project_definition.domain_config` and pass them in the same payload:
 
@@ -437,7 +437,7 @@ The form must include a **"Sample Policy" section divider** before the strategy/
     Sample Policy
   </h3>
   <p className="mt-1 text-xs text-slate-400">
-    Controls how many source rows are included in the approved source slice for AI analysis.
+    Controls how many source rows are included in the approved feed slice for AI analysis.
   </p>
 </div>
 

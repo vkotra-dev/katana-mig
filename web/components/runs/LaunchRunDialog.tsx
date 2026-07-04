@@ -412,7 +412,7 @@ export function LaunchRunDialog({
                       className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500"
                       htmlFor="launch-run-source-contract"
                     >
-                      Source contract
+                      Feed contract
                     </label>
                     <select
                       id="launch-run-source-contract"
@@ -420,7 +420,7 @@ export function LaunchRunDialog({
                       value={selectedSourceDefinitionId}
                       onChange={(event) => setSelectedSourceDefinitionId(event.currentTarget.value)}
                     >
-                      <option value="">Select source contract</option>
+                      <option value="">Select feed contract</option>
                       {contracts.map((contract) => (
                         <option key={contract.sourceDefinitionId} value={contract.sourceDefinitionId}>
                           {contract.label}
@@ -519,12 +519,12 @@ export function LaunchRunDialog({
                     {
                       label: "Required feed slice approved & present",
                       ok: requiredFeedSlicePresent,
-                      reason: selectedSourceDefinitionId ? "No approved feed slice found for this source contract." : "Select a source contract.",
+                      reason: selectedSourceDefinitionId ? "No approved feed slice found for this feed contract." : "Select a feed contract.",
                     },
                     {
                       label: "Required downstream snapshots approved",
                       ok: requiredDownstreamSnapshotsApproved,
-                      reason: "Select a source contract with pinned snapshots available.",
+                      reason: "Select a feed contract with pinned snapshots available.",
                     },
                     {
                       label: "Object not already running for this environment",
@@ -561,7 +561,7 @@ export function LaunchRunDialog({
                       {destinationObjectName || "—"}
                     </div>
                     <div>
-                      <span className="font-semibold text-slate-900">Source contract:</span>{" "}
+                      <span className="font-semibold text-slate-900">Feed contract:</span>{" "}
                       {selectedContract?.label ?? "—"}
                     </div>
                     <div>

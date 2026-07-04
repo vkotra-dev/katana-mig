@@ -22,7 +22,7 @@ The run is the unit of observability for migration execution.
 
 - Bind execution to exactly one `project_id`.
 - Bind execution to exactly one destination object.
-- Record the source slice and downstream snapshot versions consumed.
+- Record the feed slice and downstream snapshot versions consumed.
 - Preserve pause and resume checkpoints.
 - Keep execution auditable per object.
 - Resume from the exact pinned work that was approved.
@@ -38,7 +38,7 @@ The run is the unit of observability for migration execution.
 
 ## Relationship to other pages
 
-- Source contracts and source slices are defined in `source-model.md`.
+- Source contracts and feed slices are defined in `source-model.md`.
 - Project ownership and version identity are defined in `project.md`.
 - Intake and frozen project definition mechanics live in `governance.md` and
   the intake behavior described in the harness bundle.
@@ -58,7 +58,7 @@ Relevant fields:
 - `project_id`
 - destination object name
 - source definition reference
-- source slice version
+- feed slice version
 - mapping snapshot version
 - lookup snapshot versions
 - code-generation input snapshot version
@@ -89,7 +89,7 @@ complete.
 A run should be able to identify the approved artifact set it consumed:
 
 - source definition version or reference
-- approved source slice version
+- approved feed slice version
 - approved mapping snapshot version
 - approved lookup snapshot versions
 - approved code-generation input version
@@ -122,16 +122,22 @@ Runs should be:
 - isolated to the project's declared source and destination scope
 
 Runs do not re-derive source structure from runtime inputs. They consume the
-approved source slice and downstream snapshots already produced by the project's
+approved feed slice and downstream snapshots already produced by the project's
 source/run workflow.
+
+The run-time SQL reads from the staged feed table under `staging_schema`.
+Mapping runs use that staged feed input to write into `destination_schema`.
+Lookup runs also read from the staged feed input and keep their generated
+artifacts in the staging layer.
 
 ### Execution flow
 
 The normal execution flow is:
 
 1. The project definition and registry resolve the owning project.
-2. The latest approved source slice and downstream snapshots are selected for
-   the stage about to start and pinned on the run record.
+2. The latest approved feed slice and downstream snapshots are selected for
+   the stage about to start, then the approved feed slice is treated as the
+   staged feed table under `staging_schema` and pinned on the run record.
 3. The run is leased and started for one destination object.
 4. Execution proceeds against the pinned artifacts.
 5. Reconciliation records lineage and outcomes.
@@ -166,7 +172,7 @@ records across objects; each object is independently auditable and restartable.
 #### Inner loop — per source row
 
 ```
-for each source_row in approved SourceSlice:
+for each source_row in approved FeedSlice:
     apply MappingSnapshot.field_bindings
         → rename and select fields to destination shape
     apply LookupSnapshot.value_map to each translated field
@@ -244,7 +250,7 @@ Stage sequence and baton chain for a migration object run:
 
 `knowledge_freeze_version` is the `codegen_artifact_id` from baton_4 after it
 clears the review gate. No new artifact is minted — the `CodeGenerationArtifact`
-already captures every upstream version (source slice, mapping snapshot, lookup
+already captures every upstream version (feed slice, mapping snapshot, lookup
 snapshot set) and the generated SQL bundle. Gate approval is the act of
 freezing; the artifact was already the knowledge container.
 ```
@@ -350,7 +356,7 @@ artifact.
 | Situation | Handling |
 |-----------|----------|
 | Run starts without a frozen project definition | Block start |
-| Run starts without the required source slice | Block start or escalate |
+| Run starts without the required feed slice | Block start or escalate |
 | Run starts without approved downstream snapshots | Block start or escalate |
 | Run targets the wrong project | Reject as isolation breach |
 | Source changed after approval | Re-run source analysis before continuing |

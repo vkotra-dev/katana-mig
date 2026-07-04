@@ -110,8 +110,13 @@ def test_create_full_domain_config_roundtrips(admin_token: str) -> None:
         "domain_config": {
             "target_db_engine": "mssql",
             "staging_schema": "stg",
+            "destination_schema": "dbo",
             "dry_run": False,
-            "sample_policy": {"max_rows": 1000},
+            "sample_policy": {
+                "strategy": "stratified",
+                "max_rows": 1000,
+                "stratified_column": "region",
+            },
             "destination_schema_ddl": "CREATE TABLE t (id INT);",
             "environments": ["dev", "uat", "prod"],
         },
@@ -124,6 +129,7 @@ def test_create_full_domain_config_roundtrips(admin_token: str) -> None:
     assert project["project_resources"] == "== PROD ==\nHost/IP: 10.0.0.1\nPort: 5432"
     assert project["lexicon_scope"] == "finance domain vocabulary"
     assert project["domain_config"]["target_db_engine"] == "mssql"
+    assert project["domain_config"]["destination_schema"] == "dbo"
     assert project["domain_config"]["destination_schema_ddl"] == "CREATE TABLE t (id INT);"
     assert project["domain_config"]["environments"] == ["dev", "uat", "prod"]
     assert "environment" not in project
@@ -136,8 +142,13 @@ def test_create_full_domain_config_roundtrips(admin_token: str) -> None:
     assert definition.domain_config == {
         "target_db_engine": "mssql",
         "staging_schema": "stg",
+        "destination_schema": "dbo",
         "dry_run": False,
-        "sample_policy": {"max_rows": 1000},
+        "sample_policy": {
+            "strategy": "stratified",
+            "max_rows": 1000,
+            "stratified_column": "region",
+        },
         "destination_schema_ddl": "CREATE TABLE t (id INT);",
         "environments": ["dev", "uat", "prod"],
     }
@@ -269,7 +280,12 @@ def test_update_clones_definition_and_preserves_previous_row(admin_token: str) -
             "domain_config": {
                 "target_db_engine": "mssql",
                 "staging_schema": "stg",
-                "sample_policy": {"max_rows": 5},
+                "destination_schema": "dbo",
+                "sample_policy": {
+                    "strategy": "random",
+                    "max_rows": 5,
+                    "stratified_column": None,
+                },
             },
         },
     )
@@ -287,6 +303,7 @@ def test_update_clones_definition_and_preserves_previous_row(admin_token: str) -
             "execution_environments": ["DEV", "PROD"],
             "domain_config": {
                 "target_db_engine": "oracle",
+                "destination_schema": "warehouse",
                 "destination_schema_ddl": "create table y(id int);",
             },
         },
@@ -298,7 +315,12 @@ def test_update_clones_definition_and_preserves_previous_row(admin_token: str) -
     assert body["execution_environments"] == ["DEV", "PROD"]
     assert body["domain_config"]["target_db_engine"] == "oracle"
     assert body["domain_config"]["staging_schema"] == "stg"
-    assert body["domain_config"]["sample_policy"] == {"max_rows": 5}
+    assert body["domain_config"]["destination_schema"] == "warehouse"
+    assert body["domain_config"]["sample_policy"] == {
+        "strategy": "random",
+        "max_rows": 5,
+        "stratified_column": None,
+    }
 
     with SessionLocal() as db:
         rows = list(

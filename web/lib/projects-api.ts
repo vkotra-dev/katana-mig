@@ -2,11 +2,20 @@ import { API_BASE_URL } from "./api-base";
 
 export type TargetDbEngine = "mssql" | "oracle" | "postgresql" | "mysql";
 
+export type SamplePolicyStrategy = "random" | "top_n" | "full" | "stratified";
+
+export interface SamplePolicy {
+  strategy: SamplePolicyStrategy;
+  maxRows: number | null;
+  stratifiedColumn: string | null;
+}
+
 export interface ProjectDomainConfig {
   targetDbEngine: TargetDbEngine | null;
   stagingSchema: string | null;
+  destinationSchema: string | null;
   dryRun: boolean;
-  samplePolicy: Record<string, unknown> | null;
+  samplePolicy: SamplePolicy | null;
   destinationSchemaDdl: string | null;
   environments: string[] | null;
 }
@@ -21,8 +30,9 @@ export interface LatestRunSummary {
 export interface ProjectDomainConfigInput {
   targetDbEngine?: TargetDbEngine | null;
   stagingSchema?: string | null;
+  destinationSchema?: string | null;
   dryRun?: boolean;
-  samplePolicy?: Record<string, unknown> | null;
+  samplePolicy?: SamplePolicy | null;
   destinationSchemaDdl?: string | null;
   environments?: string[] | null;
 }
@@ -157,8 +167,13 @@ async function parseApiError(response: Response): Promise<ProjectApiError> {
 function mapDomainConfig(config: {
   target_db_engine?: TargetDbEngine | null;
   staging_schema?: string | null;
+  destination_schema?: string | null;
   dry_run?: boolean;
-  sample_policy?: Record<string, unknown> | null;
+  sample_policy?: {
+    strategy?: SamplePolicyStrategy | null;
+    max_rows?: number | null;
+    stratified_column?: string | null;
+  } | null;
   destination_schema_ddl?: string | null;
   environments?: string[] | null;
 } | null): ProjectDomainConfig | null {
@@ -169,8 +184,15 @@ function mapDomainConfig(config: {
   return {
     targetDbEngine: config.target_db_engine ?? null,
     stagingSchema: config.staging_schema ?? null,
+    destinationSchema: config.destination_schema ?? null,
     dryRun: config.dry_run ?? false,
-    samplePolicy: config.sample_policy ?? null,
+    samplePolicy: config.sample_policy
+      ? {
+          strategy: config.sample_policy.strategy ?? "random",
+          maxRows: config.sample_policy.max_rows ?? null,
+          stratifiedColumn: config.sample_policy.stratified_column ?? null,
+        }
+      : null,
     destinationSchemaDdl: config.destination_schema_ddl ?? null,
     environments: config.environments ?? null,
   };
@@ -252,8 +274,13 @@ function serializeDomainConfig(config: ProjectDomainConfigInput | null | undefin
   | {
       target_db_engine?: TargetDbEngine | null;
       staging_schema?: string | null;
+      destination_schema?: string | null;
       dry_run?: boolean;
-      sample_policy?: Record<string, unknown> | null;
+      sample_policy?: {
+        strategy: SamplePolicyStrategy;
+        max_rows: number | null;
+        stratified_column: string | null;
+      } | null;
       destination_schema_ddl?: string | null;
       environments?: string[] | null;
     }
@@ -265,8 +292,15 @@ function serializeDomainConfig(config: ProjectDomainConfigInput | null | undefin
   return {
     target_db_engine: config.targetDbEngine,
     staging_schema: config.stagingSchema,
+    destination_schema: config.destinationSchema,
     dry_run: config.dryRun ?? false,
-    sample_policy: config.samplePolicy,
+    sample_policy: config.samplePolicy
+      ? {
+          strategy: config.samplePolicy.strategy,
+          max_rows: config.samplePolicy.maxRows,
+          stratified_column: config.samplePolicy.stratifiedColumn,
+        }
+      : null,
     destination_schema_ddl: config.destinationSchemaDdl,
     environments: config.environments,
   };
@@ -288,8 +322,13 @@ function mapProjectRecord(record: {
   domain_config: {
     target_db_engine?: TargetDbEngine | null;
     staging_schema?: string | null;
+    destination_schema?: string | null;
     dry_run?: boolean;
-    sample_policy?: Record<string, unknown> | null;
+    sample_policy?: {
+      strategy?: SamplePolicyStrategy | null;
+      max_rows?: number | null;
+      stratified_column?: string | null;
+    } | null;
     destination_schema_ddl?: string | null;
     environments?: string[] | null;
   } | null;

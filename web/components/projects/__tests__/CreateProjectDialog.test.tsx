@@ -20,6 +20,7 @@ const stubResponse = {
   domain_config: {
     target_db_engine: "mssql",
     staging_schema: null,
+    destination_schema: null,
     dry_run: false,
     sample_policy: null,
     destination_schema_ddl: null,
@@ -49,6 +50,7 @@ const stub: ProjectRecord = {
   domainConfig: {
     targetDbEngine: "mssql",
     stagingSchema: null,
+    destinationSchema: null,
     dryRun: false,
     samplePolicy: null,
     destinationSchemaDdl: null,
@@ -139,6 +141,7 @@ describe("CreateProjectDialog", () => {
           domain_config: {
             target_db_engine: "mssql",
             dry_run: false,
+            sample_policy: null,
           },
         }),
       }),

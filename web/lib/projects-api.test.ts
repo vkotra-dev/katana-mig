@@ -30,8 +30,13 @@ const projectResponse = {
   domain_config: {
     target_db_engine: "mssql",
     staging_schema: "stg",
+    destination_schema: "dbo",
     dry_run: false,
-    sample_policy: null,
+    sample_policy: {
+      strategy: "random",
+      max_rows: 1000,
+      stratified_column: null,
+    },
     destination_schema_ddl: "create table crm(id int);",
     environments: ["dev", "prod"],
   },
@@ -64,6 +69,7 @@ const project: ProjectRecord = {
   domainConfig: {
     targetDbEngine: "mssql",
     stagingSchema: "stg",
+    destinationSchema: "dbo",
     dryRun: false,
     samplePolicy: null,
     destinationSchemaDdl: "create table crm(id int);",
@@ -105,8 +111,8 @@ describe("listProjects", () => {
         }),
       }),
     );
-  expect(result[0].projectId).toBe("project-1");
-  expect(result[0].projectResources).toBe(PROJECT_RESOURCES_TEMPLATE);
+    expect(result[0].projectId).toBe("project-1");
+    expect(result[0].projectResources).toBe(PROJECT_RESOURCES_TEMPLATE);
     expect(result[0].modelPolicy).toEqual({
       fieldMapping: "claude-opus-4-8",
       planning: "gpt-5",
@@ -120,6 +126,16 @@ describe("listProjects", () => {
       review: null,
       implementation: null,
     });
+    expect(result[0].domainConfig).toEqual(
+      expect.objectContaining({
+        destinationSchema: "dbo",
+        samplePolicy: {
+          strategy: "random",
+          maxRows: 1000,
+          stratifiedColumn: null,
+        },
+      }),
+    );
   });
 
   it("adds include_archived when requested", async () => {
@@ -194,8 +210,13 @@ describe("createProject", () => {
       domainConfig: {
         targetDbEngine: "mssql",
         stagingSchema: "stg",
+        destinationSchema: "dbo",
         dryRun: false,
-        samplePolicy: { maxRows: 1000 },
+        samplePolicy: {
+          strategy: "stratified",
+          maxRows: 1000,
+          stratifiedColumn: "region",
+        },
         destinationSchemaDdl: "create table crm(id int);",
         environments: ["dev", "prod"],
       },
@@ -222,8 +243,13 @@ describe("createProject", () => {
       domain_config: {
         target_db_engine: "mssql",
         staging_schema: "stg",
+        destination_schema: "dbo",
         dry_run: false,
-        sample_policy: { maxRows: 1000 },
+        sample_policy: {
+          strategy: "stratified",
+          max_rows: 1000,
+          stratified_column: "region",
+        },
         destination_schema_ddl: "create table crm(id int);",
         environments: ["dev", "prod"],
       },
@@ -251,6 +277,7 @@ describe("updateProject", () => {
       domainConfig: {
         targetDbEngine: "mssql",
         stagingSchema: "stg",
+        destinationSchema: "dbo",
         dryRun: false,
         samplePolicy: null,
         destinationSchemaDdl: "create table crm(id int);",
@@ -261,6 +288,10 @@ describe("updateProject", () => {
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual(
       expect.objectContaining({
         model_policy: null,
+        domain_config: expect.objectContaining({
+          destination_schema: "dbo",
+          sample_policy: null,
+        }),
       }),
     );
   });

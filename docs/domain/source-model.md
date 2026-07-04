@@ -4,7 +4,7 @@ This page defines how source data is declared, analyzed, sliced, approved, and
 consumed in the migration domain.
 
 It is the source-side counterpart to the project and run pages. It owns the
-structured description of source inputs, the immutable approved source slice,
+structured description of source inputs, the immutable approved feed slice,
 and the downstream snapshot relationships that drive mapping, lookup mapping,
 code generation, and patch generation.
 
@@ -14,7 +14,7 @@ Provide a governed source model that:
 
 - declares source structure explicitly
 - preserves source provenance and source-type awareness
-- produces an immutable approved source slice
+- produces an immutable approved feed slice
 - supports object-level runs against the approved slice
 - records snapshot versions consumed by downstream work
 - triggers impact analysis when mapping or lookup changes
@@ -26,8 +26,8 @@ schema invention or execution scheduling.
 
 - Represent source contracts in structured form.
 - Preserve source-type-specific fields rather than flattening them away.
-- Produce an approved, immutable source slice for downstream analysis.
-- Support object-level runs that share source slices where appropriate.
+- Produce an approved, immutable feed slice for downstream analysis.
+- Support object-level runs that share feed slices where appropriate.
 - Record source, mapping, lookup, and code-generation snapshot versions.
 - Provide the source-side inputs to impact analysis and patch generation.
 - Keep source analysis separate from mapping, lookup mapping, and codegen.
@@ -115,7 +115,9 @@ Common fields:
 - destination object references — list of destination object names (e.g. `["Customer", "Address"]`)
   this source feeds; written as the mapping stage output baton when field mapping is approved;
   not declared upfront by the operator
-- sample policy
+- sample policy — controls how the approved source rows are selected when the
+  source is materialized into the staged table used by downstream mapping and
+  lookup work
 
 Source-specific fields:
 
@@ -132,9 +134,9 @@ Source-specific fields:
 - A project may declare more than one source contract.
 - A source contract may be composite.
 
-## Source slice
+## Feed slice
 
-A source slice is the approved, immutable slice of source data used for analysis
+A feed slice is the approved, immutable slice of source data used for analysis
 and downstream runs.
 
 Rules:
@@ -145,18 +147,22 @@ Rules:
 - versioned and auditable
 - does not mutate after approval
 
-The source slice is the approved form of source data. It is the source-side
+The feed slice is the approved form of source data. It is the source-side
 equivalent of a freeze: once approved, it becomes the basis for downstream
 analysis and execution until the source changes.
 
-The default granularity is one approved slice per source contract version,
+The default granularity is one approved feed slice per source contract version,
 shared by all object runs that consume that contract. If a source type needs
-finer physical slicing, those slices are derived from the approved slice and
+finer physical slicing, those slices are derived from the approved feed slice and
 remain versioned artifacts rather than untracked subsets.
+
+For execution, the approved feed slice is materialized into a staging-table
+representation under the project `staging_schema`. The feed or source-derived
+name is the table identity used by downstream SQL generation.
 
 ### Status
 
-A source slice moves through three states:
+A feed slice moves through three states:
 
 ```
 upload + parse success
@@ -166,7 +172,7 @@ upload + parse success
         │
         └────────── reject ────────▶  rejected
                                           │
-                                       resubmit (new SourceSlice record, version + 1)
+                                       resubmit (new FeedSlice record, version + 1)
                                           │
                                           ▼
                                    pending_approval
@@ -182,7 +188,7 @@ rejected with reason `"superseded_by_resubmit"`.
 
 ### Versioning
 
-`source_slice_version` is a human-readable string: `"v1"`, `"v2"`, …. The first slice for
+`source_slice_version` is a human-readable string: `"v1"`, `"v2"`, …. The first feed slice for
 a source contract is `"v1"`. Each resubmit increments the version on the new record.
 Multiple versions may exist for one `SourceDefinition`; only the latest `approved` version
 is consumed by downstream stages.
@@ -201,14 +207,14 @@ slice_purpose               "full_load" | "patch" — set at upload time
                             for only the rows in this slice
 ```
 
-## Source slice approval
+## Feed slice approval
 
 Approval is the human gate that converts a parsed slice into an immutable, consumable artifact.
 
 **Who approves:** `central_team` only.
 
 **What triggers the approval opportunity:** the upload endpoint sets `status = "pending_approval"`
-automatically on parse success. No operator action is needed to promote a slice to the
+automatically on parse success. No operator action is needed to promote a feed slice to the
 approval queue.
 
 **What the approver sees** (no row-level data shown):
@@ -227,8 +233,8 @@ approval queue.
 - **Approve** — `status → "approved"`; emits `AuditEvent(event_type="source_slice_approved")`
 - **Reject** — requires a reason string (max 1000 chars); `status → "rejected"`;
   emits `AuditEvent(event_type="source_slice_rejected", payload={reason})`
-- **Resubmit** (on a rejected slice) — re-parses the original file (via `file_storage_path`)
-  with corrected encoding or parse settings; creates a new `SourceSlice` record at version
+- **Resubmit** (on a rejected feed slice) — re-parses the original file (via `file_storage_path`)
+  with corrected encoding or parse settings; creates a new `FeedSlice` record at version
   `v{n+1}` with `status = "pending_approval"`;
   emits `AuditEvent(event_type="source_slice_resubmitted", payload={old_slice_id, new_slice_id})`
 
@@ -337,17 +343,17 @@ Rules:
 
 ## Source analysis
 
-Source analysis consumes the latest approved source slice for a source definition
+Source analysis consumes the latest approved feed slice for a source definition
 and produces immutable analysis artifacts for downstream mapping and lookup work.
 
 Rules:
 
-- the analysis target is the latest approved `SourceSlice` for the source definition
+- the analysis target is the latest approved `FeedSlice` for the source definition
 - the AI-facing schema sample is capped at 200 rows
 - `SourceSchemaArtifact.columns` stores the analyzed column schemas
 - `SourceValueSummary.value_counts` stores distinct values and counts per field
 - value summaries are capped at 500 distinct values per field
-- source analysis reruns when the source slice changes
+- source analysis reruns when the feed slice changes
 
 ### Source analysis artifacts
 
@@ -373,11 +379,11 @@ Rules:
 Runs are object-specific for auditability.
 
 - one destination object per run
-- many object runs may share the same approved source slice
-- each run records the source slice version it consumed
+- many object runs may share the same approved feed slice
+- each run records the feed slice version it consumed
 
 Object runs do not re-infer source structure. They consume the already approved
-source slice and the downstream snapshots derived from it.
+feed slice and the downstream snapshots derived from it.
 
 ## Mapping, lookup, and code generation
 
@@ -423,8 +429,8 @@ Rules:
 
 The selection rule is explicit:
 
-- source analysis produces an immutable approved source slice
-- object runs consume a pinned source slice version
+- source analysis produces an immutable approved feed slice
+- object runs consume a pinned feed slice version
 - mapping and lookup approvals produce immutable snapshots
 - code generation selects the latest approved mapping and lookup snapshots that
   are available when the codegen stage starts
@@ -437,7 +443,7 @@ switching to newer approvals mid-run.
 ### Snapshot coherence rule
 
 The system must not silently mix incompatible versions. Every downstream
-execution must be able to explain exactly which approved source slice, mapping
+execution must be able to explain exactly which approved feed slice, mapping
 snapshot, lookup snapshot, and code-generation input it consumed.
 
 ## Code generation artifact
@@ -464,7 +470,7 @@ CodeGenerationArtifact:
   project_id                  FK → project_registry
   destination_object_name     string — e.g. "Customer"
   run_id                      FK → runs — the run that produced this artifact
-  source_slice_version        string — pinned source slice version consumed
+  source_slice_version        string — pinned feed slice version consumed
   mapping_snapshot_version    string — pinned mapping snapshot consumed
   lookup_snapshot_version     string — pinned lookup snapshot consumed
   sql_bundle                  Text — full generated SQL (staging DDL + lookup DDL/data + views + SPs)
@@ -500,12 +506,12 @@ The complete delivery bundle is assembled by collecting all `status = "active"`
 When a second destination object (e.g. `Address`) can be derived from the same
 source contract (e.g. `customers.csv`), the operator creates a new `MappingSnapshot`
 for that object and launches a new run — all against the same already-approved
-`SourceSlice`. No re-upload, no new analysis. Many runs may share one approved slice.
+`FeedSlice`. No re-upload, no new analysis. Many runs may share one approved feed slice.
 
 ### Source data patch (delta re-run)
 
 When source data changes partially — some records updated, new records added —
-the operator uploads a new `SourceSlice` containing **only the changed rows**
+the operator uploads a new `FeedSlice` containing **only the changed rows**
 (`slice_purpose = "patch"`). The pipeline reuses the same approved `MappingSnapshot`
 and `LookupSnapshot` (structure is unchanged). A new run processes the delta slice
 and produces a new `CodeGenerationArtifact` whose `sql_bundle` contains
@@ -554,7 +560,7 @@ replace source analysis.
 | Slice rejected, `file_storage_path` null (file not retained) | Return `file_not_retained` (422); operator must upload a new file via the normal upload flow |
 | Resubmit parse fails with new settings | Return `parse_failed` (422) with error detail; rejected slice remains as-is |
 | Source analysis sees structure drift | Mint a new version and require downstream re-approval |
-| Source slice would expose raw PII to an AI-facing step | Mask before exposure or deny the step |
+| Feed slice would expose raw PII to an AI-facing step | Mask before exposure or deny the step |
 | Approved snapshot set cannot be resolved | Block until the required approvals exist |
 | Downstream artifact references an unapproved snapshot version | Reject or escalate |
 | Impact scope cannot be determined | Escalate rather than fabricate scope |
@@ -566,11 +572,11 @@ replace source analysis.
 - [ ] Source definitions are structured and source-type aware.
 - [ ] Source contracts are declared rather than inferred from connection strings.
 - [ ] Parse success automatically sets slice status to `pending_approval`.
-- [ ] The approved source slice is immutable and versioned.
+- [ ] The approved feed slice is immutable and versioned.
 - [ ] Approval, rejection, and resubmit each emit an `AuditEvent`.
 - [ ] At most one slice per `SourceDefinition` is in `pending_approval` at a time.
 - [ ] Resubmit creates a new slice record at the next version; the rejected slice is retained.
-- [ ] Object runs consume a pinned source slice version.
+- [ ] Object runs consume a pinned feed slice version.
 - [ ] Source analysis reruns when the source changes.
 - [ ] Mapping or lookup-only changes rerun only their respective approval path.
 - [ ] Downstream work records the exact snapshot versions it used.
@@ -579,11 +585,11 @@ replace source analysis.
 
 ## Changelog
 
-- 2026-06-29: Added source slice approval flow — status state machine, model fields, approval/reject/resubmit API pattern, UI entry points, failure modes, and acceptance criteria.
+- 2026-06-29: Added feed slice approval flow — status state machine, model fields, approval/reject/resubmit API pattern, UI entry points, failure modes, and acceptance criteria.
 - 2026-06-29: Expanded CodeGenerationArtifact into a full model spec with fields, status values, supersession rule, and delivery bundle assembly.
 - 2026-06-29: Clarified destination_object_references as mapping stage output baton (not an operator input); introduced CodeGenerationArtifact as the versioned output of code generation.
 - 2026-06-29: Expanded into a spec-style source model page covering source
-  contracts, modeling tiers, immutable source slices, object runs, snapshot
+  contracts, modeling tiers, immutable feed slices, object runs, snapshot
   policy, impact analysis, failure modes, and acceptance criteria.
 - 2026-06-29: Clarified default shared slice granularity and downstream
   invalidation on source contract change.
