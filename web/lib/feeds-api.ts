@@ -501,3 +501,21 @@ export async function createFeedComment(
   );
   return mapFeedCommentResponse(response);
 }
+
+export async function analyzeFeedSource(
+  token: string,
+  projectId: string,
+  sourceDefinitionId: string,
+): Promise<{ status: string; schemaArtifactId: string }> {
+  const response = await requestJson<{ status: string; schema_artifact_id: string }>(
+    `/projects/${projectId}/sources/${sourceDefinitionId}/analyze`,
+    {
+      method: "POST",
+      token,
+    },
+  );
+  return {
+    status: response.status,
+    schemaArtifactId: response.schema_artifact_id,
+  };
+}

@@ -7,6 +7,7 @@ import {
   getFeedContract,
   listFeedSchema,
   listFeedValueSummaries,
+  analyzeFeedSource,
   type FeedContractRecord,
   type FeedSchemaColumnRecord,
   type FeedValueSummaryRecord,
@@ -462,9 +463,44 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
             Loading lookup mappings...
           </div>
         ) : pageError ? (
-          <div role="alert" className="rounded-2xl border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
-            {pageError}
-          </div>
+          pageError.includes("Source analysis has not been run") ? (
+            <div className="rounded-2xl border border-primary/30 bg-primary/5 p-8 text-center space-y-4">
+              <div className="mx-auto max-w-md space-y-2">
+                <h2 className="text-xl font-semibold text-slate-900">Source Analysis Required</h2>
+                <p className="text-sm text-slate-600">
+                  Source analysis must be executed to process value schemas and distinct values for lookup mapping.
+                </p>
+              </div>
+              {role === "central_team" ? (
+                <button
+                  className="rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
+                  disabled={actionLoading}
+                  onClick={async () => {
+                    if (!session || !routeParams) return;
+                    try {
+                      setActionLoading(true);
+                      setPageError(null);
+                      await analyzeFeedSource(session.accessToken, routeParams.id, routeParams.sourceId);
+                      window.location.reload();
+                    } catch (err) {
+                      setPageError(err instanceof Error ? err.message : "Unable to run source analysis.");
+                    } finally {
+                      setActionLoading(false);
+                    }
+                  }}
+                  type="button"
+                >
+                  {actionLoading ? "Running analysis..." : "Run Source Analysis"}
+                </button>
+              ) : (
+                <p className="text-sm text-slate-500">Only central team members can run source analysis.</p>
+              )}
+            </div>
+          ) : (
+            <div role="alert" className="rounded-2xl border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
+              {pageError}
+            </div>
+          )
         ) : lookupTabs.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-outline-variant bg-surface-container p-8 text-sm text-slate-600">
             No lookup fields were found in the approved mapping snapshot.
