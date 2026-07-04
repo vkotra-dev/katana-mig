@@ -55,6 +55,7 @@
 | [001an-fiber-approval-chain](./completed/001an-fiber-approval-chain.md) | [summary](./summary/001an-fiber-approval-chain.md) |
 | [001af-ui-compliance-gaps](./completed/001af-ui-compliance-gaps.md) | [summary](./summary/001af-ui-compliance-gaps.md) |
 | [001at-notifications](./completed/001at-notifications.md) | [summary](./summary/001at-notifications.md) |
+| [001bd-ai-mapping-extraction](./001bd-ai-mapping-extraction.md) | Implement AI-driven target table and mapping extraction |
 
 ## Archived / Superseded
 
