@@ -276,7 +276,7 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
       {resubmitTarget ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-8">
           <div className="w-full max-w-2xl rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-2xl">
-            <h2 className="text-xl font-semibold text-slate-900">Resubmit slice</h2>
+            <h2 className="text-xl font-semibold text-slate-900">Resubmit feed slice</h2>
             <p className="mt-1 text-sm text-slate-600">
               {resubmitTarget.sourceLabel} · {resubmitTarget.slice.sourceSliceVersion}
             </p>
@@ -336,7 +336,7 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
                 }}
                 type="button"
               >
-                Resubmit slice
+                Resubmit feed slice
               </button>
             </div>
           </div>
