@@ -119,7 +119,7 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
     <section className="space-y-4 rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm">
       <div>
         <h2 className="text-xl font-semibold text-slate-900">Artifacts</h2>
-        <p className="text-sm text-slate-600">Source slice versions and approval status.</p>
+        <p className="text-sm text-slate-600">Feed slice versions and approval status.</p>
       </div>
 
       {loading ? (
@@ -132,7 +132,7 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
         </div>
       ) : rows.length === 0 ? (
         <div className="rounded-xl border border-dashed border-outline-variant bg-surface px-4 py-8 text-sm text-slate-500">
-          No source slices yet.
+          No feed slices yet.
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-outline-variant">
@@ -150,9 +150,9 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
             <tbody>
               {rows.map((row) => (
                 <tr key={row.slice.sourceSliceId} className="border-t border-outline-variant">
-                  <td className="px-4 py-3 text-sm text-slate-700">Source intake</td>
+                  <td className="px-4 py-3 text-sm text-slate-700">Feed intake</td>
                   <td className="px-4 py-3">
-                    <div className="text-sm font-semibold text-slate-900">Source slice</div>
+                    <div className="text-sm font-semibold text-slate-900">Feed slice</div>
                     <div className="text-xs text-slate-500">
                       {row.sourceLabel} · {row.sourceType}
                     </div>
@@ -226,7 +226,7 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
       {rejectTarget ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-8">
           <div className="w-full max-w-lg rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-2xl">
-            <h2 className="text-xl font-semibold text-slate-900">Reject slice</h2>
+            <h2 className="text-xl font-semibold text-slate-900">Reject feed slice</h2>
             <div className="mt-4 space-y-2">
               <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500" htmlFor="artifact-reject-reason">
                 Reason
@@ -266,7 +266,7 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
                 }}
                 type="button"
               >
-                Reject slice
+                Reject feed slice
               </button>
             </div>
           </div>

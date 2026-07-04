@@ -22,7 +22,7 @@ export interface LaunchRunDialogProps {
 }
 
 interface SnapshotPreview {
-  sourceSliceVersion: string | null;
+  feedSliceVersion: string | null;
   mappingSnapshotVersion: string | null;
   lookupSnapshotVersion: string | null;
   codegenInputSnapshotVersion: string | null;
@@ -56,13 +56,13 @@ export function LaunchRunDialog({
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
   const [contracts, setContracts] = useState<FeedContractRecord[]>([]);
   const [projectRuns, setProjectRuns] = useState<RunRecord[]>([]);
-  const [sourceSlices, setSourceSlices] = useState<FeedSliceRecord[]>([]);
+  const [feedSlices, setFeedSlices] = useState<FeedSliceRecord[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialProjectId);
   const [selectedSourceDefinitionId, setSelectedSourceDefinitionId] = useState<string>("");
   const [destinationObjectName, setDestinationObjectName] = useState<string>("");
   const [environment, setEnvironment] = useState<string>("");
   const [snapshotPreview, setSnapshotPreview] = useState<SnapshotPreview>({
-    sourceSliceVersion: null,
+    feedSliceVersion: null,
     mappingSnapshotVersion: null,
     lookupSnapshotVersion: null,
     codegenInputSnapshotVersion: null,
@@ -168,10 +168,10 @@ export function LaunchRunDialog({
         if (!active) {
           return;
         }
-        setSourceSlices(nextSlices);
+        setFeedSlices(nextSlices);
       } catch (error) {
         if (active) {
-          setErrorMessage(error instanceof Error ? error.message : "Unable to load source slices.");
+          setErrorMessage(error instanceof Error ? error.message : "Unable to load feed slices.");
         }
       }
     };
@@ -193,9 +193,9 @@ export function LaunchRunDialog({
     [contracts, selectedSourceDefinitionId],
   );
 
-  const selectedSourceSlice = useMemo(
-    () => latestApprovedSlice(sourceSlices),
-    [sourceSlices],
+  const selectedFeedSlice = useMemo(
+    () => latestApprovedSlice(feedSlices),
+    [feedSlices],
   );
 
   const selectedRun = useMemo(() => {
@@ -224,21 +224,21 @@ export function LaunchRunDialog({
       return;
     }
 
-    const sourceSliceVersion = selectedSourceSlice?.sourceSliceVersion ?? selectedRun?.source_slice_version ?? null;
-    const mappingSnapshotVersion = selectedRun?.mapping_snapshot_version ?? sourceSliceVersion;
-    const lookupSnapshotVersion = selectedRun?.lookup_snapshot_version ?? sourceSliceVersion;
+    const feedSliceVersion = selectedFeedSlice?.sourceSliceVersion ?? selectedRun?.source_slice_version ?? null;
+    const mappingSnapshotVersion = selectedRun?.mapping_snapshot_version ?? feedSliceVersion;
+    const lookupSnapshotVersion = selectedRun?.lookup_snapshot_version ?? feedSliceVersion;
     const codegenInputSnapshotVersion =
-      selectedRun?.code_generation_input_snapshot_version ?? selectedRun?.source_slice_version ?? sourceSliceVersion;
-    const knowledgeFreezeVersion = selectedRun?.knowledge_freeze_version ?? sourceSliceVersion;
+      selectedRun?.code_generation_input_snapshot_version ?? selectedRun?.source_slice_version ?? feedSliceVersion;
+    const knowledgeFreezeVersion = selectedRun?.knowledge_freeze_version ?? feedSliceVersion;
 
     setSnapshotPreview({
-      sourceSliceVersion,
+      feedSliceVersion,
       mappingSnapshotVersion,
       lookupSnapshotVersion,
       codegenInputSnapshotVersion,
       knowledgeFreezeVersion,
     });
-  }, [selectedProjectId, selectedRun, selectedSourceSlice]);
+  }, [selectedProjectId, selectedRun, selectedFeedSlice]);
 
   const objectAlreadyRunning = useMemo(() => {
     if (!destinationObjectName) {
@@ -254,16 +254,16 @@ export function LaunchRunDialog({
   }, [destinationObjectName, environment, projectRuns]);
 
   const frozenProjectDefinitionPresent = Boolean(selectedProject);
-  const requiredSourceSlicePresent = Boolean(selectedSourceSlice);
+  const requiredFeedSlicePresent = Boolean(selectedFeedSlice);
   const requiredDownstreamSnapshotsApproved = Boolean(
-    snapshotPreview.sourceSliceVersion &&
+    snapshotPreview.feedSliceVersion &&
       snapshotPreview.mappingSnapshotVersion &&
       snapshotPreview.lookupSnapshotVersion &&
       snapshotPreview.codegenInputSnapshotVersion,
   );
   const preflightPassed =
     frozenProjectDefinitionPresent &&
-    requiredSourceSlicePresent &&
+    requiredFeedSlicePresent &&
     requiredDownstreamSnapshotsApproved &&
     !objectAlreadyRunning &&
     Boolean(selectedProjectId) &&
@@ -277,13 +277,13 @@ export function LaunchRunDialog({
     setProjects([]);
     setContracts([]);
     setProjectRuns([]);
-    setSourceSlices([]);
+    setFeedSlices([]);
     setSelectedProjectId(initialProjectId);
     setSelectedSourceDefinitionId("");
     setDestinationObjectName("");
     setEnvironment("");
     setSnapshotPreview({
-      sourceSliceVersion: null,
+      feedSliceVersion: null,
       mappingSnapshotVersion: null,
       lookupSnapshotVersion: null,
       codegenInputSnapshotVersion: null,
@@ -393,7 +393,7 @@ export function LaunchRunDialog({
                       onChange={(event) => {
                         setSelectedProjectId(event.currentTarget.value);
                         setSelectedSourceDefinitionId("");
-                        setSourceSlices([]);
+                        setFeedSlices([]);
                         setDestinationObjectName("");
                         setStep(1);
                       }}
@@ -476,7 +476,7 @@ export function LaunchRunDialog({
               <section className="space-y-4 rounded-xl border border-outline-variant bg-surface px-4 py-4">
                 <div className="grid gap-3 md:grid-cols-2">
                   {[
-                    ["Source slice", snapshotPreview.sourceSliceVersion],
+                    ["Feed slice", snapshotPreview.feedSliceVersion],
                     ["Mapping snapshot", snapshotPreview.mappingSnapshotVersion],
                     ["Lookup snapshot", snapshotPreview.lookupSnapshotVersion],
                     ["Codegen input", snapshotPreview.codegenInputSnapshotVersion],
@@ -517,9 +517,9 @@ export function LaunchRunDialog({
                       reason: selectedProject ? null : "Select a project before launching.",
                     },
                     {
-                      label: "Required source slice approved & present",
-                      ok: requiredSourceSlicePresent,
-                      reason: selectedSourceDefinitionId ? "No approved slice found for this source contract." : "Select a source contract.",
+                      label: "Required feed slice approved & present",
+                      ok: requiredFeedSlicePresent,
+                      reason: selectedSourceDefinitionId ? "No approved feed slice found for this source contract." : "Select a source contract.",
                     },
                     {
                       label: "Required downstream snapshots approved",

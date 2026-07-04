@@ -74,7 +74,7 @@ export function ApprovalsInbox({ token, role }: ApprovalsInboxProps) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Approvals</h1>
-          <p className="text-sm text-slate-600">Pending source slices that need a decision.</p>
+          <p className="text-sm text-slate-600">Pending feed slices that need a decision.</p>
         </div>
         <div className="text-sm text-slate-500">
           {role === "central_team" ? "Central team inbox" : "Read-only view"}
@@ -99,8 +99,8 @@ export function ApprovalsInbox({ token, role }: ApprovalsInboxProps) {
             <thead className="bg-surface">
               <tr className="text-xs uppercase tracking-[0.16em] text-slate-500">
                 <th className="px-4 py-3">Project</th>
-                <th className="px-4 py-3">Source label</th>
-                <th className="px-4 py-3">Source type</th>
+                <th className="px-4 py-3">Feed label</th>
+                <th className="px-4 py-3">Feed type</th>
                 <th className="px-4 py-3">Rows</th>
                 <th className="px-4 py-3">Uploaded</th>
                 <th className="px-4 py-3">Warnings</th>
@@ -170,7 +170,7 @@ export function ApprovalsInbox({ token, role }: ApprovalsInboxProps) {
       {rejectTarget ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-8">
           <div className="w-full max-w-lg rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-2xl">
-            <h2 className="text-xl font-semibold text-slate-900">Reject slice</h2>
+            <h2 className="text-xl font-semibold text-slate-900">Reject feed slice</h2>
             <p className="mt-1 text-sm text-slate-600">
               {rejectTarget.sourceLabel} in {rejectTarget.projectName}
             </p>
@@ -213,7 +213,7 @@ export function ApprovalsInbox({ token, role }: ApprovalsInboxProps) {
                 }}
                 type="button"
               >
-                Reject slice
+                Reject feed slice
               </button>
             </div>
           </div>

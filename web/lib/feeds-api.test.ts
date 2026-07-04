@@ -175,7 +175,7 @@ afterEach(() => {
 });
 
 describe("feeds-api", () => {
-  it("lists source contracts", async () => {
+  it("lists feed contracts", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => [contractResponse],
@@ -196,7 +196,7 @@ describe("feeds-api", () => {
     expect(result[0].sourceDefinitionId).toBe("source-1");
   });
 
-  it("creates a source contract", async () => {
+  it("creates a feed contract", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => contractResponse,
@@ -238,7 +238,7 @@ describe("feeds-api", () => {
     expect(result.status).toBe("declared");
   });
 
-  it("uploads a source slice", async () => {
+  it("uploads a feed slice", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => sliceResponse,
@@ -252,7 +252,7 @@ describe("feeds-api", () => {
     expect(result.sourceSliceId).toBe("slice-1");
   });
 
-  it("lists source slices", async () => {
+  it("lists feed slices", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => [sliceResponse],
@@ -264,7 +264,7 @@ describe("feeds-api", () => {
     expect(result[0]).toMatchObject(slice);
   });
 
-  it("fetches a single source contract", async () => {
+  it("fetches a single feed contract", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => contractResponse,
@@ -285,7 +285,7 @@ describe("feeds-api", () => {
     expect(result.sourceDefinitionId).toBe("source-1");
   });
 
-  it("lists source schema columns", async () => {
+  it("lists feed schema columns", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => schemaResponse,
@@ -306,7 +306,7 @@ describe("feeds-api", () => {
     expect(result[0].name).toBe("status_code");
   });
 
-  it("lists source value summaries with an optional field filter", async () => {
+  it("lists feed value summaries with an optional field filter", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => valueSummaryResponse,
