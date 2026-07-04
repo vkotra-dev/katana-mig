@@ -6,8 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-import uuid
-from sqlite_test_support import Base, SessionLocal, TEST_ENGINE
+from sqlite_test_support import SessionLocal
 from migrations_engine.app import app
 from migrations_engine.auth.passwords import hash_password
 from migrations_engine.config import get_settings

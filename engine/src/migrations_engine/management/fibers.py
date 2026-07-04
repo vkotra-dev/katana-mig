@@ -435,7 +435,6 @@ def submit_lookup_inputs(
     fiber.status = "inputs_ready"
     db.flush()
 
-    from ..db.models import ProjectDefinition, ProjectRegistry
     registry = db.get(ProjectRegistry, project_id)
     if registry is None:
         raise AuthApiError("project_not_found", "Project not found.", 404)

@@ -180,14 +180,14 @@ def _build_lineage_rows(
                 for binding in field_bindings
                 if binding.get("destination_field")
             )
-            if is_partially_mapped:
+            if destination_row_id is not None and destination_row_id in seen_destination_ids:
+                outcome = "duplicated"
+                outcome_detail = f"duplicate destination row id {destination_row_id}."
+            elif is_partially_mapped:
                 outcome = "partially_mapped"
                 outcome_detail = "one or more mapped destination fields are null."
                 if destination_row_id is not None:
                     seen_destination_ids.add(destination_row_id)
-            elif destination_row_id is not None and destination_row_id in seen_destination_ids:
-                outcome = "duplicated"
-                outcome_detail = f"duplicate destination row id {destination_row_id}."
             elif destination_row_id is None:
                 outcome = "rejected"
                 outcome_detail = "no destination row produced."
