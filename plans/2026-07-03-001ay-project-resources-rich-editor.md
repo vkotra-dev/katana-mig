@@ -4,7 +4,7 @@
 
 **Goal:** Replace the plain `projectResources` textarea in the project edit form with a Tiptap rich-text editor (Bold / Bullets / Center), restructure the form to a three-column grid, and update the detail view to render the stored HTML.
 
-**Architecture:** A focused `ProjectResourcesEditor` component wraps a Tiptap editor instance with a minimal three-button toolbar. `ProjectEditForm` swaps the textarea for this component and the outer form grid moves to `grid-cols-3`; `projectResources` spans all three columns as the last field. The stored value is Tiptap HTML output (`editor.getHTML()`). `ProjectDetailView` replaces its plain `<textarea readOnly>` with a `<div dangerouslySetInnerHTML>` so the HTML renders correctly.
+**Architecture:** A focused `ProjectResourcesEditor` component wraps a Tiptap editor instance with a minimal three-button icon toolbar. `ProjectEditForm` swaps the textarea for this component and the outer form grid moves to `grid-cols-3`; `projectResources` spans all three columns as the last field. The stored value is Tiptap HTML output (`editor.getHTML()`). `ProjectDetailView` replaces its plain `<textarea readOnly>` with a `<div dangerouslySetInnerHTML>` so the HTML renders correctly.
 
 **Tech Stack:** Next.js App Router, React, Tiptap (`@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/extension-text-align`), Vitest + Testing Library
 
@@ -108,10 +108,7 @@ export interface ProjectResourcesEditorProps {
 
 export function ProjectResourcesEditor({ value, onChange }: ProjectResourcesEditorProps) {
   const editor = useEditor({
-    extensions: [
-      StarterKit,
-      TextAlign.configure({ types: ["heading", "paragraph"] }),
-    ],
+    extensions: [StarterKit, TextAlign.configure({ types: ["heading", "paragraph"] })],
     content: value,
     onUpdate({ editor }) {
       onChange(editor.getHTML());
@@ -125,39 +122,37 @@ export function ProjectResourcesEditor({ value, onChange }: ProjectResourcesEdit
           type="button"
           aria-label="Bold"
           onClick={() => editor?.chain().focus().toggleBold().run()}
-          className={`rounded px-2 py-1 text-sm font-bold text-slate-700 hover:bg-surface-container ${
+          className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border text-slate-700 hover:bg-surface-container ${
             editor?.isActive("bold") ? "bg-surface-container" : ""
           }`}
         >
-          B
+          <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
+            <path d="M7 5h6.5a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z" fill="currentColor" />
+          </svg>
         </button>
         <button
           type="button"
           aria-label="Bullet list"
           onClick={() => editor?.chain().focus().toggleBulletList().run()}
-          className={`rounded px-2 py-1 text-sm text-slate-700 hover:bg-surface-container ${
+          className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border text-slate-700 hover:bg-surface-container ${
             editor?.isActive("bulletList") ? "bg-surface-container" : ""
           }`}
         >
-          • List
+          <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
+            <path d="M8 7.5h11M8 12h11M8 16.5h11M4.5 7.5h.01M4.5 12h.01M4.5 16.5h.01" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+          </svg>
         </button>
         <button
           type="button"
           aria-label="Center"
           onClick={() => editor?.chain().focus().setTextAlign("center").run()}
-          className={`rounded px-2 py-1 text-sm text-slate-700 hover:bg-surface-container ${
+          className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border text-slate-700 hover:bg-surface-container ${
             editor?.isActive({ textAlign: "center" }) ? "bg-surface-container" : ""
           }`}
         >
-          ≡ Center
-        </button>
-        <button
-          type="button"
-          aria-label="Align left"
-          onClick={() => editor?.chain().focus().setTextAlign("left").run()}
-          className="rounded px-2 py-1 text-sm text-slate-700 hover:bg-surface-container"
-        >
-          ≡ Left
+          <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
+            <path d="M6 7h12M8 11h8M6 15h12M7 19h10" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+          </svg>
         </button>
       </div>
       <EditorContent

@@ -151,11 +151,10 @@ export function ProjectDetailView({ project, modelDefaults = null }: ProjectDeta
           <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
             Project Resources
           </div>
-          <textarea
+          <div
             aria-label="Project Resources"
             className="mt-2 min-h-32 w-full rounded-md border border-outline-variant bg-surface px-3 py-2 text-sm text-slate-800"
-            readOnly
-            value={projectResources}
+            dangerouslySetInnerHTML={{ __html: projectResources }}
           />
         </label>
       </div>

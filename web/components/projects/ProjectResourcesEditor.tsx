@@ -41,32 +41,60 @@ export function ProjectResourcesEditor({ value, onChange }: ProjectResourcesEdit
         <button
           type="button"
           aria-label="Bold"
-          className={`rounded px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-surface-container ${
-            editor?.isActive("bold") ? "bg-surface-container" : ""
+          title="Bold"
+          className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border text-slate-700 transition hover:-translate-y-px hover:bg-surface-container ${
+            editor?.isActive("bold")
+              ? "border-primary bg-primary-container text-on-primary-container"
+              : "border-outline-variant bg-white"
           }`}
           onClick={() => editor?.chain().focus().toggleBold().run()}
         >
-          Bold
+          <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
+            <path
+              d="M7 5h6.5a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z"
+              fill="currentColor"
+            />
+          </svg>
         </button>
         <button
           type="button"
           aria-label="Bullet list"
-          className={`rounded px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-surface-container ${
-            editor?.isActive("bulletList") ? "bg-surface-container" : ""
+          title="Bullet list"
+          className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border text-slate-700 transition hover:-translate-y-px hover:bg-surface-container ${
+            editor?.isActive("bulletList")
+              ? "border-primary bg-primary-container text-on-primary-container"
+              : "border-outline-variant bg-white"
           }`}
           onClick={() => editor?.chain().focus().toggleBulletList().run()}
         >
-          Bullet list
+          <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
+            <path
+              d="M8 7.5h11M8 12h11M8 16.5h11M4.5 7.5h.01M4.5 12h.01M4.5 16.5h.01"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeWidth="1.8"
+            />
+          </svg>
         </button>
         <button
           type="button"
           aria-label="Center"
-          className={`rounded px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-surface-container ${
-            editor?.isActive({ textAlign: "center" }) ? "bg-surface-container" : ""
+          title="Center"
+          className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border text-slate-700 transition hover:-translate-y-px hover:bg-surface-container ${
+            editor?.isActive({ textAlign: "center" })
+              ? "border-primary bg-primary-container text-on-primary-container"
+              : "border-outline-variant bg-white"
           }`}
           onClick={() => editor?.chain().focus().setTextAlign("center").run()}
         >
-          Center
+          <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
+            <path
+              d="M6 7h12M8 11h8M6 15h12M7 19h10"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeWidth="1.8"
+            />
+          </svg>
         </button>
       </div>
       <EditorContent
