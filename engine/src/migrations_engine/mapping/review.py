@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, datetime
+from typing import Literal
 
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
-from ..api.schemas import MappingFieldBindingResponse, MappingReviewResponse
+from ..api.schemas import MappingFieldBindingResponse, MappingReviewResponse, LookupTableReferenceResponse
 from ..db.models import MappingSnapshot, ProjectDefinition, ProjectRegistry, Feed, new_id
 from ..management.platform import record_management_audit
 from ..management.source_analysis import get_latest_source_schema_artifact
@@ -31,10 +32,58 @@ _CONSTRAINT_PREFIXES = ("CONSTRAINT", "PRIMARY", "UNIQUE", "FOREIGN", "CHECK")
 class _ProposedBinding(BaseModel):
     source_field: str
     destination_field: str
+    binding_type: Literal["direct", "detail_fk", "lookup_fk"] = "direct"
+    reference_table_name: str | None = None  # populated only for lookup_fk or detail_fk
+
+
+class _TableMapping(BaseModel):
+    destination_table_name: str
+    bindings: list[_ProposedBinding] = []
 
 
 class _FieldMappingProposal(BaseModel):
-    bindings: list[_ProposedBinding]
+    tables: list[_TableMapping] = []
+    error_code: str | None = None
+    error_message: str | None = None
+
+
+def _parse_all_ddl_tables(ddl: str) -> dict[str, list[str]]:
+    tables: dict[str, list[str]] = {}
+    current_table: str | None = None
+    current_columns: list[str] = []
+    
+    for line in ddl.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("--") or stripped.startswith("/*"):
+            continue
+            
+        table_match = _TABLE_RE.search(stripped)
+        if table_match:
+            if current_table and current_columns:
+                tables[current_table] = current_columns
+            current_table = table_match.group("table")
+            current_columns = []
+            continue
+            
+        if current_table:
+            if stripped.upper().startswith(_CONSTRAINT_PREFIXES):
+                continue
+            if stripped.startswith(")") or stripped.startswith(";"):
+                tables[current_table] = current_columns
+                current_table = None
+                current_columns = []
+                continue
+                
+            column_match = _COLUMN_RE.match(stripped)
+            if column_match:
+                col_name = column_match.group("name")
+                if col_name not in current_columns:
+                    current_columns.append(col_name)
+                    
+    if current_table and current_columns:
+        tables[current_table] = current_columns
+        
+    return tables
 
 
 def _parse_ddl(ddl: str) -> tuple[str, list[str]]:
@@ -103,22 +152,36 @@ def _get_source_definition(db: Session, *, project_id: str, source_definition_id
     return source_definition
 
 
-def _latest_snapshot(db: Session, *, project_id: str, destination_object_name: str) -> MappingSnapshot | None:
+def _latest_snapshot(
+    db: Session,
+    *,
+    project_id: str,
+    source_definition_id: str,
+    destination_object_name: str,
+) -> MappingSnapshot | None:
     return db.scalar(
         select(MappingSnapshot)
         .where(
             MappingSnapshot.project_id == project_id,
+            MappingSnapshot.source_definition_id == source_definition_id,
             MappingSnapshot.destination_object_name == destination_object_name,
         )
         .order_by(MappingSnapshot.created_at.desc(), MappingSnapshot.mapping_snapshot_id.desc())
     )
 
 
-def _next_snapshot_version(db: Session, *, project_id: str, destination_object_name: str) -> str:
+def _next_snapshot_version(
+    db: Session,
+    *,
+    project_id: str,
+    source_definition_id: str,
+    destination_object_name: str,
+) -> str:
     versions = db.scalars(
         select(MappingSnapshot.mapping_snapshot_version)
         .where(
             MappingSnapshot.project_id == project_id,
+            MappingSnapshot.source_definition_id == source_definition_id,
             MappingSnapshot.destination_object_name == destination_object_name,
         )
         .order_by(MappingSnapshot.created_at.asc(), MappingSnapshot.mapping_snapshot_id.asc())
@@ -132,7 +195,24 @@ def _next_snapshot_version(db: Session, *, project_id: str, destination_object_n
     return f"v{highest + 1}"
 
 
-def _snapshot_to_response(snapshot: MappingSnapshot, destination_fields: list[str]) -> MappingReviewResponse:
+def _snapshot_to_response(
+    snapshot: MappingSnapshot,
+    destination_fields: list[str] | None = None,
+) -> MappingReviewResponse:
+    fields = destination_fields if destination_fields is not None else (snapshot.destination_fields or [])
+    
+    lookup_table_references: list[dict[str, str]] = []
+    for binding in snapshot.field_bindings:
+        b_type = binding.get("binding_type")
+        ref_table = binding.get("reference_table_name")
+        l_name = binding.get("lookup_name")
+        if b_type == "lookup_fk" and ref_table:
+            # Match: lookup_name -> destination_table_name
+            lookup_table_references.append({
+                "lookup_name": l_name or binding.get("source_field", ""),
+                "destination_table_name": ref_table,
+            })
+
     return MappingReviewResponse(
         mapping_snapshot_id=snapshot.mapping_snapshot_id,
         project_id=snapshot.project_id,
@@ -150,7 +230,8 @@ def _snapshot_to_response(snapshot: MappingSnapshot, destination_fields: list[st
         approved_at=snapshot.approved_at,
         approved_by_user_id=snapshot.approved_by_user_id,
         created_at=snapshot.created_at,
-        destination_fields=destination_fields,
+        destination_fields=fields,
+        lookup_table_references=lookup_table_references,
     )
 
 
@@ -190,67 +271,158 @@ def propose_mapping(
     if get_adapter is None:
         raise AuthApiError("ai_adapter_unavailable", "AI adapter dependency is unavailable.", 503)
 
-    destination_object_name, destination_fields = _get_project_destination_schema(db, project_id=project_id)
+    # 1. Fetch DDL and project configuration
+    project_definition = _get_project_definition(db, project_id=project_id)
+    ddl = (project_definition.domain_config or {}).get("destination_schema_ddl")
+    if not ddl:
+        raise AuthApiError(
+            "destination_schema_missing",
+            "Project has no destination schema DDL configured.",
+            409,
+        )
+
+    # Parse all table names and their column mappings from DDL
+    ddl_tables = _parse_all_ddl_tables(ddl)
+    if not ddl_tables:
+        raise AuthApiError(
+            "destination_schema_invalid",
+            "Destination schema DDL has no parseable table definitions.",
+            422,
+        )
+
     source_columns = _latest_source_columns(
         db,
         project_id=project_id,
         source_definition_id=source_definition_id,
     )
-    project_definition = _get_project_definition(db, project_id=project_id)
+
+    # 2. Get AI Adapter
     try:
         adapter = get_adapter("field_mapping", project_definition.model_policy)
     except TypeError:
         adapter = get_adapter("field_mapping")
-    proposal = adapter.call(
-        (
-            "You are a data migration specialist. Given source column names and destination "
-            "field names, propose the best semantic field-to-field mapping. Return ONLY a JSON "
-            "object with a 'bindings' array where each item has 'source_field' and "
-            "'destination_field'."
-        ),
-        (
-            f"Source columns: {source_columns!r}\n"
-            f"Destination fields: {destination_fields!r}\n"
-            "Map each source column to the most semantically appropriate destination field."
-        ),
-        _FieldMappingProposal,
-    )
-    snapshot = MappingSnapshot(
-        mapping_snapshot_id=new_id(),
-        project_id=project_id,
-        destination_object_name=destination_object_name,
-        mapping_snapshot_version=_next_snapshot_version(
-            db,
-            project_id=project_id,
-            destination_object_name=destination_object_name,
-        ),
-        field_bindings=[
-            {
+
+    # 3. Call AI with full DDL and validate response structure
+    from pydantic import ValidationError
+    from ..ai.adapter import AICallError
+
+    try:
+        proposal = adapter.call(
+            (
+                "You are a data migration specialist. Analyze the provided multi-table SQL DDL schema "
+                "and the list of source CSV columns.\n"
+                "1. Identify all destination tables that receive fields from this feed.\n"
+                "2. Map the source fields to each identified table.\n"
+                "3. Classify each binding as 'direct', 'detail_fk', or 'lookup_fk'.\n"
+                "4. A binding is 'detail_fk' when its destination column is a foreign key whose referenced table "
+                "is also mapped in this response. It is 'lookup_fk' when it references a lookup table not mapped here.\n"
+                "5. For any lookup_fk binding, set the reference_table_name.\n"
+                "6. If the DDL is invalid or you cannot find any matching tables, set error_code and error_message.\n"
+                "Return valid JSON matching the schema."
+            ),
+            (
+                f"Source columns:\n{source_columns!r}\n\n"
+                f"Destination DDL:\n{ddl}\n"
+            ),
+            _FieldMappingProposal,
+        )
+    except ValidationError as exc:
+        raise AuthApiError("ai_schema_mismatch", "The AI generated an invalid mapping format. Please retry.", 502)
+    except AICallError as exc:
+        raise AuthApiError("ai_service_unavailable", f"The AI provider returned an error: {exc}", 502)
+
+    # 4. Handle LLM-asserted domain errors
+    if proposal.error_code:
+        raise AuthApiError(proposal.error_code, proposal.error_message or "AI mapping generation failed.", 422)
+
+    if not proposal.tables:
+        raise AuthApiError("mapping_failed", "The AI was unable to resolve any target tables.", 422)
+
+    # Validate each destination table name exists in the DDL
+    for table_mapping in proposal.tables:
+        if table_mapping.destination_table_name not in ddl_tables:
+            raise AuthApiError(
+                "destination_table_invalid",
+                f"AI proposed mapping to unknown table: {table_mapping.destination_table_name}",
+                422,
+            )
+
+    # 5. Create MappingSnapshot records in a single transaction
+    snapshots: list[MappingSnapshot] = []
+    seen_tables = set()
+    mapped_table_names = {t.destination_table_name for t in proposal.tables}
+    
+    for table_mapping in proposal.tables:
+        tbl_name = table_mapping.destination_table_name
+        if tbl_name in seen_tables:
+            continue
+        seen_tables.add(tbl_name)
+        
+        destination_fields = ddl_tables[tbl_name]
+        
+        field_bindings = []
+        for binding in table_mapping.bindings:
+            b_type = binding.binding_type
+            ref_table = binding.reference_table_name
+            
+            # If reference table is also mapped in this proposal, classify as detail_fk
+            if b_type == "lookup_fk" and ref_table in mapped_table_names:
+                b_type = "detail_fk"
+            
+            l_name = None
+            if b_type == "lookup_fk":
+                l_name = binding.source_field  # default lookup name to source field name
+                
+            field_bindings.append({
                 "source_field": binding.source_field,
                 "destination_field": binding.destination_field,
-                "lookup_name": None,
-            }
-            for binding in proposal.bindings
-        ],
-        status="draft",
-        approved_at=None,
-        approved_by_user_id=None,
-    )
-    db.add(snapshot)
-    record_management_audit(
-        db,
-        project_id=project_id,
-        actor_user_id=actor_user_id,
-        event_type="mapping_proposed",
-        payload={
-            "mapping_snapshot_id": snapshot.mapping_snapshot_id,
-            "destination_object_name": destination_object_name,
-            "model_id": getattr(adapter, "model_id", None),
-        },
-    )
+                "lookup_name": l_name,
+                "binding_type": b_type,
+                "reference_table_name": ref_table,
+            })
+            
+        version = _next_snapshot_version(
+            db,
+            project_id=project_id,
+            source_definition_id=source_definition_id,
+            destination_object_name=tbl_name,
+        )
+        
+        snapshot = MappingSnapshot(
+            mapping_snapshot_id=new_id(),
+            project_id=project_id,
+            source_definition_id=source_definition_id,
+            destination_object_name=tbl_name,
+            mapping_snapshot_version=version,
+            field_bindings=field_bindings,
+            destination_fields=destination_fields,
+            status="draft",
+            approved_at=None,
+            approved_by_user_id=None,
+        )
+        db.add(snapshot)
+        snapshots.append(snapshot)
+
+    db.flush()
+    
+    for snapshot in snapshots:
+        record_management_audit(
+            db,
+            project_id=project_id,
+            actor_user_id=actor_user_id,
+            event_type="mapping_proposed",
+            payload={
+                "mapping_snapshot_id": snapshot.mapping_snapshot_id,
+                "destination_object_name": snapshot.destination_object_name,
+                "model_id": getattr(adapter, "model_id", None),
+            },
+        )
+        
     db.commit()
-    db.refresh(snapshot)
-    return _snapshot_to_response(snapshot, destination_fields)
+    for snapshot in snapshots:
+        db.refresh(snapshot)
+        
+    return _snapshot_to_response(snapshots[0])
 
 
 def get_mapping(
@@ -258,17 +430,21 @@ def get_mapping(
     *,
     project_id: str,
     source_definition_id: str,
+    destination_object_name: str | None = None,
 ) -> MappingReviewResponse:
-    destination_object_name, destination_fields = _get_project_destination_schema(db, project_id=project_id)
+    if not destination_object_name:
+        destination_object_name, _ = _get_project_destination_schema(db, project_id=project_id)
+        
     _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
     snapshot = _latest_snapshot(
         db,
         project_id=project_id,
+        source_definition_id=source_definition_id,
         destination_object_name=destination_object_name,
     )
     if snapshot is None:
         raise AuthApiError("mapping_not_found", "No mapping snapshot exists yet.", 404)
-    return _snapshot_to_response(snapshot, destination_fields)
+    return _snapshot_to_response(snapshot)
 
 
 def patch_mapping(
@@ -278,12 +454,16 @@ def patch_mapping(
     source_definition_id: str,
     actor_user_id: str,
     field_bindings: list[MappingFieldBindingResponse],
+    destination_object_name: str | None = None,
 ) -> MappingReviewResponse:
-    destination_object_name, destination_fields = _get_project_destination_schema(db, project_id=project_id)
+    if not destination_object_name:
+        destination_object_name, _ = _get_project_destination_schema(db, project_id=project_id)
+        
     _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
     snapshot = _latest_snapshot(
         db,
         project_id=project_id,
+        source_definition_id=source_definition_id,
         destination_object_name=destination_object_name,
     )
     if snapshot is None:
@@ -295,6 +475,7 @@ def patch_mapping(
             422,
         )
 
+    destination_fields = snapshot.destination_fields or []
     invalid_fields = [binding.destination_field for binding in field_bindings if binding.destination_field not in destination_fields]
     if invalid_fields:
         raise AuthApiError(
@@ -303,14 +484,19 @@ def patch_mapping(
             422,
         )
 
-    snapshot.field_bindings = [
-        {
+    existing_by_src = {b.get("source_field"): b for b in snapshot.field_bindings if b.get("source_field")}
+    new_bindings = []
+    for binding in field_bindings:
+        existing = existing_by_src.get(binding.source_field) or {}
+        new_bindings.append({
             "source_field": binding.source_field,
             "destination_field": binding.destination_field,
             "lookup_name": binding.lookup_name,
-        }
-        for binding in field_bindings
-    ]
+            "binding_type": existing.get("binding_type", "direct"),
+            "reference_table_name": existing.get("reference_table_name"),
+        })
+
+    snapshot.field_bindings = new_bindings
     record_management_audit(
         db,
         project_id=project_id,
@@ -325,7 +511,7 @@ def patch_mapping(
     )
     db.commit()
     db.refresh(snapshot)
-    return _snapshot_to_response(snapshot, destination_fields)
+    return _snapshot_to_response(snapshot)
 
 
 def approve_mapping(
@@ -334,12 +520,16 @@ def approve_mapping(
     project_id: str,
     source_definition_id: str,
     actor_user_id: str,
+    destination_object_name: str | None = None,
 ) -> MappingReviewResponse:
-    destination_object_name, destination_fields = _get_project_destination_schema(db, project_id=project_id)
+    if not destination_object_name:
+        destination_object_name, _ = _get_project_destination_schema(db, project_id=project_id)
+        
     source_definition = _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
     snapshot = _latest_snapshot(
         db,
         project_id=project_id,
+        source_definition_id=source_definition_id,
         destination_object_name=destination_object_name,
     )
     if snapshot is None:
@@ -354,7 +544,11 @@ def approve_mapping(
     snapshot.status = "approved"
     snapshot.approved_at = datetime.now(UTC)
     snapshot.approved_by_user_id = actor_user_id
-    source_definition.destination_object_references = [destination_object_name]
+    
+    current_refs = source_definition.destination_object_references or []
+    if destination_object_name not in current_refs:
+        source_definition.destination_object_references = current_refs + [destination_object_name]
+        
     record_management_audit(
         db,
         project_id=project_id,
@@ -368,7 +562,7 @@ def approve_mapping(
     )
     db.commit()
     db.refresh(snapshot)
-    return _snapshot_to_response(snapshot, destination_fields)
+    return _snapshot_to_response(snapshot)
 
 
 def reject_mapping(
@@ -378,12 +572,16 @@ def reject_mapping(
     source_definition_id: str,
     actor_user_id: str,
     reason: str,
+    destination_object_name: str | None = None,
 ) -> MappingReviewResponse:
-    destination_object_name, destination_fields = _get_project_destination_schema(db, project_id=project_id)
+    if not destination_object_name:
+        destination_object_name, _ = _get_project_destination_schema(db, project_id=project_id)
+        
     _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
     snapshot = _latest_snapshot(
         db,
         project_id=project_id,
+        source_definition_id=source_definition_id,
         destination_object_name=destination_object_name,
     )
     if snapshot is None:
@@ -409,4 +607,4 @@ def reject_mapping(
     )
     db.commit()
     db.refresh(snapshot)
-    return _snapshot_to_response(snapshot, destination_fields)
+    return _snapshot_to_response(snapshot)

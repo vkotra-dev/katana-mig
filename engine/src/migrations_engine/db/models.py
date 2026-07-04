@@ -357,9 +357,13 @@ class MappingSnapshot(Base):
     project_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("project_registry.project_id"), nullable=False
     )
+    source_definition_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("source_definitions.source_definition_id"), nullable=True
+    )
     destination_object_name: Mapped[str] = mapped_column(String(255), nullable=False)
     mapping_snapshot_version: Mapped[str] = mapped_column(String(64), nullable=False)
     field_bindings: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
+    destination_fields: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="approved")
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     approved_by_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.user_id"))

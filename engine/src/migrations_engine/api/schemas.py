@@ -533,6 +533,11 @@ class MappingFieldBindingResponse(BaseModel):
     lookup_name: str | None
 
 
+class LookupTableReferenceResponse(BaseModel):
+    lookup_name: str
+    destination_table_name: str
+
+
 class MappingSnapshotResponse(BaseModel):
     mapping_snapshot_id: str
     project_id: str
@@ -543,6 +548,7 @@ class MappingSnapshotResponse(BaseModel):
     approved_at: datetime | None
     approved_by_user_id: str | None
     created_at: datetime
+    lookup_table_references: list[LookupTableReferenceResponse] = []
 
 
 class MappingPatchRequest(BaseModel):

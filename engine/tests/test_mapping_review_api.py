@@ -27,15 +27,29 @@ SAMPLE_DDL = (
 
 
 class FakeAdapter:
-    def __init__(self, bindings: list[dict[str, str]]) -> None:
+    def __init__(self, bindings: list[dict[str, str]], destination_table_name: str = "Customer") -> None:
         self.bindings = bindings
+        self.destination_table_name = destination_table_name
         self.model_id = "claude-sonnet-4-6"
         self.calls: list[SimpleNamespace] = []
 
     def call(self, system: str, user: str, response_model: type[object]):
         self.calls.append(SimpleNamespace(system=system, user=user, response_model=response_model))
+        
+        bindings_objs = []
+        for binding in self.bindings:
+            b_data = {"binding_type": "direct", "reference_table_name": None}
+            b_data.update(binding)
+            bindings_objs.append(mapping_review_module._ProposedBinding(**b_data))
+            
+        table_mapping = mapping_review_module._TableMapping(
+            destination_table_name=self.destination_table_name,
+            bindings=bindings_objs,
+        )
         return response_model(
-            bindings=[mapping_review_module._ProposedBinding(**binding) for binding in self.bindings]
+            tables=[table_mapping],
+            error_code=None,
+            error_message=None,
         )
 
 
@@ -370,3 +384,146 @@ def test_patch_422_on_approved_snapshot(monkeypatch: pytest.MonkeyPatch, admin_t
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "mapping_not_editable"
+
+
+def test_propose_creates_multiple_snapshots_and_validates_table_names(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+    project_id, source_id = _seed_project()
+    
+    class MultiTableFakeAdapter:
+        def __init__(self) -> None:
+            self.model_id = "claude-sonnet-4-6"
+            
+        def call(self, system: str, user: str, response_model: type[object]):
+            return response_model(
+                tables=[
+                    mapping_review_module._TableMapping(
+                        destination_table_name="Customer",
+                        bindings=[
+                            mapping_review_module._ProposedBinding(
+                                source_field="customer_id",
+                                destination_field="customer_id",
+                                binding_type="direct"
+                            )
+                        ]
+                    ),
+                    mapping_review_module._TableMapping(
+                        destination_table_name="UnknownTable",
+                        bindings=[
+                            mapping_review_module._ProposedBinding(
+                                source_field="email_address",
+                                destination_field="email",
+                                binding_type="direct"
+                            )
+                        ]
+                    )
+                ]
+            )
+            
+    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: MultiTableFakeAdapter())
+    
+    response = client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/propose",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "destination_table_invalid"
+
+    with SessionLocal() as db:
+        definition = db.scalar(select(ProjectDefinition).join(ProjectRegistry).where(ProjectRegistry.project_id == project_id))
+        assert definition is not None
+        definition.domain_config = {
+            "destination_schema_ddl": (
+                "CREATE TABLE Customer (\n"
+                "  customer_id INT NOT NULL,\n"
+                "  full_name VARCHAR(200)\n"
+                ");\n"
+                "CREATE TABLE OrderTable (\n"
+                "  order_id INT NOT NULL,\n"
+                "  customer_fk INT\n"
+                ");"
+            )
+        }
+        db.commit()
+        
+    class ValidMultiTableFakeAdapter:
+        def __init__(self) -> None:
+            self.model_id = "claude-sonnet-4-6"
+            
+        def call(self, system: str, user: str, response_model: type[object]):
+            return response_model(
+                tables=[
+                    mapping_review_module._TableMapping(
+                        destination_table_name="Customer",
+                        bindings=[
+                            mapping_review_module._ProposedBinding(
+                                source_field="customer_id",
+                                destination_field="customer_id",
+                                binding_type="direct"
+                            )
+                        ]
+                    ),
+                    mapping_review_module._TableMapping(
+                        destination_table_name="OrderTable",
+                        bindings=[
+                            mapping_review_module._ProposedBinding(
+                                source_field="order_id",
+                                destination_field="order_id",
+                                binding_type="direct"
+                            ),
+                            mapping_review_module._ProposedBinding(
+                                source_field="customer_id",
+                                destination_field="customer_fk",
+                                binding_type="lookup_fk",
+                                reference_table_name="Customer"
+                            ),
+                            mapping_review_module._ProposedBinding(
+                                source_field="status_id",
+                                destination_field="status_fk",
+                                binding_type="lookup_fk",
+                                reference_table_name="StatusTable"
+                            )
+                        ]
+                    )
+                ]
+            )
+            
+    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: ValidMultiTableFakeAdapter())
+    
+    response = client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/propose",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 200, response.text
+    
+    resp_customer = client.get(
+        f"/projects/{project_id}/sources/{source_id}/mapping?destination_object_name=Customer",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp_customer.status_code == 200
+    data_customer = resp_customer.json()
+    assert data_customer["destination_object_name"] == "Customer"
+    assert len(data_customer["field_bindings"]) == 1
+    
+    resp_order = client.get(
+        f"/projects/{project_id}/sources/{source_id}/mapping?destination_object_name=OrderTable",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp_order.status_code == 200
+    data_order = resp_order.json()
+    assert data_order["destination_object_name"] == "OrderTable"
+    assert len(data_order["lookup_table_references"]) == 1
+    assert data_order["lookup_table_references"][0]["lookup_name"] == "status_id"
+    assert data_order["lookup_table_references"][0]["destination_table_name"] == "StatusTable"
+    
+    with SessionLocal() as db:
+        snapshot = db.scalar(
+            select(mapping_review_module.MappingSnapshot)
+            .where(
+                mapping_review_module.MappingSnapshot.project_id == project_id,
+                mapping_review_module.MappingSnapshot.destination_object_name == "OrderTable"
+            )
+        )
+        assert snapshot is not None
+        bindings = {b["source_field"]: b for b in snapshot.field_bindings}
+        assert bindings["customer_id"]["binding_type"] == "detail_fk"
+        assert bindings["status_id"]["binding_type"] == "lookup_fk"
