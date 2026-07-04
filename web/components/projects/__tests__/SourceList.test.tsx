@@ -60,7 +60,7 @@ describe("SourceList", () => {
     expect(button).toHaveAttribute("title", "Set destination_schema_ddl on the project first");
   });
 
-  it("hides the banner once analysis exists", async () => {
+  it("keeps the banner and shows re-analyze button once analysis exists", async () => {
     getSchemaAnalysisMock.mockResolvedValue({
       analysisId: "analysis-1",
       projectId: "project-1",
@@ -73,7 +73,8 @@ describe("SourceList", () => {
     render(<SourceList {...baseProps} destinationSchemaDdl="CREATE TABLE customers (id INT);" />);
 
     expect(await screen.findByText("Customer Extract")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Analyze DDL" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Re-analyze DDL" })).toBeInTheDocument();
+    expect(screen.getByText("Destination schema was last analyzed at 2026-06-30.")).toBeInTheDocument();
   });
 
   it("renders source rows", async () => {
@@ -95,7 +96,7 @@ describe("SourceList", () => {
     expect(screen.queryByRole("button", { name: "Add Source" })).not.toBeInTheDocument();
   });
 
-  it("triggers analysis and hides the banner after success", async () => {
+  it("triggers analysis and updates the banner to re-analyze after success", async () => {
     getSchemaAnalysisMock.mockResolvedValue(null);
     triggerSchemaAnalysisMock.mockResolvedValue({
       analysisId: "analysis-1",
@@ -115,6 +116,8 @@ describe("SourceList", () => {
       expect(triggerSchemaAnalysisMock).toHaveBeenCalledWith("token-1", "project-1");
     });
     await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Re-analyze DDL" })).toBeInTheDocument();
+      expect(screen.getByText("Destination schema was last analyzed at 2026-06-30.")).toBeInTheDocument();
       expect(screen.queryByText("Analyze your destination schema to enable dependency-ordered SQL delivery.")).not.toBeInTheDocument();
     });
   });

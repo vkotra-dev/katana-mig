@@ -140,12 +140,14 @@ export function SourceList({ projectId, token, role, destinationSchemaDdl = null
         </div>
       ) : null}
 
-      {sources.length > 0 && analysis === null ? (
+      {sources.length > 0 && analysis !== undefined ? (
         <div className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="space-y-1">
               <div className="text-sm font-semibold text-slate-900">
-                Analyze your destination schema to enable dependency-ordered SQL delivery.
+                {analysis === null
+                  ? "Analyze your destination schema to enable dependency-ordered SQL delivery."
+                  : `Destination schema was last analyzed at ${formatDate(analysis.analyzedAt)}.`}
               </div>
               <div className="text-xs text-slate-600">
                 Destination schema analysis sorts delivery bundles by foreign-key dependency.
@@ -158,7 +160,7 @@ export function SourceList({ projectId, token, role, destinationSchemaDdl = null
               title={destinationSchemaDdl ? undefined : "Set destination_schema_ddl on the project first"}
               type="button"
             >
-              Analyze DDL
+              {analysis === null ? "Analyze DDL" : "Re-analyze DDL"}
             </button>
           </div>
         </div>
