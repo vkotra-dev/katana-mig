@@ -6,14 +6,36 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from sqlite_test_support import Base, SessionLocal, TEST_ENGINE
 from migrations_engine.app import app
 from migrations_engine.auth.passwords import hash_password
 from migrations_engine.config import get_settings
 from migrations_engine.db.models import AuditEvent, AuthSession, Notification, ProjectDefinition, ProjectMembership, ProjectRegistry, User
-from migrations_engine.db.session import SessionLocal
 from migrations_engine.roles import PROJECT_STAKEHOLDER_ROLE, READ_ONLY_AUDITOR_ROLE
 
 client = TestClient(app)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _setup_sqlite_db() -> None:
+    Base.metadata.create_all(bind=TEST_ENGINE)
+    settings = get_settings()
+    if not settings.bootstrap_admin_email or not settings.bootstrap_admin_password:
+        pytest.skip("bootstrap credentials not configured")
+
+    with SessionLocal() as db:
+        if db.scalar(select(User).where(User.email == settings.bootstrap_admin_email.strip().lower())) is None:
+            db.add(
+                User(
+                    user_id=str(uuid.uuid4()),
+                    email=settings.bootstrap_admin_email.strip().lower(),
+                    display_name=settings.bootstrap_admin_display_name,
+                    password_hash=hash_password(settings.bootstrap_admin_password),
+                    role="central_team",
+                    status="active",
+                )
+            )
+            db.commit()
 
 
 @pytest.fixture(autouse=True)

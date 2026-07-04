@@ -9,7 +9,10 @@
       "Bash(awk '{print length\\($0\\), $0}')",
       "Bash(python3 *)",
       "Bash(grep -v \"^#\\\\|^$\")",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Skill(code-review)",
+      "Bash(git diff *)",
+      "Read(//tmp/**)"
     ]
   }
 }

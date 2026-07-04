@@ -134,6 +134,7 @@ def confirm_password_reset(
 
     original_role = user.role
     user.password_hash = hash_password(new_password)
+    db.flush()
     _revoke_user_sessions(db, user=user)
     record.used_at = now
     if user.role != original_role:
