@@ -33,11 +33,13 @@ def execute_mapping_run(
     destination_object_name: str,
     source_values: list[str],
     actor_user_id: str | None = None,
+    source_definition_id: str | None = None,
 ) -> MappingRunResult:
     mapping_snapshot = select_latest_approved_mapping_snapshot(
         db,
         project_id=project_id,
         destination_object_name=destination_object_name,
+        source_definition_id=source_definition_id,
     )
     binding = parse_primary_field_binding(mapping_snapshot)
     lookup_snapshot = select_latest_approved_lookup_snapshot(
