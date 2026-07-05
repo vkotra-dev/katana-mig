@@ -32,6 +32,7 @@ def create_approved_mapping_snapshot(
     existing_snapshot = db.scalar(
         select(MappingSnapshot).where(
             MappingSnapshot.project_id == project_id,
+            MappingSnapshot.source_definition_id == source_definition_id,
             MappingSnapshot.destination_object_name == destination_object_name,
             MappingSnapshot.mapping_snapshot_version == mapping_snapshot_version,
         )

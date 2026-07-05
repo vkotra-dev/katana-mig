@@ -8,6 +8,7 @@ No pending tasks.
 
 | Task | Summary |
 |---|---|
+| [001bn-fix-mapping-snapshot-uniqueness](./completed/001bn-fix-mapping-snapshot-uniqueness.md) | [summary](./summary/001bn-fix-mapping-snapshot-uniqueness.md) |
 | [001bl-feed-workspace-slice-view-ai-trigger](./completed/001bl-feed-workspace-slice-view-ai-trigger.md) | [summary](./summary/001bl-feed-workspace-slice-view-ai-trigger.md) |
 | [001bk-multi-table-snapshot-api](./completed/001bk-multi-table-snapshot-api.md) | [summary](./summary/001bk-multi-table-snapshot-api.md) |
 | [001bi-lookup-fiber-two-textarea-input](./completed/001bi-lookup-fiber-two-textarea-input.md) | [summary](./summary/001bi-lookup-fiber-two-textarea-input.md) |

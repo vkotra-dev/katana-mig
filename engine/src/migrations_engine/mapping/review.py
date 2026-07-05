@@ -295,13 +295,11 @@ def propose_mapping(
             422,
         )
 
-    # Determine which destination tables already have snapshots in this project.
-    # The unique constraint is (project_id, destination_object_name, version) — no source_definition_id —
-    # so we must check at project scope to avoid duplicate key errors.
     already_mapped_tables = set(
         db.scalars(
             select(MappingSnapshot.destination_object_name).where(
                 MappingSnapshot.project_id == project_id,
+                MappingSnapshot.source_definition_id == source_definition_id,
             )
         ).all()
     )
