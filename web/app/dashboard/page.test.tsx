@@ -23,12 +23,7 @@ vi.mock("../../lib/projects-api", () => ({
   projectErrorMessage: (error: unknown) => (error instanceof Error ? error.message : "Unable to load project."),
 }));
 
-vi.mock("../../lib/feed-slice-approval-api", () => ({
-  getPendingApprovalCount: vi.fn(),
-}));
-
 import { listProjects } from "../../lib/projects-api";
-import { getPendingApprovalCount } from "../../lib/feed-slice-approval-api";
 import { loadUiSession } from "../../lib/session";
 import { within } from "@testing-library/react";
 
@@ -77,7 +72,6 @@ describe("DashboardPage", () => {
   it("shows loading state before the data resolves", () => {
     vi.mocked(loadUiSession).mockReturnValue(mockSession);
     vi.mocked(listProjects).mockReturnValue(new Promise(() => {}));
-    vi.mocked(getPendingApprovalCount).mockReturnValue(new Promise(() => {}));
 
     render(<DashboardPage />);
 
@@ -87,7 +81,6 @@ describe("DashboardPage", () => {
   it("renders the summary strip and project table on success", async () => {
     vi.mocked(loadUiSession).mockReturnValue(mockSession);
     vi.mocked(listProjects).mockResolvedValue([mockProject]);
-    vi.mocked(getPendingApprovalCount).mockResolvedValue(3);
 
     render(<DashboardPage />);
 
@@ -95,15 +88,11 @@ describe("DashboardPage", () => {
       expect(screen.getByText("Total Projects")).toBeInTheDocument();
     });
     expect(screen.getByText("Alpha Migration")).toBeInTheDocument();
-    const pendingCard = screen.getByText("Pending Approvals").parentElement;
-    expect(pendingCard).not.toBeNull();
-    expect(within(pendingCard as HTMLElement).getByText("3")).toBeInTheDocument();
   });
 
   it("renders an error banner when loading fails", async () => {
     vi.mocked(loadUiSession).mockReturnValue(mockSession);
     vi.mocked(listProjects).mockRejectedValue(new Error("server error"));
-    vi.mocked(getPendingApprovalCount).mockResolvedValue(0);
 
     render(<DashboardPage />);
 

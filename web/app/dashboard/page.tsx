@@ -6,7 +6,6 @@ import { Topbar } from "../../components/Topbar";
 import { CreateProjectDialog } from "../../components/projects/CreateProjectDialog";
 import { PortfolioTable } from "../../components/portfolio/PortfolioTable";
 import { SummaryStrip } from "../../components/portfolio/SummaryStrip";
-import { getPendingApprovalCount } from "../../lib/feed-slice-approval-api";
 import { listProjects, projectErrorMessage, type ProjectRecord } from "../../lib/projects-api";
 import { loadUiSession, type SessionRole, type UiSession } from "../../lib/session";
 
@@ -14,7 +13,6 @@ export default function DashboardPage() {
   const router = useRouter();
   const [session, setSession] = useState<UiSession | null>(null);
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
-  const [pendingApprovals, setPendingApprovals] = useState(0);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -37,16 +35,12 @@ export default function DashboardPage() {
     setLoading(true);
     setErrorMessage(null);
 
-    void Promise.all([
-      listProjects(session.accessToken, { includeArchived: true }),
-      getPendingApprovalCount(session.accessToken),
-    ])
-      .then(([allProjects, count]) => {
+    void listProjects(session.accessToken, { includeArchived: true })
+      .then((allProjects) => {
         if (!active) {
           return;
         }
         setProjects(allProjects);
-        setPendingApprovals(count);
       })
       .catch((error: unknown) => {
         if (!active) {
@@ -101,7 +95,6 @@ export default function DashboardPage() {
             <SummaryStrip
               active={summary.activeProjects}
               archived={summary.archivedProjects}
-              pendingApprovals={pendingApprovals}
               total={summary.total}
             />
             <PortfolioTable

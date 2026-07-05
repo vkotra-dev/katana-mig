@@ -4,7 +4,6 @@ export interface SummaryStripProps {
   total: number;
   active: number;
   archived: number;
-  pendingApprovals: number;
 }
 
 function MetricCard({
@@ -24,17 +23,12 @@ function MetricCard({
   );
 }
 
-export function SummaryStrip({ total, active, archived, pendingApprovals }: SummaryStripProps) {
+export function SummaryStrip({ total, active, archived }: SummaryStripProps) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       <MetricCard label="Total Projects" value={total} />
       <MetricCard accent="text-primary" label="Active" value={active} />
       <MetricCard label="Archived" value={archived} />
-      <MetricCard
-        accent={pendingApprovals > 0 ? "text-warning" : "text-slate-900"}
-        label="Pending Approvals"
-        value={pendingApprovals}
-      />
     </div>
   );
 }
