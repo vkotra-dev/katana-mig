@@ -104,7 +104,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
     }
   }, [session, projectId, feedId]);
 
-  const latestSlice = slices[0]; // Ordered desc by default
+  const latestSlice = slices[slices.length - 1]; // backend returns asc order
   const isSliceApproved = latestSlice?.status === "approved";
   const hasNoSlices = slices.length === 0;
   const isHardGated = hasNoSlices || !isSliceApproved;
@@ -155,11 +155,24 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
     try {
       const edits = lookupEdits[lookupName] || {};
       const latestMap = lookupMaps.find((m) => m.lookupName === lookupName);
-      const destinationTable = latestMap?.destinationTable || [];
+      
+      const existingRows = latestMap?.destinationTable || [];
+      const existingIds = new Set(
+        existingRows.map((r) => String(r.id || r.destination_id || "")).filter(Boolean)
+      );
+
+      const nextRows = [...existingRows];
+      for (const val of Object.values(edits)) {
+        const destId = val?.trim();
+        if (destId && !existingIds.has(destId)) {
+          nextRows.push({ id: destId, label: destId });
+          existingIds.add(destId);
+        }
+      }
 
       await createLookupValueMap(session.accessToken, projectId, feedId, {
         lookupName,
-        destinationTable,
+        destinationTable: nextRows,
         sourceValueMap: edits,
       });
 
