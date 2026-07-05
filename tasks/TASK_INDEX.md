@@ -4,13 +4,13 @@
 
 | Task | Summary |
 |---|---|
-| [001bh-remove-feeds-tab-ddl-banner](./001bh-remove-feeds-tab-ddl-banner.md) | Remove schema analysis banner from Feeds tab |
 | [001bi-lookup-fiber-two-textarea-input](./001bi-lookup-fiber-two-textarea-input.md) | Replace per-value lookup inputs with two-textarea AI analyze flow |
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001bh-remove-feeds-tab-ddl-banner](./completed/001bh-remove-feeds-tab-ddl-banner.md) | [summary](./summary/001bh-remove-feeds-tab-ddl-banner.md) |
 | [001bj-remove-feed-slice-upload](./completed/001bj-remove-feed-slice-upload.md) | [summary](./summary/001bj-remove-feed-slice-upload.md) |
 | [001bg-remove-global-approvals-inbox](./completed/001bg-remove-global-approvals-inbox.md) | [summary](./summary/001bg-remove-global-approvals-inbox.md) |
 | [001bf-feeds-workspace-ui](./completed/001bf-feeds-workspace-ui.md) | [summary](./summary/001bf-feeds-workspace-ui.md) |

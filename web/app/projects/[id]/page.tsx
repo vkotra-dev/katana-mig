@@ -149,7 +149,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               projectId={id}
               role={role}
               token={session.accessToken}
-              destinationSchemaDdl={project?.domainConfig?.destinationSchemaDdl ?? null}
               onFeedClick={handleFeedClick}
             />
           ) : (
