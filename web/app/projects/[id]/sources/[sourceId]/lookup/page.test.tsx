@@ -100,6 +100,9 @@ describe("LookupPage", () => {
       approvedAt: "2026-06-30T00:00:00Z",
       approvedByUserId: "user-1",
       createdAt: "2026-06-30T00:00:00Z",
+      lookupTableReferences: [
+        { lookupName: "status_code", destinationTableName: "status_ref" },
+      ],
     });
     listFeedSchemaMock.mockResolvedValue([
       {
@@ -150,14 +153,15 @@ describe("LookupPage", () => {
 
     render(<LookupPage params={Promise.resolve({ id: "project-1", sourceId: "source-1" })} />);
 
-    expect(await screen.findByRole("button", { name: "status_code" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "status_code (status_ref)" })).toBeInTheDocument();
     expect(screen.getByText("A")).toBeInTheDocument();
     expect(screen.getByText("4")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Lookup name"), {
-      target: { value: "status_code" },
-    });
-    fireEvent.change(screen.getByLabelText("Draft destination table"), {
+    expect(screen.queryByLabelText("Lookup name")).not.toBeInTheDocument();
+    expect(screen.getByText("Rows from status_ref")).toBeInTheDocument();
+    expect(screen.getByText(/Paste JSON or CSV rows from the status_ref reference table/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Rows from status_ref"), {
       target: { value: JSON.stringify([{ id: "ACTIVE", label: "Active" }], null, 2) },
     });
     fireEvent.click(screen.getByRole("button", { name: "Apply table" }));

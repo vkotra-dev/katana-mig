@@ -29,6 +29,7 @@ import { loadUiSession, type SessionRole, type UiSession } from "../../../../../
 interface LookupFieldState {
   lookupName: string;
   sourceField: string;
+  destinationTableName: string | null;
   draftText: string;
   destinationRows: Array<Record<string, unknown>>;
   valueMap: Record<string, string>;
@@ -216,6 +217,10 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
           return;
         }
 
+        const refMap = Object.fromEntries(
+          (mappingResponse.lookupTableReferences ?? []).map((r) => [r.lookupName, r.destinationTableName])
+        );
+
         const tabs = lookupTabsFromMappingSnapshot(mappingResponse);
         const nextStates: Record<string, LookupFieldState> = {};
         for (const tab of tabs) {
@@ -224,6 +229,7 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
           nextStates[tab.lookupName] = {
             lookupName: latestMap?.lookupName ?? tab.lookupName,
             sourceField: tab.sourceField,
+            destinationTableName: refMap[tab.lookupName] ?? null,
             draftText: JSON.stringify(destinationRows, null, 2),
             destinationRows,
             valueMap: latestMap?.sourceValueMap ?? {},
@@ -534,7 +540,7 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
                 return (
                   <button
                     key={tab.lookupName}
-                    className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                    className={`rounded-full px-4 py-2 text-sm font-semibold flex items-center ${
                       active
                         ? "bg-primary text-white"
                         : "border border-outline-variant bg-surface-container text-slate-700"
@@ -542,7 +548,12 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
                     onClick={() => setActiveField(tab.lookupName)}
                     type="button"
                   >
-                    {state?.lookupName ?? tab.lookupName}
+                    <span>{state?.lookupName ?? tab.lookupName}</span>
+                    {state?.destinationTableName && (
+                      <span className={`ml-1.5 text-[10px] ${active ? "text-slate-200" : "text-slate-400"}`}>
+                        ({state.destinationTableName})
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -644,29 +655,10 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
                 <div className="space-y-2">
                   <h2 className="text-lg font-semibold text-slate-900">Destination table</h2>
                   <p className="text-sm text-slate-600">
-                    Paste JSON or CSV rows with an `id` or `destination_id` column, then generate the lookup snapshot.
+                    {activeState?.destinationTableName
+                      ? `Paste JSON or CSV rows from the ${activeState.destinationTableName} reference table, then generate the lookup snapshot.`
+                      : "Paste JSON or CSV rows with an `id` or `destination_id` column, then generate the lookup snapshot."}
                   </p>
-                </div>
-
-                <div className="space-y-2">
-                  <label
-                    className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500"
-                    htmlFor="lookup-name"
-                  >
-                    Lookup name
-                  </label>
-                  <input
-                    className="w-full rounded-md border border-outline-variant bg-white px-3 py-3 text-sm text-slate-900"
-                    id="lookup-name"
-                    onChange={(event) => {
-                      const value = event.currentTarget.value;
-                      updateFieldState(activeField, (current) => ({
-                        ...current,
-                        lookupName: value,
-                      }));
-                    }}
-                    value={activeState?.lookupName ?? ""}
-                  />
                 </div>
 
                 <div className="space-y-2">
@@ -674,7 +666,9 @@ export default function LookupPage({ params }: { params: Promise<{ id: string; s
                     className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500"
                     htmlFor="lookup-table"
                   >
-                    Draft destination table
+                    {activeState?.destinationTableName
+                      ? `Rows from ${activeState.destinationTableName}`
+                      : "Draft destination table"}
                   </label>
                   <textarea
                     className="min-h-48 w-full rounded-md border border-outline-variant bg-white px-3 py-3 font-mono text-sm text-slate-900"

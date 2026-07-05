@@ -227,4 +227,34 @@ describe("MappingPage", () => {
 
     expect(await screen.findByText(/locked for review/i)).toBeInTheDocument();
   });
+
+  it("renders reference table name in Lookup column when lookupTableReferences is populated", async () => {
+    const populatedSnapshot = {
+      ...DRAFT_SNAPSHOT,
+      lookupTableReferences: [
+        { lookupName: "name_lookup", destinationTableName: "name_ref_table" },
+      ],
+    };
+    vi.mocked(loadUiSessionMock).mockReturnValue(SESSION);
+    vi.mocked(getMappingSnapshotMock).mockResolvedValue(populatedSnapshot);
+
+    render(<MappingPage />);
+
+    expect(await screen.findByText("name_lookup")).toBeInTheDocument();
+    expect(screen.getByText("ref: name_ref_table")).toBeInTheDocument();
+  });
+
+  it("renders dash or just badge without reference table when lookupTableReferences is absent", async () => {
+    const legacySnapshot = {
+      ...DRAFT_SNAPSHOT,
+      lookupTableReferences: [],
+    };
+    vi.mocked(loadUiSessionMock).mockReturnValue(SESSION);
+    vi.mocked(getMappingSnapshotMock).mockResolvedValue(legacySnapshot);
+
+    render(<MappingPage />);
+
+    expect(await screen.findByText("name_lookup")).toBeInTheDocument();
+    expect(screen.queryByText(/ref:/i)).not.toBeInTheDocument();
+  });
 });

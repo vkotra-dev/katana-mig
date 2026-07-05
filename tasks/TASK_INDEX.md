@@ -4,7 +4,6 @@
 
 | Task | Summary |
 |---|---|
-| [001be-mapping-lookup-ui](./001be-mapping-lookup-ui.md) | Show AI-detected lookup fields and reference tables in mapping and lookup UI |
 | [001bf-feeds-workspace-ui](./001bf-feeds-workspace-ui.md) | Per-feed workspace with role-gated routing and shared review grid |
 | [001bg-remove-global-approvals-inbox](./001bg-remove-global-approvals-inbox.md) | Remove global approvals page, nav link, and badge count |
 
@@ -12,6 +11,7 @@
 
 | Task | Summary |
 |---|---|
+| [001be-mapping-lookup-ui](./completed/001be-mapping-lookup-ui.md) | [summary](./summary/001be-mapping-lookup-ui.md) |
 | [001bd-ai-mapping-extraction](./completed/001bd-ai-mapping-extraction.md) | [summary](./summary/001bd-ai-mapping-extraction.md) |
 | [001bc-project-model-policy-default-hints](./completed/001bc-project-model-policy-default-hints.md) | [summary](./summary/001bc-project-model-policy-default-hints.md) |
 | [001bb-project-edit-layout-parity](./completed/001bb-project-edit-layout-parity.md) | [summary](./summary/001bb-project-edit-layout-parity.md) |

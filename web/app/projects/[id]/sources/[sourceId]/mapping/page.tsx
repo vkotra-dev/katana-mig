@@ -12,6 +12,7 @@ import {
   type MappingApiError,
   type MappingFieldBindingRecord,
   type MappingReviewRecord,
+  type LookupTableReference,
 } from "../../../../../../lib/mapping-api";
 import { listFeedSchema, type FeedSchemaColumnRecord } from "../../../../../../lib/feeds-api";
 import { loadUiSession, type SessionRole, type UiSession } from "../../../../../../lib/session";
@@ -30,6 +31,13 @@ function statusClass(status: string): string {
 
 function isMappingApiError(error: unknown): error is MappingApiError {
   return Boolean(error && typeof error === "object" && "status" in error && "code" in error);
+}
+
+function referenceTableFor(
+  lookupName: string,
+  refs: LookupTableReference[],
+): string | null {
+  return refs?.find((r) => r.lookupName === lookupName)?.destinationTableName ?? null;
 }
 
 export default function MappingPage() {
@@ -331,27 +339,17 @@ export default function MappingPage() {
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          {pageState === "draft" && canAct ? (
-                            <input
-                              aria-label={`Lookup name for ${binding.sourceField}`}
-                              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 focus:border-slate-900 focus:outline-none"
-                              onChange={(event) => {
-                                const nextBindings = editedBindings.map((item, itemIndex) =>
-                                  itemIndex === index
-                                    ? { ...item, lookupName: event.target.value.trim() ? event.target.value.trim() : null }
-                                    : item,
-                                );
-                                setEditedBindings(nextBindings);
-                                setIsDirty(true);
-                              }}
-                              placeholder="optional"
-                              type="text"
-                              value={binding.lookupName ?? ""}
-                            />
-                          ) : binding.lookupName ? (
-                            <span className="inline-flex rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-700">
-                              {binding.lookupName}
-                            </span>
+                          {binding.lookupName ? (
+                            <div className="space-y-0.5">
+                              <span className="inline-flex rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-700">
+                                {binding.lookupName}
+                              </span>
+                              {snapshot && referenceTableFor(binding.lookupName, snapshot.lookupTableReferences) && (
+                                <p className="text-[10px] text-slate-400">
+                                  ref: {referenceTableFor(binding.lookupName, snapshot.lookupTableReferences)}
+                                </p>
+                              )}
+                            </div>
                           ) : (
                             <span className="text-slate-400">—</span>
                           )}

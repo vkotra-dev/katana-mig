@@ -6,6 +6,11 @@ export interface MappingFieldBindingRecord {
   lookupName: string | null;
 }
 
+export interface LookupTableReference {
+  lookupName: string;
+  destinationTableName: string;
+}
+
 export interface MappingSnapshotRecord {
   mappingSnapshotId: string;
   projectId: string;
@@ -16,6 +21,7 @@ export interface MappingSnapshotRecord {
   approvedAt: string | null;
   approvedByUserId: string | null;
   createdAt: string;
+  lookupTableReferences: LookupTableReference[];
 }
 
 export interface MappingReviewRecord extends MappingSnapshotRecord {
@@ -48,6 +54,10 @@ type MappingSnapshotRaw = {
   approved_at: string | null;
   approved_by_user_id: string | null;
   created_at: string;
+  lookup_table_references?: Array<{
+    lookup_name: string;
+    destination_table_name: string;
+  }>;
 };
 
 type MappingReviewRaw = MappingSnapshotRaw & {
@@ -69,6 +79,10 @@ function mapMappingSnapshotResponse(response: MappingSnapshotRaw): MappingSnapsh
     approvedAt: response.approved_at,
     approvedByUserId: response.approved_by_user_id,
     createdAt: response.created_at,
+    lookupTableReferences: (response.lookup_table_references ?? []).map((ref) => ({
+      lookupName: ref.lookup_name,
+      destinationTableName: ref.destination_table_name,
+    })),
   };
 }
 
