@@ -6,8 +6,6 @@ import { Topbar } from "../../../../../components/Topbar";
 import {
   getFeedContract,
   listFeedSlices,
-  approveFeedSlice,
-  rejectFeedSlice,
   listFeedFibers,
   listFeedSchema,
   type FeedContractRecord,
@@ -17,6 +15,7 @@ import {
 } from "../../../../../lib/feeds-api";
 import {
   getMappingSnapshot,
+  proposeMappingSnapshot,
   type MappingReviewRecord,
 } from "../../../../../lib/mapping-api";
 import {
@@ -39,12 +38,14 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
 
   const [feed, setFeed] = useState<FeedContractRecord | null>(null);
   const [slices, setSlices] = useState<FeedSliceRecord[]>([]);
+  const [feedSchema, setFeedSchema] = useState<FeedSchemaColumnRecord[]>([]);
   const [mappingSnapshot, setMappingSnapshot] = useState<MappingReviewRecord | null>(null);
   const [lookupMaps, setLookupMaps] = useState<LookupValueMapRecord[]>([]);
   const [fibers, setFibers] = useState<FiberRecord[]>([]);
   
-  const [rejectionReason, setRejectionReason] = useState("");
-  const [showRejectForm, setShowRejectForm] = useState(false);
+  // AI analysis state
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   // Lookup fibers drafts state
   const [lookupDrafts, setLookupDrafts] = useState<Record<string, { sourceText: string; destText: string; analyzing: boolean; error: string | null }>>({});
@@ -59,15 +60,17 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
 
   const loadAllData = async (token: string) => {
     try {
-      const [feedData, slicesData, fibersData] = await Promise.all([
+      const [feedData, slicesData, fibersData, schemaData] = await Promise.all([
         getFeedContract(token, projectId, feedId),
         listFeedSlices(token, projectId, feedId),
         listFeedFibers(token, projectId, feedId),
+        listFeedSchema(token, projectId, feedId),
       ]);
 
       setFeed(feedData);
       setSlices(slicesData);
       setFibers(fibersData);
+      setFeedSchema(schemaData);
 
       // Try fetching mapping snapshot (might fail with 404 if not proposed yet)
       try {
@@ -93,33 +96,29 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
   }, [session, projectId, feedId]);
 
   const latestSlice = slices[slices.length - 1]; // backend returns asc order
-  const isSliceApproved = latestSlice?.status === "approved";
   const hasNoSlices = slices.length === 0;
-  const isHardGated = hasNoSlices || !isSliceApproved;
 
-  const handleApproveSlice = async () => {
-    if (!session || !latestSlice) return;
-    setLoading(true);
+  const handleAnalyzeWithAi = async () => {
+    if (!session) return;
+    setAnalyzing(true);
+    setAnalysisError(null);
     try {
-      await approveFeedSlice(session.accessToken, projectId, feedId, latestSlice.sourceSliceId);
+      try {
+        await proposeMappingSnapshot(session.accessToken, projectId, feedId);
+      } catch (err) {
+        const status = (err as any).status || 0;
+        const isConflict = err instanceof Error && (err.message.includes("conflict") || err.message.includes("409"));
+        if (status === 409 || isConflict) {
+          console.log("Mapping proposal already exists, reloading...");
+        } else {
+          throw err;
+        }
+      }
       await loadAllData(session.accessToken);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to approve slice.");
-      setLoading(false);
-    }
-  };
-
-  const handleRejectSlice = async () => {
-    if (!session || !latestSlice || !rejectionReason.trim()) return;
-    setLoading(true);
-    try {
-      await rejectFeedSlice(session.accessToken, projectId, feedId, latestSlice.sourceSliceId, rejectionReason.trim());
-      setRejectionReason("");
-      setShowRejectForm(false);
-      await loadAllData(session.accessToken);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to reject slice.");
-      setLoading(false);
+      setAnalysisError(err instanceof Error ? err.message : "Unable to trigger AI analysis.");
+    } finally {
+      setAnalyzing(false);
     }
   };
 
@@ -298,85 +297,93 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
           <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
             {/* Left Column: Slice & Upload Info */}
             <div className="space-y-6">
-              {/* Slice Status Panel */}
+              {/* Slice Panel */}
               <div className="rounded-2xl border border-outline-variant bg-surface-container p-5 shadow-sm space-y-4">
-                <h3 className="text-base font-bold text-slate-900">Slice Status</h3>
+                <h3 className="text-base font-bold text-slate-900">Slice</h3>
                 
                 {hasNoSlices ? (
                   <div className="text-sm text-slate-500">No slices uploaded yet.</div>
                 ) : (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-500">Latest Slice:</span>
-                      <span className="font-mono font-medium text-slate-700">{latestSlice.sourceSliceVersion}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-500">Rows:</span>
-                      <span className="font-bold text-slate-900">{latestSlice.rowCount}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500">Status:</span>
-                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                        latestSlice.status === "approved"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : latestSlice.status === "pending"
-                          ? "bg-amber-100 text-amber-700"
-                          : "bg-red-100 text-red-700"
-                      }`}>
-                        {latestSlice.status}
-                      </span>
-                    </div>
-                    
-                    {latestSlice.approvalRejectionReason && (
-                      <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700 border border-red-100">
-                        <strong>Reason:</strong> {latestSlice.approvalRejectionReason}
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500">Latest Slice:</span>
+                        <span className="font-mono font-medium text-slate-700">{latestSlice.sourceSliceVersion}</span>
                       </div>
-                    )}
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500">Rows:</span>
+                        <span className="font-bold text-slate-900">{latestSlice.rowCount}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-slate-500">Status:</span>
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-600"></span>
+                          received
+                        </span>
+                      </div>
+                    </div>
 
-                    {latestSlice.status === "pending" && role === "central_team" && (
-                      <div className="flex flex-col gap-2 pt-2">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={handleApproveSlice}
-                            className="flex-1 rounded-md bg-emerald-600 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
-                            type="button"
-                          >
-                            Approve Slice
-                          </button>
-                          <button
-                            onClick={() => setShowRejectForm(!showRejectForm)}
-                            className="flex-1 rounded-md border border-red-300 py-2 text-xs font-semibold text-red-700 hover:bg-red-50"
-                            type="button"
-                          >
-                            Reject Slice
-                          </button>
+                    {/* Preview Table */}
+                    {(latestSlice.previewRows || []).length === 0 ? (
+                      <div className="text-xs text-slate-500 italic bg-slate-50 rounded-lg p-3 text-center">
+                        No preview available.
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Masked Data Preview</div>
+                        <div className="max-h-48 overflow-auto border border-outline-variant rounded-lg bg-white">
+                          <table className="w-full text-left text-[10px] border-collapse font-mono">
+                            <thead className="bg-slate-50 border-b border-outline-variant sticky top-0">
+                              <tr>
+                                {feedSchema.map((col, i) => (
+                                  <th key={i} className="px-3 py-1.5 font-bold text-slate-700 whitespace-nowrap">{col.fieldName}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {(latestSlice.previewRows || []).map((rowStr, rowIdx) => {
+                                const rowCells = rowStr.split(",");
+                                return (
+                                  <tr key={rowIdx} className="hover:bg-slate-50/50">
+                                    {rowCells.map((cell, cellIdx) => (
+                                      <td key={cellIdx} className="px-3 py-1.5 text-slate-600 whitespace-nowrap">{cell}</td>
+                                    ))}
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
                         </div>
-
-                        {showRejectForm && (
-                          <div className="space-y-2 border-t border-slate-200 pt-3">
-                            <label htmlFor="rejection-reason" className="block text-xs font-semibold text-slate-700">
-                              Rejection comment
-                            </label>
-                            <input
-                              id="rejection-reason"
-                              type="text"
-                              value={rejectionReason}
-                              onChange={(e) => setRejectionReason(e.target.value)}
-                              placeholder="Describe slice parse failure..."
-                              className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-900"
-                            />
-                            <button
-                              onClick={handleRejectSlice}
-                              disabled={!rejectionReason.trim()}
-                              className="w-full rounded-md bg-red-600 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-                              type="button"
-                            >
-                              Confirm Rejection
-                            </button>
-                          </div>
-                        )}
                       </div>
                     )}
+
+                    {/* Analyze with AI Button */}
+                    <div className="pt-2 border-t border-slate-100 space-y-2">
+                      <button
+                        onClick={handleAnalyzeWithAi}
+                        disabled={analyzing}
+                        className="w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center justify-center gap-2 transition"
+                        type="button"
+                      >
+                        {analyzing ? (
+                          <>
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            Analyzing…
+                          </>
+                        ) : (
+                          "Analyze with AI"
+                        )}
+                      </button>
+                      
+                      {analysisError && (
+                        <div role="alert" className="rounded-lg bg-red-50 border border-red-100 p-3 text-xs text-red-700">
+                          {analysisError}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -384,18 +391,8 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
 
             </div>
 
-            {/* Right Column: downstream steps gated by slice status */}
-            <div className="space-y-6 relative">
-              {isHardGated && (
-                <div className="absolute inset-0 bg-slate-50/70 backdrop-blur-[1px] z-20 flex items-center justify-center p-6">
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-md text-center max-w-md space-y-2">
-                    <h3 className="text-sm font-bold text-amber-800">Workspace Locked</h3>
-                    <p className="text-xs text-amber-700">
-                      Slice approval is required before mapping and lookups can proceed. Approve the uploaded slice.
-                    </p>
-                  </div>
-                </div>
-              )}
+            {/* Right Column: downstream steps */}
+            <div className="space-y-6">
 
               {/* A. Mapping Tables Accordions */}
               <div className="rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm space-y-4">

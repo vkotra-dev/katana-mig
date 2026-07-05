@@ -7,10 +7,10 @@ const {
   getFeedContractMock,
   listFeedSlicesMock,
   listFeedFibersMock,
+  listFeedSchemaMock,
   getMappingSnapshotMock,
+  proposeMappingSnapshotMock,
   listLookupValueMapsMock,
-  approveFeedSliceMock,
-  rejectFeedSliceMock,
   submitLookupInputsMock,
   routerPushMock,
 } = vi.hoisted(() => ({
@@ -18,10 +18,10 @@ const {
   getFeedContractMock: vi.fn(),
   listFeedSlicesMock: vi.fn(),
   listFeedFibersMock: vi.fn(),
+  listFeedSchemaMock: vi.fn(),
   getMappingSnapshotMock: vi.fn(),
+  proposeMappingSnapshotMock: vi.fn(),
   listLookupValueMapsMock: vi.fn(),
-  approveFeedSliceMock: vi.fn(),
-  rejectFeedSliceMock: vi.fn(),
   submitLookupInputsMock: vi.fn(),
   routerPushMock: vi.fn(),
 }));
@@ -34,12 +34,12 @@ vi.mock("../../../../../lib/feeds-api", () => ({
   getFeedContract: getFeedContractMock,
   listFeedSlices: listFeedSlicesMock,
   listFeedFibers: listFeedFibersMock,
-  approveFeedSlice: approveFeedSliceMock,
-  rejectFeedSlice: rejectFeedSliceMock,
+  listFeedSchema: listFeedSchemaMock,
 }));
 
 vi.mock("../../../../../lib/mapping-api", () => ({
   getMappingSnapshot: getMappingSnapshotMock,
+  proposeMappingSnapshot: proposeMappingSnapshotMock,
 }));
 
 vi.mock("../../../../../lib/lookup-api", () => ({
@@ -117,6 +117,7 @@ describe("FeedDetailPage", () => {
     ]);
     getMappingSnapshotMock.mockResolvedValue(DRAFT_SNAPSHOT);
     listLookupValueMapsMock.mockResolvedValue([]);
+    listFeedSchemaMock.mockResolvedValue([{ fieldName: "src_status" }]);
   });
 
   async function renderPage() {
@@ -125,34 +126,7 @@ describe("FeedDetailPage", () => {
     });
   }
 
-  it("shows workspace lock banner when slice is pending", async () => {
-    listFeedSlicesMock.mockResolvedValue([
-      {
-        sourceSliceId: "slice-1",
-        sourceDefinitionId: "feed-1",
-        sourceSliceVersion: "v1",
-        headerCsv: null,
-        rowCount: 10,
-        status: "pending",
-        approvalRejectionReason: null,
-        parseWarnings: null,
-        previewRows: [],
-        createdAt: "2026-06-30T00:00:00Z",
-      },
-    ]);
-
-    await renderPage();
-
-    expect(await screen.findByText(/Workspace Locked/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Approve Slice" })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Approve Slice" }));
-    await waitFor(() => {
-      expect(approveFeedSliceMock).toHaveBeenCalledWith("token-1", "proj-1", "feed-1", "slice-1");
-    });
-  });
-
-  it("unlocks downstream mappings and lookup fibers when slice is approved", async () => {
+  it("renders preview rows and allows triggering AI analysis", async () => {
     listFeedSlicesMock.mockResolvedValue([
       {
         sourceSliceId: "slice-1",
@@ -163,15 +137,42 @@ describe("FeedDetailPage", () => {
         status: "approved",
         approvalRejectionReason: null,
         parseWarnings: null,
-        previewRows: [],
+        previewRows: ["A"],
         createdAt: "2026-06-30T00:00:00Z",
       },
     ]);
 
     await renderPage();
 
-    expect(await screen.findByText("Users Feed")).toBeInTheDocument();
-    expect(screen.queryByText(/Workspace Locked/i)).not.toBeInTheDocument();
+    expect(await screen.findByText("Slice")).toBeInTheDocument();
+    expect(screen.getByText("A")).toBeInTheDocument();
+    expect(screen.getAllByText("src_status")[0]).toBeInTheDocument();
+
+    const analyzeBtn = screen.getByRole("button", { name: "Analyze with AI" });
+    fireEvent.click(analyzeBtn);
+
+    await waitFor(() => {
+      expect(proposeMappingSnapshotMock).toHaveBeenCalledWith("token-1", "proj-1", "feed-1");
+    });
+  });
+
+  it("allows submitting lookup inputs", async () => {
+    listFeedSlicesMock.mockResolvedValue([
+      {
+        sourceSliceId: "slice-1",
+        sourceDefinitionId: "feed-1",
+        sourceSliceVersion: "v1",
+        headerCsv: null,
+        rowCount: 10,
+        status: "approved",
+        approvalRejectionReason: null,
+        parseWarnings: null,
+        previewRows: ["A"],
+        createdAt: "2026-06-30T00:00:00Z",
+      },
+    ]);
+
+    await renderPage();
 
     expect(screen.getAllByText("status_map")[0]).toBeInTheDocument();
     
