@@ -27,4 +27,14 @@ describe("ProjectNavigationTabs", () => {
 
     expect(screen.getByRole("button", { name: "SQL Bundle" })).toHaveClass("bg-primary");
   });
+
+  it("renders Feeds tab button and invokes onTabChange", () => {
+    const onTabChange = vi.fn();
+    render(<ProjectNavigationTabs activeTab="overview" mode="detail" onTabChange={onTabChange} projectId="proj-1" />);
+ 
+    const feedsTab = screen.getByRole("button", { name: "Feeds" });
+    expect(feedsTab).toBeInTheDocument();
+    fireEvent.click(feedsTab);
+    expect(onTabChange).toHaveBeenCalledWith("feeds");
+  });
 });

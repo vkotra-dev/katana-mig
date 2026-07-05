@@ -4,6 +4,9 @@ export interface MappingFieldBindingRecord {
   sourceField: string;
   destinationField: string;
   lookupName: string | null;
+  bindingType?: "direct" | "detail_fk" | "lookup_fk";
+  referenceTableName?: string | null;
+  destinationTableName?: string | null;
 }
 
 export interface LookupTableReference {
@@ -49,6 +52,9 @@ type MappingSnapshotRaw = {
     source_field: string;
     destination_field: string;
     lookup_name: string | null;
+    binding_type?: string | null;
+    reference_table_name?: string | null;
+    destination_table_name?: string | null;
   }>;
   status: string;
   approved_at: string | null;
@@ -74,6 +80,9 @@ function mapMappingSnapshotResponse(response: MappingSnapshotRaw): MappingSnapsh
       sourceField: binding.source_field,
       destinationField: binding.destination_field,
       lookupName: binding.lookup_name,
+      bindingType: binding.binding_type as any,
+      referenceTableName: binding.reference_table_name,
+      destinationTableName: binding.destination_table_name,
     })),
     status: response.status,
     approvedAt: response.approved_at,

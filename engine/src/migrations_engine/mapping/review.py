@@ -223,6 +223,9 @@ def _snapshot_to_response(
                 source_field=str(binding.get("source_field", "")),
                 destination_field=str(binding.get("destination_field", "")),
                 lookup_name=binding.get("lookup_name"),
+                binding_type=binding.get("binding_type"),
+                reference_table_name=binding.get("reference_table_name"),
+                destination_table_name=binding.get("destination_table_name"),
             )
             for binding in snapshot.field_bindings
         ],

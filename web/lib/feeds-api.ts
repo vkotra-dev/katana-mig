@@ -519,3 +519,34 @@ export async function analyzeFeedSource(
     schemaArtifactId: response.schema_artifact_id,
   };
 }
+
+export async function approveFeedSlice(
+  token: string,
+  projectId: string,
+  sourceDefinitionId: string,
+  sourceSliceId: string,
+): Promise<FeedSliceRecord> {
+  const response = await requestJson<Parameters<typeof mapFeedSliceResponse>[0]>(
+    `/projects/${projectId}/sources/${sourceDefinitionId}/slices/${sourceSliceId}/approve`,
+    { method: "POST", token },
+  );
+  return mapFeedSliceResponse(response);
+}
+
+export async function rejectFeedSlice(
+  token: string,
+  projectId: string,
+  sourceDefinitionId: string,
+  sourceSliceId: string,
+  reason: string,
+): Promise<FeedSliceRecord> {
+  const response = await requestJson<Parameters<typeof mapFeedSliceResponse>[0]>(
+    `/projects/${projectId}/sources/${sourceDefinitionId}/slices/${sourceSliceId}/reject`,
+    {
+      method: "POST",
+      token,
+      body: JSON.stringify({ reason }),
+    },
+  );
+  return mapFeedSliceResponse(response);
+}

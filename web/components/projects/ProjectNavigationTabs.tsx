@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
-export type ProjectTabKey = "overview" | "sources" | "artifacts" | "sql-bundle";
+export type ProjectTabKey = "overview" | "feeds" | "artifacts" | "sql-bundle";
 
 interface ProjectNavigationTabsProps {
   activeTab: ProjectTabKey;
@@ -19,7 +19,7 @@ export function ProjectNavigationTabs({ activeTab, mode, onTabChange, projectId 
   const router = useRouter();
   const tabs: Array<{ key: ProjectTabKey; label: string }> = [
     { key: "overview", label: "Overview" },
-    { key: "sources", label: "Sources" },
+    { key: "feeds", label: "Feeds" },
     { key: "artifacts", label: "Artifacts" },
     { key: "sql-bundle", label: "SQL Bundle" },
   ];

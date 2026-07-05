@@ -15,6 +15,7 @@ export interface SourceListProps {
   token: string;
   role: SessionRole;
   destinationSchemaDdl?: string | null;
+  onFeedClick: (sourceDefinitionId: string) => void;
 }
 
 function formatDate(value: string): string {
@@ -25,7 +26,7 @@ function sourceTypeLabel(sourceType: FeedContractRecord["sourceType"]): string {
   return sourceType === "csv" ? "CSV" : "Fixed-Length";
 }
 
-export function SourceList({ projectId, token, role, destinationSchemaDdl = null }: SourceListProps) {
+export function SourceList({ projectId, token, role, destinationSchemaDdl = null, onFeedClick }: SourceListProps) {
   const [sources, setSources] = useState<FeedContractRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -114,8 +115,8 @@ export function SourceList({ projectId, token, role, destinationSchemaDdl = null
     <section className="space-y-4 rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">Sources</h2>
-          <p className="text-sm text-slate-600">Declared source contracts and uploaded slices.</p>
+          <h2 className="text-xl font-semibold text-slate-900">Feeds</h2>
+          <p className="text-sm text-slate-600">Declared feed contracts and uploaded slices.</p>
         </div>
         {role === "central_team" ? (
           <button
@@ -123,7 +124,7 @@ export function SourceList({ projectId, token, role, destinationSchemaDdl = null
             onClick={() => setDialogOpen(true)}
             type="button"
           >
-            Add Source
+            Add Feed
           </button>
         ) : null}
       </div>
@@ -168,7 +169,7 @@ export function SourceList({ projectId, token, role, destinationSchemaDdl = null
 
       {loading ? (
         <div className="rounded-xl border border-outline-variant bg-surface px-4 py-3 text-sm text-slate-600">
-          Loading sources...
+          Loading feeds...
         </div>
       ) : errorMessage ? (
         <div role="alert" className="rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
@@ -176,7 +177,7 @@ export function SourceList({ projectId, token, role, destinationSchemaDdl = null
         </div>
       ) : sources.length === 0 ? (
         <div className="rounded-xl border border-dashed border-outline-variant bg-surface px-4 py-8 text-sm text-slate-500">
-          No source contracts yet.
+          No feed contracts yet.
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-outline-variant">
@@ -203,20 +204,13 @@ export function SourceList({ projectId, token, role, destinationSchemaDdl = null
                   <td className="px-4 py-3 text-sm text-slate-700">{source.status}</td>
                   <td className="px-4 py-3 text-sm text-slate-700">{formatDate(source.createdAt)}</td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <a
-                        className="inline-flex rounded-md border border-outline-variant px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-outline-variant/40"
-                        href={`/projects/${projectId}/sources/${source.sourceDefinitionId}/mapping`}
-                      >
-                        Open mapping
-                      </a>
-                      <a
-                        className="inline-flex rounded-md border border-outline-variant px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-outline-variant/40"
-                        href={`/projects/${projectId}/sources/${source.sourceDefinitionId}/lookup`}
-                      >
-                        Open lookup
-                      </a>
-                    </div>
+                    <button
+                      className="inline-flex rounded-md border border-outline-variant px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-outline-variant/40"
+                      onClick={() => onFeedClick(source.sourceDefinitionId)}
+                      type="button"
+                    >
+                      Open feed
+                    </button>
                   </td>
                 </tr>
               ))}

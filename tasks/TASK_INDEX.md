@@ -4,13 +4,13 @@
 
 | Task | Summary |
 |---|---|
-| [001bf-feeds-workspace-ui](./001bf-feeds-workspace-ui.md) | Per-feed workspace with role-gated routing and shared review grid |
 | [001bg-remove-global-approvals-inbox](./001bg-remove-global-approvals-inbox.md) | Remove global approvals page, nav link, and badge count |
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001bf-feeds-workspace-ui](./completed/001bf-feeds-workspace-ui.md) | [summary](./summary/001bf-feeds-workspace-ui.md) |
 | [001be-mapping-lookup-ui](./completed/001be-mapping-lookup-ui.md) | [summary](./summary/001be-mapping-lookup-ui.md) |
 | [001bd-ai-mapping-extraction](./completed/001bd-ai-mapping-extraction.md) | [summary](./summary/001bd-ai-mapping-extraction.md) |
 | [001bc-project-model-policy-default-hints](./completed/001bc-project-model-policy-default-hints.md) | [summary](./summary/001bc-project-model-policy-default-hints.md) |

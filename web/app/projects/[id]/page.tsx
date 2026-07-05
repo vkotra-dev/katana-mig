@@ -21,8 +21,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [session, setSession] = useState<UiSession | null>(null);
   const [project, setProject] = useState<ProjectRecord | null>(null);
   const [modelDefaults, setModelDefaults] = useState<(AIModelDefaultsRecord["migrationModels"] & AIModelDefaultsRecord["platformModels"]) | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "sources" | "artifacts">(
-    initialTab === "sources" || initialTab === "artifacts" ? initialTab : "overview",
+  const [activeTab, setActiveTab] = useState<"overview" | "feeds" | "artifacts">(
+    initialTab === "feeds" || initialTab === "sources" ? "feeds" : initialTab === "artifacts" ? "artifacts" : "overview",
   );
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -89,7 +89,16 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   }, [session]);
 
   const role: SessionRole = session?.role ?? "read_only_auditor";
-  const navigationActiveTab = activeTab === "overview" || activeTab === "sources" || activeTab === "artifacts" ? activeTab : "overview";
+  const navigationActiveTab = activeTab === "overview" || activeTab === "feeds" || activeTab === "artifacts" ? activeTab : "overview";
+
+  const handleFeedClick = (sourceDefinitionId: string) => {
+    if (!session) return;
+    if (session.role === "business_user") {
+      router.push(`/projects/${id}/feeds/${sourceDefinitionId}/review`);
+    } else {
+      router.push(`/projects/${id}/feeds/${sourceDefinitionId}`);
+    }
+  };
 
   return (
     <main className="flex min-h-screen flex-col bg-surface text-slate-800">
@@ -135,12 +144,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               <ProjectDetailView modelDefaults={modelDefaults} project={project} />
               <KnowledgeFreezePanel projectId={id} token={session.accessToken} />
             </div>
-          ) : activeTab === "sources" ? (
+          ) : activeTab === "feeds" ? (
             <SourceList
               projectId={id}
               role={role}
               token={session.accessToken}
               destinationSchemaDdl={project?.domainConfig?.destinationSchemaDdl ?? null}
+              onFeedClick={handleFeedClick}
             />
           ) : (
             <SourceArtifactsPanel projectId={id} role={role} token={session.accessToken} />

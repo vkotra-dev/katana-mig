@@ -29,16 +29,19 @@ vi.mock("../../../lib/codegen-api", () => ({
   triggerSchemaAnalysis: triggerSchemaAnalysisMock,
 }));
 
+const onFeedClickMock = vi.fn();
 const baseProps = {
   projectId: "project-1",
   role: "central_team" as const,
   token: "token-1",
+  onFeedClick: onFeedClickMock,
 };
 
 describe("SourceList", () => {
   beforeEach(() => {
     getSchemaAnalysisMock.mockReset();
     triggerSchemaAnalysisMock.mockReset();
+    onFeedClickMock.mockReset();
   });
 
   it("shows the DDL analysis banner when sources exist but no analysis is available", async () => {
@@ -77,23 +80,27 @@ describe("SourceList", () => {
     expect(await screen.findByText("Destination schema was last analyzed at 2026-06-30.")).toBeInTheDocument();
   });
 
-  it("renders source rows", async () => {
+  it("renders source rows and triggers click", async () => {
     getSchemaAnalysisMock.mockResolvedValue(null);
 
     render(<SourceList {...baseProps} destinationSchemaDdl="CREATE TABLE customers (id INT);" />);
 
     expect(await screen.findByText("Customer Extract")).toBeInTheDocument();
     expect(screen.getByText("CSV")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add Source" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Feed" })).toBeInTheDocument();
+
+    const openFeedButton = screen.getByRole("button", { name: "Open feed" });
+    fireEvent.click(openFeedButton);
+    expect(onFeedClickMock).toHaveBeenCalledWith("source-1");
   });
 
   it("hides add source for non-admin roles", async () => {
     getSchemaAnalysisMock.mockResolvedValue(null);
 
-    render(<SourceList projectId="project-1" role="project_stakeholder" token="token-1" destinationSchemaDdl="CREATE TABLE customers (id INT);" />);
+    render(<SourceList projectId="project-1" role="project_stakeholder" token="token-1" destinationSchemaDdl="CREATE TABLE customers (id INT);" onFeedClick={onFeedClickMock} />);
 
     await waitFor(() => expect(screen.getByText("Customer Extract")).toBeInTheDocument());
-    expect(screen.queryByRole("button", { name: "Add Source" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Feed" })).not.toBeInTheDocument();
   });
 
   it("triggers analysis and updates the banner to re-analyze after success", async () => {

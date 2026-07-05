@@ -167,10 +167,10 @@ describe("ProjectDetailPage", () => {
     expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
   });
 
-  it("restores the requested project tab from the query string", async () => {
+  it("restores the requested project tab from the query string (feeds/sources mapping)", async () => {
     searchParamsGetMock.mockImplementation((key: string) => (key === "tab" ? "sources" : null));
     await renderPage("proj-1");
-    expect(await screen.findByRole("button", { name: "Sources" })).toHaveClass("bg-primary");
+    expect(await screen.findByRole("button", { name: "Feeds" })).toHaveClass("bg-primary");
   });
 
   it("passes the model defaults into the project detail view", async () => {
