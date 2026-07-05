@@ -60,17 +60,23 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
 
   const loadAllData = async (token: string) => {
     try {
-      const [feedData, slicesData, fibersData, schemaData] = await Promise.all([
+      const [feedData, slicesData, fibersData] = await Promise.all([
         getFeedContract(token, projectId, feedId),
         listFeedSlices(token, projectId, feedId),
         listFeedFibers(token, projectId, feedId),
-        listFeedSchema(token, projectId, feedId),
       ]);
 
       setFeed(feedData);
       setSlices(slicesData);
       setFibers(fibersData);
-      setFeedSchema(schemaData);
+
+      // Try fetching feed schema (might fail with 404 if no slices/schema parsed yet)
+      try {
+        const schemaData = await listFeedSchema(token, projectId, feedId);
+        setFeedSchema(schemaData);
+      } catch (err) {
+        setFeedSchema([]);
+      }
 
       // Try fetching mapping snapshot (might fail with 404 if not proposed yet)
       try {
@@ -331,12 +337,12 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                     ) : (
                       <div className="space-y-1.5">
                         <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Masked Data Preview</div>
-                        <div className="max-h-48 overflow-auto border border-outline-variant rounded-lg bg-white">
-                          <table className="w-full text-left text-[10px] border-collapse font-mono">
+                        <div className="max-h-72 max-w-[50vw] overflow-auto border border-outline-variant rounded-lg bg-white">
+                          <table className="text-left text-[10px] border-collapse font-mono">
                             <thead className="bg-slate-50 border-b border-outline-variant sticky top-0">
                               <tr>
-                                {feedSchema.map((col, i) => (
-                                  <th key={i} className="px-3 py-1.5 font-bold text-slate-700 whitespace-nowrap">{col.fieldName}</th>
+                                {(latestSlice.headerCsv ?? "").split(",").map((col, i) => (
+                                  <th key={i} className="px-3 py-1.5 font-bold text-slate-700 whitespace-nowrap">{col.trim()}</th>
                                 ))}
                               </tr>
                             </thead>
