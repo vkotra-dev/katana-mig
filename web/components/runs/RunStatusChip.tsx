@@ -9,6 +9,7 @@ const STATUS_LABELS: Record<RunStatus, string> = {
   completed: "completed",
   failed: "failed",
   awaiting_approval: "awaiting approval",
+  dry_run_review: "dry run review",
 };
 
 const STATUS_STYLES: Record<RunStatus, string> = {
@@ -18,6 +19,7 @@ const STATUS_STYLES: Record<RunStatus, string> = {
   completed: "bg-emerald-100 text-emerald-700",
   failed: "bg-red-100 text-red-700",
   awaiting_approval: "bg-amber-100 text-amber-800",
+  dry_run_review: "bg-purple-100 text-purple-700",
 };
 
 export function runStatusLabel(status: RunStatus): string {

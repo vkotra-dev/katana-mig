@@ -8,7 +8,8 @@ const {
   listFeedSlicesMock,
   listFeedFibersMock,
   listFeedSchemaMock,
-  getMappingSnapshotMock,
+  analyzeFeedSourceMock,
+  getAllApprovedMappingSnapshotsMock,
   proposeMappingSnapshotMock,
   listLookupValueMapsMock,
   submitLookupInputsMock,
@@ -19,7 +20,8 @@ const {
   listFeedSlicesMock: vi.fn(),
   listFeedFibersMock: vi.fn(),
   listFeedSchemaMock: vi.fn(),
-  getMappingSnapshotMock: vi.fn(),
+  analyzeFeedSourceMock: vi.fn(),
+  getAllApprovedMappingSnapshotsMock: vi.fn(),
   proposeMappingSnapshotMock: vi.fn(),
   listLookupValueMapsMock: vi.fn(),
   submitLookupInputsMock: vi.fn(),
@@ -35,10 +37,11 @@ vi.mock("../../../../../lib/feeds-api", () => ({
   listFeedSlices: listFeedSlicesMock,
   listFeedFibers: listFeedFibersMock,
   listFeedSchema: listFeedSchemaMock,
+  analyzeFeedSource: analyzeFeedSourceMock,
 }));
 
 vi.mock("../../../../../lib/mapping-api", () => ({
-  getMappingSnapshot: getMappingSnapshotMock,
+  getAllApprovedMappingSnapshots: getAllApprovedMappingSnapshotsMock,
   proposeMappingSnapshot: proposeMappingSnapshotMock,
 }));
 
@@ -115,7 +118,7 @@ describe("FeedDetailPage", () => {
         createdAt: "2026-06-30T00:00:00Z",
       },
     ]);
-    getMappingSnapshotMock.mockResolvedValue(DRAFT_SNAPSHOT);
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([DRAFT_SNAPSHOT]);
     listLookupValueMapsMock.mockResolvedValue([]);
     listFeedSchemaMock.mockResolvedValue([{ fieldName: "src_status" }]);
   });
@@ -146,7 +149,9 @@ describe("FeedDetailPage", () => {
 
     expect(await screen.findByText("Slice")).toBeInTheDocument();
     expect(screen.getByText("A")).toBeInTheDocument();
-    expect(screen.getAllByText("src_status")[0]).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getAllByText("src_status")[0]).toBeInTheDocument();
+    });
 
     const analyzeBtn = screen.getByRole("button", { name: "Analyze with AI" });
     fireEvent.click(analyzeBtn);

@@ -108,7 +108,7 @@ export async function listNotifications(token: string): Promise<NotificationReco
 }
 
 export async function getUnreadNotificationCount(token: string): Promise<number> {
-  const response = await requestJson<NotificationCountRecord>("/notifications/count", {
+  const response = await requestJson<{ unread_count: number }>("/notifications/count", {
     method: "GET",
     token,
   });

@@ -31,7 +31,7 @@ export function ProjectResourcesEditor({ value, onChange }: ProjectResourcesEdit
     }
     const currentHtml = editor.getHTML();
     if (value !== currentHtml) {
-      editor.commands.setContent(value, false);
+      editor.commands.setContent(value, { emitUpdate: false });
     }
   }, [editor, mounted, value]);
 

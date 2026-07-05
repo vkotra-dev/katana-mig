@@ -93,7 +93,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   const handleFeedClick = (sourceDefinitionId: string) => {
     if (!session) return;
-    if (session.role === "business_user") {
+    if (session.role === "project_stakeholder") {
       router.push(`/projects/${id}/feeds/${sourceDefinitionId}/review`);
     } else {
       router.push(`/projects/${id}/feeds/${sourceDefinitionId}`);

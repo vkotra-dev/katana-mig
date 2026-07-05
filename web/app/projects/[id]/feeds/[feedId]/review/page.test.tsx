@@ -4,14 +4,14 @@ import ReviewPage from "./page";
 
 const {
   loadUiSessionMock,
-  getMappingSnapshotMock,
+  getAllApprovedMappingSnapshotsMock,
   listLookupValueMapsMock,
   approveMappingSnapshotMock,
   rejectMappingSnapshotMock,
   routerPushMock,
 } = vi.hoisted(() => ({
   loadUiSessionMock: vi.fn(),
-  getMappingSnapshotMock: vi.fn(),
+  getAllApprovedMappingSnapshotsMock: vi.fn(),
   listLookupValueMapsMock: vi.fn(),
   approveMappingSnapshotMock: vi.fn(),
   rejectMappingSnapshotMock: vi.fn(),
@@ -23,7 +23,7 @@ vi.mock("../../../../../../lib/session", () => ({
 }));
 
 vi.mock("../../../../../../lib/mapping-api", () => ({
-  getMappingSnapshot: getMappingSnapshotMock,
+  getAllApprovedMappingSnapshots: getAllApprovedMappingSnapshotsMock,
   approveMappingSnapshot: approveMappingSnapshotMock,
   rejectMappingSnapshot: rejectMappingSnapshotMock,
 }));
@@ -39,7 +39,7 @@ vi.mock("next/navigation", () => ({
 const BUSINESS_SESSION = {
   accessToken: "token-b",
   expiresAt: "2026-06-30T12:00:00Z",
-  role: "business_user" as const,
+  role: "project_stakeholder" as const,
   sessionVersion: 1,
   userId: "user-b",
 };
@@ -79,7 +79,7 @@ const SNAPSHOT = {
 describe("ReviewPage", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    getMappingSnapshotMock.mockResolvedValue(SNAPSHOT);
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([SNAPSHOT]);
     listLookupValueMapsMock.mockResolvedValue([]);
   });
 
@@ -89,7 +89,7 @@ describe("ReviewPage", () => {
     });
   }
 
-  it("renders review grid and displays approve/reject controls for business_user", async () => {
+  it("renders review grid and displays approve/reject controls for project_stakeholder", async () => {
     loadUiSessionMock.mockReturnValue(BUSINESS_SESSION);
     approveMappingSnapshotMock.mockResolvedValue({ ...SNAPSHOT, status: "approved" });
 
@@ -111,5 +111,30 @@ describe("ReviewPage", () => {
 
     expect(await screen.findByText("Review Mappings & Lookups")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
+  });
+
+  it("renders both policy_master and policy_claims tables when multiple snapshots are returned", async () => {
+    loadUiSessionMock.mockReturnValue(BUSINESS_SESSION);
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([
+      {
+        ...SNAPSHOT,
+        destinationObjectName: "policy_master",
+        fieldBindings: [
+          { sourceField: "src_id", destinationField: "policy_id", lookupName: null }
+        ]
+      },
+      {
+        ...SNAPSHOT,
+        destinationObjectName: "policy_claims",
+        fieldBindings: [
+          { sourceField: "claim_id", destinationField: "id", lookupName: null }
+        ]
+      }
+    ]);
+
+    await renderPage();
+
+    expect(await screen.findByText("policy_master")).toBeInTheDocument();
+    expect(screen.getByText("policy_claims")).toBeInTheDocument();
   });
 });

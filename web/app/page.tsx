@@ -10,7 +10,7 @@ import {
   type LoginResponse,
   type SessionResponse,
 } from "../lib/auth-api";
-import { loadUiSession, saveUiSession, type SessionRole, type UiSession } from "../lib/session";
+import { clearUiSession, loadUiSession, saveUiSession, type SessionRole, type UiSession } from "../lib/session";
 
 type AuthStatus = "loading" | "unauthenticated" | "authenticated";
 

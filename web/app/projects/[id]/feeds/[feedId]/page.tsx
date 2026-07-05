@@ -85,10 +85,11 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
         const snapshotsData = await getAllApprovedMappingSnapshots(token, projectId, feedId, true);
         setAllMappingSnapshots(snapshotsData);
         if (snapshotsData.length > 0) {
+          setExpandedTables(new Set(snapshotsData.map(s => s.destinationObjectName)));
           const mapsData = await listLookupValueMaps(token, projectId, feedId);
           setLookupMaps(mapsData);
         }
-      } catch {
+      } catch (err) {
         setAllMappingSnapshots([]);
       }
     } catch (err) {

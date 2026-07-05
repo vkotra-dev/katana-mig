@@ -92,7 +92,7 @@ function buildSamplePolicyPayload(draft: SamplePolicyDraft): SamplePolicy | null
   }
 
   return {
-    strategy: inferredStrategy,
+    strategy: inferredStrategy ?? "random",
     maxRows: null,
     stratifiedColumn: null,
   };
