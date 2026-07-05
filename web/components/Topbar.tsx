@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { logout } from "../lib/auth-api";
 import { navItemsForRole, type NavItem } from "../lib/ui-model";
-import { getPendingApprovalCount } from "../lib/feed-slice-approval-api";
 import { clearUiSession, loadUiSession } from "../lib/session";
 import { NotificationBell } from "./notifications/NotificationBell";
 
@@ -12,36 +10,7 @@ export interface TopbarProps {
 }
 
 export function Topbar({ role }: TopbarProps) {
-  const [approvalCount, setApprovalCount] = useState<number | null>(null);
-  const items: NavItem[] = navItemsForRole(role).map((item) =>
-    item.label === "Approvals" && approvalCount && approvalCount > 0
-      ? { ...item, badge: String(approvalCount) }
-      : item,
-  );
-
-  useEffect(() => {
-    const session = loadUiSession();
-    if (!session || role === "read_only_auditor") {
-      return;
-    }
-
-    let active = true;
-    void getPendingApprovalCount(session.accessToken)
-      .then((count) => {
-        if (active) {
-          setApprovalCount(count);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setApprovalCount(null);
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [role]);
+  const items: NavItem[] = navItemsForRole(role);
 
   const handleLogout = async () => {
     const session = loadUiSession();

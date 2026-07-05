@@ -261,18 +261,7 @@ class FeedSliceResponse(BaseModel):
     created_at: datetime
 
 
-class FeedSliceApprovalItemResponse(BaseModel):
-    project_id: str
-    project_name: str
-    source_definition_id: str
-    source_label: str
-    source_type: str
-    source_slice_id: str
-    source_slice_version: str
-    row_count: int
-    status: str
-    parse_warnings: list[str] | None
-    created_at: datetime
+
 
 
 class FeedSliceRejectRequest(BaseModel):
@@ -284,8 +273,7 @@ class FeedSliceResubmitRequest(BaseModel):
     parse_settings: dict[str, Any] | None = None
 
 
-class FeedSliceApprovalCountResponse(BaseModel):
-    pending_count: int
+
 
 
 NotificationEventType = Literal[

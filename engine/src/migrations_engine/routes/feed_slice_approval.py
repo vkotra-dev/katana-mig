@@ -5,8 +5,6 @@ from sqlalchemy.orm import Session
 
 from ..api.deps import get_central_team_user, get_current_user, get_db
 from ..api.schemas import (
-    FeedSliceApprovalCountResponse,
-    FeedSliceApprovalItemResponse,
     FeedSliceRejectRequest,
     FeedSliceResubmitRequest,
     FeedSliceResponse,
@@ -14,29 +12,11 @@ from ..api.schemas import (
 from ..db.models import User
 from ..management.feeds import (
     approve_source_slice,
-    count_pending_approvals,
-    list_pending_approvals,
     reject_source_slice,
     resubmit_source_slice,
 )
 
 router = APIRouter(tags=["approvals"])
-
-
-@router.get("/approvals", response_model=list[FeedSliceApprovalItemResponse])
-def get_approvals(
-    actor: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> list[FeedSliceApprovalItemResponse]:
-    return list_pending_approvals(db, actor=actor)
-
-
-@router.get("/approvals/count", response_model=FeedSliceApprovalCountResponse)
-def get_approvals_count(
-    actor: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> FeedSliceApprovalCountResponse:
-    return count_pending_approvals(db, actor=actor)
 
 
 @router.post(

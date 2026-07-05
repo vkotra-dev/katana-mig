@@ -1,22 +1,6 @@
 import { API_BASE_URL } from "./api-base";
 
-export interface FeedSliceApprovalItem {
-  projectId: string;
-  projectName: string;
-  sourceDefinitionId: string;
-  sourceLabel: string;
-  sourceType: string;
-  sourceSliceId: string;
-  sourceSliceVersion: string;
-  rowCount: number;
-  status: string;
-  parseWarnings: string[] | null;
-  createdAt: string;
-}
 
-export interface FeedSliceApprovalCount {
-  pendingCount: number;
-}
 
 export class FeedSliceApprovalApiError extends Error {
   code: string;
@@ -73,49 +57,7 @@ async function parseApiError(response: Response): Promise<FeedSliceApprovalApiEr
   }
 }
 
-function mapApprovalItem(response: {
-  project_id: string;
-  project_name: string;
-  source_definition_id: string;
-  source_label: string;
-  source_type: string;
-  source_slice_id: string;
-  source_slice_version: string;
-  row_count: number;
-  status: string;
-  parse_warnings: string[] | null;
-  created_at: string;
-}): FeedSliceApprovalItem {
-  return {
-    projectId: response.project_id,
-    projectName: response.project_name,
-    sourceDefinitionId: response.source_definition_id,
-    sourceLabel: response.source_label,
-    sourceType: response.source_type,
-    sourceSliceId: response.source_slice_id,
-    sourceSliceVersion: response.source_slice_version,
-    rowCount: response.row_count,
-    status: response.status,
-    parseWarnings: response.parse_warnings,
-    createdAt: response.created_at,
-  };
-}
 
-export async function listPendingApprovals(token: string): Promise<FeedSliceApprovalItem[]> {
-  const response = await requestJson<Array<Parameters<typeof mapApprovalItem>[0]>>("/approvals", {
-    method: "GET",
-    token,
-  });
-  return response.map(mapApprovalItem);
-}
-
-export async function getPendingApprovalCount(token: string): Promise<number> {
-  const response = await requestJson<FeedSliceApprovalCount>("/approvals/count", {
-    method: "GET",
-    token,
-  });
-  return response.pendingCount;
-}
 
 export async function approveFeedSlice(
   token: string,

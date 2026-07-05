@@ -10,8 +10,6 @@ from ..api.deps import AuthApiError
 from ..api.schemas import (
     FeedCreateRequest,
     FeedResponse,
-    FeedSliceApprovalCountResponse,
-    FeedSliceApprovalItemResponse,
     FeedSliceRejectRequest,
     FeedSliceResubmitRequest,
     FeedSliceResponse,
@@ -172,81 +170,7 @@ def get_source_slice(
     return _source_slice_response(db, source_slice)
 
 
-def list_pending_approvals(db: Session, *, actor: User) -> list[FeedSliceApprovalItemResponse]:
-    stmt = (
-        select(
-            ProjectRegistry.project_id,
-            ProjectRegistry.name,
-            Feed.source_definition_id,
-            Feed.source_type,
-            Feed.source_details,
-            FeedSlice.source_slice_id,
-            FeedSlice.source_slice_version,
-            FeedSlice.status,
-            FeedSlice.parse_warnings,
-            FeedSlice.created_at,
-            func.count(FeedSliceRow.id).label("row_count"),
-        )
-        .join(Feed, Feed.project_id == ProjectRegistry.project_id)
-        .join(FeedSlice, FeedSlice.source_definition_id == Feed.source_definition_id)
-        .outerjoin(FeedSliceRow, FeedSliceRow.source_slice_id == FeedSlice.source_slice_id)
-        .where(FeedSlice.status == "pending_approval")
-        .group_by(
-            ProjectRegistry.project_id,
-            ProjectRegistry.name,
-            Feed.source_definition_id,
-            Feed.source_type,
-            Feed.source_details,
-            FeedSlice.source_slice_id,
-            FeedSlice.source_slice_version,
-            FeedSlice.status,
-            FeedSlice.parse_warnings,
-            FeedSlice.created_at,
-        )
-        .order_by(FeedSlice.created_at.asc())
-    )
-    stmt = _apply_visibility_filter(stmt, actor=actor)
-    rows = db.execute(stmt).all()
-    return [
-        FeedSliceApprovalItemResponse(
-            project_id=project_id,
-            project_name=project_name,
-            source_definition_id=source_definition_id,
-            source_label=_source_label(source_details),
-            source_type=source_type,
-            source_slice_id=source_slice_id,
-            source_slice_version=source_slice_version,
-            row_count=row_count,
-            status=status,
-            parse_warnings=parse_warnings,
-            created_at=created_at,
-        )
-        for (
-            project_id,
-            project_name,
-            source_definition_id,
-            source_type,
-            source_details,
-            source_slice_id,
-            source_slice_version,
-            status,
-            parse_warnings,
-            created_at,
-            row_count,
-        ) in rows
-    ]
 
-
-def count_pending_approvals(db: Session, *, actor: User) -> FeedSliceApprovalCountResponse:
-    stmt = (
-        select(func.count(FeedSlice.source_slice_id))
-        .join(Feed, Feed.source_definition_id == FeedSlice.source_definition_id)
-        .join(ProjectRegistry, ProjectRegistry.project_id == Feed.project_id)
-        .where(FeedSlice.status == "pending_approval")
-    )
-    stmt = _apply_visibility_filter(stmt, actor=actor)
-    pending_count = db.scalar(stmt) or 0
-    return FeedSliceApprovalCountResponse(pending_count=pending_count)
 
 
 def approve_source_slice(

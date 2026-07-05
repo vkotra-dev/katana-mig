@@ -14,11 +14,11 @@ export function navItemsForRole(role: "central_team" | "project_stakeholder" | "
   ];
 
   if (role === "central_team") {
-    return [...common, { label: "Approvals", href: "/approvals" }, { label: "Admin", href: "/admin" }];
+    return [...common, { label: "Admin", href: "/admin" }];
   }
 
   if (role === "project_stakeholder") {
-    return [...common, { label: "Approvals", href: "/approvals" }];
+    return common;
   }
 
   return common;

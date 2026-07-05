@@ -155,50 +155,6 @@ def _seed_pending_slice(
     return slice_row
 
 
-def test_pending_approvals_respect_membership_and_count(admin_token: str, stakeholder_token: str) -> None:
-    project_id, _ = _create_project("Approval Project")
-    source_definition_id = str(uuid.uuid4())
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".csv", mode="wb") as handle:
-        handle.write(b"CUST_ID,SURNAME\n100042,Smith\n")
-        retained_path = handle.name
-
-    with SessionLocal() as db:
-        source_definition = SourceDefinition(
-            source_definition_id=source_definition_id,
-            project_id=project_id,
-            source_type="csv",
-            source_contract_version="v1",
-            source_details={"label": "Customer Extract", "encoding": "utf-8"},
-            status="active",
-        )
-        db.add(source_definition)
-        db.flush()
-        _seed_pending_slice(
-            db,
-            project_id=project_id,
-            source_definition_id=source_definition_id,
-            source_slice_version="v1",
-            file_storage_path=retained_path,
-        )
-        stakeholder_user = db.scalar(select(User).where(User.email == "stakeholder@example.com"))
-        assert stakeholder_user is not None
-        db.add(
-            ProjectMembership(
-                project_id=project_id,
-                user_id=stakeholder_user.user_id,
-            )
-        )
-        db.commit()
-
-    central_count = client.get("/approvals/count", headers={"Authorization": f"Bearer {admin_token}"})
-    assert central_count.status_code == 200
-    assert central_count.json()["pending_count"] == 1
-
-    stakeholder_list = client.get("/approvals", headers={"Authorization": f"Bearer {stakeholder_token}"})
-    assert stakeholder_list.status_code == 200
-    assert len(stakeholder_list.json()) == 1
-    assert stakeholder_list.json()[0]["project_id"] == project_id
-
 
 def test_approve_reject_and_resubmit(admin_token: str) -> None:
     project_id, _ = _create_project("Decision Project")

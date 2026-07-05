@@ -6,8 +6,8 @@ describe("Sidebar", () => {
     render(<Sidebar role="project_stakeholder" />);
 
     expect(screen.getByText("Portfolio")).toBeInTheDocument();
-    expect(screen.getByText("Approvals")).toBeInTheDocument();
     expect(screen.queryByText("Admin")).not.toBeInTheDocument();
+    expect(screen.queryByText("Approvals")).not.toBeInTheDocument();
   });
 
   it("hides approvals and admin for read-only auditors", () => {
