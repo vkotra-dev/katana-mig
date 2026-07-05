@@ -11,7 +11,6 @@ const {
   listLookupValueMapsMock,
   approveFeedSliceMock,
   rejectFeedSliceMock,
-  uploadFeedSliceMock,
   generateLookupSnapshotMock,
   createLookupValueMapMock,
   routerPushMock,
@@ -24,7 +23,6 @@ const {
   listLookupValueMapsMock: vi.fn(),
   approveFeedSliceMock: vi.fn(),
   rejectFeedSliceMock: vi.fn(),
-  uploadFeedSliceMock: vi.fn(),
   generateLookupSnapshotMock: vi.fn(),
   createLookupValueMapMock: vi.fn(),
   routerPushMock: vi.fn(),
@@ -40,7 +38,6 @@ vi.mock("../../../../../lib/feeds-api", () => ({
   listFeedValueSummaries: listFeedValueSummariesMock,
   approveFeedSlice: approveFeedSliceMock,
   rejectFeedSlice: rejectFeedSliceMock,
-  uploadFeedSlice: uploadFeedSliceMock,
 }));
 
 vi.mock("../../../../../lib/mapping-api", () => ({

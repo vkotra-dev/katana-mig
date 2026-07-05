@@ -8,7 +8,6 @@ import {
   listFeedSlices,
   approveFeedSlice,
   rejectFeedSlice,
-  uploadFeedSlice,
   listFeedValueSummaries,
   listFeedSchema,
   type FeedContractRecord,
@@ -44,9 +43,6 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
   const [lookupMaps, setLookupMaps] = useState<LookupValueMapRecord[]>([]);
   const [valueSummaries, setValueSummaries] = useState<FeedValueSummaryRecord[]>([]);
   
-  // Slice upload state
-  const [uploadText, setUploadText] = useState("");
-  const [uploading, setUploading] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [showRejectForm, setShowRejectForm] = useState(false);
 
@@ -135,19 +131,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
     }
   };
 
-  const handleUploadSlice = async () => {
-    if (!session || !uploadText.trim()) return;
-    setUploading(true);
-    try {
-      await uploadFeedSlice(session.accessToken, projectId, feedId, { content: uploadText.trim() });
-      setUploadText("");
-      await loadAllData(session.accessToken);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to upload slice.");
-    } finally {
-      setUploading(false);
-    }
-  };
+
 
   const handleSaveLookup = async (lookupName: string, refTable: string) => {
     if (!session) return;
@@ -378,27 +362,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                 )}
               </div>
 
-              {/* Upload Slice Card */}
-              {role === "central_team" && (
-                <div className="rounded-2xl border border-outline-variant bg-surface-container p-5 shadow-sm space-y-3">
-                  <h3 className="text-base font-bold text-slate-900">Upload New Slice</h3>
-                  <p className="text-xs text-slate-500">Paste raw CSV data to intake a new slice version.</p>
-                  <textarea
-                    value={uploadText}
-                    onChange={(e) => setUploadText(e.target.value)}
-                    placeholder="column1,column2&#10;value1,value2"
-                    className="h-32 w-full rounded-lg border border-slate-300 bg-white p-2.5 font-mono text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                  <button
-                    onClick={handleUploadSlice}
-                    disabled={uploading || !uploadText.trim()}
-                    className="w-full rounded-lg bg-primary py-2.5 text-xs font-semibold text-white disabled:opacity-50"
-                    type="button"
-                  >
-                    {uploading ? "Uploading..." : "Upload Slice"}
-                  </button>
-                </div>
-              )}
+
             </div>
 
             {/* Right Column: downstream steps gated by slice status */}
@@ -408,7 +372,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                   <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-md text-center max-w-md space-y-2">
                     <h3 className="text-sm font-bold text-amber-800">Workspace Locked</h3>
                     <p className="text-xs text-amber-700">
-                      Slice approval is required before mapping and lookups can proceed. Approve the uploaded slice or submit a new version.
+                      Slice approval is required before mapping and lookups can proceed. Approve the uploaded slice.
                     </p>
                   </div>
                 </div>
