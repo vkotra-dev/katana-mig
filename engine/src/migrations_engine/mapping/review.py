@@ -4,6 +4,8 @@ import re
 from datetime import UTC, datetime
 from typing import Literal
 
+from sqlalchemy.exc import IntegrityError
+
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -293,6 +295,20 @@ def propose_mapping(
             422,
         )
 
+    # Determine which destination tables already have snapshots in this project.
+    # The unique constraint is (project_id, destination_object_name, version) — no source_definition_id —
+    # so we must check at project scope to avoid duplicate key errors.
+    already_mapped_tables = set(
+        db.scalars(
+            select(MappingSnapshot.destination_object_name).where(
+                MappingSnapshot.project_id == project_id,
+            )
+        ).all()
+    )
+    expected_table_names = set(ddl_tables.keys())
+    if already_mapped_tables >= expected_table_names:
+        raise AuthApiError("mapping_already_proposed", "Mapping has already been proposed for this feed.", 409)
+
     source_columns = _latest_source_columns(
         db,
         project_id=project_id,
@@ -360,6 +376,8 @@ def propose_mapping(
         if tbl_name in seen_tables:
             continue
         seen_tables.add(tbl_name)
+        if tbl_name in already_mapped_tables:
+            continue  # snapshot already exists for this table, skip to avoid duplicate key
         
         destination_fields = ddl_tables[tbl_name]
         
@@ -406,8 +424,12 @@ def propose_mapping(
         db.add(snapshot)
         snapshots.append(snapshot)
 
-    db.flush()
-    
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise AuthApiError("mapping_already_proposed", "Mapping has already been proposed for this feed.", 409)
+
     for snapshot in snapshots:
         record_management_audit(
             db,
@@ -435,16 +457,31 @@ def get_mapping(
     source_definition_id: str,
     destination_object_name: str | None = None,
 ) -> MappingReviewResponse:
-    if not destination_object_name:
-        destination_object_name, _ = _get_project_destination_schema(db, project_id=project_id)
-        
     _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
-    snapshot = _latest_snapshot(
-        db,
-        project_id=project_id,
-        source_definition_id=source_definition_id,
-        destination_object_name=destination_object_name,
-    )
+    if destination_object_name:
+        snapshot = _latest_snapshot(
+            db,
+            project_id=project_id,
+            source_definition_id=source_definition_id,
+            destination_object_name=destination_object_name,
+        )
+    else:
+        # No table specified — find any snapshot for this feed, falling back to project-wide
+        # (snapshots are unique per project+table, not per feed)
+        snapshot = db.scalar(
+            select(MappingSnapshot)
+            .where(
+                MappingSnapshot.project_id == project_id,
+                MappingSnapshot.source_definition_id == source_definition_id,
+            )
+            .order_by(MappingSnapshot.created_at.desc(), MappingSnapshot.mapping_snapshot_id.desc())
+        )
+        if snapshot is None:
+            snapshot = db.scalar(
+                select(MappingSnapshot)
+                .where(MappingSnapshot.project_id == project_id)
+                .order_by(MappingSnapshot.created_at.desc(), MappingSnapshot.mapping_snapshot_id.desc())
+            )
     if snapshot is None:
         raise AuthApiError("mapping_not_found", "No mapping snapshot exists yet.", 404)
     return _snapshot_to_response(snapshot)

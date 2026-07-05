@@ -70,7 +70,7 @@ def analyze_source_slice(
     if existing_artifact is not None:
         return SourceAnalysisResponse(schema_artifact_id=existing_artifact.schema_artifact_id)
 
-    sample_rows = _load_slice_rows(db, source_slice_id=source_slice.source_slice_id, limit=200)
+    sample_rows = _load_slice_rows(db, source_slice_id=source_slice.source_slice_id, limit=10)
     sample_text = _build_sample_text(header_csv=source_slice.header_csv, rows=sample_rows)
     system_prompt = _build_system_prompt(source_definition)
 
@@ -174,25 +174,19 @@ def _get_project_definition(db: Session, *, project_id: str) -> ProjectDefinitio
 def _latest_approved_source_slice(db: Session, *, source_definition_id: str) -> FeedSlice:
     source_slice = db.scalar(
         select(FeedSlice)
-        .where(
-            FeedSlice.source_definition_id == source_definition_id,
-            FeedSlice.status == "approved",
-        )
-        .order_by(FeedSlice.approved_at.is_(None), FeedSlice.approved_at.desc(), FeedSlice.created_at.desc())
+        .where(FeedSlice.source_definition_id == source_definition_id)
+        .order_by(FeedSlice.created_at.desc())
     )
     if source_slice is None:
-        raise AuthApiError("source_analysis_not_ready", "An approved source slice is required.", 409)
+        raise AuthApiError("source_analysis_not_ready", "No slice found for this feed.", 409)
     return source_slice
 
 
 def _latest_source_slice_version(db: Session, *, source_definition_id: str) -> str | None:
     source_slice = db.scalar(
         select(FeedSlice.source_slice_version)
-        .where(
-            FeedSlice.source_definition_id == source_definition_id,
-            FeedSlice.status == "approved",
-        )
-        .order_by(FeedSlice.approved_at.is_(None), FeedSlice.approved_at.desc(), FeedSlice.created_at.desc())
+        .where(FeedSlice.source_definition_id == source_definition_id)
+        .order_by(FeedSlice.created_at.desc())
     )
     return source_slice
 

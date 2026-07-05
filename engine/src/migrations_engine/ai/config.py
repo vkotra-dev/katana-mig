@@ -43,6 +43,13 @@ class MigrationModelConfig:
 class ProviderConfig:
     anthropic_api_key_env: str
     openai_api_key_env: str
+    gemini_api_key_env: str
+
+
+@dataclass(frozen=True)
+class PiiConfig:
+    field_names: frozenset[str]
+    patterns: tuple[re.Pattern[str], ...]
 
 
 @dataclass(frozen=True)
@@ -50,6 +57,7 @@ class AIConfig:
     models: PlatformModelConfig
     migration_models: MigrationModelConfig
     providers: ProviderConfig
+    pii: PiiConfig
 
 
 _TASK_TO_MODEL_ATTR = {
@@ -110,6 +118,10 @@ def _parse_config(raw: Any) -> AIConfig:
     migration_models = _require_mapping(migration, "models")
     providers = _require_mapping(raw, "providers")
 
+    pii_raw = raw.get("pii", {})
+    pii_field_names: list[str] = pii_raw.get("field_names", []) if isinstance(pii_raw, dict) else []
+    pii_patterns_raw: list[str] = pii_raw.get("patterns", []) if isinstance(pii_raw, dict) else []
+
     return AIConfig(
         models=PlatformModelConfig(
             planning=_require_str(models, "planning", "models.planning"),
@@ -151,6 +163,11 @@ def _parse_config(raw: Any) -> AIConfig:
                 providers, "anthropic_api_key_env", "providers.anthropic_api_key_env"
             ),
             openai_api_key_env=_require_str(providers, "openai_api_key_env", "providers.openai_api_key_env"),
+            gemini_api_key_env=_require_str(providers, "gemini_api_key_env", "providers.gemini_api_key_env"),
+        ),
+        pii=PiiConfig(
+            field_names=frozenset(pii_field_names),
+            patterns=tuple(re.compile(p) for p in pii_patterns_raw),
         ),
     )
 

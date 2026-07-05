@@ -15,3 +15,187 @@ migration:
 providers:
   anthropic_api_key_env: ANTHROPIC_API_KEY
   openai_api_key_env: OPENAI_API_KEY
+  gemini_api_key_env: GEMINI_API_KEY
+pii:
+  field_names:
+    # Names
+    - name
+    - fullname
+    - firstname
+    - first
+    - lastname
+    - last
+    - surname
+    - middlename
+    - middle
+    - preferredname
+    - legalname
+    - maidenname
+    - nickname
+    # SSN / Tax IDs
+    - ssn
+    - socialsecuritynumber
+    - socialsecurityno
+    - socialsecurity
+    - socsec
+    - socsecuritynumber
+    - socsecurity
+    - ssno
+    - ssnumber
+    - securitynumber
+    - taxid
+    - taxidentification
+    - taxidentificationnumber
+    - taxpayerid
+    - taxpayerno
+    - tin
+    - itin
+    - ein
+    - einno
+    - fein
+    - employeridentificationnumber
+    - federalemployeridentificationnumber
+    # Date of birth
+    - dob
+    - dateofbirth
+    - birthdate
+    - birthday
+    - birthyear
+    # Email
+    - email
+    - emailaddress
+    - emailid
+    - workemail
+    - personalemail
+    # Phone
+    - phone
+    - phonenumber
+    - phoneno
+    - phonenum
+    - ph
+    - phno
+    - phnum
+    - mobile
+    - mobilenumber
+    - mobileno
+    - mobilephone
+    - mob
+    - mobno
+    - cell
+    - cellphone
+    - cellnumber
+    - cellno
+    - tel
+    - telephone
+    - telephonenumber
+    - telno
+    - homephone
+    - homeph
+    - workphone
+    - workph
+    - officephone
+    - officeph
+    - contactnumber
+    - contactno
+    - contactphone
+    - fax
+    - faxnumber
+    - faxno
+    # Address
+    - address
+    - streetaddress
+    - street
+    - address1
+    - address2
+    - city
+    - state
+    - postcode
+    - postalcode
+    - zipcode
+    - zip
+    - county
+    # Financial
+    - accountnumber
+    - accountno
+    - accountnum
+    - acctno
+    - acctnum
+    - acct
+    - bankaccount
+    - bankacct
+    - bankaccountno
+    - bankaccountnum
+    - chkacct
+    - checkingaccount
+    - checkingaccountno
+    - savacct
+    - savingsaccount
+    - savingsaccountno
+    - routingnumber
+    - routingno
+    - routingnum
+    - abaroutingnumber
+    - aba
+    - iban
+    - swiftcode
+    - swift
+    - bsb
+    - sortcode
+    - creditcard
+    - creditcardnumber
+    - creditcardno
+    - ccnumber
+    - ccno
+    - cardnumber
+    - cardno
+    - debitcard
+    - debitcardnumber
+    # Government IDs
+    - nino
+    - nin
+    - passport
+    - passportnumber
+    - passportno
+    - driverslicense
+    - drivinglicense
+    - driverslicensenumber
+    - licensenumber
+    - stateid
+    - governmentid
+    # Medical / Insurance
+    - medicareid
+    - medicarenumber
+    - medicaidnumber
+    - insuranceid
+    - insurancenumber
+    - membernumber
+    - memberid
+    - patientid
+    # Other identifiers
+    - nationalid
+    - nationalidnumber
+    - idnumber
+    - employeeid
+    - customernumber
+    - customerid
+    - userid
+  patterns:
+    # SSN: 123-45-6789 | 123 45 6789 | 123456789
+    - "^\\d{3}-\\d{2}-\\d{4}$"
+    - "^\\d{3}\\s\\d{2}\\s\\d{4}$"
+    - "^\\d{9}$"
+    # ITIN: starts with 9
+    - "^9\\d{2}-[789]\\d-\\d{4}$"
+    # EIN / FEIN: 12-3456789
+    - "^\\d{2}-\\d{7}$"
+    # US phone
+    - "^\\+?1?\\s*[\\(\\-\\.]?\\d{3}[\\)\\-\\.\\s]\\s*\\d{3}[\\-\\.\\s]\\d{4}$"
+    - "^\\d{10}$"
+    # Email
+    - "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$"
+    # Credit card Visa/MC 16-digit
+    - "^\\d{4}[\\s\\-]?\\d{4}[\\s\\-]?\\d{4}[\\s\\-]?\\d{4}$"
+    # Amex 4-6-5
+    - "^\\d{4}[\\s\\-]?\\d{6}[\\s\\-]?\\d{5}$"
+    # IBAN
+    - "^[A-Z]{2}\\d{2}[A-Z0-9]{4,30}$"

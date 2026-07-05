@@ -5,6 +5,8 @@ from typing import Any
 from .adapter import AIAdapter, ConfigurationError
 from .anthropic_adapter import AnthropicAdapter
 from .config import get_ai_config, resolve_model
+from .gemini_adapter import GeminiAdapter
+from .mock_adapter import MockAdapter
 from ..api.schemas import ModelPolicy
 from .openai_adapter import OpenAIAdapter
 
@@ -41,6 +43,10 @@ def get_adapter(task: str, model_policy: ModelPolicy | dict[str, Any] | None = N
     model_id = resolve_model(task, policy, config)
     if model_id.startswith("claude-") or model_id.startswith("anthropic/"):
         return AnthropicAdapter(model_id=model_id, api_key_env=config.providers.anthropic_api_key_env)
-    if model_id.startswith("gpt-") or model_id.startswith("o1-"):
+    if model_id.startswith("gpt-") or model_id.startswith("o1-") or model_id.startswith("o3-") or model_id.startswith("o4-"):
         return OpenAIAdapter(model_id=model_id, api_key_env=config.providers.openai_api_key_env)
+    if model_id.startswith("gemini-") or model_id.startswith("models/gemini-"):
+        return GeminiAdapter(model_id=model_id, api_key_env=config.providers.gemini_api_key_env)
+    if model_id == "mock":
+        return MockAdapter()
     raise ConfigurationError(f"Unrecognised model prefix for task {task}: {model_id}")

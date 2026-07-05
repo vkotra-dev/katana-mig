@@ -151,9 +151,11 @@ export async function getAllApprovedMappingSnapshots(
   token: string,
   projectId: string,
   sourceDefinitionId: string,
+  anyStatus = false,
 ): Promise<MappingSnapshotRecord[]> {
+  const qs = anyStatus ? "?any_status=true" : "";
   const response = await requestMappingJson<MappingSnapshotRaw[]>(
-    `/projects/${projectId}/sources/${sourceDefinitionId}/mapping-snapshots`,
+    `/projects/${projectId}/sources/${sourceDefinitionId}/mapping-snapshots${qs}`,
     { method: "GET", token },
   );
   return response.map(mapMappingSnapshotResponse);

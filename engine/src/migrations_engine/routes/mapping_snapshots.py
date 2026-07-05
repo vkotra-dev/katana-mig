@@ -9,7 +9,7 @@ from ..api.schemas import MappingSnapshotResponse
 from ..db.models import User
 from ..management.access import require_project_access
 from ..management.feeds import get_source_contract
-from ..mapping.snapshots import select_latest_approved_mapping_snapshot, select_all_approved_mapping_snapshots
+from ..mapping.snapshots import select_latest_approved_mapping_snapshot, select_all_approved_mapping_snapshots, select_all_feed_mapping_snapshots
 from ..mapping.exceptions import SnapshotNotFoundError
 
 router = APIRouter(prefix="/projects/{project_id}/sources/{source_definition_id}", tags=["mapping-snapshots"])
@@ -52,6 +52,8 @@ def get_latest_mapping_snapshot(
                 "source_field": str(binding.get("source_field", "")),
                 "destination_field": str(binding.get("destination_field", "")),
                 "lookup_name": binding.get("lookup_name"),
+                "binding_type": binding.get("binding_type"),
+                "reference_table_name": binding.get("reference_table_name"),
             }
             for binding in mapping_snapshot.field_bindings
         ],
@@ -66,15 +68,23 @@ def get_latest_mapping_snapshot(
 def list_approved_mapping_snapshots(
     project_id: str,
     source_definition_id: str,
+    any_status: bool = False,
     actor: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[MappingSnapshotResponse]:
     require_project_access(db, user=actor, project_id=project_id)
-    snapshots = select_all_approved_mapping_snapshots(
-        db,
-        project_id=project_id,
-        source_definition_id=source_definition_id,
-    )
+    if any_status:
+        snapshots = select_all_feed_mapping_snapshots(
+            db,
+            project_id=project_id,
+            source_definition_id=source_definition_id,
+        )
+    else:
+        snapshots = select_all_approved_mapping_snapshots(
+            db,
+            project_id=project_id,
+            source_definition_id=source_definition_id,
+        )
     return [
         MappingSnapshotResponse(
             mapping_snapshot_id=s.mapping_snapshot_id,
@@ -86,6 +96,8 @@ def list_approved_mapping_snapshots(
                     "source_field": str(binding.get("source_field", "")),
                     "destination_field": str(binding.get("destination_field", "")),
                     "lookup_name": binding.get("lookup_name"),
+                    "binding_type": binding.get("binding_type"),
+                    "reference_table_name": binding.get("reference_table_name"),
                 }
                 for binding in s.field_bindings
             ],

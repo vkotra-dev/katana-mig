@@ -8,15 +8,16 @@ import {
   listFeedSlices,
   listFeedFibers,
   listFeedSchema,
+  analyzeFeedSource,
   type FeedContractRecord,
   type FeedSliceRecord,
   type FiberRecord,
   type FeedSchemaColumnRecord,
 } from "../../../../../lib/feeds-api";
 import {
-  getMappingSnapshot,
+  getAllApprovedMappingSnapshots,
   proposeMappingSnapshot,
-  type MappingReviewRecord,
+  type MappingSnapshotRecord,
 } from "../../../../../lib/mapping-api";
 import {
   listLookupValueMaps,
@@ -39,7 +40,8 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
   const [feed, setFeed] = useState<FeedContractRecord | null>(null);
   const [slices, setSlices] = useState<FeedSliceRecord[]>([]);
   const [feedSchema, setFeedSchema] = useState<FeedSchemaColumnRecord[]>([]);
-  const [mappingSnapshot, setMappingSnapshot] = useState<MappingReviewRecord | null>(null);
+  const [allMappingSnapshots, setAllMappingSnapshots] = useState<MappingSnapshotRecord[]>([]);
+  const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
   const [lookupMaps, setLookupMaps] = useState<LookupValueMapRecord[]>([]);
   const [fibers, setFibers] = useState<FiberRecord[]>([]);
   
@@ -78,15 +80,16 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
         setFeedSchema([]);
       }
 
-      // Try fetching mapping snapshot (might fail with 404 if not proposed yet)
+      // Try fetching all mapping snapshots (draft or approved)
       try {
-        const mappingData = await getMappingSnapshot(token, projectId, feedId);
-        setMappingSnapshot(mappingData);
-
-        const mapsData = await listLookupValueMaps(token, projectId, feedId);
-        setLookupMaps(mapsData);
-      } catch (err) {
-        setMappingSnapshot(null);
+        const snapshotsData = await getAllApprovedMappingSnapshots(token, projectId, feedId, true);
+        setAllMappingSnapshots(snapshotsData);
+        if (snapshotsData.length > 0) {
+          const mapsData = await listLookupValueMaps(token, projectId, feedId);
+          setLookupMaps(mapsData);
+        }
+      } catch {
+        setAllMappingSnapshots([]);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load feed data.");
@@ -109,16 +112,15 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
     setAnalyzing(true);
     setAnalysisError(null);
     try {
+      // Step 1: extract source column schema from the slice
+      await analyzeFeedSource(session.accessToken, projectId, feedId);
+      // Step 2: propose field mappings using AI
       try {
         await proposeMappingSnapshot(session.accessToken, projectId, feedId);
       } catch (err) {
         const status = (err as any).status || 0;
         const isConflict = err instanceof Error && (err.message.includes("conflict") || err.message.includes("409"));
-        if (status === 409 || isConflict) {
-          console.log("Mapping proposal already exists, reloading...");
-        } else {
-          throw err;
-        }
+        if (status !== 409 && !isConflict) throw err;
       }
       await loadAllData(session.accessToken);
     } catch (err) {
@@ -211,15 +213,12 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
 
   // Build props for ReviewGrid
   const mappingTablesMap: Record<string, MappingTableRecord> = {};
-  if (mappingSnapshot) {
-    for (const binding of mappingSnapshot.fieldBindings) {
-      const tblName = binding.destinationTableName || mappingSnapshot.destinationObjectName;
-      if (!mappingTablesMap[tblName]) {
-        mappingTablesMap[tblName] = {
-          destinationTableName: tblName,
-          bindings: [],
-        };
-      }
+  for (const snapshot of allMappingSnapshots) {
+    const tblName = snapshot.destinationObjectName;
+    if (!mappingTablesMap[tblName]) {
+      mappingTablesMap[tblName] = { destinationTableName: tblName, bindings: [] };
+    }
+    for (const binding of snapshot.fieldBindings) {
       mappingTablesMap[tblName].bindings.push({
         sourceField: binding.sourceField,
         destinationField: binding.destinationField,
@@ -231,12 +230,12 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
   const mappingTables = Object.values(mappingTablesMap);
 
   const lookupGroups: LookupValueGroup[] = [];
-  if (mappingSnapshot) {
+  const seenLookups = new Set<string>();
+  for (const snapshot of allMappingSnapshots) {
     const refMap = Object.fromEntries(
-      (mappingSnapshot.lookupTableReferences ?? []).map((r) => [r.lookupName, r.destinationTableName])
+      (snapshot.lookupTableReferences ?? []).map((r) => [r.lookupName, r.destinationTableName])
     );
-    const seenLookups = new Set<string>();
-    for (const binding of mappingSnapshot.fieldBindings) {
+    for (const binding of snapshot.fieldBindings) {
       if (binding.lookupName && !seenLookups.has(binding.lookupName)) {
         seenLookups.add(binding.lookupName);
         const refTable = refMap[binding.lookupName] || "unknown_ref";
@@ -265,9 +264,17 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
   }
 
   // Lookup FK bindings for fibers section
-  const lookupFkBinds = mappingSnapshot
-    ? mappingSnapshot.fieldBindings.filter((b) => b.bindingType === "lookup_fk" && b.lookupName)
-    : [];
+  const lookupFkBinds = allMappingSnapshots.flatMap((s) =>
+    s.fieldBindings.filter((b) => b.bindingType === "lookup_fk" && b.lookupName)
+  );
+
+  const toggleTable = (name: string) => {
+    setExpandedTables((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  };
 
   return (
     <main className="flex min-h-screen flex-col bg-surface text-slate-800">
@@ -408,35 +415,53 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                 {mappingTables.length === 0 ? (
                   <div className="text-sm text-slate-500">No mapping proposals generated yet.</div>
                 ) : (
-                  <div className="space-y-3">
-                    {mappingTables.map((tbl) => (
-                      <div key={tbl.destinationTableName} className="border border-outline-variant rounded-xl overflow-hidden bg-white">
-                        <div className="bg-slate-50 px-4 py-3 border-b border-outline-variant font-mono text-xs font-bold text-slate-700">
-                          {tbl.destinationTableName}
+                  <div className="space-y-2">
+                    {mappingTables.map((tbl) => {
+                      const isOpen = expandedTables.has(tbl.destinationTableName);
+                      return (
+                        <div key={tbl.destinationTableName} className="border border-outline-variant rounded-xl overflow-hidden bg-white">
+                          <button
+                            type="button"
+                            onClick={() => toggleTable(tbl.destinationTableName)}
+                            className="w-full flex items-center justify-between bg-slate-50 px-4 py-3 hover:bg-slate-100 transition-colors"
+                          >
+                            <span className="font-mono text-xs font-bold text-slate-700">{tbl.destinationTableName}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">{tbl.bindings.length} fields</span>
+                              <svg
+                                className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`}
+                                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
+                              </svg>
+                            </div>
+                          </button>
+                          {isOpen && (
+                            <table className="w-full text-left text-xs border-collapse border-t border-outline-variant">
+                              <tbody className="divide-y divide-slate-100">
+                                {tbl.bindings.map((b, idx) => (
+                                  <tr key={idx} className="hover:bg-slate-50/40">
+                                    <td className="px-4 py-2 font-mono text-slate-600">{b.sourceField}</td>
+                                    <td className="px-4 py-2 font-mono font-bold text-slate-800">{b.destinationField}</td>
+                                    <td className="px-4 py-2">
+                                      {b.bindingType === "direct" && (
+                                        <span className="inline-flex rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">direct</span>
+                                      )}
+                                      {b.bindingType === "detail_fk" && (
+                                        <span className="inline-flex rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700">detail_fk</span>
+                                      )}
+                                      {b.bindingType === "lookup_fk" && (
+                                        <span className="inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">lookup_fk</span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
                         </div>
-                        <table className="w-full text-left text-xs border-collapse">
-                          <tbody className="divide-y divide-slate-100">
-                            {tbl.bindings.map((b, idx) => (
-                              <tr key={idx} className="hover:bg-slate-50/40">
-                                <td className="px-4 py-2 font-mono text-slate-600">{b.sourceField}</td>
-                                <td className="px-4 py-2 font-mono font-bold text-slate-800">{b.destinationField}</td>
-                                <td className="px-4 py-2">
-                                  {b.bindingType === "direct" && (
-                                    <span className="inline-flex rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">direct</span>
-                                  )}
-                                  {b.bindingType === "detail_fk" && (
-                                    <span className="inline-flex rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700">detail_fk</span>
-                                  )}
-                                  {b.bindingType === "lookup_fk" && (
-                                    <span className="inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">lookup_fk</span>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -555,7 +580,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                   </button>
                 </div>
                 
-                {mappingSnapshot ? (
+                {allMappingSnapshots.length > 0 ? (
                   <ReviewGrid
                     mappingTables={mappingTables}
                     lookupGroups={lookupGroups}

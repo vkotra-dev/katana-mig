@@ -15,3 +15,16 @@ migration:
 providers:
   anthropic_api_key_env: ANTHROPIC_API_KEY
   openai_api_key_env: OPENAI_API_KEY
+  gemini_api_key_env: GEMINI_API_KEY
+pii:
+  field_names:
+    - ssn
+    - name
+    - email
+    - phone
+    - taxid
+    - accountnumber
+  patterns:
+    - "^\\d{3}-\\d{2}-\\d{4}$"
+    - "^\\d{9}$"
+    - "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$"

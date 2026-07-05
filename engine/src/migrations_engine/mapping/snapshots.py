@@ -162,6 +162,33 @@ def select_all_approved_mapping_snapshots(
     return latest_snapshots
 
 
+def select_all_feed_mapping_snapshots(
+    db: Session,
+    *,
+    project_id: str,
+    source_definition_id: str,
+) -> list[MappingSnapshot]:
+    """Returns latest snapshot per destination table, any status (draft or approved)."""
+    snapshots = db.scalars(
+        select(MappingSnapshot)
+        .where(
+            MappingSnapshot.project_id == project_id,
+            MappingSnapshot.source_definition_id == source_definition_id,
+        )
+        .order_by(
+            MappingSnapshot.destination_object_name.asc(),
+            MappingSnapshot.created_at.desc(),
+        )
+    ).all()
+    seen: set[str] = set()
+    latest: list[MappingSnapshot] = []
+    for s in snapshots:
+        if s.destination_object_name not in seen:
+            seen.add(s.destination_object_name)
+            latest.append(s)
+    return latest
+
+
 def select_latest_approved_lookup_snapshot(
     db: Session,
     *,
