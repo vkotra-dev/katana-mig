@@ -2,14 +2,13 @@
 
 ## Ready
 
-| Task | Summary |
-|---|---|
-| [001bi-lookup-fiber-two-textarea-input](./001bi-lookup-fiber-two-textarea-input.md) | Replace per-value lookup inputs with two-textarea AI analyze flow |
+No pending tasks.
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001bi-lookup-fiber-two-textarea-input](./completed/001bi-lookup-fiber-two-textarea-input.md) | [summary](./summary/001bi-lookup-fiber-two-textarea-input.md) |
 | [001bh-remove-feeds-tab-ddl-banner](./completed/001bh-remove-feeds-tab-ddl-banner.md) | [summary](./summary/001bh-remove-feeds-tab-ddl-banner.md) |
 | [001bj-remove-feed-slice-upload](./completed/001bj-remove-feed-slice-upload.md) | [summary](./summary/001bj-remove-feed-slice-upload.md) |
 | [001bg-remove-global-approvals-inbox](./completed/001bg-remove-global-approvals-inbox.md) | [summary](./summary/001bg-remove-global-approvals-inbox.md) |

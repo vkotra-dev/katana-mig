@@ -391,6 +391,18 @@ export async function listFeedValueSummaries(
   return response.map(mapFeedValueSummaryResponse);
 }
 
+export async function listFeedFibers(
+  token: string,
+  projectId: string,
+  feedId: string,
+): Promise<FiberRecord[]> {
+  const response = await requestJson<Array<Parameters<typeof mapFiberResponse>[0]>>(
+    `/projects/${projectId}/feeds/${feedId}/fibers`,
+    { method: "GET", token },
+  );
+  return response.map(mapFiberResponse);
+}
+
 export async function getFiber(
   token: string,
   projectId: string,

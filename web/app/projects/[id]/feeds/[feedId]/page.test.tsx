@@ -6,25 +6,23 @@ const {
   loadUiSessionMock,
   getFeedContractMock,
   listFeedSlicesMock,
-  listFeedValueSummariesMock,
+  listFeedFibersMock,
   getMappingSnapshotMock,
   listLookupValueMapsMock,
   approveFeedSliceMock,
   rejectFeedSliceMock,
-  generateLookupSnapshotMock,
-  createLookupValueMapMock,
+  submitLookupInputsMock,
   routerPushMock,
 } = vi.hoisted(() => ({
   loadUiSessionMock: vi.fn(),
   getFeedContractMock: vi.fn(),
   listFeedSlicesMock: vi.fn(),
-  listFeedValueSummariesMock: vi.fn(),
+  listFeedFibersMock: vi.fn(),
   getMappingSnapshotMock: vi.fn(),
   listLookupValueMapsMock: vi.fn(),
   approveFeedSliceMock: vi.fn(),
   rejectFeedSliceMock: vi.fn(),
-  generateLookupSnapshotMock: vi.fn(),
-  createLookupValueMapMock: vi.fn(),
+  submitLookupInputsMock: vi.fn(),
   routerPushMock: vi.fn(),
 }));
 
@@ -35,7 +33,7 @@ vi.mock("../../../../../lib/session", () => ({
 vi.mock("../../../../../lib/feeds-api", () => ({
   getFeedContract: getFeedContractMock,
   listFeedSlices: listFeedSlicesMock,
-  listFeedValueSummaries: listFeedValueSummariesMock,
+  listFeedFibers: listFeedFibersMock,
   approveFeedSlice: approveFeedSliceMock,
   rejectFeedSlice: rejectFeedSliceMock,
 }));
@@ -46,8 +44,7 @@ vi.mock("../../../../../lib/mapping-api", () => ({
 
 vi.mock("../../../../../lib/lookup-api", () => ({
   listLookupValueMaps: listLookupValueMapsMock,
-  generateLookupSnapshot: generateLookupSnapshotMock,
-  createLookupValueMap: createLookupValueMapMock,
+  submitLookupInputs: submitLookupInputsMock,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -104,13 +101,17 @@ describe("FeedDetailPage", () => {
     vi.resetAllMocks();
     loadUiSessionMock.mockReturnValue(SESSION);
     getFeedContractMock.mockResolvedValue(FEED);
-    listFeedValueSummariesMock.mockResolvedValue([
+    listFeedFibersMock.mockResolvedValue([
       {
-        summaryId: "sum-1",
-        sourceDefinitionId: "feed-1",
-        sourceSliceVersion: "v1",
-        fieldName: "src_status",
-        valueCounts: { A: 10 },
+        fiberId: "fib-status",
+        feedId: "feed-1",
+        projectId: "proj-1",
+        fiberType: "lookup",
+        fiberKey: "status_map",
+        status: "deferred",
+        source: "auto",
+        proposedMappings: null,
+        fieldBindings: null,
         createdAt: "2026-06-30T00:00:00Z",
       },
     ]);
@@ -173,11 +174,20 @@ describe("FeedDetailPage", () => {
     expect(screen.queryByText(/Workspace Locked/i)).not.toBeInTheDocument();
 
     expect(screen.getAllByText("status_map")[0]).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Run AI" })).toBeInTheDocument();
     
-    fireEvent.click(screen.getByRole("button", { name: "Run AI" }));
+    // Fill in textareas
+    fireEvent.change(screen.getByPlaceholderText(/VALUE_A/i), { target: { value: "A\nB" } });
+    fireEvent.change(screen.getByPlaceholderText(/id,description/i), { target: { value: "id,description\nA,Active\nB,Inactive" } });
+
+    const btn = screen.getByRole("button", { name: "AI Analyze" });
+    expect(btn).not.toBeDisabled();
+    fireEvent.click(btn);
+
     await waitFor(() => {
-      expect(generateLookupSnapshotMock).toHaveBeenCalledWith("token-1", "proj-1", "feed-1", { lookupName: "status_map" });
+      expect(submitLookupInputsMock).toHaveBeenCalledWith("token-1", "proj-1", "feed-1", "fib-status", {
+        sourceValues: ["A", "B"],
+        destinationLookupCsv: "id,description\nA,Active\nB,Inactive",
+      });
     });
   });
 });

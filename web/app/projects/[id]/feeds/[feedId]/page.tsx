@@ -8,11 +8,11 @@ import {
   listFeedSlices,
   approveFeedSlice,
   rejectFeedSlice,
-  listFeedValueSummaries,
+  listFeedFibers,
   listFeedSchema,
   type FeedContractRecord,
   type FeedSliceRecord,
-  type FeedValueSummaryRecord,
+  type FiberRecord,
   type FeedSchemaColumnRecord,
 } from "../../../../../lib/feeds-api";
 import {
@@ -22,7 +22,7 @@ import {
 import {
   listLookupValueMaps,
   createLookupValueMap,
-  generateLookupSnapshot,
+  submitLookupInputs,
   type LookupValueMapRecord,
 } from "../../../../../lib/lookup-api";
 import { loadUiSession, type SessionRole, type UiSession } from "../../../../../lib/session";
@@ -41,14 +41,13 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
   const [slices, setSlices] = useState<FeedSliceRecord[]>([]);
   const [mappingSnapshot, setMappingSnapshot] = useState<MappingReviewRecord | null>(null);
   const [lookupMaps, setLookupMaps] = useState<LookupValueMapRecord[]>([]);
-  const [valueSummaries, setValueSummaries] = useState<FeedValueSummaryRecord[]>([]);
+  const [fibers, setFibers] = useState<FiberRecord[]>([]);
   
   const [rejectionReason, setRejectionReason] = useState("");
   const [showRejectForm, setShowRejectForm] = useState(false);
 
-  // Lookup fibers editing state
-  const [lookupEdits, setLookupEdits] = useState<Record<string, Record<string, string>>>({});
-  const [savingLookup, setSavingLookup] = useState<Record<string, boolean>>({});
+  // Lookup fibers drafts state
+  const [lookupDrafts, setLookupDrafts] = useState<Record<string, { sourceText: string; destText: string; analyzing: boolean; error: string | null }>>({});
 
   useEffect(() => {
     const s = loadUiSession();
@@ -60,15 +59,15 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
 
   const loadAllData = async (token: string) => {
     try {
-      const [feedData, slicesData, summariesData] = await Promise.all([
+      const [feedData, slicesData, fibersData] = await Promise.all([
         getFeedContract(token, projectId, feedId),
         listFeedSlices(token, projectId, feedId),
-        listFeedValueSummaries(token, projectId, feedId),
+        listFeedFibers(token, projectId, feedId),
       ]);
 
       setFeed(feedData);
       setSlices(slicesData);
-      setValueSummaries(summariesData);
+      setFibers(fibersData);
 
       // Try fetching mapping snapshot (might fail with 404 if not proposed yet)
       try {
@@ -77,13 +76,6 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
 
         const mapsData = await listLookupValueMaps(token, projectId, feedId);
         setLookupMaps(mapsData);
-
-        // Prepopulate lookup fiber edits
-        const initialEdits: Record<string, Record<string, string>> = {};
-        for (const m of mapsData) {
-          initialEdits[m.lookupName] = { ...m.sourceValueMap };
-        }
-        setLookupEdits(initialEdits);
       } catch (err) {
         setMappingSnapshot(null);
       }
@@ -133,55 +125,82 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
 
 
 
-  const handleSaveLookup = async (lookupName: string, refTable: string) => {
-    if (!session) return;
-    setSavingLookup((prev) => ({ ...prev, [lookupName]: true }));
-    try {
-      const edits = lookupEdits[lookupName] || {};
-      const latestMap = lookupMaps.find((m) => m.lookupName === lookupName);
-      
-      const existingRows = latestMap?.destinationTable || [];
-      const existingIds = new Set(
-        existingRows.map((r) => String(r.id || r.destination_id || "")).filter(Boolean)
-      );
-
-      const nextRows = [...existingRows];
-      for (const val of Object.values(edits)) {
-        const destId = val?.trim();
-        if (destId && !existingIds.has(destId)) {
-          nextRows.push({ id: destId, label: destId });
-          existingIds.add(destId);
+  function parseAndConvertDestToCsv(destText: string): string {
+    const trimmed = destText.trim();
+    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+      let rows: any[] = [];
+      if (trimmed.startsWith("[")) {
+        rows = JSON.parse(trimmed);
+      } else {
+        rows = trimmed.split(/\r?\n/).map(line => line.trim()).filter(Boolean).map(line => JSON.parse(line));
+      }
+      if (!Array.isArray(rows) || rows.length === 0) {
+        throw new Error("JSON must be a non-empty array/list of objects.");
+      }
+      const keys = Array.from(new Set(rows.flatMap(r => Object.keys(r))));
+      const headerRow = keys.join(",");
+      const dataRows = rows.map(row => keys.map(k => {
+        const val = row[k];
+        if (val === null || val === undefined) return "";
+        const str = String(val);
+        if (str.includes(",") || str.includes("\"") || str.includes("\n")) {
+          return `"${str.replace(/"/g, '""')}"`;
         }
+        return str;
+      }).join(","));
+      return [headerRow, ...dataRows].join("\n");
+    } else {
+      // Already CSV, validate it has at least header + 1 row
+      const lines = trimmed.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if (lines.length < 2) {
+        throw new Error("CSV must contain a header row and at least one data row.");
+      }
+      return lines.join("\n");
+    }
+  }
+
+  const handleAnalyzeLookup = async (lookupName: string, fiberId: string) => {
+    if (!session) return;
+    const draft = lookupDrafts[lookupName] || { sourceText: "", destText: "", analyzing: false, error: null };
+    
+    setLookupDrafts(current => ({
+      ...current,
+      [lookupName]: { ...draft, analyzing: true, error: null }
+    }));
+
+    try {
+      const sourceValues = draft.sourceText
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean);
+      
+      if (sourceValues.length === 0) {
+        throw new Error("Source values cannot be empty.");
       }
 
-      await createLookupValueMap(session.accessToken, projectId, feedId, {
-        lookupName,
-        destinationTable: nextRows,
-        sourceValueMap: edits,
+      const destinationLookupCsv = parseAndConvertDestToCsv(draft.destText);
+
+      await submitLookupInputs(session.accessToken, projectId, feedId, fiberId, {
+        sourceValues,
+        destinationLookupCsv,
       });
 
-      // Reload
       const mapsData = await listLookupValueMaps(session.accessToken, projectId, feedId);
       setLookupMaps(mapsData);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save lookup.");
-    } finally {
-      setSavingLookup((prev) => ({ ...prev, [lookupName]: false }));
-    }
-  };
 
-  const handleRunAiLookup = async (lookupName: string) => {
-    if (!session) return;
-    setSavingLookup((prev) => ({ ...prev, [lookupName]: true }));
-    try {
-      await generateLookupSnapshot(session.accessToken, projectId, feedId, { lookupName });
-      // Reload
-      const mapsData = await listLookupValueMaps(session.accessToken, projectId, feedId);
-      setLookupMaps(mapsData);
+      setLookupDrafts(current => ({
+        ...current,
+        [lookupName]: { ...draft, error: null, analyzing: false }
+      }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to run AI lookup.");
-    } finally {
-      setSavingLookup((prev) => ({ ...prev, [lookupName]: false }));
+      setLookupDrafts(current => ({
+        ...current,
+        [lookupName]: {
+          ...draft,
+          analyzing: false,
+          error: err instanceof Error ? err.message : String(err)
+        }
+      }));
     }
   };
 
@@ -427,19 +446,43 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                 {lookupFkBinds.length === 0 ? (
                   <div className="text-sm text-slate-500">No lookup foreign keys mapped in the snapshot.</div>
                 ) : (
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-6 md:grid-cols-2">
                     {lookupFkBinds.map((binding) => {
                       const lName = binding.lookupName!;
                       const refTable = binding.referenceTableName || "unknown_ref";
-                      const mapState = lookupMaps.find((m) => m.lookupName === lName);
-                      const fieldSummary = valueSummaries.find((s) => s.fieldName === binding.sourceField);
-                      const sourceValuesList = fieldSummary ? Object.keys(fieldSummary.valueCounts) : [];
+                      const fiber = fibers.find((f) => f.fiberType === "lookup" && f.fiberKey === lName);
+                      const fiberId = fiber?.fiberId || "";
 
-                      const edits = lookupEdits[lName] || {};
-                      const isSaving = !!savingLookup[lName];
+                      const draft = lookupDrafts[lName] || { sourceText: "", destText: "", analyzing: false, error: null };
+
+                      const handleSourceChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                        setLookupDrafts((current) => ({
+                          ...current,
+                          [lName]: {
+                            ...(current[lName] || { sourceText: "", destText: "", analyzing: false, error: null }),
+                            sourceText: e.target.value,
+                          },
+                        }));
+                      };
+
+                      const handleDestChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                        setLookupDrafts((current) => ({
+                          ...current,
+                          [lName]: {
+                            ...(current[lName] || { sourceText: "", destText: "", analyzing: false, error: null }),
+                            destText: e.target.value,
+                          },
+                        }));
+                      };
+
+                      const isAnalyzeDisabled =
+                        !draft.sourceText.trim() ||
+                        !draft.destText.trim() ||
+                        draft.analyzing ||
+                        !fiberId;
 
                       return (
-                        <div key={lName} className="border border-outline-variant rounded-xl p-4 bg-white space-y-3">
+                        <div key={lName} className="border border-outline-variant rounded-xl p-4 bg-white space-y-4 shadow-sm">
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-bold text-slate-800">{lName}</span>
                             <span className="text-[10px] bg-amber-500/10 text-amber-700 px-1.5 py-0.5 rounded font-mono">
@@ -447,45 +490,46 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                             </span>
                           </div>
 
-                          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                            {sourceValuesList.map((val) => (
-                              <div key={val} className="flex items-center justify-between text-xs gap-2">
-                                <span className="text-slate-600 truncate max-w-[120px]">{val}</span>
-                                <input
-                                  type="text"
-                                  value={edits[val] || ""}
-                                  onChange={(e) => {
-                                    setLookupEdits((current) => ({
-                                      ...current,
-                                      [lName]: {
-                                        ...(current[lName] || {}),
-                                        [val]: e.target.value,
-                                      },
-                                    }));
-                                  }}
-                                  placeholder="mapped code"
-                                  className="w-24 rounded border border-slate-200 px-2 py-0.5 text-xs focus:outline-none"
-                                />
-                              </div>
-                            ))}
+                          <div className="space-y-3">
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                Source values (one per line)
+                              </label>
+                              <textarea
+                                value={draft.sourceText}
+                                onChange={handleSourceChange}
+                                placeholder="VALUE_A&#10;VALUE_B&#10;..."
+                                className="h-24 w-full rounded border border-slate-200 bg-white p-2 font-mono text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                Rows from {refTable} (CSV or JSON)
+                              </label>
+                              <textarea
+                                value={draft.destText}
+                                onChange={handleDestChange}
+                                placeholder="id,description&#10;1,Active&#10;2,Inactive&#10;..."
+                                className="h-24 w-full rounded border border-slate-200 bg-white p-2 font-mono text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary"
+                              />
+                            </div>
                           </div>
 
-                          <div className="flex gap-2 pt-2 border-t border-slate-100">
+                          {draft.error && (
+                            <div role="alert" className="rounded bg-error/10 border border-error/20 p-2 text-xs text-error">
+                              {draft.error}
+                            </div>
+                          )}
+
+                          <div className="pt-2">
                             <button
-                              onClick={() => handleSaveLookup(lName, refTable)}
-                              disabled={isSaving}
-                              className="flex-1 rounded bg-slate-100 hover:bg-slate-200 py-1.5 text-xs font-semibold text-slate-700"
+                              onClick={() => void handleAnalyzeLookup(lName, fiberId)}
+                              disabled={isAnalyzeDisabled}
+                              className="w-full rounded bg-primary py-2 text-xs font-semibold text-white hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
                               type="button"
                             >
-                              Save Draft
-                            </button>
-                            <button
-                              onClick={() => handleRunAiLookup(lName)}
-                              disabled={isSaving}
-                              className="flex-1 rounded bg-primary py-1.5 text-xs font-semibold text-white hover:bg-primary-hover"
-                              type="button"
-                            >
-                              Run AI
+                              {draft.analyzing ? "Analyzing..." : "AI Analyze"}
                             </button>
                           </div>
                         </div>

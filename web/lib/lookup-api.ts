@@ -136,3 +136,28 @@ export async function approveLookupSnapshot(
   );
   return mapLookupSnapshotResponse(response);
 }
+
+export interface SubmitLookupInputsInput {
+  sourceValues: string[];
+  destinationLookupCsv: string;
+}
+
+export async function submitLookupInputs(
+  token: string,
+  projectId: string,
+  feedId: string,
+  fiberId: string,
+  input: SubmitLookupInputsInput,
+): Promise<void> {
+  await jsonRequest<void>(
+    `/projects/${projectId}/feeds/${feedId}/fibers/${fiberId}/lookup-inputs`,
+    {
+      method: "POST",
+      token,
+      body: JSON.stringify({
+        source_values: input.sourceValues,
+        destination_lookup_csv: input.destinationLookupCsv,
+      }),
+    },
+  );
+}
