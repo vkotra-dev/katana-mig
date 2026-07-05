@@ -27,6 +27,7 @@ def create_approved_mapping_snapshot(
     mapping_snapshot_version: str,
     field_bindings: list[FieldBinding],
     approved_by_user_id: str | None = None,
+    source_definition_id: str | None = None,
 ) -> MappingSnapshot:
     existing_snapshot = db.scalar(
         select(MappingSnapshot).where(
@@ -51,6 +52,7 @@ def create_approved_mapping_snapshot(
     snapshot = MappingSnapshot(
         mapping_snapshot_id=new_id(),
         project_id=project_id,
+        source_definition_id=source_definition_id,
         destination_object_name=destination_object_name,
         mapping_snapshot_version=mapping_snapshot_version,
         field_bindings=serialized_bindings,
@@ -130,6 +132,34 @@ def select_latest_approved_mapping_snapshot(
             f"No approved mapping snapshot for {destination_object_name!r} in project {project_id}."
         )
     return snapshots[0]
+
+
+def select_all_approved_mapping_snapshots(
+    db: Session,
+    *,
+    project_id: str,
+    source_definition_id: str,
+) -> list[MappingSnapshot]:
+    snapshots = db.scalars(
+        select(MappingSnapshot)
+        .where(
+            MappingSnapshot.project_id == project_id,
+            MappingSnapshot.source_definition_id == source_definition_id,
+            MappingSnapshot.status == APPROVED_SNAPSHOT_STATUS,
+        )
+        .order_by(
+            MappingSnapshot.destination_object_name.asc(),
+            MappingSnapshot.created_at.desc(),
+        )
+    ).all()
+    # Dedup in Python:
+    seen = set()
+    latest_snapshots = []
+    for s in snapshots:
+        if s.destination_object_name not in seen:
+            seen.add(s.destination_object_name)
+            latest_snapshots.append(s)
+    return latest_snapshots
 
 
 def select_latest_approved_lookup_snapshot(

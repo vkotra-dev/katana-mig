@@ -9,7 +9,7 @@ from ..api.schemas import MappingSnapshotResponse
 from ..db.models import User
 from ..management.access import require_project_access
 from ..management.feeds import get_source_contract
-from ..mapping.snapshots import select_latest_approved_mapping_snapshot
+from ..mapping.snapshots import select_latest_approved_mapping_snapshot, select_all_approved_mapping_snapshots
 from ..mapping.exceptions import SnapshotNotFoundError
 
 router = APIRouter(prefix="/projects/{project_id}/sources/{source_definition_id}", tags=["mapping-snapshots"])
@@ -60,3 +60,39 @@ def get_latest_mapping_snapshot(
         approved_by_user_id=mapping_snapshot.approved_by_user_id,
         created_at=mapping_snapshot.created_at,
     )
+
+
+@router.get("/mapping-snapshots", response_model=list[MappingSnapshotResponse])
+def list_approved_mapping_snapshots(
+    project_id: str,
+    source_definition_id: str,
+    actor: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[MappingSnapshotResponse]:
+    require_project_access(db, user=actor, project_id=project_id)
+    snapshots = select_all_approved_mapping_snapshots(
+        db,
+        project_id=project_id,
+        source_definition_id=source_definition_id,
+    )
+    return [
+        MappingSnapshotResponse(
+            mapping_snapshot_id=s.mapping_snapshot_id,
+            project_id=s.project_id,
+            destination_object_name=s.destination_object_name,
+            mapping_snapshot_version=s.mapping_snapshot_version,
+            field_bindings=[
+                {
+                    "source_field": str(binding.get("source_field", "")),
+                    "destination_field": str(binding.get("destination_field", "")),
+                    "lookup_name": binding.get("lookup_name"),
+                }
+                for binding in s.field_bindings
+            ],
+            status=s.status,
+            approved_at=s.approved_at,
+            approved_by_user_id=s.approved_by_user_id,
+            created_at=s.created_at,
+        )
+        for s in snapshots
+    ]

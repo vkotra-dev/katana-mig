@@ -154,6 +154,7 @@ def _seed_project() -> tuple[str, str]:
                 ),
             ],
             approved_by_user_id=admin_user.user_id,
+            source_definition_id=source_definition_id,
         )
         db.commit()
     return project_id, source_definition_id
@@ -192,6 +193,16 @@ def test_lookup_routes_enforce_auth_and_contract(admin_token: str, stakeholder_t
     assert mapping_snapshot.status_code == 200, mapping_snapshot.text
     assert mapping_snapshot.json()["mapping_snapshot_version"] == "v1"
 
+    mapping_snapshots = client.get(
+        f"/projects/{project_id}/sources/{source_definition_id}/mapping-snapshots",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert mapping_snapshots.status_code == 200, mapping_snapshots.text
+    snapshots_list = mapping_snapshots.json()
+    assert isinstance(snapshots_list, list)
+    assert len(snapshots_list) == 1
+    assert snapshots_list[0]["destination_object_name"] == "Customer"
+
     generate = client.post(
         f"/projects/{project_id}/sources/{source_definition_id}/lookup-snapshots",
         headers={"Authorization": f"Bearer {admin_token}"},
@@ -208,3 +219,63 @@ def test_lookup_routes_enforce_auth_and_contract(admin_token: str, stakeholder_t
     )
     assert approve.status_code == 200, approve.text
     assert approve.json()["status"] == "approved"
+
+
+def test_mapping_snapshots_list_endpoint(admin_token: str) -> None:
+    project_id, source_definition_id = _seed_project()
+    with SessionLocal() as db:
+        source_definition_id_empty = str(uuid.uuid4())
+        db.add(
+            SourceDefinition(
+                source_definition_id=source_definition_id_empty,
+                project_id=project_id,
+                source_type="csv",
+                source_contract_version="v1",
+                destination_object_references=["Customer"],
+                source_details={"label": "Empty Source", "encoding": "utf-8"},
+                status="active",
+            )
+        )
+        db.commit()
+
+    # 1. 0 tables test:
+    res = client.get(
+        f"/projects/{project_id}/sources/{source_definition_id_empty}/mapping-snapshots",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert res.status_code == 200
+    assert res.json() == []
+
+    # 2. 1 table test:
+    res = client.get(
+        f"/projects/{project_id}/sources/{source_definition_id}/mapping-snapshots",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert res.status_code == 200
+    assert len(res.json()) == 1
+    assert res.json()[0]["destination_object_name"] == "Customer"
+
+    # 3. 2 tables test:
+    with SessionLocal() as db:
+        admin_user = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
+        create_approved_mapping_snapshot(
+            db,
+            project_id=project_id,
+            destination_object_name="Address",
+            mapping_snapshot_version="v2",
+            field_bindings=[],
+            approved_by_user_id=admin_user.user_id,
+            source_definition_id=source_definition_id,
+        )
+        db.commit()
+
+    res = client.get(
+        f"/projects/{project_id}/sources/{source_definition_id}/mapping-snapshots",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert res.status_code == 200
+    snapshots = res.json()
+    assert len(snapshots) == 2
+    names = [s["destination_object_name"] for s in snapshots]
+    assert names == ["Address", "Customer"]
+

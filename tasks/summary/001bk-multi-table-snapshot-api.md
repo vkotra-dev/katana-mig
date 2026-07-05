@@ -1,0 +1,9 @@
+# Task 001bk Summary
+
+- Added `select_all_approved_mapping_snapshots` helper in [engine/src/migrations_engine/mapping/snapshots.py](file:///Users/vjkotra/projects/katana/engine/src/migrations_engine/mapping/snapshots.py) to query for all approved `MappingSnapshot` records for a given `project_id` and `source_definition_id`, deduplicate by `destination_object_name` in memory selecting the most recent snapshot, and return them ordered by destination object name.
+- Exported `select_all_approved_mapping_snapshots` in the mapping subpackage [engine/src/migrations_engine/mapping/__init__.py](file:///Users/vjkotra/projects/katana/engine/src/migrations_engine/mapping/__init__.py).
+- Created a new backend route handler `list_approved_mapping_snapshots` (`GET /projects/{project_id}/sources/{source_definition_id}/mapping-snapshots`) in [engine/src/migrations_engine/routes/mapping_snapshots.py](file:///Users/vjkotra/projects/katana/engine/src/migrations_engine/routes/mapping_snapshots.py) to return a list of mapping snapshot responses.
+- Added `source_definition_id` support to `create_approved_mapping_snapshot` helper in snapshots module to allow tests to seed snapshots with explicit source definitions.
+- Exported `getAllApprovedMappingSnapshots` in [web/lib/mapping-api.ts](file:///Users/vjkotra/projects/katana/web/lib/mapping-api.ts) mapping to the new backend list route.
+- Added client unit tests in [web/lib/mapping-api.test.ts](file:///Users/vjkotra/projects/katana/web/lib/mapping-api.test.ts) to verify the route and model conversion for `getAllApprovedMappingSnapshots`.
+- Added server integration tests `test_mapping_snapshots_list_endpoint` in [engine/tests/test_lookup_mapping_api.py](file:///Users/vjkotra/projects/katana/engine/tests/test_lookup_mapping_api.py) checking exact responses for 0, 1, and 2 approved table mapping snapshots.

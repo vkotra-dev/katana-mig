@@ -24,6 +24,7 @@ from .snapshots import (
     parse_primary_field_binding,
     select_latest_approved_lookup_snapshot,
     select_latest_approved_mapping_snapshot,
+    select_all_approved_mapping_snapshots,
 )
 
 __all__ = [
@@ -48,4 +49,5 @@ __all__ = [
     "parse_primary_field_binding",
     "select_latest_approved_lookup_snapshot",
     "select_latest_approved_mapping_snapshot",
+    "select_all_approved_mapping_snapshots",
 ]

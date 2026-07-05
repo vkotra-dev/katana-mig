@@ -147,6 +147,18 @@ export async function getLatestApprovedMappingSnapshot(
   return mapMappingSnapshotResponse(response);
 }
 
+export async function getAllApprovedMappingSnapshots(
+  token: string,
+  projectId: string,
+  sourceDefinitionId: string,
+): Promise<MappingSnapshotRecord[]> {
+  const response = await requestMappingJson<MappingSnapshotRaw[]>(
+    `/projects/${projectId}/sources/${sourceDefinitionId}/mapping-snapshots`,
+    { method: "GET", token },
+  );
+  return response.map(mapMappingSnapshotResponse);
+}
+
 export async function proposeMappingSnapshot(
   token: string,
   projectId: string,

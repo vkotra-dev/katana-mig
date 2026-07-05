@@ -8,6 +8,7 @@ No pending tasks.
 
 | Task | Summary |
 |---|---|
+| [001bk-multi-table-snapshot-api](./completed/001bk-multi-table-snapshot-api.md) | [summary](./summary/001bk-multi-table-snapshot-api.md) |
 | [001bi-lookup-fiber-two-textarea-input](./completed/001bi-lookup-fiber-two-textarea-input.md) | [summary](./summary/001bi-lookup-fiber-two-textarea-input.md) |
 | [001bh-remove-feeds-tab-ddl-banner](./completed/001bh-remove-feeds-tab-ddl-banner.md) | [summary](./summary/001bh-remove-feeds-tab-ddl-banner.md) |
 | [001bj-remove-feed-slice-upload](./completed/001bj-remove-feed-slice-upload.md) | [summary](./summary/001bj-remove-feed-slice-upload.md) |
