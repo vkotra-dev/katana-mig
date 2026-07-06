@@ -105,6 +105,7 @@ def list_approved_mapping_snapshots(
             approved_at=s.approved_at,
             approved_by_user_id=s.approved_by_user_id,
             created_at=s.created_at,
+            destination_fields=s.destination_fields or [],
         )
         for s in snapshots
     ]

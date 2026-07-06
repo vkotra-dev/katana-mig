@@ -11,6 +11,7 @@ const {
   analyzeFeedSourceMock,
   getAllApprovedMappingSnapshotsMock,
   proposeMappingSnapshotMock,
+  patchMappingSnapshotMock,
   listLookupValueMapsMock,
   submitLookupInputsMock,
   routerPushMock,
@@ -23,6 +24,7 @@ const {
   analyzeFeedSourceMock: vi.fn(),
   getAllApprovedMappingSnapshotsMock: vi.fn(),
   proposeMappingSnapshotMock: vi.fn(),
+  patchMappingSnapshotMock: vi.fn(),
   listLookupValueMapsMock: vi.fn(),
   submitLookupInputsMock: vi.fn(),
   routerPushMock: vi.fn(),
@@ -43,6 +45,7 @@ vi.mock("../../../../../lib/feeds-api", () => ({
 vi.mock("../../../../../lib/mapping-api", () => ({
   getAllApprovedMappingSnapshots: getAllApprovedMappingSnapshotsMock,
   proposeMappingSnapshot: proposeMappingSnapshotMock,
+  patchMappingSnapshot: patchMappingSnapshotMock,
 }));
 
 vi.mock("../../../../../lib/lookup-api", () => ({
@@ -149,6 +152,10 @@ describe("FeedDetailPage", () => {
 
     expect(await screen.findByText("Slice")).toBeInTheDocument();
     expect(screen.getByText("A")).toBeInTheDocument();
+
+    // Expand the "users" table accordion
+    fireEvent.click(screen.getByRole("button", { name: /users\s+\d+\s+fields$/i }));
+
     await waitFor(() => {
       expect(screen.getAllByText("src_status")[0]).toBeInTheDocument();
     });
@@ -181,6 +188,9 @@ describe("FeedDetailPage", () => {
 
     expect(screen.getAllByText("status_map")[0]).toBeInTheDocument();
     
+    // Expand the "status_map" lookup accordion
+    fireEvent.click(screen.getAllByText("status_map")[0]);
+    
     // Fill in textareas
     fireEvent.change(screen.getByPlaceholderText(/VALUE_A/i), { target: { value: "A\nB" } });
     fireEvent.change(screen.getByPlaceholderText(/id,description/i), { target: { value: "id,description\nA,Active\nB,Inactive" } });
@@ -195,5 +205,65 @@ describe("FeedDetailPage", () => {
         destinationLookupCsv: "id,description\nA,Active\nB,Inactive",
       });
     });
+  });
+
+  it("allows central_team to edit destination field and save", async () => {
+    listFeedSlicesMock.mockResolvedValue([]);
+    const snapshotWithMultipleCols = {
+      ...DRAFT_SNAPSHOT,
+      destinationFields: ["status_id", "status_desc"]
+    };
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([snapshotWithMultipleCols]);
+
+    await renderPage();
+
+    // Expand accordion
+    fireEvent.click(screen.getByRole("button", { name: /users\s+\d+\s+fields$/i }));
+
+    // Select should be present
+    const select = screen.getByRole("combobox");
+    expect(select).toBeInTheDocument();
+    expect(select).toHaveValue("status_id");
+
+    // Change value
+    fireEvent.change(select, { target: { value: "status_desc" } });
+    expect(select).toHaveValue("status_desc");
+
+    // Save button should be rendered and clickable
+    const saveBtn = screen.getByRole("button", { name: "Save" });
+    expect(saveBtn).toBeInTheDocument();
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(patchMappingSnapshotMock).toHaveBeenCalledWith(
+        "token-1",
+        "proj-1",
+        "feed-1",
+        [
+          {
+            sourceField: "src_status",
+            destinationField: "status_desc",
+            lookupName: "status_map",
+            bindingType: "lookup_fk",
+            referenceTableName: "status_ref",
+            destinationTableName: undefined
+          }
+        ],
+        "users"
+      );
+    });
+  });
+
+  it("allows central_team to submit mapping for review", async () => {
+    listFeedSlicesMock.mockResolvedValue([]);
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([DRAFT_SNAPSHOT]);
+
+    await renderPage();
+
+    const submitBtn = screen.getByRole("button", { name: "Submit for review" });
+    expect(submitBtn).toBeInTheDocument();
+    fireEvent.click(submitBtn);
+
+    expect(screen.getByText("Mapping submitted for business review.")).toBeInTheDocument();
   });
 });

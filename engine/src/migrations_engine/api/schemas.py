@@ -540,6 +540,7 @@ class MappingSnapshotResponse(BaseModel):
     approved_by_user_id: str | None
     created_at: datetime
     lookup_table_references: list[LookupTableReferenceResponse] = []
+    destination_fields: list[str] = []
 
 
 class MappingPatchRequest(BaseModel):
@@ -547,7 +548,7 @@ class MappingPatchRequest(BaseModel):
 
 
 class MappingReviewResponse(MappingSnapshotResponse):
-    destination_fields: list[str]
+    pass
 
 
 class MappingRejectRequest(BaseModel):

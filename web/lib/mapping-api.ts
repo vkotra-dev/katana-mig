@@ -25,11 +25,10 @@ export interface MappingSnapshotRecord {
   approvedByUserId: string | null;
   createdAt: string;
   lookupTableReferences: LookupTableReference[];
-}
-
-export interface MappingReviewRecord extends MappingSnapshotRecord {
   destinationFields: string[];
 }
+
+export interface MappingReviewRecord extends MappingSnapshotRecord {}
 
 export class MappingApiError extends Error {
   code: string;
@@ -64,11 +63,10 @@ type MappingSnapshotRaw = {
     lookup_name: string;
     destination_table_name: string;
   }>;
+  destination_fields?: string[];
 };
 
-type MappingReviewRaw = MappingSnapshotRaw & {
-  destination_fields: string[];
-};
+type MappingReviewRaw = MappingSnapshotRaw;
 
 function mapMappingSnapshotResponse(response: MappingSnapshotRaw): MappingSnapshotRecord {
   return {
@@ -92,14 +90,12 @@ function mapMappingSnapshotResponse(response: MappingSnapshotRaw): MappingSnapsh
       lookupName: ref.lookup_name,
       destinationTableName: ref.destination_table_name,
     })),
+    destinationFields: response.destination_fields ?? [],
   };
 }
 
 function mapMappingReviewResponse(response: MappingReviewRaw): MappingReviewRecord {
-  return {
-    ...mapMappingSnapshotResponse(response),
-    destinationFields: response.destination_fields,
-  };
+  return mapMappingSnapshotResponse(response);
 }
 
 async function requestMappingJson<T>(
@@ -190,9 +186,11 @@ export async function patchMappingSnapshot(
   projectId: string,
   sourceDefinitionId: string,
   fieldBindings: Array<{ sourceField: string; destinationField: string; lookupName: string | null }>,
+  destinationObjectName?: string,
 ): Promise<MappingReviewRecord> {
+  const query = destinationObjectName ? `?destination_object_name=${encodeURIComponent(destinationObjectName)}` : "";
   const response = await requestMappingJson<MappingReviewRaw>(
-    `/projects/${projectId}/sources/${sourceDefinitionId}/mapping`,
+    `/projects/${projectId}/sources/${sourceDefinitionId}/mapping${query}`,
     {
       method: "PATCH",
       token,

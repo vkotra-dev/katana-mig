@@ -8,6 +8,7 @@ No pending tasks.
 
 | Task | Summary |
 |---|---|
+| [001bq-operator-mapping-edit-submit](./completed/001bq-operator-mapping-edit-submit.md) | [summary](./summary/001bq-operator-mapping-edit-submit.md) |
 | [001bp-review-bulk-approve-reject](./completed/001bp-review-bulk-approve-reject.md) | [summary](./summary/001bp-review-bulk-approve-reject.md) |
 | [001bo-review-page-multi-table](./completed/001bo-review-page-multi-table.md) | [summary](./summary/001bo-review-page-multi-table.md) |
 | [001bn-fix-mapping-snapshot-uniqueness](./completed/001bn-fix-mapping-snapshot-uniqueness.md) | [summary](./summary/001bn-fix-mapping-snapshot-uniqueness.md) |

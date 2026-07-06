@@ -17,7 +17,9 @@ import {
 import {
   getAllApprovedMappingSnapshots,
   proposeMappingSnapshot,
+  patchMappingSnapshot,
   type MappingSnapshotRecord,
+  type MappingFieldBindingRecord,
 } from "../../../../../lib/mapping-api";
 import {
   listLookupValueMaps,
@@ -42,6 +44,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
   const [feedSchema, setFeedSchema] = useState<FeedSchemaColumnRecord[]>([]);
   const [allMappingSnapshots, setAllMappingSnapshots] = useState<MappingSnapshotRecord[]>([]);
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
+  const [expandedLookups, setExpandedLookups] = useState<Set<string>>(new Set());
   const [lookupMaps, setLookupMaps] = useState<LookupValueMapRecord[]>([]);
   const [fibers, setFibers] = useState<FiberRecord[]>([]);
   
@@ -51,6 +54,11 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
 
   // Lookup fibers drafts state
   const [lookupDrafts, setLookupDrafts] = useState<Record<string, { sourceText: string; destText: string; analyzing: boolean; error: string | null }>>({});
+
+  // Mapping edits state
+  const [bindingEdits, setBindingEdits] = useState<Record<string, MappingFieldBindingRecord[]>>({});
+  const [savingTable, setSavingTable] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     const s = loadUiSession();
@@ -85,7 +93,6 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
         const snapshotsData = await getAllApprovedMappingSnapshots(token, projectId, feedId, true);
         setAllMappingSnapshots(snapshotsData);
         if (snapshotsData.length > 0) {
-          setExpandedTables(new Set(snapshotsData.map(s => s.destinationObjectName)));
           const mapsData = await listLookupValueMaps(token, projectId, feedId);
           setLookupMaps(mapsData);
         }
@@ -128,6 +135,66 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
       setAnalysisError(err instanceof Error ? err.message : "Unable to trigger AI analysis.");
     } finally {
       setAnalyzing(false);
+    }
+  };
+
+  const updateBindingEdit = (tblName: string, idx: number, newDestField: string) => {
+    setBindingEdits(prev => {
+      const snapshot = allMappingSnapshots.find(s => s.destinationObjectName === tblName);
+      if (!snapshot) return prev;
+      
+      const currentBindings = prev[tblName] || snapshot.fieldBindings.map(b => ({ ...b }));
+      const updatedBindings = [...currentBindings];
+      updatedBindings[idx] = {
+        ...updatedBindings[idx],
+        destinationField: newDestField
+      };
+      return {
+        ...prev,
+        [tblName]: updatedBindings
+      };
+    });
+  };
+
+  const handleSaveBindings = async (tblName: string) => {
+    if (!session) return;
+    const edits = bindingEdits[tblName];
+    if (!edits) return;
+    
+    setSavingTable(tblName);
+    setError(null);
+    setNotice(null);
+    try {
+      await patchMappingSnapshot(
+        session.accessToken,
+        projectId,
+        feedId,
+        edits.map(b => ({
+          sourceField: b.sourceField,
+          destinationField: b.destinationField,
+          lookupName: b.lookupName,
+          bindingType: b.bindingType,
+          referenceTableName: b.referenceTableName,
+          destinationTableName: b.destinationTableName
+        })),
+        tblName
+      );
+      
+      // Reload snapshots
+      const snapshotsData = await getAllApprovedMappingSnapshots(session.accessToken, projectId, feedId, true);
+      setAllMappingSnapshots(snapshotsData);
+      
+      // Clear edits for this table
+      setBindingEdits(prev => {
+        const next = { ...prev };
+        delete next[tblName];
+        return next;
+      });
+      setNotice(`Mappings for ${tblName} saved successfully.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingTable(null);
     }
   };
 
@@ -303,6 +370,12 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
           </div>
         )}
 
+        {notice && (
+          <div role="alert" className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700">
+            {notice}
+          </div>
+        )}
+
         {loading ? (
           <div className="rounded-2xl border border-outline-variant bg-surface-container p-8 text-sm text-slate-600">
             Loading workspace details...
@@ -410,40 +483,89 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
 
               {/* A. Mapping Tables Accordions */}
               <div className="rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm space-y-4">
-                <h3 className="text-lg font-bold text-slate-900">Field Mappings</h3>
-                <p className="text-xs text-slate-500">Verify AI extraction classifications across destination tables.</p>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-bold text-slate-900">Field Mappings</h3>
+                    <p className="text-xs text-slate-500">Verify AI extraction classifications across destination tables.</p>
+                  </div>
+                  {session?.role === "central_team" && allMappingSnapshots.some(s => s.status === "draft") && (
+                    <button
+                      type="button"
+                      onClick={() => setNotice("Mapping submitted for business review.")}
+                      className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white shadow hover:bg-primary-hover focus:outline-none"
+                    >
+                      Submit for review
+                    </button>
+                  )}
+                </div>
                 
                 {mappingTables.length === 0 ? (
                   <div className="text-sm text-slate-500">No mapping proposals generated yet.</div>
                 ) : (
                   <div className="space-y-2">
                     {mappingTables.map((tbl) => {
-                      const isOpen = expandedTables.has(tbl.destinationTableName);
+                      const tblName = tbl.destinationTableName;
+                      const isOpen = expandedTables.has(tblName);
+                      const snapshot = allMappingSnapshots.find(s => s.destinationObjectName === tblName);
+                      const isDraft = snapshot?.status === "draft";
+                      const isOperator = session?.role === "central_team";
+                      const isEditable = isOperator && isDraft;
+                      const destinationFields = snapshot?.destinationFields ?? [];
+                      
+                      const currentBindings = bindingEdits[tblName] || snapshot?.fieldBindings || [];
+                      const hasEdits = !!bindingEdits[tblName];
+
                       return (
-                        <div key={tbl.destinationTableName} className="border border-outline-variant rounded-xl overflow-hidden bg-white">
-                          <button
-                            type="button"
-                            onClick={() => toggleTable(tbl.destinationTableName)}
-                            className="w-full flex items-center justify-between bg-slate-50 px-4 py-3 hover:bg-slate-100 transition-colors"
-                          >
-                            <span className="font-mono text-xs font-bold text-slate-700">{tbl.destinationTableName}</span>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">{tbl.bindings.length} fields</span>
-                              <svg
-                                className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`}
-                                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                        <div key={tblName} className="border border-outline-variant rounded-xl overflow-hidden bg-white">
+                          <div className="w-full flex items-center justify-between bg-slate-50 px-4 py-3 hover:bg-slate-100 transition-colors">
+                            <button
+                              type="button"
+                              onClick={() => toggleTable(tblName)}
+                              className="flex-1 flex items-center justify-between text-left"
+                            >
+                              <span className="font-mono text-xs font-bold text-slate-700">{tblName}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">{tbl.bindings.length} fields</span>
+                                <svg
+                                  className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`}
+                                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
+                                </svg>
+                              </div>
+                            </button>
+                            {isEditable && hasEdits && (
+                              <button
+                                type="button"
+                                disabled={savingTable === tblName}
+                                onClick={() => handleSaveBindings(tblName)}
+                                className="ml-4 rounded bg-primary px-2 py-1 text-[10px] font-semibold text-white hover:bg-primary-hover disabled:bg-slate-300"
                               >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
-                              </svg>
-                            </div>
-                          </button>
+                                {savingTable === tblName ? "Saving..." : "Save"}
+                              </button>
+                            )}
+                          </div>
                           {isOpen && (
                             <table className="w-full text-left text-xs border-collapse border-t border-outline-variant">
                               <tbody className="divide-y divide-slate-100">
-                                {tbl.bindings.map((b, idx) => (
+                                {currentBindings.map((b, idx) => (
                                   <tr key={idx} className="hover:bg-slate-50/40">
-                                    <td className="px-4 py-2 font-mono text-slate-600">{b.sourceField}</td>
-                                    <td className="px-4 py-2 font-mono font-bold text-slate-800">{b.destinationField}</td>
+                                    <td className="px-4 py-2 font-mono text-slate-600 w-1/3">{b.sourceField}</td>
+                                    <td className="px-4 py-2 font-mono font-bold text-slate-800 w-1/2">
+                                      {isEditable && destinationFields.length > 0 ? (
+                                        <select
+                                          value={b.destinationField}
+                                          onChange={(e) => updateBindingEdit(tblName, idx, e.target.value)}
+                                          className="rounded border border-slate-200 bg-white px-2 py-1 font-mono text-xs w-full max-w-[200px]"
+                                        >
+                                          {destinationFields.map(col => (
+                                            <option key={col} value={col}>{col}</option>
+                                          ))}
+                                        </select>
+                                      ) : (
+                                        <span>{b.destinationField}</span>
+                                      )}
+                                    </td>
                                     <td className="px-4 py-2">
                                       {b.bindingType === "direct" && (
                                         <span className="inline-flex rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">direct</span>
@@ -510,57 +632,73 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                         draft.analyzing ||
                         !fiberId;
 
+                      const isLookupOpen = expandedLookups.has(lName);
                       return (
-                        <div key={lName} className="border border-outline-variant rounded-xl p-4 bg-white space-y-4 shadow-sm">
-                          <div className="flex items-center justify-between">
+                        <div key={lName} className="border border-outline-variant rounded-xl bg-white shadow-sm">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedLookups((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(lName)) next.delete(lName); else next.add(lName);
+                              return next;
+                            })}
+                            className="flex w-full items-center justify-between p-4 text-left"
+                          >
                             <span className="text-sm font-bold text-slate-800">{lName}</span>
-                            <span className="text-[10px] bg-amber-500/10 text-amber-700 px-1.5 py-0.5 rounded font-mono">
-                              ref: {refTable}
-                            </span>
-                          </div>
-
-                          <div className="space-y-3">
-                            <div className="space-y-1">
-                              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                                Source values (one per line)
-                              </label>
-                              <textarea
-                                value={draft.sourceText}
-                                onChange={handleSourceChange}
-                                placeholder="VALUE_A&#10;VALUE_B&#10;..."
-                                className="h-24 w-full rounded border border-slate-200 bg-white p-2 font-mono text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary"
-                              />
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] bg-amber-500/10 text-amber-700 px-1.5 py-0.5 rounded font-mono">
+                                ref: {refTable}
+                              </span>
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-150 ${isLookupOpen ? "rotate-180" : ""}`}>
+                                <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                              </svg>
                             </div>
+                          </button>
 
-                            <div className="space-y-1">
-                              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                                Rows from {refTable} (CSV or JSON)
-                              </label>
-                              <textarea
-                                value={draft.destText}
-                                onChange={handleDestChange}
-                                placeholder="id,description&#10;1,Active&#10;2,Inactive&#10;..."
-                                className="h-24 w-full rounded border border-slate-200 bg-white p-2 font-mono text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary"
-                              />
-                            </div>
-                          </div>
+                          {isLookupOpen && (
+                            <div className="px-4 pb-4 space-y-3">
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                  Source values (one per line)
+                                </label>
+                                <textarea
+                                  value={draft.sourceText}
+                                  onChange={handleSourceChange}
+                                  placeholder="VALUE_A&#10;VALUE_B&#10;..."
+                                  className="h-24 w-full rounded border border-slate-200 bg-white p-2 font-mono text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary"
+                                />
+                              </div>
 
-                          {draft.error && (
-                            <div role="alert" className="rounded bg-error/10 border border-error/20 p-2 text-xs text-error">
-                              {draft.error}
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                  Rows from {refTable} (CSV or JSON)
+                                </label>
+                                <textarea
+                                  value={draft.destText}
+                                  onChange={handleDestChange}
+                                  placeholder="id,description&#10;1,Active&#10;2,Inactive&#10;..."
+                                  className="h-24 w-full rounded border border-slate-200 bg-white p-2 font-mono text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary"
+                                />
+                              </div>
+
+                              {draft.error && (
+                                <div role="alert" className="rounded bg-error/10 border border-error/20 p-2 text-xs text-error">
+                                  {draft.error}
+                                </div>
+                              )}
+
+                              <div className="pt-2">
+                                <button
+                                  onClick={() => void handleAnalyzeLookup(lName, fiberId)}
+                                  disabled={isAnalyzeDisabled}
+                                  className="w-full rounded bg-primary py-2 text-xs font-semibold text-white hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
+                                  type="button"
+                                >
+                                  {draft.analyzing ? "Analyzing..." : "AI Analyze"}
+                                </button>
+                              </div>
                             </div>
                           )}
-
-                          <div className="pt-2">
-                            <button
-                              onClick={() => void handleAnalyzeLookup(lName, fiberId)}
-                              disabled={isAnalyzeDisabled}
-                              className="w-full rounded bg-primary py-2 text-xs font-semibold text-white hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
-                              type="button"
-                            >
-                              {draft.analyzing ? "Analyzing..." : "AI Analyze"}
-                            </button>
-                          </div>
                         </div>
                       );
                     })}
