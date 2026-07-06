@@ -527,3 +527,105 @@ def test_propose_creates_multiple_snapshots_and_validates_table_names(monkeypatc
         bindings = {b["source_field"]: b for b in snapshot.field_bindings}
         assert bindings["customer_id"]["binding_type"] == "detail_fk"
         assert bindings["status_id"]["binding_type"] == "lookup_fk"
+
+
+def test_bulk_approve_and_reject_multiple_snapshots(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+    project_id, source_id = _seed_project()
+    with SessionLocal() as db:
+        definition = db.scalar(select(ProjectDefinition).join(ProjectRegistry).where(ProjectRegistry.project_id == project_id))
+        assert definition is not None
+        definition.domain_config = {
+            "destination_schema_ddl": (
+                "CREATE TABLE Customer (\n"
+                "  customer_id INT NOT NULL,\n"
+                "  full_name VARCHAR(200)\n"
+                ");\n"
+                "CREATE TABLE OrderTable (\n"
+                "  order_id INT NOT NULL,\n"
+                "  customer_fk INT\n"
+                ");"
+            )
+        }
+        db.commit()
+
+    class ValidMultiTableFakeAdapter:
+        def __init__(self) -> None:
+            self.model_id = "claude-sonnet-4-6"
+            
+        def call(self, system: str, user: str, response_model: type[object]):
+            return response_model(
+                tables=[
+                    mapping_review_module._TableMapping(
+                        destination_table_name="Customer",
+                        bindings=[
+                            mapping_review_module._ProposedBinding(
+                                source_field="customer_id",
+                                destination_field="customer_id",
+                                binding_type="direct"
+                            )
+                        ]
+                    ),
+                    mapping_review_module._TableMapping(
+                        destination_table_name="OrderTable",
+                        bindings=[
+                            mapping_review_module._ProposedBinding(
+                                source_field="order_id",
+                                destination_field="order_id",
+                                binding_type="direct"
+                            )
+                        ]
+                    )
+                ]
+            )
+
+    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: ValidMultiTableFakeAdapter())
+    
+    # 1. Propose mapping to create draft snapshots
+    response = client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/propose",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 200
+
+    # 2. Approve all (bulk approve)
+    resp_approve = client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/approve",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp_approve.status_code == 200
+
+    with SessionLocal() as db:
+        snapshots = db.scalars(
+            select(mapping_review_module.MappingSnapshot)
+            .where(
+                mapping_review_module.MappingSnapshot.project_id == project_id,
+                mapping_review_module.MappingSnapshot.source_definition_id == source_id,
+            )
+        ).all()
+        assert len(snapshots) == 2
+        for s in snapshots:
+            assert s.status == "approved"
+            # Revert to draft for testing reject
+            s.status = "draft"
+        db.commit()
+
+    # 3. Reject all (bulk reject)
+    resp_reject = client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/reject",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"reason": "Bulk rejection test"}
+    )
+    assert resp_reject.status_code == 200
+
+    with SessionLocal() as db:
+        snapshots = db.scalars(
+            select(mapping_review_module.MappingSnapshot)
+            .where(
+                mapping_review_module.MappingSnapshot.project_id == project_id,
+                mapping_review_module.MappingSnapshot.source_definition_id == source_id,
+            )
+        ).all()
+        assert len(snapshots) == 2
+        for s in snapshots:
+            assert s.status == "rejected"
+

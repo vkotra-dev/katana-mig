@@ -137,4 +137,67 @@ describe("ReviewPage", () => {
     expect(await screen.findByText("policy_master")).toBeInTheDocument();
     expect(screen.getByText("policy_claims")).toBeInTheDocument();
   });
+
+  it("shows draft aggregate status when some are approved and some are draft", async () => {
+    loadUiSessionMock.mockReturnValue(BUSINESS_SESSION);
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([
+      { ...SNAPSHOT, destinationObjectName: "table_1", status: "approved" },
+      { ...SNAPSHOT, destinationObjectName: "table_2", status: "draft" }
+    ]);
+    await renderPage();
+    expect(await screen.findByText("draft")).toBeInTheDocument();
+  });
+
+  it("shows approved aggregate status when all are approved", async () => {
+    loadUiSessionMock.mockReturnValue(BUSINESS_SESSION);
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([
+      { ...SNAPSHOT, destinationObjectName: "table_1", status: "approved" },
+      { ...SNAPSHOT, destinationObjectName: "table_2", status: "approved" }
+    ]);
+    await renderPage();
+    expect(await screen.findByText("approved")).toBeInTheDocument();
+  });
+
+  it("shows rejected aggregate status when any is rejected", async () => {
+    loadUiSessionMock.mockReturnValue(BUSINESS_SESSION);
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([
+      { ...SNAPSHOT, destinationObjectName: "table_1", status: "approved" },
+      { ...SNAPSHOT, destinationObjectName: "table_2", status: "rejected" }
+    ]);
+    await renderPage();
+    expect(await screen.findByText("rejected")).toBeInTheDocument();
+  });
+
+  it("renders decision controls for project_stakeholder when any snapshot is draft", async () => {
+    loadUiSessionMock.mockReturnValue(BUSINESS_SESSION);
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([
+      { ...SNAPSHOT, destinationObjectName: "table_1", status: "approved" },
+      { ...SNAPSHOT, destinationObjectName: "table_2", status: "draft" }
+    ]);
+    await renderPage();
+    expect(await screen.findByText("Review Mappings & Lookups")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Approve" })).toBeInTheDocument();
+  });
+
+  it("hides decision controls for project_stakeholder when all snapshots are approved", async () => {
+    loadUiSessionMock.mockReturnValue(BUSINESS_SESSION);
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([
+      { ...SNAPSHOT, destinationObjectName: "table_1", status: "approved" },
+      { ...SNAPSHOT, destinationObjectName: "table_2", status: "approved" }
+    ]);
+    await renderPage();
+    expect(await screen.findByText("Review Mappings & Lookups")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
+  });
+
+  it("hides decision controls for central_team even when some snapshots are draft", async () => {
+    loadUiSessionMock.mockReturnValue(OPERATOR_SESSION);
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([
+      { ...SNAPSHOT, destinationObjectName: "table_1", status: "approved" },
+      { ...SNAPSHOT, destinationObjectName: "table_2", status: "draft" }
+    ]);
+    await renderPage();
+    expect(await screen.findByText("Review Mappings & Lookups")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
+  });
 });

@@ -8,6 +8,7 @@ No pending tasks.
 
 | Task | Summary |
 |---|---|
+| [001bp-review-bulk-approve-reject](./completed/001bp-review-bulk-approve-reject.md) | [summary](./summary/001bp-review-bulk-approve-reject.md) |
 | [001bo-review-page-multi-table](./completed/001bo-review-page-multi-table.md) | [summary](./summary/001bo-review-page-multi-table.md) |
 | [001bn-fix-mapping-snapshot-uniqueness](./completed/001bn-fix-mapping-snapshot-uniqueness.md) | [summary](./summary/001bn-fix-mapping-snapshot-uniqueness.md) |
 | [001bl-feed-workspace-slice-view-ai-trigger](./completed/001bl-feed-workspace-slice-view-ai-trigger.md) | [summary](./summary/001bl-feed-workspace-slice-view-ai-trigger.md) |

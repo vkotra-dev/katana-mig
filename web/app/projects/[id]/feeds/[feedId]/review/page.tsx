@@ -141,8 +141,16 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
 
   const representativeSnapshot = mappingSnapshots[0] || null;
 
+  const aggregateStatus = mappingSnapshots.length === 0
+    ? null
+    : mappingSnapshots.every(s => s.status === "approved")
+    ? "approved"
+    : mappingSnapshots.some(s => s.status === "rejected")
+    ? "rejected"
+    : "draft";
+
   // Only project_stakeholder has decision controls in this version
-  const showControls = role === "project_stakeholder" && representativeSnapshot?.status === "draft";
+  const showControls = role === "project_stakeholder" && mappingSnapshots.some(s => s.status === "draft");
 
   return (
     <main className="flex min-h-screen flex-col bg-surface text-slate-800">
@@ -166,15 +174,15 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
           
           <div className="flex flex-col items-end">
             <h1 className="text-xl font-bold text-slate-900">Review Mappings & Lookups</h1>
-            {representativeSnapshot && (
+            {aggregateStatus && (
               <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-                representativeSnapshot.status === "approved"
+                aggregateStatus === "approved"
                   ? "bg-emerald-100 text-emerald-700"
-                  : representativeSnapshot.status === "rejected"
+                  : aggregateStatus === "rejected"
                   ? "bg-red-100 text-red-700"
                   : "bg-amber-100 text-amber-700"
               }`}>
-                {representativeSnapshot.status}
+                {aggregateStatus}
               </span>
             )}
           </div>

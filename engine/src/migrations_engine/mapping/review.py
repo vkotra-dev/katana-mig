@@ -560,47 +560,70 @@ def approve_mapping(
     actor_user_id: str,
     destination_object_name: str | None = None,
 ) -> MappingReviewResponse:
-    if not destination_object_name:
-        destination_object_name, _ = _get_project_destination_schema(db, project_id=project_id)
-        
     source_definition = _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
-    snapshot = _latest_snapshot(
-        db,
-        project_id=project_id,
-        source_definition_id=source_definition_id,
-        destination_object_name=destination_object_name,
-    )
-    if snapshot is None:
-        raise AuthApiError("mapping_not_found", "No mapping snapshot exists yet.", 404)
-    if snapshot.status != "draft":
-        raise AuthApiError(
-            "mapping_not_approvable",
-            f"Cannot approve a mapping snapshot with status '{snapshot.status}'.",
-            422,
+
+    if destination_object_name:
+        # Single-table path (explicit caller)
+        drafts = [_latest_snapshot(db, project_id=project_id, source_definition_id=source_definition_id, destination_object_name=destination_object_name)]
+        drafts = [s for s in drafts if s is not None]
+    else:
+        # Bulk path: approve all draft snapshots for the feed
+        drafts = db.scalars(
+            select(MappingSnapshot)
+            .where(
+                MappingSnapshot.project_id == project_id,
+                MappingSnapshot.source_definition_id == source_definition_id,
+                MappingSnapshot.status == "draft",
+            )
+            .order_by(MappingSnapshot.destination_object_name.asc(), MappingSnapshot.created_at.desc())
+        ).all()
+        # Dedup to latest per table (in case of multiple draft versions)
+        seen: set[str] = set()
+        unique_drafts = []
+        for s in drafts:
+            if s.destination_object_name not in seen:
+                seen.add(s.destination_object_name)
+                unique_drafts.append(s)
+        drafts = unique_drafts
+
+    if not drafts:
+        msg = "No mapping snapshot exists yet." if destination_object_name else "No draft mapping snapshots exist for this feed."
+        raise AuthApiError("mapping_not_found", msg, 404)
+
+    now = datetime.now(UTC)
+    approved_tables: list[str] = []
+    for snapshot in drafts:
+        if snapshot.status != "draft":
+            if destination_object_name:
+                raise AuthApiError(
+                    "mapping_not_approvable",
+                    f"Cannot approve a mapping snapshot with status '{snapshot.status}'.",
+                    422,
+                )
+            continue
+        snapshot.status = "approved"
+        snapshot.approved_at = now
+        snapshot.approved_by_user_id = actor_user_id
+        approved_tables.append(snapshot.destination_object_name)
+        record_management_audit(
+            db,
+            project_id=project_id,
+            actor_user_id=actor_user_id,
+            event_type="mapping_approved",
+            payload={
+                "mapping_snapshot_id": snapshot.mapping_snapshot_id,
+                "mapping_snapshot_version": snapshot.mapping_snapshot_version,
+                "destination_object_name": snapshot.destination_object_name,
+            },
         )
 
-    snapshot.status = "approved"
-    snapshot.approved_at = datetime.now(UTC)
-    snapshot.approved_by_user_id = actor_user_id
-    
     current_refs = source_definition.destination_object_references or []
-    if destination_object_name not in current_refs:
-        source_definition.destination_object_references = current_refs + [destination_object_name]
-        
-    record_management_audit(
-        db,
-        project_id=project_id,
-        actor_user_id=actor_user_id,
-        event_type="mapping_approved",
-        payload={
-            "mapping_snapshot_id": snapshot.mapping_snapshot_id,
-            "mapping_snapshot_version": snapshot.mapping_snapshot_version,
-            "destination_object_name": destination_object_name,
-        },
-    )
+    new_refs = current_refs + [t for t in approved_tables if t not in current_refs]
+    source_definition.destination_object_references = new_refs
+
     db.commit()
-    db.refresh(snapshot)
-    return _snapshot_to_response(snapshot)
+    db.refresh(drafts[-1])
+    return _snapshot_to_response(drafts[-1])
 
 
 def reject_mapping(
@@ -612,37 +635,55 @@ def reject_mapping(
     reason: str,
     destination_object_name: str | None = None,
 ) -> MappingReviewResponse:
-    if not destination_object_name:
-        destination_object_name, _ = _get_project_destination_schema(db, project_id=project_id)
-        
     _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
-    snapshot = _latest_snapshot(
-        db,
-        project_id=project_id,
-        source_definition_id=source_definition_id,
-        destination_object_name=destination_object_name,
-    )
-    if snapshot is None:
-        raise AuthApiError("mapping_not_found", "No mapping snapshot exists yet.", 404)
-    if snapshot.status != "draft":
-        raise AuthApiError(
-            "mapping_not_rejectable",
-            f"Cannot reject a mapping snapshot with status '{snapshot.status}'.",
-            422,
+
+    if destination_object_name:
+        drafts = [_latest_snapshot(db, project_id=project_id, source_definition_id=source_definition_id, destination_object_name=destination_object_name)]
+        drafts = [s for s in drafts if s is not None]
+    else:
+        drafts = db.scalars(
+            select(MappingSnapshot)
+            .where(
+                MappingSnapshot.project_id == project_id,
+                MappingSnapshot.source_definition_id == source_definition_id,
+                MappingSnapshot.status == "draft",
+            )
+            .order_by(MappingSnapshot.destination_object_name.asc(), MappingSnapshot.created_at.desc())
+        ).all()
+        seen: set[str] = set()
+        unique_drafts = []
+        for s in drafts:
+            if s.destination_object_name not in seen:
+                seen.add(s.destination_object_name)
+                unique_drafts.append(s)
+        drafts = unique_drafts
+
+    if not drafts:
+        msg = "No mapping snapshot exists yet." if destination_object_name else "No draft mapping snapshots exist for this feed."
+        raise AuthApiError("mapping_not_found", msg, 404)
+
+    for snapshot in drafts:
+        if snapshot.status != "draft":
+            if destination_object_name:
+                raise AuthApiError(
+                    "mapping_not_rejectable",
+                    f"Cannot reject a mapping snapshot with status '{snapshot.status}'.",
+                    422,
+                )
+            continue
+        snapshot.status = "rejected"
+        record_management_audit(
+            db,
+            project_id=project_id,
+            actor_user_id=actor_user_id,
+            event_type="mapping_rejected",
+            payload={
+                "mapping_snapshot_id": snapshot.mapping_snapshot_id,
+                "destination_object_name": snapshot.destination_object_name,
+                "reason": reason,
+            },
         )
 
-    snapshot.status = "rejected"
-    record_management_audit(
-        db,
-        project_id=project_id,
-        actor_user_id=actor_user_id,
-        event_type="mapping_rejected",
-        payload={
-            "mapping_snapshot_id": snapshot.mapping_snapshot_id,
-            "destination_object_name": destination_object_name,
-            "reason": reason,
-        },
-    )
     db.commit()
-    db.refresh(snapshot)
-    return _snapshot_to_response(snapshot)
+    db.refresh(drafts[-1])
+    return _snapshot_to_response(drafts[-1])
