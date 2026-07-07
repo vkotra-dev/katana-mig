@@ -10,7 +10,7 @@ from sqlite_test_support import SessionLocal
 from migrations_engine.app import app
 from migrations_engine.auth.passwords import hash_password
 from migrations_engine.config import get_settings
-from migrations_engine.db.models import AuditEvent, AuthSession, Notification, ProjectDefinition, ProjectMembership, ProjectRegistry, User
+from migrations_engine.db.models import AuditEvent, AuthSession, Notification, ProjectDefinition, ProjectMembership, ProjectRegistry, User, Feed
 from migrations_engine.roles import PROJECT_STAKEHOLDER_ROLE, READ_ONLY_AUDITOR_ROLE
 
 client = TestClient(app)
@@ -436,3 +436,115 @@ def test_auditor_cannot_mutate_projects(
 def test_unauthenticated_requests_are_rejected() -> None:
     assert client.post("/projects", json={"name": "X"}).status_code == 401
     assert client.get("/projects").status_code == 401
+
+
+def test_copy_project_success(admin_token: str) -> None:
+    payload = {
+        "name": "Source Project",
+        "goal": "Migrate Database",
+        "constraints": ["PCI-DSS"],
+        "domain_config": {
+            "target_db_engine": "postgresql",
+            "destination_schema": "public",
+        },
+    }
+    src_project = _create_project(admin_token, payload)
+    src_project_id = src_project["project_id"]
+
+    feed_id = str(uuid.uuid4())
+    with SessionLocal() as db:
+        db.add(
+            Feed(
+                source_definition_id=feed_id,
+                project_id=src_project_id,
+                source_type="csv",
+                source_contract_version="v1",
+                source_details={"label": "Transactions", "encoding": "utf-8"},
+                mapping_hints="map status_id to transaction_status",
+                status="active",
+            )
+        )
+        db.commit()
+
+    copy_payload = {
+        "name": "Cloned Project",
+        "stakeholder_user_ids": []
+    }
+    response = client.post(
+        f"/projects/{src_project_id}/copy",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json=copy_payload,
+    )
+    assert response.status_code == 201, response.text
+    new_project = response.json()
+    assert new_project["name"] == "Cloned Project"
+    assert new_project["status"] == "active"
+    assert new_project["constraints"] == ["PCI-DSS"]
+    assert new_project["domain_config"]["target_db_engine"] == "postgresql"
+
+    with SessionLocal() as db:
+        feeds = db.scalars(
+            select(Feed).where(Feed.project_id == new_project["project_id"])
+        ).all()
+    assert len(feeds) == 1
+    assert feeds[0].source_type == "csv"
+    assert feeds[0].mapping_hints == "map status_id to transaction_status"
+    assert feeds[0].source_details == {"label": "Transactions", "encoding": "utf-8"}
+
+
+def test_copy_project_archived_fails(admin_token: str) -> None:
+    project = _create_project(admin_token, {"name": "Source to Archive"})
+    project_id = project["project_id"]
+    archive_response = client.post(
+        f"/projects/{project_id}/archive",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert archive_response.status_code == 200
+
+    response = client.post(
+        f"/projects/{project_id}/copy",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"name": "Copy of Archived", "stakeholder_user_ids": []},
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "project_archived"
+
+
+def test_copy_project_stakeholders_not_copied_unless_specified(admin_token: str, stakeholder: tuple[str, str]) -> None:
+    sh_id, sh_token = stakeholder
+    project = _create_project(admin_token, {"name": "Stakeholder Source"})
+    project_id = project["project_id"]
+    add_member = client.post(
+        f"/projects/{project_id}/members",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"user_id": sh_id},
+    )
+    assert add_member.status_code == 200
+
+    response = client.post(
+        f"/projects/{project_id}/copy",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"name": "Copy No Stakeholders", "stakeholder_user_ids": []},
+    )
+    assert response.status_code == 201
+    new_project_id = response.json()["project_id"]
+
+    get_res = client.get(
+        f"/projects/{new_project_id}",
+        headers={"Authorization": f"Bearer {sh_token}"},
+    )
+    assert get_res.status_code == 403
+
+    response2 = client.post(
+        f"/projects/{project_id}/copy",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"name": "Copy With Stakeholder", "stakeholder_user_ids": [sh_id]},
+    )
+    assert response2.status_code == 201
+    new_project_id2 = response2.json()["project_id"]
+
+    get_res2 = client.get(
+        f"/projects/{new_project_id2}",
+        headers={"Authorization": f"Bearer {sh_token}"},
+    )
+    assert get_res2.status_code == 200

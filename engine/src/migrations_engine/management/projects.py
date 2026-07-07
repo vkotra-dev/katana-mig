@@ -14,6 +14,7 @@ from ..api.schemas import (
     ProjectResponse,
     ProjectStatus,
     ProjectUpdateRequest,
+    ProjectCopyRequest,
 )
 from ..db.models import ProjectDefinition, ProjectMembership, ProjectRegistry, RunRecord, Feed, User, new_id
 from ..roles import PROJECT_STAKEHOLDER_ROLE
@@ -337,3 +338,94 @@ def _project_response(
         archived_at=registry.archived_at,
         latest_run_summary=latest_run_summary,
     )
+
+
+def copy_project(
+    db: Session,
+    *,
+    actor: User,
+    source_project_id: str,
+    body: ProjectCopyRequest,
+) -> ProjectResponse:
+    source_registry, source_definition = _get_project_rows(db, source_project_id)
+
+    if source_registry.status == "archived":
+        raise AuthApiError("project_archived", "Cannot copy an archived project.", 422)
+
+    new_project_id = new_id()
+    new_definition_id = new_id()
+
+    new_definition = ProjectDefinition(
+        definition_id=new_definition_id,
+        project_id=new_project_id,
+        name=body.name,
+        goal=source_definition.goal,
+        repos=source_definition.repos,
+        workspace=source_definition.workspace,
+        project_resources=source_definition.project_resources,
+        execution_environments=source_definition.execution_environments,
+        model_policy=source_definition.model_policy,
+        canonical_terms=source_definition.canonical_terms,
+        constraints=source_definition.constraints,
+        unresolved_questions=source_definition.unresolved_questions,
+        assumptions=source_definition.assumptions,
+        domain_config=source_definition.domain_config,
+        status="active",
+    )
+    db.add(new_definition)
+
+    new_registry = ProjectRegistry(
+        project_id=new_project_id,
+        name=body.name,
+        definition_id=new_definition_id,
+        lexicon_scope=source_registry.lexicon_scope,
+        status="active",
+    )
+    db.add(new_registry)
+
+    # Copy feeds (no slices)
+    source_feeds = db.scalars(
+        select(Feed).where(Feed.project_id == source_project_id)
+    ).all()
+    for feed in source_feeds:
+        db.add(Feed(
+            project_id=new_project_id,
+            source_type=feed.source_type,
+            source_contract_version=feed.source_contract_version,
+            access_reference=feed.access_reference,
+            selection_information=feed.selection_information,
+            layout_information=feed.layout_information,
+            destination_object_references=feed.destination_object_references,
+            sample_policy=feed.sample_policy,
+            source_details=feed.source_details,
+            copybook_text=feed.copybook_text,
+            mapping_hints=feed.mapping_hints,
+            status="active",
+        ))
+
+    # Assign stakeholders (blank by default — source stakeholders are NOT copied)
+    for user_id in body.stakeholder_user_ids:
+        user = db.get(User, user_id)
+        if user is None:
+            raise AuthApiError("user_not_found", f"User {user_id} not found.", 404)
+        db.add(ProjectMembership(
+            project_id=new_project_id,
+            user_id=user_id,
+        ))
+
+    record_management_audit(
+        db,
+        project_id=new_project_id,
+        actor_user_id=actor.user_id,
+        event_type="project.copied",
+        payload={
+            "source_project_id": source_project_id,
+            "new_project_id": new_project_id,
+            "name": body.name,
+        },
+    )
+
+    db.commit()
+    db.refresh(new_registry)
+    db.refresh(new_definition)
+    return _project_response(new_registry, new_definition)

@@ -56,8 +56,19 @@ describe("ProjectTable", () => {
     render(<ProjectTable projects={[]} role="central_team" onInitiate={onInitiate} />);
 
     fireEvent.click(screen.getByRole("button", { name: /initiate project/i }));
+    fireEvent.click(screen.getByRole("button", { name: /new project/i }));
 
     expect(onInitiate).toHaveBeenCalledOnce();
+  });
+
+  it("triggers onCopyClick when copy from option is clicked", () => {
+    const onCopyClick = vi.fn();
+    render(<ProjectTable projects={[]} role="central_team" onInitiate={vi.fn()} onCopyClick={onCopyClick} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /initiate project/i }));
+    fireEvent.click(screen.getByRole("button", { name: /copy from/i }));
+
+    expect(onCopyClick).toHaveBeenCalledOnce();
   });
 
   it("hides initiate project for auditors", () => {

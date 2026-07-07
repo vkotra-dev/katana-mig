@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { SessionRole } from "../../lib/session";
 import type { ProjectRecord } from "../../lib/projects-api";
 
@@ -8,6 +8,7 @@ export interface ProjectTableProps {
   projects: ProjectRecord[];
   role: SessionRole;
   onInitiate?: () => void;
+  onCopyClick?: () => void;
 }
 
 type SortKey = "name" | "createdAt" | "status";
@@ -39,9 +40,17 @@ function compareValues(
   }
 }
 
-export function ProjectTable({ projects, role, onInitiate }: ProjectTableProps) {
+export function ProjectTable({ projects, role, onInitiate, onCopyClick }: ProjectTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handleClose = () => setDropdownOpen(false);
+    window.addEventListener("click", handleClose);
+    return () => window.removeEventListener("click", handleClose);
+  }, [dropdownOpen]);
 
   const sortedProjects = useMemo(() => {
     const next = [...projects].sort((left, right) => compareValues(left, right, sortKey));
@@ -58,13 +67,45 @@ export function ProjectTable({ projects, role, onInitiate }: ProjectTableProps) 
           <p className="text-sm text-slate-600">Browse active and archived migration projects.</p>
         </div>
         {canCreate && onInitiate ? (
-          <button
-            className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:opacity-95"
-            onClick={onInitiate}
-            type="button"
-          >
-            Initiate project
-          </button>
+          <div className="relative">
+            <button
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:opacity-95"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDropdownOpen((o) => !o);
+              }}
+              type="button"
+            >
+              Initiate Project
+              <span className="text-[10px]">▼</span>
+            </button>
+            {dropdownOpen && (
+              <div className="absolute right-0 mt-1 w-44 rounded-lg border border-outline-variant bg-white shadow-lg z-10 py-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    onInitiate();
+                  }}
+                  className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  New Project
+                </button>
+                {onCopyClick && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      onCopyClick();
+                    }}
+                    className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    Copy from…
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         ) : null}
       </div>
 

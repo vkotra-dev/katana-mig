@@ -213,6 +213,11 @@ class ProjectCreateRequest(BaseModel):
     lexicon_scope: str | None = None
 
 
+class ProjectCopyRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    stakeholder_user_ids: list[str] = Field(default_factory=list)
+
+
 class ProjectUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     goal: str | None = None

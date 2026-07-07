@@ -458,6 +458,30 @@ export async function archiveProject(token: string, id: string): Promise<Project
   return mapProjectRecord(response);
 }
 
+export interface ProjectCopyInput {
+  name: string;
+  stakeholderUserIds: string[];
+}
+
+export async function copyProject(
+  token: string,
+  sourceProjectId: string,
+  input: ProjectCopyInput,
+): Promise<ProjectRecord> {
+  const response = await requestJson<Parameters<typeof mapProjectRecord>[0]>(
+    `/projects/${sourceProjectId}/copy`,
+    {
+      method: "POST",
+      token,
+      body: JSON.stringify({
+        name: input.name,
+        stakeholder_user_ids: input.stakeholderUserIds,
+      }),
+    },
+  );
+  return mapProjectRecord(response);
+}
+
 export function projectErrorMessage(error: unknown): string {
   if (error instanceof ProjectApiError) {
     if (error.code === "project_not_found") {

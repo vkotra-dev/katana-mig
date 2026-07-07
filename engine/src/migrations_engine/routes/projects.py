@@ -16,10 +16,11 @@ from ..api.schemas import (
     ProjectMemberResponse,
     ProjectResponse,
     ProjectUpdateRequest,
+    ProjectCopyRequest,
 )
 from ..db.models import User
 from ..management.access import require_project_access
-from ..management.projects import archive_project, create_project, get_project, list_projects, update_project
+from ..management.projects import archive_project, create_project, get_project, list_projects, update_project, copy_project
 from ..management.service import add_project_member, list_project_members, remove_project_member
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -104,3 +105,13 @@ def delete_project_member(
 ) -> Response:
     remove_project_member(db, actor=actor, project_id=project_id, user_id=user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{project_id}/copy", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
+def post_project_copy(
+    project_id: str,
+    body: ProjectCopyRequest,
+    actor: User = Depends(get_central_team_user),
+    db: Session = Depends(get_db),
+) -> ProjectResponse:
+    return copy_project(db, actor=actor, source_project_id=project_id, body=body)
