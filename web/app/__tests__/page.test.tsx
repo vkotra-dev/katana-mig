@@ -20,6 +20,13 @@ const {
   bootstrapStatusMock: vi.fn(),
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+  }),
+}));
+
 vi.mock("../../lib/session", () => ({
   loadUiSession: loadUiSessionMock,
   saveUiSession: saveUiSessionMock,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { LoginView } from "../components/LoginView";
 import { Topbar } from "../components/Topbar";
 import {
@@ -58,11 +59,18 @@ function AuthenticatedShell({
 }
 
 export default function HomePage() {
+  const router = useRouter();
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [session, setSession] = useState<UiSession | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
   const [bootstrapRequired, setBootstrapRequired] = useState(false);
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.replace("/dashboard");
+    }
+  }, [status, router]);
 
   useEffect(() => {
     let active = true;
