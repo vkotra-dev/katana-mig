@@ -9,6 +9,7 @@ import {
   listFeedFibers,
   listFeedSchema,
   analyzeFeedSource,
+  patchFeedMappingHints,
   type FeedContractRecord,
   type FeedSliceRecord,
   type FiberRecord,
@@ -60,6 +61,10 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
   const [savingTable, setSavingTable] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  // Hints state
+  const [mappingHints, setMappingHints] = useState<string>("");
+  const [savingHints, setSavingHints] = useState(false);
+
   useEffect(() => {
     const s = loadUiSession();
     setSession(s);
@@ -77,6 +82,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
       ]);
 
       setFeed(feedData);
+      setMappingHints(feedData.mappingHints || "");
       setSlices(slicesData);
       setFibers(fibersData);
 
@@ -195,6 +201,21 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSavingTable(null);
+    }
+  };
+
+  const handleSaveMappingHints = async () => {
+    if (!session) return;
+    setSavingHints(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await patchFeedMappingHints(session.accessToken, projectId, feedId, mappingHints);
+      setNotice("Mapping hints saved successfully.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingHints(false);
     }
   };
 
@@ -384,6 +405,31 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
           <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
             {/* Left Column: Slice & Upload Info */}
             <div className="space-y-6">
+              {/* Mapping Hints Panel (central_team only) */}
+              {session?.role === "central_team" && (
+                <div className="rounded-2xl border border-outline-variant bg-surface-container p-5 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="mapping-hints-textarea" className="text-base font-bold text-slate-900">AI Mapping Hints</label>
+                    <button
+                      type="button"
+                      disabled={savingHints}
+                      onClick={handleSaveMappingHints}
+                      className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-200 disabled:opacity-50"
+                    >
+                      {savingHints ? "Saving..." : "Save Hints"}
+                    </button>
+                  </div>
+                  <textarea
+                    id="mapping-hints-textarea"
+                    rows={3}
+                    value={mappingHints}
+                    onChange={(e) => setMappingHints(e.target.value)}
+                    placeholder="Provide hints for field matching, formatting, or target columns..."
+                    className="w-full rounded-lg border border-slate-200 bg-white p-2.5 font-sans text-xs text-slate-800 placeholder-slate-400 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                  />
+                </div>
+              )}
+
               {/* Slice Panel */}
               <div className="rounded-2xl border border-outline-variant bg-surface-container p-5 shadow-sm space-y-4">
                 <h3 className="text-base font-bold text-slate-900">Slice</h3>
@@ -445,7 +491,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                     )}
 
                     {/* Analyze with AI Button */}
-                    <div className="pt-2 border-t border-slate-100 space-y-2">
+                    <div className="pt-4 border-t border-slate-100 space-y-2">
                       <button
                         onClick={handleAnalyzeWithAi}
                         disabled={analyzing}
@@ -546,41 +592,85 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                             )}
                           </div>
                           {isOpen && (
-                            <table className="w-full text-left text-xs border-collapse border-t border-outline-variant">
-                              <tbody className="divide-y divide-slate-100">
-                                {currentBindings.map((b, idx) => (
-                                  <tr key={idx} className="hover:bg-slate-50/40">
-                                    <td className="px-4 py-2 font-mono text-slate-600 w-1/3">{b.sourceField}</td>
-                                    <td className="px-4 py-2 font-mono font-bold text-slate-800 w-1/2">
-                                      {isEditable && destinationFields.length > 0 ? (
-                                        <select
-                                          value={b.destinationField}
-                                          onChange={(e) => updateBindingEdit(tblName, idx, e.target.value)}
-                                          className="rounded border border-slate-200 bg-white px-2 py-1 font-mono text-xs w-full max-w-[200px]"
-                                        >
-                                          {destinationFields.map(col => (
-                                            <option key={col} value={col}>{col}</option>
-                                          ))}
-                                        </select>
-                                      ) : (
-                                        <span>{b.destinationField}</span>
+                            <>
+                              <table className="w-full text-left text-xs border-collapse border-t border-outline-variant">
+                                <tbody className="divide-y divide-slate-100">
+                                  {currentBindings.map((b, idx) => (
+                                    <tr key={idx} className="hover:bg-slate-50/40">
+                                      <td className="px-4 py-2 font-mono text-slate-600 w-1/3">{b.sourceField}</td>
+                                      <td className="px-4 py-2 font-mono font-bold text-slate-800 w-1/2">
+                                        {isEditable && destinationFields.length > 0 ? (
+                                          <select
+                                            value={b.destinationField}
+                                            onChange={(e) => updateBindingEdit(tblName, idx, e.target.value)}
+                                            className="rounded border border-slate-200 bg-white px-2 py-1 font-mono text-xs w-full max-w-[200px]"
+                                          >
+                                            {destinationFields.map(col => (
+                                              <option key={col} value={col}>{col}</option>
+                                            ))}
+                                          </select>
+                                        ) : (
+                                          <span>{b.destinationField}</span>
+                                        )}
+                                      </td>
+                                      <td className="px-4 py-2">
+                                        {b.bindingType === "direct" && (
+                                          <span className="inline-flex rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">direct</span>
+                                        )}
+                                        {b.bindingType === "detail_fk" && (
+                                          <span className="inline-flex rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700">detail_fk</span>
+                                        )}
+                                        {b.bindingType === "lookup_fk" && (
+                                          <span className="inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">lookup_fk</span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                              {snapshot?.aiTrace && (
+                                <div className="border-t border-slate-100 bg-slate-50/50 p-4">
+                                  <details className="text-xs group">
+                                    <summary className="font-semibold text-slate-600 hover:text-slate-900 cursor-pointer list-none flex items-center gap-1.5 focus:outline-none">
+                                      <svg
+                                        className="w-3 h-3 text-slate-400 group-open:rotate-90 transition-transform duration-150"
+                                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}
+                                      >
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                                      </svg>
+                                      AI Trace &amp; Reasoning
+                                    </summary>
+                                    <div className="mt-3 space-y-3 font-mono text-[10px] bg-white border border-slate-200 rounded-lg p-3 max-h-96 overflow-auto">
+                                      {snapshot.aiTrace.model_id && (
+                                        <div>
+                                          <span className="font-bold text-slate-500">Model ID:</span> {snapshot.aiTrace.model_id}
+                                        </div>
                                       )}
-                                    </td>
-                                    <td className="px-4 py-2">
-                                      {b.bindingType === "direct" && (
-                                        <span className="inline-flex rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">direct</span>
+                                      {snapshot.aiTrace.system_prompt && (
+                                        <div>
+                                          <div className="font-bold text-slate-500 mb-1 border-b border-slate-100 pb-0.5">System Prompt</div>
+                                          <pre className="whitespace-pre-wrap text-slate-600">{snapshot.aiTrace.system_prompt}</pre>
+                                        </div>
                                       )}
-                                      {b.bindingType === "detail_fk" && (
-                                        <span className="inline-flex rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700">detail_fk</span>
+                                      {snapshot.aiTrace.user_prompt && (
+                                        <div>
+                                          <div className="font-bold text-slate-500 mb-1 border-b border-slate-100 pb-0.5">User Prompt</div>
+                                          <pre className="whitespace-pre-wrap text-slate-600">{snapshot.aiTrace.user_prompt}</pre>
+                                        </div>
                                       )}
-                                      {b.bindingType === "lookup_fk" && (
-                                        <span className="inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">lookup_fk</span>
+                                      {snapshot.aiTrace.raw_response && (
+                                        <div>
+                                          <div className="font-bold text-slate-500 mb-1 border-b border-slate-100 pb-0.5">AI Response</div>
+                                          <pre className="whitespace-pre-wrap text-slate-600">
+                                            {JSON.stringify(snapshot.aiTrace.raw_response, null, 2)}
+                                          </pre>
+                                        </div>
                                       )}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                                    </div>
+                                  </details>
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       );

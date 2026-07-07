@@ -629,3 +629,62 @@ def test_bulk_approve_and_reject_multiple_snapshots(monkeypatch: pytest.MonkeyPa
         for s in snapshots:
             assert s.status == "rejected"
 
+
+def test_feed_hints_and_ai_tracing(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+    project_id, source_id = _seed_project()
+    
+    # 1. Update hints
+    response = client.patch(
+        f"/projects/{project_id}/sources/{source_id}/hints",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"mapping_hints": "Pre-parsed dates: YYYYMMDD"}
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["mapping_hints"] == "Pre-parsed dates: YYYYMMDD"
+
+    called_user_prompt = None
+    
+    class TracingFakeAdapter(FakeAdapter):
+        def call(self, system_prompt, user_prompt, response_schema):
+            nonlocal called_user_prompt
+            called_user_prompt = user_prompt
+            return super().call(system_prompt, user_prompt, response_schema)
+            
+    fake = TracingFakeAdapter([
+        {"source_field": "customer_id", "destination_field": "customer_id"},
+    ])
+    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task, policy=None: fake)
+
+    # Inject project constraint
+    from migrations_engine.db.models import ProjectDefinition, ProjectRegistry
+    with SessionLocal() as db:
+        registry = db.get(ProjectRegistry, project_id)
+        project_def = db.get(ProjectDefinition, registry.definition_id)
+        project_def.constraints = ["Max value 100"]
+        db.commit()
+
+    # 2. Propose mapping
+    propose_resp = client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/propose",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert propose_resp.status_code == 200, propose_resp.text
+    
+    # Verify trace was stored and prompt contains context
+    assert called_user_prompt is not None
+    assert "Mapping hints (operator-supplied):" in called_user_prompt
+    assert "Pre-parsed dates: YYYYMMDD" in called_user_prompt
+    assert "Project constraints:" in called_user_prompt
+    assert "Max value 100" in called_user_prompt
+
+    # Fetch latest snapshot using GET
+    get_resp = client.get(
+        f"/projects/{project_id}/sources/{source_id}/mapping",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert get_resp.status_code == 200
+    trace = get_resp.json().get("ai_trace")
+    assert trace is not None
+    assert trace["system_prompt"] is not None
+    assert "Mapping hints (operator-supplied):" in trace["user_prompt"]
+

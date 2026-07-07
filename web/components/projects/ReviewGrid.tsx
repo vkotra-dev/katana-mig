@@ -26,6 +26,7 @@ export interface LookupValueGroup {
 interface ReviewGridProps {
   mappingTables: MappingTableRecord[];
   lookupGroups: LookupValueGroup[];
+  sampleValues?: Record<string, string[]>;
   onApprove?: () => void;           // present for business_user only
   onRequestRevision?: (comment: string) => void;
 }
@@ -33,6 +34,7 @@ interface ReviewGridProps {
 export function ReviewGrid({
   mappingTables,
   lookupGroups,
+  sampleValues = {},
   onApprove,
   onRequestRevision,
 }: ReviewGridProps) {
@@ -152,7 +154,22 @@ export function ReviewGrid({
                           <tbody className="divide-y divide-slate-100">
                             {table.bindings.map((binding, idx) => (
                               <tr key={idx} className="hover:bg-slate-50/50">
-                                <td className="py-2.5 font-mono text-slate-700">{binding.sourceField}</td>
+                                <td className="py-2.5">
+                                  <div className="font-mono text-slate-700">{binding.sourceField}</div>
+                                  {(() => {
+                                    const samples = sampleValues[binding.sourceField.toLowerCase()] ?? [];
+                                    if (samples.length === 0) return null;
+                                    return (
+                                      <div className="mt-0.5 flex flex-wrap gap-1">
+                                        {samples.map((v, i) => (
+                                          <span key={i} className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500 font-mono">
+                                            {v}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    );
+                                  })()}
+                                </td>
                                 <td className="py-2.5 font-mono text-slate-900 font-medium">
                                   {binding.destinationField}
                                 </td>

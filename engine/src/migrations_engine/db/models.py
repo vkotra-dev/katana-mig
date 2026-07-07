@@ -236,6 +236,7 @@ class Feed(Base):
     source_details: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     copybook_text: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    mapping_hints: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -367,6 +368,7 @@ class MappingSnapshot(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="approved")
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     approved_by_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.user_id"))
+    ai_trace: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

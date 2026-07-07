@@ -13,6 +13,7 @@ export interface FeedContractRecord {
   copybookText: string | null;
   status: string;
   createdAt: string;
+  mappingHints: string | null;
 }
 
 export interface FeedSchemaColumnRecord {
@@ -142,6 +143,7 @@ function mapFeedContractResponse(response: {
   copybook_text: string | null;
   status: string;
   created_at: string;
+  mapping_hints?: string | null;
 }): FeedContractRecord {
   return {
     sourceDefinitionId: response.source_definition_id,
@@ -154,6 +156,7 @@ function mapFeedContractResponse(response: {
     copybookText: response.copybook_text,
     status: response.status,
     createdAt: response.created_at,
+    mappingHints: response.mapping_hints ?? null,
   };
 }
 
@@ -561,4 +564,21 @@ export async function rejectFeedSlice(
     },
   );
   return mapFeedSliceResponse(response);
+}
+
+export async function patchFeedMappingHints(
+  token: string,
+  projectId: string,
+  sourceDefinitionId: string,
+  hints: string | null,
+): Promise<FeedContractRecord> {
+  const response = await requestJson<Parameters<typeof mapFeedContractResponse>[0]>(
+    `/projects/${projectId}/sources/${sourceDefinitionId}/hints`,
+    {
+      method: "PATCH",
+      token,
+      body: JSON.stringify({ mapping_hints: hints }),
+    },
+  );
+  return mapFeedContractResponse(response);
 }

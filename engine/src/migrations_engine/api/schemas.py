@@ -246,6 +246,11 @@ class FeedResponse(BaseModel):
     copybook_text: str | None
     status: str
     created_at: datetime
+    mapping_hints: str | None = None
+
+
+class FeedMappingHintsRequest(BaseModel):
+    mapping_hints: str | None = None
 
 
 class FeedSliceResponse(BaseModel):
@@ -541,6 +546,7 @@ class MappingSnapshotResponse(BaseModel):
     created_at: datetime
     lookup_table_references: list[LookupTableReferenceResponse] = []
     destination_fields: list[str] = []
+    ai_trace: dict | None = None
 
 
 class MappingPatchRequest(BaseModel):

@@ -2,12 +2,16 @@
 
 ## Ready
 
-No pending tasks.
+| Task | Summary |
+|---|---|
+| [001bu-feed-slice-rejection-replacement](./001bu-feed-slice-rejection-replacement.md) | Amber banner when slice is pending approval; red banner + file upload control when slice is rejected |
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001br-ai-tracing-and-mapping-hints](./completed/001br-ai-tracing-and-mapping-hints.md) | [summary](./summary/001br-ai-tracing-and-mapping-hints.md) |
+| [001bs-review-page-sample-data](./completed/001bs-review-page-sample-data.md) | [summary](./summary/001bs-review-page-sample-data.md) |
 | [001bq-operator-mapping-edit-submit](./completed/001bq-operator-mapping-edit-submit.md) | [summary](./summary/001bq-operator-mapping-edit-submit.md) |
 | [001bp-review-bulk-approve-reject](./completed/001bp-review-bulk-approve-reject.md) | [summary](./summary/001bp-review-bulk-approve-reject.md) |
 | [001bo-review-page-multi-table](./completed/001bo-review-page-multi-table.md) | [summary](./summary/001bo-review-page-multi-table.md) |
@@ -68,6 +72,12 @@ No pending tasks.
 | [001an-fiber-approval-chain](./completed/001an-fiber-approval-chain.md) | [summary](./summary/001an-fiber-approval-chain.md) |
 | [001af-ui-compliance-gaps](./completed/001af-ui-compliance-gaps.md) | [summary](./summary/001af-ui-compliance-gaps.md) |
 | [001at-notifications](./completed/001at-notifications.md) | [summary](./summary/001at-notifications.md) |
+
+## Deferred
+
+| Task | Blocked On | Notes |
+|---|---|---|
+| [001bt-project-copy-prompt-config](./001bt-project-copy-prompt-config.md) | 001br | Copy Feed.mapping_hints and project constraints to cloned project so recurring migrations reuse accumulated AI knowledge |
 
 ## Archived / Superseded
 

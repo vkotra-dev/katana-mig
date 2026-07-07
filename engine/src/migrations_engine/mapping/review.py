@@ -252,6 +252,7 @@ def _snapshot_to_response(
         created_at=snapshot.created_at,
         destination_fields=fields,
         lookup_table_references=lookup_table_references,
+        ai_trace=snapshot.ai_trace,
     )
 
 
@@ -338,24 +339,38 @@ def propose_mapping(
     from pydantic import ValidationError
     from ..ai.adapter import AICallError
 
+    system_prompt = (
+        "You are a data migration specialist. Analyze the provided multi-table SQL DDL schema "
+        "and the list of source CSV columns.\n"
+        "1. Identify all destination tables that receive fields from this feed.\n"
+        "2. Map the source fields to each identified table.\n"
+        "3. Classify each binding as 'direct', 'detail_fk', or 'lookup_fk'.\n"
+        "4. A binding is 'detail_fk' when its destination column is a foreign key whose referenced table "
+        "is also mapped in this response. It is 'lookup_fk' when it references a lookup table not mapped here.\n"
+        "5. For any lookup_fk binding, set the reference_table_name.\n"
+        "6. If the DDL is invalid or you cannot find any matching tables, set error_code and error_message.\n"
+        "Return valid JSON matching the schema."
+    )
+
+    feed = _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
+    user_prompt = f"Source columns:\n{source_columns!r}\n\nDestination DDL:\n{ddl}"
+
+    extra_context = []
+    if feed.mapping_hints:
+        extra_context.append(f"Mapping hints (operator-supplied):\n{feed.mapping_hints}")
+
+    project_constraints = project_definition.constraints or []
+    if project_constraints:
+        bullet_list = "\n".join(f"- {c}" for c in project_constraints)
+        extra_context.append(f"Project constraints:\n{bullet_list}")
+
+    if extra_context:
+        user_prompt = user_prompt + "\n\n" + "\n\n".join(extra_context)
+
     try:
         proposal = adapter.call(
-            (
-                "You are a data migration specialist. Analyze the provided multi-table SQL DDL schema "
-                "and the list of source CSV columns.\n"
-                "1. Identify all destination tables that receive fields from this feed.\n"
-                "2. Map the source fields to each identified table.\n"
-                "3. Classify each binding as 'direct', 'detail_fk', or 'lookup_fk'.\n"
-                "4. A binding is 'detail_fk' when its destination column is a foreign key whose referenced table "
-                "is also mapped in this response. It is 'lookup_fk' when it references a lookup table not mapped here.\n"
-                "5. For any lookup_fk binding, set the reference_table_name.\n"
-                "6. If the DDL is invalid or you cannot find any matching tables, set error_code and error_message.\n"
-                "Return valid JSON matching the schema."
-            ),
-            (
-                f"Source columns:\n{source_columns!r}\n\n"
-                f"Destination DDL:\n{ddl}\n"
-            ),
+            system_prompt,
+            user_prompt,
             _FieldMappingProposal,
         )
     except ValidationError as exc:
@@ -380,6 +395,13 @@ def propose_mapping(
             )
 
     # 5. Create MappingSnapshot records in a single transaction
+    ai_trace = {
+        "system_prompt": system_prompt,
+        "user_prompt": user_prompt,
+        "raw_response": proposal.model_dump(),
+        "model_id": getattr(adapter, "model_id", None),
+    }
+
     snapshots: list[MappingSnapshot] = []
     seen_tables = set()
     mapped_table_names = {t.destination_table_name for t in proposal.tables}
@@ -433,6 +455,7 @@ def propose_mapping(
             status="draft",
             approved_at=None,
             approved_by_user_id=None,
+            ai_trace=ai_trace,
         )
         db.add(snapshot)
         snapshots.append(snapshot)

@@ -5,8 +5,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..api.deps import get_central_team_user, get_current_user, get_db
-from ..api.schemas import FeedCreateRequest, FeedResponse, FeedSliceResponse
-from ..db.models import User
+from ..api.schemas import FeedCreateRequest, FeedResponse, FeedSliceResponse, FeedMappingHintsRequest
+from ..db.models import User, Feed
 from ..management.access import require_project_access
 from ..management.feeds import (
     create_source_contract,
@@ -116,3 +116,21 @@ def get_source_slice_by_id(
         source_definition_id=source_definition_id,
         source_slice_id=source_slice_id,
     )
+
+
+@router.patch("/{source_definition_id}/hints", response_model=FeedResponse)
+def patch_source_hints(
+    project_id: str,
+    source_definition_id: str,
+    body: FeedMappingHintsRequest,
+    actor: User = Depends(get_central_team_user),
+    db: Session = Depends(get_db),
+) -> FeedResponse:
+    require_project_access(db, user=actor, project_id=project_id)
+    feed = db.get(Feed, source_definition_id)
+    if feed is None or feed.project_id != project_id:
+        raise AuthApiError("feed_not_found", "Feed not found.", 404)
+    feed.mapping_hints = body.mapping_hints
+    db.commit()
+    db.refresh(feed)
+    return get_source_contract(db, project_id=project_id, source_definition_id=source_definition_id)

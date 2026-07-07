@@ -9,6 +9,7 @@ const {
   listFeedFibersMock,
   listFeedSchemaMock,
   analyzeFeedSourceMock,
+  patchFeedMappingHintsMock,
   getAllApprovedMappingSnapshotsMock,
   proposeMappingSnapshotMock,
   patchMappingSnapshotMock,
@@ -22,6 +23,7 @@ const {
   listFeedFibersMock: vi.fn(),
   listFeedSchemaMock: vi.fn(),
   analyzeFeedSourceMock: vi.fn(),
+  patchFeedMappingHintsMock: vi.fn(),
   getAllApprovedMappingSnapshotsMock: vi.fn(),
   proposeMappingSnapshotMock: vi.fn(),
   patchMappingSnapshotMock: vi.fn(),
@@ -40,6 +42,7 @@ vi.mock("../../../../../lib/feeds-api", () => ({
   listFeedFibers: listFeedFibersMock,
   listFeedSchema: listFeedSchemaMock,
   analyzeFeedSource: analyzeFeedSourceMock,
+  patchFeedMappingHints: patchFeedMappingHintsMock,
 }));
 
 vi.mock("../../../../../lib/mapping-api", () => ({
@@ -265,5 +268,53 @@ describe("FeedDetailPage", () => {
     fireEvent.click(submitBtn);
 
     expect(screen.getByText("Mapping submitted for business review.")).toBeInTheDocument();
+  });
+
+  it("allows central_team to edit and save mapping hints", async () => {
+    listFeedSlicesMock.mockResolvedValue([]);
+    patchFeedMappingHintsMock.mockResolvedValue({ ...FEED, mappingHints: "new-hints" });
+
+    await renderPage();
+
+    const textarea = screen.getByLabelText("AI Mapping Hints");
+    expect(textarea).toBeInTheDocument();
+    fireEvent.change(textarea, { target: { value: "some operator hints" } });
+
+    const saveHintsBtn = screen.getByRole("button", { name: "Save Hints" });
+    fireEvent.click(saveHintsBtn);
+
+    await waitFor(() => {
+      expect(patchFeedMappingHintsMock).toHaveBeenCalledWith(
+        "token-1",
+        "proj-1",
+        "feed-1",
+        "some operator hints"
+      );
+    });
+  });
+
+  it("renders AI Trace details inside details element when trace is present", async () => {
+    listFeedSlicesMock.mockResolvedValue([]);
+    const snapshotWithTrace = {
+      ...DRAFT_SNAPSHOT,
+      aiTrace: {
+        model_id: "gemini-2.5",
+        system_prompt: "sys-instruction",
+        user_prompt: "user-input",
+        raw_response: { tables: [] },
+      },
+    };
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([snapshotWithTrace]);
+
+    await renderPage();
+
+    // Expand accordion
+    fireEvent.click(screen.getByRole("button", { name: /users\s+\d+\s+fields$/i }));
+
+    expect(screen.getByText("AI Trace & Reasoning")).toBeInTheDocument();
+    expect(screen.getByText("Model ID:")).toBeInTheDocument();
+    expect(screen.getByText("gemini-2.5")).toBeInTheDocument();
+    expect(screen.getByText("sys-instruction")).toBeInTheDocument();
+    expect(screen.getByText("user-input")).toBeInTheDocument();
   });
 });

@@ -8,6 +8,7 @@ const {
   listLookupValueMapsMock,
   approveMappingSnapshotMock,
   rejectMappingSnapshotMock,
+  listFeedSlicesMock,
   routerPushMock,
 } = vi.hoisted(() => ({
   loadUiSessionMock: vi.fn(),
@@ -15,6 +16,7 @@ const {
   listLookupValueMapsMock: vi.fn(),
   approveMappingSnapshotMock: vi.fn(),
   rejectMappingSnapshotMock: vi.fn(),
+  listFeedSlicesMock: vi.fn(),
   routerPushMock: vi.fn(),
 }));
 
@@ -30,6 +32,10 @@ vi.mock("../../../../../../lib/mapping-api", () => ({
 
 vi.mock("../../../../../../lib/lookup-api", () => ({
   listLookupValueMaps: listLookupValueMapsMock,
+}));
+
+vi.mock("../../../../../../lib/feeds-api", () => ({
+  listFeedSlices: listFeedSlicesMock,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -81,6 +87,7 @@ describe("ReviewPage", () => {
     vi.resetAllMocks();
     getAllApprovedMappingSnapshotsMock.mockResolvedValue([SNAPSHOT]);
     listLookupValueMapsMock.mockResolvedValue([]);
+    listFeedSlicesMock.mockResolvedValue([]);
   });
 
   async function renderPage() {
@@ -199,5 +206,34 @@ describe("ReviewPage", () => {
     await renderPage();
     expect(await screen.findByText("Review Mappings & Lookups")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
+  });
+
+  it("renders sample value chips under source fields when approved slice is present", async () => {
+    loadUiSessionMock.mockReturnValue(BUSINESS_SESSION);
+    listFeedSlicesMock.mockResolvedValue([
+      {
+        sourceSliceId: "slice-approved",
+        sourceDefinitionId: "feed-1",
+        sourceSliceVersion: "v1",
+        headerCsv: "src_status,other_col",
+        rowCount: 10,
+        status: "approved",
+        approvalRejectionReason: null,
+        parseWarnings: null,
+        previewRows: ["active,val1", "inactive,val2"],
+        createdAt: "2026-06-30T00:00:00Z",
+      },
+    ]);
+
+    await renderPage();
+
+    expect(await screen.findByText("Review Mappings & Lookups")).toBeInTheDocument();
+
+    // Expand accordion
+    fireEvent.click(screen.getByRole("button", { name: /users/ }));
+
+    // Chips should be present
+    expect(screen.getByText("active")).toBeInTheDocument();
+    expect(screen.getByText("inactive")).toBeInTheDocument();
   });
 });
