@@ -10,6 +10,8 @@ import {
   listFeedSchema,
   analyzeFeedSource,
   patchFeedMappingHints,
+  uploadFeedSlice,
+  resubmitFeedSlice,
   type FeedContractRecord,
   type FeedSliceRecord,
   type FiberRecord,
@@ -64,6 +66,9 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
   // Hints state
   const [mappingHints, setMappingHints] = useState<string>("");
   const [savingHints, setSavingHints] = useState(false);
+
+  const [replacementFile, setReplacementFile] = useState<string | null>(null);
+  const [uploadingReplacement, setUploadingReplacement] = useState(false);
 
   useEffect(() => {
     const s = loadUiSession();
@@ -217,6 +222,35 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
     } finally {
       setSavingHints(false);
     }
+  };
+
+  const handleUploadReplacement = async () => {
+    if (!replacementFile || !session?.accessToken) return;
+    setUploadingReplacement(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await uploadFeedSlice(session.accessToken, projectId, feedId, { content: replacementFile });
+      setReplacementFile(null);
+      // Reload slices
+      const refreshed = await listFeedSlices(session.accessToken, projectId, feedId);
+      setSlices(refreshed);
+      setNotice("Replacement data uploaded successfully.");
+    } catch (err) {
+      setError("Failed to upload replacement file.");
+    } finally {
+      setUploadingReplacement(false);
+    }
+  };
+
+  const handleReplacementFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setReplacementFile(ev.target?.result as string);
+    };
+    reader.readAsText(file);
   };
 
 
@@ -397,6 +431,50 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
           </div>
         )}
 
+        {/* Pending approval banner */}
+        {!loading && latestSlice?.status === "pending_approval" && (
+          <div
+            role="alert"
+            className="rounded-xl border border-amber-400/30 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+          >
+            Source data is pending approval — field mapping analysis will be available once the slice is approved.
+          </div>
+        )}
+
+        {/* Rejection banner + replacement upload */}
+        {!loading && latestSlice?.status === "rejected" && (
+          <div
+            role="alert"
+            className="rounded-xl border border-red-400/30 bg-red-50 px-4 py-3 text-sm text-red-800 space-y-3"
+          >
+            <p className="font-medium">
+              Source data was rejected
+              {latestSlice.approvalRejectionReason
+                ? `: ${latestSlice.approvalRejectionReason}`
+                : "."}
+            </p>
+            <p className="text-xs text-red-700">
+              Upload a replacement file to re-enter the approval queue.
+            </p>
+            <div className="flex items-center gap-3">
+              <input
+                type="file"
+                accept=".csv,.txt"
+                onChange={handleReplacementFileChange}
+                className="text-xs text-red-800"
+              />
+              <button
+                type="button"
+                onClick={handleUploadReplacement}
+                disabled={!replacementFile || uploadingReplacement}
+                className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40 hover:bg-red-700"
+              >
+                {uploadingReplacement ? "Uploading…" : "Upload replacement"}
+              </button>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="rounded-2xl border border-outline-variant bg-surface-container p-8 text-sm text-slate-600">
             Loading workspace details...
@@ -449,9 +527,29 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-slate-500">Status:</span>
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-600"></span>
-                          received
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            latestSlice.status === "approved"
+                              ? "bg-emerald-50 text-emerald-700"
+                              : latestSlice.status === "rejected"
+                                ? "bg-red-50 text-red-700"
+                                : "bg-amber-50 text-amber-700"
+                          }`}
+                        >
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${
+                              latestSlice.status === "approved"
+                                ? "bg-emerald-600"
+                                : latestSlice.status === "rejected"
+                                  ? "bg-red-500"
+                                  : "bg-amber-500"
+                            }`}
+                          />
+                          {latestSlice.status === "approved"
+                            ? "approved"
+                            : latestSlice.status === "rejected"
+                              ? "rejected"
+                              : "pending approval"}
                         </span>
                       </div>
                     </div>
@@ -517,6 +615,28 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                         </div>
                       )}
                     </div>
+                    {/* Quiet re-upload in Slice panel when approved */}
+                    {latestSlice?.status === "approved" && (
+                      <div className="border-t border-slate-100 pt-4 mt-4 space-y-2">
+                        <p className="text-xs text-slate-500 font-medium">Upload a corrected file to replace this slice:</p>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                          <input
+                            type="file"
+                            accept=".csv,.txt"
+                            onChange={handleReplacementFileChange}
+                            className="text-xs text-slate-600 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleUploadReplacement}
+                            disabled={!replacementFile || uploadingReplacement}
+                            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 disabled:opacity-40 hover:bg-slate-50 self-start sm:self-auto"
+                          >
+                            {uploadingReplacement ? "Uploading…" : "Upload new slice"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

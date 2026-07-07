@@ -582,3 +582,21 @@ export async function patchFeedMappingHints(
   );
   return mapFeedContractResponse(response);
 }
+
+export async function resubmitFeedSlice(
+  token: string,
+  projectId: string,
+  sourceDefinitionId: string,
+  sourceSliceId: string,
+  encoding?: string,
+): Promise<FeedSliceRecord> {
+  const response = await requestJson<Parameters<typeof mapFeedSliceResponse>[0]>(
+    `/projects/${projectId}/sources/${sourceDefinitionId}/slices/${sourceSliceId}/resubmit`,
+    {
+      method: "POST",
+      token,
+      body: JSON.stringify({ encoding: encoding ?? null }),
+    },
+  );
+  return mapFeedSliceResponse(response);
+}

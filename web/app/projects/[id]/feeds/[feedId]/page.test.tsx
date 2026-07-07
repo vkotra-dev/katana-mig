@@ -10,6 +10,7 @@ const {
   listFeedSchemaMock,
   analyzeFeedSourceMock,
   patchFeedMappingHintsMock,
+  uploadFeedSliceMock,
   getAllApprovedMappingSnapshotsMock,
   proposeMappingSnapshotMock,
   patchMappingSnapshotMock,
@@ -24,6 +25,7 @@ const {
   listFeedSchemaMock: vi.fn(),
   analyzeFeedSourceMock: vi.fn(),
   patchFeedMappingHintsMock: vi.fn(),
+  uploadFeedSliceMock: vi.fn(),
   getAllApprovedMappingSnapshotsMock: vi.fn(),
   proposeMappingSnapshotMock: vi.fn(),
   patchMappingSnapshotMock: vi.fn(),
@@ -43,6 +45,7 @@ vi.mock("../../../../../lib/feeds-api", () => ({
   listFeedSchema: listFeedSchemaMock,
   analyzeFeedSource: analyzeFeedSourceMock,
   patchFeedMappingHints: patchFeedMappingHintsMock,
+  uploadFeedSlice: uploadFeedSliceMock,
 }));
 
 vi.mock("../../../../../lib/mapping-api", () => ({
@@ -316,5 +319,78 @@ describe("FeedDetailPage", () => {
     expect(screen.getByText("gemini-2.5")).toBeInTheDocument();
     expect(screen.getByText("sys-instruction")).toBeInTheDocument();
     expect(screen.getByText("user-input")).toBeInTheDocument();
+  });
+
+  it("renders pending approval banner when latest slice is pending_approval", async () => {
+    listFeedSlicesMock.mockResolvedValue([
+      {
+        sourceSliceId: "slice-pending",
+        sourceDefinitionId: "feed-1",
+        sourceSliceVersion: "v1",
+        headerCsv: null,
+        rowCount: 10,
+        status: "pending_approval",
+        approvalRejectionReason: null,
+        parseWarnings: null,
+        previewRows: [],
+        createdAt: "2026-06-30T00:00:00Z",
+      },
+    ]);
+
+    await renderPage();
+
+    expect(screen.getByText(/Source data is pending approval/i)).toBeInTheDocument();
+    expect(screen.getByText("pending approval")).toBeInTheDocument();
+  });
+
+  it("renders rejection banner with upload replacement form when latest slice is rejected", async () => {
+    listFeedSlicesMock.mockResolvedValue([
+      {
+        sourceSliceId: "slice-rejected",
+        sourceDefinitionId: "feed-1",
+        sourceSliceVersion: "v1",
+        headerCsv: null,
+        rowCount: 10,
+        status: "rejected",
+        approvalRejectionReason: "Columns do not match target schema",
+        parseWarnings: null,
+        previewRows: [],
+        createdAt: "2026-06-30T00:00:00Z",
+      },
+    ]);
+
+    await renderPage();
+
+    expect(screen.getByText(/Source data was rejected: Columns do not match target schema/i)).toBeInTheDocument();
+    expect(screen.getByText("rejected")).toBeInTheDocument();
+
+    const uploadBtn = screen.getByRole("button", { name: "Upload replacement" });
+    expect(uploadBtn).toBeInTheDocument();
+    expect(uploadBtn).toBeDisabled();
+  });
+
+  it("renders quiet replacement upload control when latest slice is approved", async () => {
+    listFeedSlicesMock.mockResolvedValue([
+      {
+        sourceSliceId: "slice-approved",
+        sourceDefinitionId: "feed-1",
+        sourceSliceVersion: "v1",
+        headerCsv: null,
+        rowCount: 10,
+        status: "approved",
+        approvalRejectionReason: null,
+        parseWarnings: null,
+        previewRows: [],
+        createdAt: "2026-06-30T00:00:00Z",
+      },
+    ]);
+
+    await renderPage();
+
+    expect(screen.getByText(/Upload a corrected file to replace this slice/i)).toBeInTheDocument();
+    expect(screen.getByText("approved")).toBeInTheDocument();
+    const uploadBtn = screen.getByRole("button", { name: "Upload new slice" });
+    expect(uploadBtn).toBeInTheDocument();
+    expect(uploadBtn).toBeDisabled();
   });
 });

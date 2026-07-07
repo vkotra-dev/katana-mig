@@ -2,14 +2,13 @@
 
 ## Ready
 
-| Task | Summary |
-|---|---|
-| [001bu-feed-slice-rejection-replacement](./001bu-feed-slice-rejection-replacement.md) | Amber banner when slice is pending approval; red banner + file upload control when slice is rejected |
+No pending tasks.
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001bu-feed-slice-rejection-replacement](./completed/001bu-feed-slice-rejection-replacement.md) | [summary](./summary/001bu-feed-slice-rejection-replacement.md) |
 | [001br-ai-tracing-and-mapping-hints](./completed/001br-ai-tracing-and-mapping-hints.md) | [summary](./summary/001br-ai-tracing-and-mapping-hints.md) |
 | [001bs-review-page-sample-data](./completed/001bs-review-page-sample-data.md) | [summary](./summary/001bs-review-page-sample-data.md) |
 | [001bq-operator-mapping-edit-submit](./completed/001bq-operator-mapping-edit-submit.md) | [summary](./summary/001bq-operator-mapping-edit-submit.md) |
