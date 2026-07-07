@@ -2,7 +2,9 @@
 
 ## Ready
 
-No pending tasks.
+| Task | Plan | Summary |
+|---|---|---|
+| [001bw-dashboard-health-view](./001bw-dashboard-health-view.md) | [plan](../plans/2026-07-07-001bw-dashboard-health-view.md) | Feed, Mapping, Lookup health chips on portfolio dashboard |
 
 ## Completed
 
