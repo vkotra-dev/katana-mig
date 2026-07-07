@@ -16,6 +16,7 @@ import {
 import { listFeedSlices } from "../../../../../../lib/feeds-api";
 import { loadUiSession, type SessionRole, type UiSession } from "../../../../../../lib/session";
 import { ReviewGrid, type MappingTableRecord, type LookupValueGroup } from "../../../../../../components/projects/ReviewGrid";
+import { splitCsvRow } from "../../../../../../lib/csv-utils";
 
 export default function ReviewPage({ params }: { params: Promise<{ id: string; feedId: string }> }) {
   const router = useRouter();
@@ -30,6 +31,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
   const [mappingSnapshots, setMappingSnapshots] = useState<MappingSnapshotRecord[]>([]);
   const [lookupMaps, setLookupMaps] = useState<LookupValueMapRecord[]>([]);
   const [sampleValues, setSampleValues] = useState<Record<string, string[]>>({});
+  const [allSourceColumns, setAllSourceColumns] = useState<string[]>([]);
 
   useEffect(() => {
     const s = loadUiSession();
@@ -39,15 +41,6 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
     }
   }, []);
 
-  function splitCsvRow(row: string): string[] {
-    return row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map((val) => {
-      let cleaned = val.trim();
-      if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
-        cleaned = cleaned.slice(1, -1);
-      }
-      return cleaned;
-    });
-  }
 
   const loadData = async (token: string) => {
     try {
@@ -63,22 +56,26 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
         .filter((s) => s.status === "approved")
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
 
-      if (approvedSlice?.headerCsv && approvedSlice.previewRows.length > 0) {
+      if (approvedSlice?.headerCsv) {
         const headers = splitCsvRow(approvedSlice.headerCsv);
-        const parsed: Record<string, string[]> = {};
+        setAllSourceColumns(headers);
 
-        for (const rowCsv of approvedSlice.previewRows.slice(0, 5)) {
-          const cells = splitCsvRow(rowCsv);
-          headers.forEach((col, i) => {
-            const val = (cells[i] ?? "").trim();
-            if (val) {
-              const key = col.toLowerCase();
-              if (!parsed[key]) parsed[key] = [];
-              if (parsed[key].length < 3) parsed[key].push(val);
-            }
-          });
+        if (approvedSlice.previewRows.length > 0) {
+          const parsed: Record<string, string[]> = {};
+
+          for (const rowCsv of approvedSlice.previewRows.slice(0, 5)) {
+            const cells = splitCsvRow(rowCsv);
+            headers.forEach((col, i) => {
+              const val = (cells[i] ?? "").trim();
+              if (val) {
+                const key = col.toLowerCase();
+                if (!parsed[key]) parsed[key] = [];
+                if (parsed[key].length < 3) parsed[key].push(val);
+              }
+            });
+          }
+          setSampleValues(parsed);
         }
-        setSampleValues(parsed);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load mapping review data.");
@@ -242,13 +239,20 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
         ) : (
           <div className="bg-surface-container border border-outline-variant rounded-2xl p-6 shadow-sm">
             {representativeSnapshot ? (
-              <ReviewGrid
-                mappingTables={mappingTables}
-                lookupGroups={lookupGroups}
-                sampleValues={sampleValues}
-                onApprove={showControls ? handleApprove : undefined}
-                onRequestRevision={showControls ? handleRequestRevision : undefined}
-              />
+              (() => {
+                const boundSet = new Set(mappingSnapshots.flatMap((s) => s.fieldBindings || []).map((b) => b.sourceField.toLowerCase()));
+                const unmappedSourceFields = allSourceColumns.filter((h) => h && h.trim() && !boundSet.has(h.trim().toLowerCase()));
+                return (
+                  <ReviewGrid
+                    mappingTables={mappingTables}
+                    lookupGroups={lookupGroups}
+                    sampleValues={sampleValues}
+                    unmappedSourceFields={unmappedSourceFields}
+                    onApprove={showControls ? handleApprove : undefined}
+                    onRequestRevision={showControls ? handleRequestRevision : undefined}
+                  />
+                );
+              })()
             ) : (
               <div className="text-sm text-slate-500 text-center py-12">
                 No mapping snapshot has been proposed yet for this feed.

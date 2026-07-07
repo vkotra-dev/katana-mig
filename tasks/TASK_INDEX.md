@@ -2,14 +2,13 @@
 
 ## Ready
 
-| Task | Summary |
-|---|---|
-| [001bv-unmapped-source-fields-warning](./001bv-unmapped-source-fields-warning.md) | Amber informational panel on review page and feed workspace listing source columns with no binding |
+No pending tasks.
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001bv-unmapped-source-fields-warning](./completed/001bv-unmapped-source-fields-warning.md) | [summary](./summary/001bv-unmapped-source-fields-warning.md) |
 | [001bt-project-copy-prompt-config](./completed/001bt-project-copy-prompt-config.md) | [summary](./summary/001bt-project-copy-prompt-config.md) |
 | [001bu-feed-slice-rejection-replacement](./completed/001bu-feed-slice-rejection-replacement.md) | [summary](./summary/001bu-feed-slice-rejection-replacement.md) |
 | [001br-ai-tracing-and-mapping-hints](./completed/001br-ai-tracing-and-mapping-hints.md) | [summary](./summary/001br-ai-tracing-and-mapping-hints.md) |

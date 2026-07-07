@@ -27,6 +27,7 @@ interface ReviewGridProps {
   mappingTables: MappingTableRecord[];
   lookupGroups: LookupValueGroup[];
   sampleValues?: Record<string, string[]>;
+  unmappedSourceFields?: string[];
   onApprove?: () => void;           // present for business_user only
   onRequestRevision?: (comment: string) => void;
 }
@@ -35,6 +36,7 @@ export function ReviewGrid({
   mappingTables,
   lookupGroups,
   sampleValues = {},
+  unmappedSourceFields = [],
   onApprove,
   onRequestRevision,
 }: ReviewGridProps) {
@@ -187,6 +189,40 @@ export function ReviewGrid({
           </div>
         )}
       </div>
+
+      {unmappedSourceFields.length > 0 && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50/50 p-5 space-y-3">
+          <div className="flex items-center gap-2 text-amber-800">
+            <span className="text-lg">⚠️</span>
+            <p className="text-sm font-semibold">
+              Unmapped source fields — data in these columns will not be migrated
+            </p>
+          </div>
+          <ul className="space-y-2.5 pl-7">
+            {unmappedSourceFields.map((col) => {
+              const samples = sampleValues[col] || sampleValues[col.toLowerCase()] || sampleValues[col.toUpperCase()] || [];
+              return (
+                <li key={col} className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <span className="font-mono text-sm font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded">{col}</span>
+                  {samples.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] text-amber-600 font-medium mr-1">Sample values:</span>
+                      {samples.map((v, i) => (
+                        <span
+                          key={i}
+                          className="rounded bg-amber-50 border border-amber-200/60 px-1.5 py-0.5 text-xs font-mono text-amber-700"
+                        >
+                          {v}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       {/* 2. Lookup Value Mapping Section */}
       <div className="space-y-4">

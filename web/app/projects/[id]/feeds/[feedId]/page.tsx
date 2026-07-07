@@ -32,6 +32,7 @@ import {
 } from "../../../../../lib/lookup-api";
 import { loadUiSession, type SessionRole, type UiSession } from "../../../../../lib/session";
 import { ReviewGrid, type MappingTableRecord, type LookupValueGroup } from "../../../../../components/projects/ReviewGrid";
+import { splitCsvRow } from "../../../../../lib/csv-utils";
 
 export default function FeedDetailPage({ params }: { params: Promise<{ id: string; feedId: string }> }) {
   const router = useRouter();
@@ -351,6 +352,15 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
     }
   }
   const mappingTables = Object.values(mappingTablesMap);
+
+  const allBoundFields = allMappingSnapshots.flatMap((s) => s.fieldBindings || []);
+  const boundSet = new Set(allBoundFields.map((b) => b.sourceField.toLowerCase()));
+  const unmappedSourceFields =
+    latestSlice?.headerCsv && allMappingSnapshots.length > 0
+      ? splitCsvRow(latestSlice.headerCsv)
+          .map((h) => h.trim())
+          .filter((h) => h && !boundSet.has(h.toLowerCase()))
+      : [];
 
   const lookupGroups: LookupValueGroup[] = [];
   const seenLookups = new Set<string>();
@@ -795,6 +805,21 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                         </div>
                       );
                     })}
+                  </div>
+                )}
+
+                {unmappedSourceFields.length > 0 && (
+                  <div className="rounded-xl border border-amber-300 bg-amber-50/50 p-4 space-y-2 mt-4">
+                    <p className="text-xs font-semibold text-amber-800">
+                      Unmapped source fields — data in these columns will not be migrated
+                    </p>
+                    <ul className="flex flex-wrap gap-1.5">
+                      {unmappedSourceFields.map((col) => (
+                        <li key={col} className="font-mono text-[10px] font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded">
+                          {col}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
               </div>

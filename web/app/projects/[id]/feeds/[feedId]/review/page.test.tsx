@@ -236,4 +236,29 @@ describe("ReviewPage", () => {
     expect(screen.getByText("active")).toBeInTheDocument();
     expect(screen.getByText("inactive")).toBeInTheDocument();
   });
+
+  it("renders unmapped source fields warning panel when columns are unmapped", async () => {
+    loadUiSessionMock.mockReturnValue(BUSINESS_SESSION);
+    listFeedSlicesMock.mockResolvedValue([
+      {
+        sourceSliceId: "slice-approved",
+        sourceDefinitionId: "feed-1",
+        sourceSliceVersion: "v1",
+        headerCsv: "src_status,lost_column",
+        rowCount: 10,
+        status: "approved",
+        approvalRejectionReason: null,
+        parseWarnings: null,
+        previewRows: ["active,unmapped_val"],
+        createdAt: "2026-06-30T00:00:00Z",
+      },
+    ]);
+
+    await renderPage();
+
+    expect(await screen.findByText("Review Mappings & Lookups")).toBeInTheDocument();
+    expect(screen.getByText(/Unmapped source fields/i)).toBeInTheDocument();
+    expect(screen.getByText("lost_column")).toBeInTheDocument();
+    expect(screen.getByText("unmapped_val")).toBeInTheDocument();
+  });
 });
