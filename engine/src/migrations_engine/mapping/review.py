@@ -197,11 +197,26 @@ def _next_snapshot_version(
     return f"v{highest + 1}"
 
 
+def derive_destination_fields(db: Session, project_id: str, destination_object_name: str) -> list[str]:
+    try:
+        project_definition = _get_project_definition(db, project_id=project_id)
+        ddl = (project_definition.domain_config or {}).get("destination_schema_ddl")
+        if not ddl:
+            return []
+        ddl_tables = _parse_all_ddl_tables(ddl)
+        return ddl_tables.get(destination_object_name) or []
+    except Exception:
+        return []
+
+
 def _snapshot_to_response(
     snapshot: MappingSnapshot,
+    db: Session,
     destination_fields: list[str] | None = None,
 ) -> MappingReviewResponse:
-    fields = destination_fields if destination_fields is not None else (snapshot.destination_fields or [])
+    if destination_fields is None:
+        destination_fields = derive_destination_fields(db, snapshot.project_id, snapshot.destination_object_name)
+    fields = destination_fields if destination_fields else (snapshot.destination_fields or [])
     
     lookup_table_references: list[dict[str, str]] = []
     for binding in snapshot.field_bindings:
@@ -445,7 +460,7 @@ def propose_mapping(
     for snapshot in snapshots:
         db.refresh(snapshot)
         
-    return _snapshot_to_response(snapshots[0])
+    return _snapshot_to_response(snapshots[0], db=db)
 
 
 def get_mapping(
@@ -482,7 +497,7 @@ def get_mapping(
             )
     if snapshot is None:
         raise AuthApiError("mapping_not_found", "No mapping snapshot exists yet.", 404)
-    return _snapshot_to_response(snapshot)
+    return _snapshot_to_response(snapshot, db=db)
 
 
 def patch_mapping(
@@ -549,7 +564,7 @@ def patch_mapping(
     )
     db.commit()
     db.refresh(snapshot)
-    return _snapshot_to_response(snapshot)
+    return _snapshot_to_response(snapshot, db=db)
 
 
 def approve_mapping(
@@ -623,7 +638,7 @@ def approve_mapping(
 
     db.commit()
     db.refresh(drafts[-1])
-    return _snapshot_to_response(drafts[-1])
+    return _snapshot_to_response(drafts[-1], db=db)
 
 
 def reject_mapping(
@@ -686,4 +701,4 @@ def reject_mapping(
 
     db.commit()
     db.refresh(drafts[-1])
-    return _snapshot_to_response(drafts[-1])
+    return _snapshot_to_response(drafts[-1], db=db)

@@ -11,6 +11,7 @@ from ..management.access import require_project_access
 from ..management.feeds import get_source_contract
 from ..mapping.snapshots import select_latest_approved_mapping_snapshot, select_all_approved_mapping_snapshots, select_all_feed_mapping_snapshots
 from ..mapping.exceptions import SnapshotNotFoundError
+from ..mapping.review import derive_destination_fields
 
 router = APIRouter(prefix="/projects/{project_id}/sources/{source_definition_id}", tags=["mapping-snapshots"])
 
@@ -61,6 +62,7 @@ def get_latest_mapping_snapshot(
         approved_at=mapping_snapshot.approved_at,
         approved_by_user_id=mapping_snapshot.approved_by_user_id,
         created_at=mapping_snapshot.created_at,
+        destination_fields=derive_destination_fields(db, mapping_snapshot.project_id, mapping_snapshot.destination_object_name) or (mapping_snapshot.destination_fields or []),
     )
 
 
@@ -105,7 +107,7 @@ def list_approved_mapping_snapshots(
             approved_at=s.approved_at,
             approved_by_user_id=s.approved_by_user_id,
             created_at=s.created_at,
-            destination_fields=s.destination_fields or [],
+            destination_fields=derive_destination_fields(db, s.project_id, s.destination_object_name) or (s.destination_fields or []),
         )
         for s in snapshots
     ]

@@ -180,16 +180,16 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
         tblName
       );
       
-      // Reload snapshots
-      const snapshotsData = await getAllApprovedMappingSnapshots(session.accessToken, projectId, feedId, true);
-      setAllMappingSnapshots(snapshotsData);
-      
-      // Clear edits for this table
+      // Clear edits for this table immediately
       setBindingEdits(prev => {
         const next = { ...prev };
         delete next[tblName];
         return next;
       });
+      
+      // Reload snapshots
+      const snapshotsData = await getAllApprovedMappingSnapshots(session.accessToken, projectId, feedId, true);
+      setAllMappingSnapshots(snapshotsData);
       setNotice(`Mappings for ${tblName} saved successfully.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
