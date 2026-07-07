@@ -548,3 +548,18 @@ def test_copy_project_stakeholders_not_copied_unless_specified(admin_token: str,
         headers={"Authorization": f"Bearer {sh_token}"},
     )
     assert get_res2.status_code == 200
+
+
+def test_project_health_summaries(admin_token: str) -> None:
+    project = _create_project(admin_token, {"name": "Health Test Project"})
+    project_id = project["project_id"]
+
+    list_res = client.get("/projects", headers={"Authorization": f"Bearer {admin_token}"})
+    assert list_res.status_code == 200
+    matched = [p for p in list_res.json() if p["project_id"] == project_id]
+    assert len(matched) == 1
+    p_data = matched[0]
+    assert "health" in p_data
+    assert p_data["health"]["feed_status"] == "healthy"
+    assert p_data["health"]["mapping_status"] == "healthy"
+    assert p_data["health"]["lookup_status"] == "healthy"

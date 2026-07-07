@@ -151,4 +151,20 @@ describe("PortfolioTable", () => {
 
     expect(screen.getByText("No matching projects.")).toBeInTheDocument();
   });
+
+  it("renders health status columns", () => {
+    const projectWithHealth = makeProject({
+      health: {
+        feedStatus: "needs_attention",
+        mappingStatus: "pending_review",
+        lookupStatus: "healthy",
+      },
+    });
+
+    render(<PortfolioTable projects={[projectWithHealth]} role="central_team" />);
+
+    expect(screen.getByText("needs attention")).toBeInTheDocument();
+    expect(screen.getByText("pending review")).toBeInTheDocument();
+    expect(screen.getByText("healthy")).toBeInTheDocument();
+  });
 });

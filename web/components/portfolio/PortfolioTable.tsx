@@ -70,6 +70,34 @@ function summaryClassName(status: string | null | undefined): string {
   return "bg-slate-100 text-slate-600";
 }
 
+function healthChip(status: "healthy" | "pending_review" | "needs_attention" | undefined) {
+  if (!status) {
+    return <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">—</span>;
+  }
+  if (status === "needs_attention") {
+    return (
+      <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-700 gap-1">
+        <span className="h-1 w-1 rounded-full bg-red-500" />
+        needs attention
+      </span>
+    );
+  }
+  if (status === "pending_review") {
+    return (
+      <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 gap-1">
+        <span className="h-1 w-1 rounded-full bg-amber-500" />
+        pending review
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 gap-1">
+      <span className="h-1 w-1 rounded-full bg-emerald-500" />
+      healthy
+    </span>
+  );
+}
+
 export function PortfolioTable({ projects, role, onInitiate }: PortfolioTableProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
@@ -249,6 +277,9 @@ export function PortfolioTable({ projects, role, onInitiate }: PortfolioTablePro
                 <th className="px-4 py-3">Days in Stage</th>
                 <th className="px-4 py-3">Blocked</th>
                 <th className="px-4 py-3">Action Required</th>
+                <th className="px-4 py-3">Feeds</th>
+                <th className="px-4 py-3">Mappings</th>
+                <th className="px-4 py-3">Lookups</th>
                 <th className="px-4 py-3">Goal</th>
                 <th className="px-4 py-3">Target DB</th>
                 <th className="px-4 py-3">Environments</th>
@@ -317,6 +348,15 @@ export function PortfolioTable({ projects, role, onInitiate }: PortfolioTablePro
                     ) : (
                       "—"
                     )}
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    {healthChip(project.health?.feedStatus)}
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    {healthChip(project.health?.mappingStatus)}
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    {healthChip(project.health?.lookupStatus)}
                   </td>
                   <td className="px-4 py-3 align-top text-sm text-slate-700">
                     {truncate(project.goal, 60)}

@@ -65,6 +65,14 @@ type RawModelPolicy = {
   implementation?: string | null;
 };
 
+export type HealthStatus = "healthy" | "pending_review" | "needs_attention";
+
+export interface ProjectHealthSummary {
+  feedStatus: HealthStatus;
+  mappingStatus: HealthStatus;
+  lookupStatus: HealthStatus;
+}
+
 export interface ProjectRecord {
   projectId: string;
   name: string;
@@ -85,6 +93,7 @@ export interface ProjectRecord {
   updatedAt: string;
   archivedAt: string | null;
   latestRunSummary?: LatestRunSummary | null;
+  health?: ProjectHealthSummary;
 }
 
 export interface ProjectCreateInput {
@@ -343,6 +352,11 @@ function mapProjectRecord(record: {
     source_type: string | null;
     stage_entered_at: string;
   } | null;
+  health: {
+    feed_status: string;
+    mapping_status: string;
+    lookup_status: string;
+  } | null;
 }): ProjectRecord {
   return {
     projectId: record.project_id,
@@ -371,6 +385,13 @@ function mapProjectRecord(record: {
           stageEnteredAt: record.latest_run_summary.stage_entered_at,
         }
       : null,
+    health: record.health
+      ? {
+          feedStatus: record.health.feed_status as HealthStatus,
+          mappingStatus: record.health.mapping_status as HealthStatus,
+          lookupStatus: record.health.lookup_status as HealthStatus,
+        }
+      : undefined,
   };
 }
 

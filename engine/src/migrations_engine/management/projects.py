@@ -15,8 +15,21 @@ from ..api.schemas import (
     ProjectStatus,
     ProjectUpdateRequest,
     ProjectCopyRequest,
+    ProjectHealthSummary,
+    HealthStatus,
 )
-from ..db.models import ProjectDefinition, ProjectMembership, ProjectRegistry, RunRecord, Feed, User, new_id
+from ..db.models import (
+    ProjectDefinition,
+    ProjectMembership,
+    ProjectRegistry,
+    RunRecord,
+    Feed,
+    FeedSlice,
+    MappingSnapshot,
+    ProjectFiber,
+    User,
+    new_id,
+)
 from ..roles import PROJECT_STAKEHOLDER_ROLE
 from .platform import record_management_audit
 
@@ -129,9 +142,16 @@ def list_projects(
 
     stmt = stmt.order_by(ProjectRegistry.name)
     rows = db.execute(stmt).all()
-    latest_run_summary_by_project = _load_latest_run_summaries(db, [registry.project_id for registry, _ in rows])
+    project_ids = [registry.project_id for registry, _ in rows]
+    latest_run_summary_by_project = _load_latest_run_summaries(db, project_ids)
+    health_by_project = _load_project_health_summaries(db, project_ids)
     return [
-        _project_response(registry, definition, latest_run_summary_by_project.get(registry.project_id))
+        _project_response(
+            registry,
+            definition,
+            latest_run_summary=latest_run_summary_by_project.get(registry.project_id),
+            health=health_by_project.get(registry.project_id),
+        )
         for registry, definition in rows
     ]
 
@@ -312,10 +332,165 @@ def _load_latest_run_summaries(
     return result
 
 
+def _load_project_health_summaries(
+    db: Session,
+    project_ids: list[str],
+) -> dict[str, ProjectHealthSummary]:
+    if not project_ids:
+        return {}
+
+    # Initialize results
+    health_by_project: dict[str, dict[str, str]] = {
+        pid: {"feed": "healthy", "mapping": "healthy", "lookup": "healthy"}
+        for pid in project_ids
+    }
+
+    # 1. Feed Status
+    latest_slice_subquery = (
+        select(
+            FeedSlice.source_definition_id,
+            func.max(FeedSlice.created_at).label("max_created_at")
+        )
+        .group_by(FeedSlice.source_definition_id)
+        .subquery()
+    )
+
+    feed_slices_stmt = (
+        select(
+            Feed.project_id,
+            FeedSlice.status.label("slice_status")
+        )
+        .outerjoin(
+            latest_slice_subquery,
+            Feed.source_definition_id == latest_slice_subquery.c.source_definition_id
+        )
+        .outerjoin(
+            FeedSlice,
+            (FeedSlice.source_definition_id == latest_slice_subquery.c.source_definition_id)
+            & (FeedSlice.created_at == latest_slice_subquery.c.max_created_at)
+        )
+        .where(Feed.project_id.in_(project_ids))
+    )
+
+    project_feed_statuses: dict[str, list[str]] = {pid: [] for pid in project_ids}
+    for project_id, slice_status in db.execute(feed_slices_stmt).all():
+        if slice_status is None:
+            status = "needs_attention"
+        elif slice_status == "rejected":
+            status = "needs_attention"
+        elif slice_status == "pending_approval":
+            status = "pending_review"
+        else:
+            status = "healthy"
+        project_feed_statuses[project_id].append(status)
+
+    for pid, statuses in project_feed_statuses.items():
+        if not statuses:
+            health_by_project[pid]["feed"] = "healthy"
+        elif "needs_attention" in statuses:
+            health_by_project[pid]["feed"] = "needs_attention"
+        elif "pending_review" in statuses:
+            health_by_project[pid]["feed"] = "pending_review"
+        else:
+            health_by_project[pid]["feed"] = "healthy"
+
+    # 2. Mapping Status
+    latest_snap_subquery = (
+        select(
+            MappingSnapshot.source_definition_id,
+            func.max(MappingSnapshot.created_at).label("max_created_at"),
+        )
+        .group_by(MappingSnapshot.source_definition_id)
+        .subquery()
+    )
+
+    mapping_stmt = (
+        select(
+            Feed.project_id,
+            MappingSnapshot.status.label("snapshot_status"),
+        )
+        .outerjoin(
+            latest_snap_subquery,
+            Feed.source_definition_id == latest_snap_subquery.c.source_definition_id,
+        )
+        .outerjoin(
+            MappingSnapshot,
+            (MappingSnapshot.source_definition_id == latest_snap_subquery.c.source_definition_id)
+            & (MappingSnapshot.created_at == latest_snap_subquery.c.max_created_at),
+        )
+        .where(Feed.project_id.in_(project_ids))
+    )
+
+    project_mapping_statuses: dict[str, list[str]] = {pid: [] for pid in project_ids}
+    for project_id, snapshot_status in db.execute(mapping_stmt).all():
+        if snapshot_status is None:
+            status = "needs_attention"
+        elif snapshot_status == "rejected":
+            status = "needs_attention"
+        elif snapshot_status == "draft":
+            status = "pending_review"
+        else:
+            status = "healthy"
+        project_mapping_statuses[project_id].append(status)
+
+    for pid, statuses in project_mapping_statuses.items():
+        if not statuses:
+            health_by_project[pid]["mapping"] = "healthy"
+        elif "needs_attention" in statuses:
+            health_by_project[pid]["mapping"] = "needs_attention"
+        elif "pending_review" in statuses:
+            health_by_project[pid]["mapping"] = "pending_review"
+        else:
+            health_by_project[pid]["mapping"] = "healthy"
+
+    # 3. Lookup Status
+    lookup_stmt = (
+        select(ProjectFiber.project_id, ProjectFiber.status)
+        .where(
+            ProjectFiber.project_id.in_(project_ids),
+            ProjectFiber.fiber_type == "lookup",
+        )
+    )
+
+    LOOKUP_PENDING = {"inputs_ready", "mapped", "operator_assigned"}
+    LOOKUP_HEALTHY = {"business_approved", "operator_triggered", "codegen_complete"}
+
+    project_lookup_statuses: dict[str, list[str]] = {pid: [] for pid in project_ids}
+    for project_id, fiber_status in db.execute(lookup_stmt).all():
+        if fiber_status in LOOKUP_HEALTHY:
+            mapped = "healthy"
+        elif fiber_status in LOOKUP_PENDING:
+            mapped = "pending_review"
+        else:
+            mapped = "needs_attention"
+        project_lookup_statuses[project_id].append(mapped)
+
+    for pid, statuses in project_lookup_statuses.items():
+        if not statuses:
+            health_by_project[pid]["lookup"] = "healthy"
+        elif "needs_attention" in statuses:
+            health_by_project[pid]["lookup"] = "needs_attention"
+        elif "pending_review" in statuses:
+            health_by_project[pid]["lookup"] = "pending_review"
+        else:
+            health_by_project[pid]["lookup"] = "healthy"
+
+    # Convert to response schemas
+    return {
+        pid: ProjectHealthSummary(
+            feed_status=states["feed"],
+            mapping_status=states["mapping"],
+            lookup_status=states["lookup"],
+        )
+        for pid, states in health_by_project.items()
+    }
+
+
 def _project_response(
     registry: ProjectRegistry,
     definition: ProjectDefinition,
     latest_run_summary: LatestRunSummary | None = None,
+    health: ProjectHealthSummary | None = None,
 ) -> ProjectResponse:
     return ProjectResponse(
         project_id=registry.project_id,
@@ -337,6 +512,7 @@ def _project_response(
         updated_at=registry.updated_at,
         archived_at=registry.archived_at,
         latest_run_summary=latest_run_summary,
+        health=health,
     )
 
 

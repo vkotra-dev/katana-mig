@@ -2,14 +2,13 @@
 
 ## Ready
 
-| Task | Plan | Summary |
-|---|---|---|
-| [001bw-dashboard-health-view](./001bw-dashboard-health-view.md) | [plan](../plans/2026-07-07-001bw-dashboard-health-view.md) | Feed, Mapping, Lookup health chips on portfolio dashboard |
+No pending tasks.
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001bw-dashboard-health-view](./completed/001bw-dashboard-health-view.md) | [summary](./summary/001bw-dashboard-health-view.md) |
 | [001bv-unmapped-source-fields-warning](./completed/001bv-unmapped-source-fields-warning.md) | [summary](./summary/001bv-unmapped-source-fields-warning.md) |
 | [001bt-project-copy-prompt-config](./completed/001bt-project-copy-prompt-config.md) | [summary](./summary/001bt-project-copy-prompt-config.md) |
 | [001bu-feed-slice-rejection-replacement](./completed/001bu-feed-slice-rejection-replacement.md) | [summary](./summary/001bu-feed-slice-rejection-replacement.md) |

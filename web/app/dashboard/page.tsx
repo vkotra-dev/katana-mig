@@ -64,9 +64,35 @@ export default function DashboardPage() {
   const summary = useMemo(() => {
     const activeProjects = projects.filter((project) => project.status === "active").length;
     const archivedProjects = projects.filter((project) => project.status === "archived").length;
+    
+    let needsAttention = 0;
+    let pendingReview = 0;
+    
+    for (const p of projects) {
+      if (p.status !== "active") continue;
+      const h = p.health;
+      if (h) {
+        if (
+          h.feedStatus === "needs_attention" ||
+          h.mappingStatus === "needs_attention" ||
+          h.lookupStatus === "needs_attention"
+        ) {
+          needsAttention++;
+        } else if (
+          h.feedStatus === "pending_review" ||
+          h.mappingStatus === "pending_review" ||
+          h.lookupStatus === "pending_review"
+        ) {
+          pendingReview++;
+        }
+      }
+    }
+
     return {
       activeProjects,
       archivedProjects,
+      needsAttention,
+      pendingReview,
       total: projects.length,
     };
   }, [projects]);
@@ -95,6 +121,8 @@ export default function DashboardPage() {
             <SummaryStrip
               active={summary.activeProjects}
               archived={summary.archivedProjects}
+              needsAttention={summary.needsAttention}
+              pendingReview={summary.pendingReview}
               total={summary.total}
             />
             <PortfolioTable

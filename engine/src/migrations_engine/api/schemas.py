@@ -115,6 +115,15 @@ class LatestRunSummary(BaseModel):
     stage_entered_at: datetime
 
 
+HealthStatus = Literal["healthy", "pending_review", "needs_attention"]
+
+
+class ProjectHealthSummary(BaseModel):
+    feed_status: HealthStatus
+    mapping_status: HealthStatus
+    lookup_status: HealthStatus
+
+
 class ModelPolicy(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -195,6 +204,7 @@ class ProjectResponse(BaseModel):
     updated_at: datetime
     archived_at: datetime | None
     latest_run_summary: LatestRunSummary | None = None
+    health: ProjectHealthSummary | None = None
 
 
 class ProjectCreateRequest(BaseModel):
