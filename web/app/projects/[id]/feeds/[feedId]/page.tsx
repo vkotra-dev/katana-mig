@@ -493,31 +493,6 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
           <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
             {/* Left Column: Slice & Upload Info */}
             <div className="space-y-6">
-              {/* Mapping Hints Panel (central_team only) */}
-              {session?.role === "central_team" && (
-                <div className="rounded-2xl border border-outline-variant bg-surface-container p-5 shadow-sm space-y-4">
-                  <div className="flex items-center justify-between">
-                    <label htmlFor="mapping-hints-textarea" className="text-base font-bold text-slate-900">AI Mapping Hints</label>
-                    <button
-                      type="button"
-                      disabled={savingHints}
-                      onClick={handleSaveMappingHints}
-                      className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-200 disabled:opacity-50"
-                    >
-                      {savingHints ? "Saving..." : "Save Hints"}
-                    </button>
-                  </div>
-                  <textarea
-                    id="mapping-hints-textarea"
-                    rows={3}
-                    value={mappingHints}
-                    onChange={(e) => setMappingHints(e.target.value)}
-                    placeholder="Provide hints for field matching, formatting, or target columns..."
-                    className="w-full rounded-lg border border-slate-200 bg-white p-2.5 font-sans text-xs text-slate-800 placeholder-slate-400 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
-                  />
-                </div>
-              )}
-
               {/* Slice Panel */}
               <div className="rounded-2xl border border-outline-variant bg-surface-container p-5 shadow-sm space-y-4">
                 <h3 className="text-base font-bold text-slate-900">Slice</h3>
@@ -651,7 +626,30 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                 )}
               </div>
 
-
+              {/* Mapping Hints Panel (central_team only) */}
+              {session?.role === "central_team" && (
+                <div className="rounded-2xl border border-outline-variant bg-surface-container p-5 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="mapping-hints-textarea" className="text-base font-bold text-slate-900">AI Mapping Hints</label>
+                    <button
+                      type="button"
+                      disabled={savingHints}
+                      onClick={handleSaveMappingHints}
+                      className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-200 disabled:opacity-50"
+                    >
+                      {savingHints ? "Saving..." : "Save Hints"}
+                    </button>
+                  </div>
+                  <textarea
+                    id="mapping-hints-textarea"
+                    rows={3}
+                    value={mappingHints}
+                    onChange={(e) => setMappingHints(e.target.value)}
+                    placeholder="Provide hints for field matching, formatting, or target columns..."
+                    className="w-full rounded-lg border border-slate-200 bg-white p-2.5 font-sans text-xs text-slate-800 placeholder-slate-400 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Right Column: downstream steps */}
