@@ -35,17 +35,20 @@ export default function DashboardPage() {
     setLoading(true);
     setErrorMessage(null);
 
+    console.log("DashboardPage: Fetching projects list...");
     void listProjects(session.accessToken, { includeArchived: true })
       .then((allProjects) => {
         if (!active) {
           return;
         }
+        console.log("DashboardPage: Successfully fetched projects:", allProjects);
         setProjects(allProjects);
       })
       .catch((error: unknown) => {
         if (!active) {
           return;
         }
+        console.error("DashboardPage: Failed to fetch projects:", error);
         setErrorMessage(projectErrorMessage(error));
       })
       .finally(() => {
