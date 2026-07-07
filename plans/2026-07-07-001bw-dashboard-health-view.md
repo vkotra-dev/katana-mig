@@ -121,22 +121,35 @@ def _load_project_health_summaries(
         else:
             health_by_project[pid]["feed"] = "healthy"
 
-    # 2. Mapping Status
+    # 2. Mapping Status — latest snapshot per feed only
+    latest_snap_subquery = (
+        select(
+            MappingSnapshot.source_definition_id,
+            func.max(MappingSnapshot.created_at).label("max_created_at"),
+        )
+        .group_by(MappingSnapshot.source_definition_id)
+        .subquery()
+    )
+
     mapping_stmt = (
         select(
             Feed.project_id,
-            Feed.source_definition_id,
-            MappingSnapshot.status.label("snapshot_status")
+            MappingSnapshot.status.label("snapshot_status"),
+        )
+        .outerjoin(
+            latest_snap_subquery,
+            Feed.source_definition_id == latest_snap_subquery.c.source_definition_id,
         )
         .outerjoin(
             MappingSnapshot,
-            Feed.source_definition_id == MappingSnapshot.source_definition_id
+            (MappingSnapshot.source_definition_id == latest_snap_subquery.c.source_definition_id)
+            & (MappingSnapshot.created_at == latest_snap_subquery.c.max_created_at),
         )
         .where(Feed.project_id.in_(project_ids))
     )
 
     project_mapping_statuses: dict[str, list[str]] = {pid: [] for pid in project_ids}
-    for project_id, _, snapshot_status in db.execute(mapping_stmt).all():
+    for project_id, snapshot_status in db.execute(mapping_stmt).all():
         if snapshot_status is None:
             status = "needs_attention"
         elif snapshot_status == "rejected":
@@ -157,51 +170,38 @@ def _load_project_health_summaries(
         else:
             health_by_project[pid]["mapping"] = "healthy"
 
-    # 3. Lookup Status
+    # 3. Lookup Status — ProjectFiber status (fiber_type == "lookup")
+    # LookupValueMap has source_definition_id not fiber_id; use ProjectFiber.status directly.
+    # Lookup fibers start at "deferred" (not "created") and follow:
+    #   deferred → inputs_ready → mapped → operator_assigned → business_approved → ...
     lookup_stmt = (
-        select(
-            ProjectFiber.project_id,
-            ProjectFiber.fiber_id,
-            LookupMapping.status.label("mapping_status")
-        )
-        .outerjoin(
-            LookupMapping,
-            ProjectFiber.fiber_id == LookupMapping.fiber_id
-        )
+        select(ProjectFiber.project_id, ProjectFiber.status)
         .where(
             ProjectFiber.project_id.in_(project_ids),
-            ProjectFiber.fiber_type == "lookup"
+            ProjectFiber.fiber_type == "lookup",
         )
     )
 
-    # Track by project: fiber_id -> list of mapping statuses
-    project_lookup_data: dict[str, dict[str, list[str]]] = {pid: {} for pid in project_ids}
-    for project_id, fiber_id, mapping_status in db.execute(lookup_stmt).all():
-        if fiber_id not in project_lookup_data[project_id]:
-            project_lookup_data[project_id][fiber_id] = []
-        if mapping_status:
-            project_lookup_data[project_id][fiber_id].append(mapping_status)
+    LOOKUP_PENDING = {"inputs_ready", "mapped", "operator_assigned"}
+    LOOKUP_HEALTHY = {"business_approved", "operator_triggered", "codegen_complete"}
 
-    for pid, fibers_data in project_lookup_data.items():
-        if not fibers_data:
+    project_lookup_statuses: dict[str, list[str]] = {pid: [] for pid in project_ids}
+    for project_id, fiber_status in db.execute(lookup_stmt).all():
+        if fiber_status in LOOKUP_HEALTHY:
+            mapped = "healthy"
+        elif fiber_status in LOOKUP_PENDING:
+            mapped = "pending_review"
+        else:
+            # "deferred" or any unrecognised status
+            mapped = "needs_attention"
+        project_lookup_statuses[project_id].append(mapped)
+
+    for pid, statuses in project_lookup_statuses.items():
+        if not statuses:
             health_by_project[pid]["lookup"] = "healthy"
-            continue
-
-        fiber_statuses = []
-        for fiber_id, statuses in fibers_data.items():
-            if not statuses:
-                # Fiber exists but has zero mappings
-                fiber_statuses.append("needs_attention")
-            elif any(s == "rejected" for s in statuses):
-                fiber_statuses.append("needs_attention")
-            elif any(s in ("proposed", "pending", "draft") for s in statuses):
-                fiber_statuses.append("pending_review")
-            else:
-                fiber_statuses.append("healthy")
-
-        if "needs_attention" in fiber_statuses:
+        elif "needs_attention" in statuses:
             health_by_project[pid]["lookup"] = "needs_attention"
-        elif "pending_review" in fiber_statuses:
+        elif "pending_review" in statuses:
             health_by_project[pid]["lookup"] = "pending_review"
         else:
             health_by_project[pid]["lookup"] = "healthy"
@@ -282,19 +282,19 @@ Update `mapProjectRecord` translation logic:
 
 ### 4. Summary Strip component — `web/components/portfolio/SummaryStrip.tsx`
 
-Extend the card indicators layout to 5 grid columns, adding "Needs Attention" and "Pending Review" metrics:
+Extend the card indicators layout to 5 grid columns, adding "Needs Attention" and "Pending Review" metrics. Keep existing `archived` prop name — do not rename it to "completed":
 
 ```typescript
-interface SummaryStripProps {
+export interface SummaryStripProps {
   total: number;
   active: number;
-  needsAttention: number;
-  pendingReview: number;
-  completed: number;
+  archived: number;       // existing — keep as-is
+  needsAttention: number; // new
+  pendingReview: number;  // new
 }
 ```
 
-Render red-themed border/background cards for "Needs Attention" and amber/blue for "Pending Review".
+Add two new `MetricCard` entries with `accent="text-red-600"` (needs attention) and `accent="text-amber-600"` (pending review). Update grid from `xl:grid-cols-3` to `xl:grid-cols-5`.
 
 ---
 
@@ -310,7 +310,18 @@ Calculate counts using the health summary states:
 
 Render status chips for **Feeds**, **Mappings**, and **Lookups** instead of a single static project status block.
 
+## Imports required in `management/projects.py`
+
+Add to model imports: `FeedSlice`, `MappingSnapshot`, `ProjectFiber`
+Add to schema imports: `ProjectHealthSummary`, `HealthStatus`
+
+> Do NOT import `LookupValueMap` — lookup health uses `ProjectFiber.status` directly.
+
 ## Key Decisions & Invariants
 
-- Batch queries for health summaries are written with clean joins using raw SQLAlchemy queries to prevent execution overhead (N+1 queries).
-- Feed slice lookup joins on `Feed.project_id` due to `FeedSlice` lack of direct project membership relation.
+- Batch queries are bulk (project_ids list), not per-project — no N+1.
+- `FeedSlice` and `MappingSnapshot` have no direct `project_id` — join through `Feed`.
+- `LookupValueMap` has `source_definition_id` not `fiber_id`; it cannot be joined to `ProjectFiber`. Lookup health comes solely from `ProjectFiber.status` filtered to `fiber_type == "lookup"`.
+- Lookup fibers start at `"deferred"` (not `"created"`); `"deferred"` maps to `"needs_attention"`.
+- Mapping query uses a `max(created_at)` subquery to isolate the latest snapshot per feed — same pattern as feed slices.
+- `_project_response` gains `health` as a keyword arg defaulting to `None` so `get_project`, `create_project`, and `update_project` call sites need no changes.
