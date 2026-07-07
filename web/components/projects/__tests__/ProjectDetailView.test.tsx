@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { ProjectDetailView } from "../ProjectDetailView";
 import type { ProjectRecord } from "../../../lib/projects-api";
@@ -142,5 +142,29 @@ describe("ProjectDetailView", () => {
     expect(screen.getByText("planning-model")).toBeInTheDocument();
     expect(screen.getByText("Source: project override")).toBeInTheDocument();
     expect(screen.getAllByText("Source: engine.yaml").length).toBeGreaterThan(0);
+  });
+
+  it("handles collapsible destination schema DDL", () => {
+    const longDdl = "line 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7";
+    const projectWithLongDdl = {
+      ...active,
+      domainConfig: {
+        ...active.domainConfig!,
+        destinationSchemaDdl: longDdl,
+      },
+    };
+
+    render(<ProjectDetailView project={projectWithLongDdl} />);
+
+    expect(screen.getByText((content) => content.includes("line 1") && content.includes("...") && !content.includes("line 6"))).toBeInTheDocument();
+
+    const button = screen.getByRole("button", { name: "Read more" });
+    fireEvent.click(button);
+
+    expect(screen.getByText((content) => content.includes("line 1") && content.includes("line 6") && content.includes("line 7"))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Read less" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Read less" }));
+    expect(screen.getByText((content) => content.includes("line 1") && content.includes("...") && !content.includes("line 6"))).toBeInTheDocument();
   });
 });

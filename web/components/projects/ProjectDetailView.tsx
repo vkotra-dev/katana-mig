@@ -70,6 +70,38 @@ function KeyValue({
   );
 }
 
+function CollapsibleDdl({ ddl }: { ddl: string }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  if (!ddl) {
+    return <div className="text-sm text-slate-900">—</div>;
+  }
+
+  const lines = ddl.split("\n");
+  const hasMore = lines.length > 5;
+  const displayedText = (isExpanded || !hasMore)
+    ? ddl
+    : lines.slice(0, 5).join("\n");
+
+  return (
+    <div className="space-y-2">
+      <pre className="whitespace-pre-wrap font-mono text-xs bg-surface-container-lowest p-3 rounded-lg border border-outline-variant text-slate-900 max-h-[400px] overflow-y-auto">
+        {displayedText}
+        {!isExpanded && hasMore && "\n..."}
+      </pre>
+      {hasMore && (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="text-xs font-semibold text-primary hover:underline focus:outline-none"
+          type="button"
+        >
+          {isExpanded ? "Read less" : "Read more"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function ProjectDetailView({ project, modelDefaults = null }: ProjectDetailViewProps) {
   const domainConfig = project.domainConfig;
   const projectResources = project.projectResources ?? "";
@@ -117,11 +149,10 @@ export function ProjectDetailView({ project, modelDefaults = null }: ProjectDeta
           value={domainConfig?.destinationSchema ?? "—"}
         />
         <KeyValue label="Dry run" value={displayValue(domainConfig?.dryRun)} />
-        <KeyValue
-          className="lg:col-span-3"
-          label="Destination schema DDL"
-          value={domainConfig?.destinationSchemaDdl ?? "—"}
-        />
+        <div className="lg:col-span-3 space-y-2">
+          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Destination schema DDL</div>
+          <CollapsibleDdl ddl={domainConfig?.destinationSchemaDdl ?? ""} />
+        </div>
         <KeyValue
           className="lg:col-span-3"
           label="Sample policy"
