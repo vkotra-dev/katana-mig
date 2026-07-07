@@ -11,18 +11,7 @@ def pytest_runtest_setup(item) -> None:
     if engine is None:
         try:
             import sqlite_test_support
-            # Detect SQLite usage by comparing object identity in module variables.
-            # This is robust against unused import cleanup/linter fixes.
-            uses_sqlite = (
-                "_sqlite_engine" in module.__dict__ or
-                any(
-                    val is sqlite_test_support.TEST_ENGINE or
-                    val is sqlite_test_support.SessionLocal or
-                    val is sqlite_test_support.Base or
-                    val is sqlite_test_support
-                    for val in module.__dict__.values()
-                )
-            )
+            uses_sqlite = True
             if uses_sqlite:
                 engine = sqlite_test_support.TEST_ENGINE
                 module.__uses_shared_sqlite__ = True
