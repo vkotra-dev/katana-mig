@@ -26,6 +26,12 @@ vi.mock("../../../lib/feed-slice-approval-api", () => ({
   resubmitFeedSlice: vi.fn(),
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+  }),
+}));
+
 describe("SourceArtifactsPanel", () => {
   it("shows feed-slice copy", async () => {
     render(<SourceArtifactsPanel projectId="project-1" token="token-1" role="central_team" />);

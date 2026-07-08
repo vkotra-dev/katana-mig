@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   listFeedContracts,
   listFeedSlices,
@@ -41,6 +42,7 @@ function statusClassName(status: string): string {
 }
 
 export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifactsPanelProps) {
+  const router = useRouter();
   const [rows, setRows] = useState<ArtifactRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -168,53 +170,60 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-700">{formatDate(row.slice.createdAt)}</td>
                   <td className="px-4 py-3">
-                    {role === "central_team" && row.slice.status === "pending_approval" ? (
-                      <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <button
+                        className="rounded-md border border-outline-variant px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-outline-variant/40"
+                        onClick={() => router.push(`/projects/${projectId}/feeds/${row.sourceDefinitionId}`)}
+                        type="button"
+                      >
+                        View details
+                      </button>
+                      {role === "project_stakeholder" && row.slice.status === "pending_approval" ? (
+                        <>
+                          <button
+                            className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                            disabled={actionLoading}
+                            onClick={() =>
+                              void runAction(() =>
+                                approveFeedSlice(
+                                  token,
+                                  projectId,
+                                  row.sourceDefinitionId,
+                                  row.slice.sourceSliceId,
+                                ),
+                              )
+                            }
+                            type="button"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            className="rounded-md border border-error px-3 py-2 text-sm font-semibold text-error disabled:opacity-60"
+                            disabled={actionLoading}
+                            onClick={() => {
+                              setRejectTarget(row);
+                              setRejectReason("");
+                            }}
+                            type="button"
+                          >
+                            Reject
+                          </button>
+                        </>
+                      ) : role === "central_team" && row.slice.status === "rejected" ? (
                         <button
-                          className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                          disabled={actionLoading}
-                          onClick={() =>
-                            void runAction(() =>
-                              approveFeedSlice(
-                                token,
-                                projectId,
-                                row.sourceDefinitionId,
-                                row.slice.sourceSliceId,
-                              ),
-                            )
-                          }
-                          type="button"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          className="rounded-md border border-error px-3 py-2 text-sm font-semibold text-error disabled:opacity-60"
+                          className="rounded-md border border-outline-variant px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
                           disabled={actionLoading}
                           onClick={() => {
-                            setRejectTarget(row);
-                            setRejectReason("");
+                            setResubmitTarget(row);
+                            setResubmitEncoding("utf-8");
+                            setResubmitParseSettings("{}");
                           }}
                           type="button"
                         >
-                          Reject
+                          Resubmit
                         </button>
-                      </div>
-                    ) : role === "central_team" && row.slice.status === "rejected" ? (
-                      <button
-                        className="rounded-md border border-outline-variant px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
-                        disabled={actionLoading}
-                        onClick={() => {
-                          setResubmitTarget(row);
-                          setResubmitEncoding("utf-8");
-                          setResubmitParseSettings("{}");
-                        }}
-                        type="button"
-                      >
-                        Resubmit
-                      </button>
-                    ) : (
-                      <span className="text-sm text-slate-500">No action</span>
-                    )}
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}
