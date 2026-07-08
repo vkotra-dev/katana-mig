@@ -2,7 +2,9 @@
 
 ## Ready
 
-*No pending tasks.*
+| Task | Plan | Summary |
+|---|---|---|
+| [001cj-remove-feed-id-display](./001cj-remove-feed-id-display.md) | [plan](../plans/2026-07-08-001cj-remove-feed-id-display.md) | Remove feed/source GUID display from project source list |
 
 ## Completed
 
