@@ -63,7 +63,6 @@ describe("ProjectDetailView", () => {
     render(<ProjectDetailView project={active} />);
 
     expect(screen.getByRole("heading", { name: /crm migration/i })).toBeInTheDocument();
-    expect(screen.getByText("project-abc")).toBeInTheDocument();
     expect(screen.getByText(/active/i)).toBeInTheDocument();
   });
 

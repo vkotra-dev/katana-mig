@@ -116,7 +116,6 @@ export function ProjectDetailView({ project, modelDefaults = null }: ProjectDeta
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold text-slate-900">{project.name}</h1>
-          <span className="mono-id">{project.projectId}</span>
           <span className={`status-chip inline-flex items-center ${getStatusClassName(project.status)}`}>
             {project.status}
           </span>

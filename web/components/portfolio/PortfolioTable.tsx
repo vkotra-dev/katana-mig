@@ -309,7 +309,6 @@ export function PortfolioTable({ projects, role, onInitiate }: PortfolioTablePro
                       >
                         {project.name}
                       </a>
-                      <div className="mono-id">{project.projectId}</div>
                     </div>
                   </td>
                   <td className="px-4 py-3 align-top text-sm text-slate-700">

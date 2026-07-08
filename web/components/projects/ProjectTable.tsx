@@ -182,7 +182,6 @@ export function ProjectTable({ projects, role, onInitiate, onCopyClick }: Projec
                       >
                         {project.name}
                       </a>
-                      <div className="mono-id text-xs">{project.projectId}</div>
                     </div>
                   </td>
                   <td className="px-4 py-4 align-top text-sm text-slate-700">
