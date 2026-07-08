@@ -119,14 +119,16 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
         slices: await listFeedSlices(token, projectId, contract.sourceDefinitionId),
       })),
     );
-    return slicesByContract.flatMap(({ contract, slices }) =>
-      slices.map((slice) => ({
+    return slicesByContract.flatMap(({ contract, slices }) => {
+      if (slices.length === 0) return [];
+      const latestSlice = slices[slices.length - 1];
+      return [{
         sourceDefinitionId: contract.sourceDefinitionId,
         sourceLabel: contract.label,
         sourceType: contract.sourceType,
-        slice,
-      })),
-    );
+        slice: latestSlice,
+      }];
+    });
   };
 
   useEffect(() => {
