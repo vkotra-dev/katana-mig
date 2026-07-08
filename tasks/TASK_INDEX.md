@@ -2,7 +2,9 @@
 
 ## Ready
 
-*No pending tasks.*
+| Task | Plan | Summary |
+|---|---|---|
+| [001ci-remove-project-id-display](./001ci-remove-project-id-display.md) | [plan](../plans/2026-07-08-001ci-remove-project-id-display.md) | Remove project GUID/UUID display from UI dashboards and details views |
 
 ## Completed
 
