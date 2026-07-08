@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useState, useMemo, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { Topbar } from "../../../../../components/Topbar";
 import {
@@ -25,6 +25,10 @@ import {
   type MappingFieldBindingRecord,
 } from "../../../../../lib/mapping-api";
 import {
+  approveFeedSlice,
+  rejectFeedSlice,
+} from "../../../../../lib/feed-slice-approval-api";
+import {
   listLookupValueMaps,
   createLookupValueMap,
   submitLookupInputs,
@@ -33,6 +37,37 @@ import {
 import { loadUiSession, type SessionRole, type UiSession } from "../../../../../lib/session";
 import { ReviewGrid, type MappingTableRecord, type LookupValueGroup } from "../../../../../components/projects/ReviewGrid";
 import { splitCsvRow } from "../../../../../lib/csv-utils";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SSN_RE = /^\d{3}-?\d{2}-?\d{4}$/;
+const CARD_RE = /^\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}$/;
+const PHONE_RE = /^\+?[\d\s\-().]{7,15}$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$|^\d{2}\/\d{2}\/\d{4}$/;
+
+type PiiLevel = "pii" | "possible" | "clean";
+
+function scanColumnPii(values: string[]): PiiLevel {
+  const filled = values.filter((v) => v.trim().length > 0);
+  if (filled.length === 0) return "clean";
+
+  const strongHits = filled.filter(
+    (v) => EMAIL_RE.test(v) || SSN_RE.test(v) || CARD_RE.test(v)
+  ).length;
+  if (strongHits / filled.length > 0.6) return "pii";
+
+  const softHits = filled.filter(
+    (v) => PHONE_RE.test(v) || DATE_RE.test(v)
+  ).length;
+  if (softHits / filled.length > 0.3) return "possible";
+
+  return "clean";
+}
+
+function piiLabel(level: PiiLevel): { icon: string; className: string; text: string } {
+  if (level === "pii") return { icon: "🔴", className: "text-red-600", text: "PII" };
+  if (level === "possible") return { icon: "⚠️", className: "text-amber-600", text: "Possible PII" };
+  return { icon: "✅", className: "text-emerald-600", text: "Clean" };
+}
 
 export default function FeedDetailPage({ params }: { params: Promise<{ id: string; feedId: string }> }) {
   const router = useRouter();
@@ -45,6 +80,8 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
 
   const [feed, setFeed] = useState<FeedContractRecord | null>(null);
   const [slices, setSlices] = useState<FeedSliceRecord[]>([]);
+  const latestSlice = slices[slices.length - 1]; // backend returns asc order
+  const hasNoSlices = slices.length === 0;
   const [feedSchema, setFeedSchema] = useState<FeedSchemaColumnRecord[]>([]);
   const [allMappingSnapshots, setAllMappingSnapshots] = useState<MappingSnapshotRecord[]>([]);
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
@@ -71,6 +108,61 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
   const [replacementFile, setReplacementFile] = useState<string | null>(null);
   const [uploadingReplacement, setUploadingReplacement] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
+
+  // Approval states
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [approvalError, setApprovalError] = useState<string | null>(null);
+  const [approvalLoading, setApprovalLoading] = useState<"approve" | "reject" | null>(null);
+
+  const approvalProfile = useMemo(() => {
+    if (!latestSlice || latestSlice.status !== "pending_approval") return null;
+
+    const headers = latestSlice.headerCsv
+      ? splitCsvRow(latestSlice.headerCsv)
+      : [];
+    const rows = (latestSlice.previewRows ?? []).map((r) => splitCsvRow(r));
+
+    const blankColumns = headers.filter((_, colIdx) =>
+      rows.every((row) => !row[colIdx]?.trim())
+    );
+
+    const columnPii = headers.map((_, colIdx) =>
+      scanColumnPii(rows.map((row) => row[colIdx] ?? ""))
+    );
+
+    return { headers, rows, blankColumns, columnPii };
+  }, [latestSlice]);
+
+  const handleApproveSlice = async () => {
+    if (!session || !latestSlice) return;
+    setApprovalLoading("approve");
+    setApprovalError(null);
+    try {
+      await approveFeedSlice(session.accessToken, projectId, feedId, latestSlice.sourceSliceId);
+      const refreshed = await listFeedSlices(session.accessToken, projectId, feedId);
+      setSlices(refreshed);
+    } catch (e) {
+      setApprovalError(e instanceof Error ? e.message : "Approval failed.");
+    } finally {
+      setApprovalLoading(null);
+    }
+  };
+
+  const handleRejectSlice = async () => {
+    if (!session || !latestSlice || !rejectionReason.trim()) return;
+    setApprovalLoading("reject");
+    setApprovalError(null);
+    try {
+      await rejectFeedSlice(session.accessToken, projectId, feedId, latestSlice.sourceSliceId, rejectionReason.trim());
+      const refreshed = await listFeedSlices(session.accessToken, projectId, feedId);
+      setSlices(refreshed);
+      setRejectionReason("");
+    } catch (e) {
+      setApprovalError(e instanceof Error ? e.message : "Rejection failed.");
+    } finally {
+      setApprovalLoading(null);
+    }
+  };
 
   useEffect(() => {
     const s = loadUiSession();
@@ -141,8 +233,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
     }
   };
 
-  const latestSlice = slices[slices.length - 1]; // backend returns asc order
-  const hasNoSlices = slices.length === 0;
+
 
   const handleAnalyzeWithAi = async () => {
     if (!session) return;
@@ -461,14 +552,143 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
           </div>
         )}
 
-        {/* Pending approval banner */}
+        {/* Pending approval card / banner */}
         {!loading && latestSlice?.status === "pending_approval" && (
-          <div
-            role="alert"
-            className="rounded-xl border border-amber-400/30 bg-amber-50 px-4 py-3 text-sm text-amber-800"
-          >
-            Source data is pending approval — field mapping analysis will be available once the slice is approved.
-          </div>
+          role !== "read_only_auditor" && approvalProfile ? (
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-6 space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Review & Approve Feed Data</h3>
+                  <p className="text-xs text-slate-500 mt-1">Based on preview sample ({approvalProfile.rows.length} rows shown)</p>
+                </div>
+                {(role === "admin" || role === "pm") && (
+                  <button
+                    onClick={handleToggleShowOriginal}
+                    className="rounded-md border border-outline-variant bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    type="button"
+                  >
+                    {showOriginal ? "Show masked" : "Show original"}
+                  </button>
+                )}
+              </div>
+
+              {/* Stats strip */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: "Columns", value: approvalProfile.headers.length },
+                  { label: "Total Rows", value: latestSlice.rowCount },
+                  { label: "Preview Rows", value: approvalProfile.rows.length },
+                  { label: "Blank Columns", value: approvalProfile.blankColumns.length, alert: approvalProfile.blankColumns.length > 0 },
+                ].map(({ label, value, alert }) => (
+                  <div key={label} className={`rounded-xl border p-3 text-center ${alert ? "border-amber-300 bg-amber-100" : "border-outline-variant bg-white"}`}>
+                    <div className={`text-xl font-bold ${alert ? "text-amber-700" : "text-slate-900"}`}>{value}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-slate-500 mt-0.5">{label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* PII scan results */}
+              {approvalProfile.headers.length > 0 && (
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">PII Scan</div>
+                  <div className="flex flex-wrap gap-2">
+                    {approvalProfile.headers.map((col, i) => {
+                      const badge = piiLabel(approvalProfile.columnPii[i]);
+                      return (
+                        <span key={col} className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium bg-white ${badge.className}`}>
+                          {badge.icon} {col}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  {approvalProfile.blankColumns.length > 0 && (
+                    <p className="mt-2 text-xs text-amber-700">
+                      Blank columns: {approvalProfile.blankColumns.join(", ")}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Unmasked/Masked sample data table */}
+              {approvalProfile.rows.length > 0 && (
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                    {showOriginal ? "Original Sample Data Preview" : "Masked Sample Data Preview"}
+                  </div>
+                  <div className="max-h-64 overflow-auto rounded-xl border border-outline-variant bg-white">
+                    <table className="text-left text-[10px] border-collapse font-mono w-full">
+                      <thead className="bg-slate-50 border-b border-outline-variant sticky top-0">
+                        <tr>
+                          {approvalProfile.headers.map((col, i) => {
+                            const badge = piiLabel(approvalProfile.columnPii[i]);
+                            return (
+                              <th key={i} className="px-3 py-2 font-bold text-slate-700 whitespace-nowrap">
+                                <span className={badge.className}>{badge.icon}</span> {col}
+                              </th>
+                            );
+                          })}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {approvalProfile.rows.map((cells, rowIdx) => (
+                          <tr key={rowIdx} className="hover:bg-slate-50/50">
+                            {approvalProfile.headers.map((_, colIdx) => {
+                              const val = cells[colIdx] ?? "";
+                              const blank = !val.trim();
+                              return (
+                                <td key={colIdx} className={`px-3 py-1.5 whitespace-nowrap ${blank ? "bg-amber-50/50 text-amber-400 italic" : "text-slate-600"}`}>
+                                  {blank ? "—" : val}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Approve / Reject */}
+              {approvalError && (
+                <p className="text-xs text-red-600">{approvalError}</p>
+              )}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <button
+                  type="button"
+                  onClick={handleApproveSlice}
+                  disabled={approvalLoading !== null}
+                  className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {approvalLoading === "approve" ? "Approving…" : "Approve"}
+                </button>
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <input
+                    type="text"
+                    placeholder="Rejection reason (required to reject)"
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    className="rounded-lg border border-outline-variant px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRejectSlice}
+                    disabled={!rejectionReason.trim() || approvalLoading !== null}
+                    className="rounded-xl border border-red-300 px-5 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-40 self-start"
+                  >
+                    {approvalLoading === "reject" ? "Rejecting…" : "Reject"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div
+              role="alert"
+              className="rounded-xl border border-amber-400/30 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+            >
+              Source data is pending approval — field mapping analysis will be available once the slice is approved.
+            </div>
+          )
         )}
 
         {/* Rejection banner + replacement upload */}
