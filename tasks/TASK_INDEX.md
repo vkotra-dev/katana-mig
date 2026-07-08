@@ -2,7 +2,9 @@
 
 ## Ready
 
-*No pending tasks.*
+| Task | Plan | Summary |
+|---|---|---|
+| [001cg-project-member-role-filtering](./001cg-project-member-role-filtering.md) | [plan](../plans/2026-07-08-001cg-project-member-role-filtering.md) | Filter out Admin and PM roles from project membership autocompletes |
 
 ## Completed
 
