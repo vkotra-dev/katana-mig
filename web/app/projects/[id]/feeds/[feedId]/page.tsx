@@ -830,7 +830,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                 {lookupFkBinds.length === 0 ? (
                   <div className="text-sm text-slate-500">No lookup foreign keys mapped in the snapshot.</div>
                 ) : (
-                  <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-4">
                     {lookupFkBinds.map((binding) => {
                       const lName = binding.lookupName!;
                       const refTable = binding.referenceTableName || "unknown_ref";
