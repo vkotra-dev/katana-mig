@@ -195,7 +195,7 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
           No feed slices yet.
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-outline-variant">
+        <div className="overflow-x-auto rounded-xl border border-outline-variant max-w-full">
           <table className="w-full border-collapse text-left">
             <thead className="bg-surface">
               <tr className="text-xs uppercase tracking-[0.16em] text-slate-500">
@@ -382,7 +382,7 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
 
                             {/* Preview data table */}
                             {previewLines.length > 0 ? (
-                              <div className="max-h-60 overflow-auto rounded-lg border border-outline-variant bg-white">
+                              <div className="max-h-60 max-w-[calc(100vw-8rem)] md:max-w-full overflow-auto rounded-lg border border-outline-variant bg-white">
                                 <table className="text-left text-[10px] border-collapse font-mono w-full">
                                   <thead className="bg-slate-50 border-b border-outline-variant sticky top-0">
                                     <tr>
