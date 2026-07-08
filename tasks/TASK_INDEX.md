@@ -2,14 +2,13 @@
 
 ## Ready
 
-| Task | Plan | Summary |
-|---|---|---|
-| [001cg-project-member-role-filtering](./001cg-project-member-role-filtering.md) | [plan](../plans/2026-07-08-001cg-project-member-role-filtering.md) | Filter out Admin and PM roles from project membership autocompletes |
+*No pending tasks.*
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001cg-project-member-role-filtering](./completed/001cg-project-member-role-filtering.md) | [plan](../plans/2026-07-08-001cg-project-member-role-filtering.md) |
 | [001cf-admin-pm-assignment-nav](./completed/001cf-admin-pm-assignment-nav.md) | [plan](../plans/2026-07-08-001cf-admin-pm-assignment-nav.md) |
 | [001ce-project-member-autocomplete](./completed/001ce-project-member-autocomplete.md) | [plan](../plans/2026-07-08-001ce-project-member-autocomplete-pm-scoping.md) |
 | [001cd-pm-admin-role-model](./completed/001cd-pm-admin-role-model.md) | [plan](../plans/2026-07-08-001cd-pm-admin-role-model.md) |
