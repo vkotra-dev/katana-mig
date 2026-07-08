@@ -2,7 +2,9 @@
 
 ## Ready
 
-*No pending tasks.*
+| Task | Plan | Summary |
+|---|---|---|
+| [001ch-pm-project-edit-access](./001ch-pm-project-edit-access.md) | [plan](../plans/2026-07-08-001ch-pm-project-edit-access.md) | Gate project edit button to PM role in frontend UI |
 
 ## Completed
 
