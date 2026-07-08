@@ -146,14 +146,20 @@ def upload_source_slice(
     return _source_slice_response(db, result.source_slice)
 
 
-def list_source_slices(db: Session, *, project_id: str, source_definition_id: str) -> list[FeedSliceResponse]:
+def list_source_slices(
+    db: Session,
+    *,
+    project_id: str,
+    source_definition_id: str,
+    masked: bool = True,
+) -> list[FeedSliceResponse]:
     _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
     rows = db.scalars(
         select(FeedSlice)
         .where(FeedSlice.source_definition_id == source_definition_id)
         .order_by(FeedSlice.created_at.asc())
     ).all()
-    return [_source_slice_response(db, row) for row in rows]
+    return [_source_slice_response(db, row, masked=masked) for row in rows]
 
 
 def get_source_slice(
@@ -162,12 +168,13 @@ def get_source_slice(
     project_id: str,
     source_definition_id: str,
     source_slice_id: str,
+    masked: bool = True,
 ) -> FeedSliceResponse:
     _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
     source_slice = db.get(FeedSlice, source_slice_id)
     if source_slice is None or source_slice.source_definition_id != source_definition_id:
         raise AuthApiError("source_slice_not_found", "Source slice not found.", 404)
-    return _source_slice_response(db, source_slice)
+    return _source_slice_response(db, source_slice, masked=masked)
 
 
 
@@ -337,7 +344,14 @@ def _source_contract_response(source_definition: Feed) -> FeedResponse:
     )
 
 
-def _source_slice_response(db: Session, source_slice: FeedSlice) -> FeedSliceResponse:
+def _parse_csv_row(value: str | None) -> list[str]:
+    if not value:
+        return []
+    import csv
+    return next(csv.reader([value]))
+
+
+def _source_slice_response(db: Session, source_slice: FeedSlice, *, masked: bool = True) -> FeedSliceResponse:
     row_count = db.scalar(
         select(func.count(FeedSliceRow.id)).where(FeedSliceRow.source_slice_id == source_slice.source_slice_id)
     ) or 0
@@ -347,6 +361,14 @@ def _source_slice_response(db: Session, source_slice: FeedSlice) -> FeedSliceRes
         .order_by(FeedSliceRow.row_index.asc())
         .limit(10)
     ).all()
+    if masked and source_slice.header_csv:
+        from ..intake.masking import mask_row
+        headers = _parse_csv_row(source_slice.header_csv)
+        masked_rows = []
+        for row_csv in preview_rows:
+            values = _parse_csv_row(row_csv)
+            masked_rows.append(mask_row(headers, values))
+        preview_rows = masked_rows
     return FeedSliceResponse(
         source_slice_id=source_slice.source_slice_id,
         source_definition_id=source_slice.source_definition_id,

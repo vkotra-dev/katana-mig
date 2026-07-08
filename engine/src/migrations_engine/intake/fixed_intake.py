@@ -45,7 +45,7 @@ def ingest_fixed(
             )
         padded_line = normalized_line[:total_width].ljust(total_width)
         values = [padded_line[field.offset : field.offset + field.width].strip() for field in fields]
-        row_csv_rows.append((row_index, mask_row(header_values, values)))
+        row_csv_rows.append((row_index, _dump_csv_row(values)))
 
     source_slice = _create_source_slice(
         db,

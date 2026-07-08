@@ -71,6 +71,14 @@ def analyze_source_slice(
         return SourceAnalysisResponse(schema_artifact_id=existing_artifact.schema_artifact_id)
 
     sample_rows = _load_slice_rows(db, source_slice_id=source_slice.source_slice_id, limit=10)
+    if source_slice.header_csv:
+        from ..intake.masking import mask_row
+        headers = _parse_csv_row(source_slice.header_csv)
+        masked_rows = []
+        for row_csv in sample_rows:
+            values = _parse_csv_row(row_csv)
+            masked_rows.append(mask_row(headers, values))
+        sample_rows = masked_rows
     sample_text = _build_sample_text(header_csv=source_slice.header_csv, rows=sample_rows)
     system_prompt = _build_system_prompt(source_definition)
 

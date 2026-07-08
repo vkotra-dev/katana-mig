@@ -65,6 +65,15 @@ def _setup_sqlite_db() -> None:
             status="active",
         )
         db.add(pm)
+        actual_admin = User(
+            user_id=str(uuid.uuid4()),
+            email="admin@example.com",
+            display_name="Manager",
+            password_hash=hash_password("admin-password"),
+            role="admin",
+            status="active",
+        )
+        db.add(actual_admin)
         db.commit()
 
 
@@ -167,3 +176,67 @@ def test_fixed_length_requires_copybook_before_upload(admin_token: str, pm_token
     assert fixed_upload.status_code == 200, fixed_upload.text
     assert fixed_upload.json()["status"] == "pending_approval"
     assert fixed_upload.json()["row_count"] == 1
+
+
+def test_source_slice_display_time_masking_and_gating(admin_token: str, pm_token: str) -> None:
+    project = _create_project(pm_token, f"Source-{uuid.uuid4().hex[:8]}")
+    create = client.post(
+        f"/projects/{project['project_id']}/sources",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"source_type": "csv", "label": "Customer Extract", "encoding": "utf-8"},
+    )
+    assert create.status_code == 201, create.text
+    source = create.json()
+
+    # Upload slice
+    upload = client.post(
+        f"/projects/{project['project_id']}/sources/{source['source_definition_id']}/slices",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "content": "CUST_ID,SURNAME,DOB,ACCOUNT_TYPE\n100042,Smith,19800101,DATABASE\n",
+        },
+    )
+    assert upload.status_code == 200, upload.text
+    slice_id = upload.json()["source_slice_id"]
+
+    # 1. Admin/PM token (role="admin")
+    actual_admin_token = _login("admin@example.com", "admin-password")
+
+    # 2. Get slices with default (masked=True)
+    get_slices_default = client.get(
+        f"/projects/{project['project_id']}/sources/{source['source_definition_id']}/slices",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert get_slices_default.status_code == 200
+    assert get_slices_default.json()[0]["preview_rows"][0] == "100042,***,***,DATABASE"
+
+    # 3. Get slice by id with default (masked=True)
+    get_slice_by_id_default = client.get(
+        f"/projects/{project['project_id']}/sources/{source['source_definition_id']}/slices/{slice_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert get_slice_by_id_default.status_code == 200
+    assert get_slice_by_id_default.json()["preview_rows"][0] == "100042,***,***,DATABASE"
+
+    # 4. Get with masked=False as operator (role="central_team") -> Should fail with 403 Forbidden
+    get_slices_unmasked_operator = client.get(
+        f"/projects/{project['project_id']}/sources/{source['source_definition_id']}/slices?masked=false",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert get_slices_unmasked_operator.status_code == 403
+
+    # 5. Get with masked=False as PM -> Should succeed and return unmasked
+    get_slices_unmasked_pm = client.get(
+        f"/projects/{project['project_id']}/sources/{source['source_definition_id']}/slices?masked=false",
+        headers={"Authorization": f"Bearer {pm_token}"},
+    )
+    assert get_slices_unmasked_pm.status_code == 200
+    assert get_slices_unmasked_pm.json()[0]["preview_rows"][0] == "100042,Smith,19800101,DATABASE"
+
+    # 6. Get with masked=False as Admin -> Should succeed and return unmasked
+    get_slices_unmasked_admin = client.get(
+        f"/projects/{project['project_id']}/sources/{source['source_definition_id']}/slices?masked=false",
+        headers={"Authorization": f"Bearer {actual_admin_token}"},
+    )
+    assert get_slices_unmasked_admin.status_code == 200
+    assert get_slices_unmasked_admin.json()[0]["preview_rows"][0] == "100042,Smith,19800101,DATABASE"

@@ -70,6 +70,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
 
   const [replacementFile, setReplacementFile] = useState<string | null>(null);
   const [uploadingReplacement, setUploadingReplacement] = useState(false);
+  const [showOriginal, setShowOriginal] = useState(false);
 
   useEffect(() => {
     const s = loadUiSession();
@@ -119,10 +120,26 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
   };
 
   useEffect(() => {
+    setShowOriginal(false);
     if (session) {
       void loadAllData(session.accessToken);
     }
   }, [session, projectId, feedId]);
+
+  const handleToggleShowOriginal = async () => {
+    if (!session || !latestSlice) return;
+    const nextShowOriginal = !showOriginal;
+    try {
+      setLoading(true);
+      const refreshedSlices = await listFeedSlices(session.accessToken, projectId, feedId, !nextShowOriginal);
+      setSlices(refreshedSlices);
+      setShowOriginal(nextShowOriginal);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load original values.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const latestSlice = slices[slices.length - 1]; // backend returns asc order
   const hasNoSlices = slices.length === 0;
@@ -550,7 +567,20 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                         </div>
                       ) : (
                         <div className="space-y-1.5">
-                          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Masked Data Preview</div>
+                          <div className="flex items-center justify-between">
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                              {showOriginal ? "Original Data Preview" : "Masked Data Preview"}
+                            </div>
+                            {(role === "admin" || role === "pm") && (
+                              <button
+                                onClick={handleToggleShowOriginal}
+                                className="text-[10px] font-semibold text-primary hover:underline"
+                                type="button"
+                              >
+                                {showOriginal ? "Show masked" : "Show original"}
+                              </button>
+                            )}
+                          </div>
                           <div className="max-h-72 max-w-[50vw] overflow-auto border border-outline-variant rounded-lg bg-white">
                             <table className="text-left text-[10px] border-collapse font-mono">
                               <thead className="bg-slate-50 border-b border-outline-variant sticky top-0">

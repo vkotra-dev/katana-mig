@@ -347,9 +347,11 @@ export async function listFeedSlices(
   token: string,
   projectId: string,
   sourceDefinitionId: string,
+  masked?: boolean,
 ): Promise<FeedSliceRecord[]> {
+  const query = masked !== undefined ? `?masked=${masked}` : "";
   const response = await requestJson<Array<Parameters<typeof mapFeedSliceResponse>[0]>>(
-    `/projects/${projectId}/sources/${sourceDefinitionId}/slices`,
+    `/projects/${projectId}/sources/${sourceDefinitionId}/slices${query}`,
     { method: "GET", token },
   );
   return response.map(mapFeedSliceResponse);

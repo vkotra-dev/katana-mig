@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from ..api.deps import get_central_team_user, get_current_user, get_db
+from ..api.deps import AuthApiError, get_central_team_user, get_current_user, get_db
 from ..api.schemas import FeedCreateRequest, FeedResponse, FeedSliceResponse, FeedMappingHintsRequest
 from ..db.models import User, Feed
 from ..management.access import require_project_access
@@ -97,11 +97,16 @@ def post_source_slice(
 def get_source_slices(
     project_id: str,
     source_definition_id: str,
+    masked: bool = True,
     actor: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[FeedSliceResponse]:
     require_project_access(db, user=actor, project_id=project_id)
-    return list_source_slices(db, project_id=project_id, source_definition_id=source_definition_id)
+    if not masked:
+        from ..roles import ADMIN_ROLE, PM_ROLE
+        if actor.role not in {ADMIN_ROLE, PM_ROLE}:
+            raise AuthApiError("forbidden", "Only admin or PM can request unmasked data.", 403)
+    return list_source_slices(db, project_id=project_id, source_definition_id=source_definition_id, masked=masked)
 
 
 @router.get("/{source_definition_id}/slices/{source_slice_id}", response_model=FeedSliceResponse)
@@ -109,15 +114,21 @@ def get_source_slice_by_id(
     project_id: str,
     source_definition_id: str,
     source_slice_id: str,
+    masked: bool = True,
     actor: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> FeedSliceResponse:
     require_project_access(db, user=actor, project_id=project_id)
+    if not masked:
+        from ..roles import ADMIN_ROLE, PM_ROLE
+        if actor.role not in {ADMIN_ROLE, PM_ROLE}:
+            raise AuthApiError("forbidden", "Only admin or PM can request unmasked data.", 403)
     return get_source_slice(
         db,
         project_id=project_id,
         source_definition_id=source_definition_id,
         source_slice_id=source_slice_id,
+        masked=masked,
     )
 
 

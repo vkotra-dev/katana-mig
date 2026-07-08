@@ -55,7 +55,7 @@ def ingest_csv(
         if len(values) != len(headers):
             row_warnings.append(f"row {row_index + 1}: expected {len(headers)} values, got {len(values)}")
         normalized_values = _normalize_values(values, width=len(headers))
-        slice_rows.append((row_index, mask_row(headers, normalized_values)))
+        slice_rows.append((row_index, _dump_csv_row(normalized_values)))
 
     source_slice = _create_source_slice(
         db,
