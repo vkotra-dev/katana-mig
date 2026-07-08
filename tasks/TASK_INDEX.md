@@ -2,15 +2,14 @@
 
 ## Ready
 
-| Task | Plan | Summary |
-|---|---|---|
-| [001ce-project-member-autocomplete](./001ce-project-member-autocomplete.md) | [plan](../plans/2026-07-08-001ce-project-member-autocomplete-pm-scoping.md) | |
-| [001cd-pm-admin-role-model](./001cd-pm-admin-role-model.md) | [plan](../plans/2026-07-08-001cd-pm-admin-role-model.md) | |
+*No pending tasks.*
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001ce-project-member-autocomplete](./completed/001ce-project-member-autocomplete.md) | [plan](../plans/2026-07-08-001ce-project-member-autocomplete-pm-scoping.md) |
+| [001cd-pm-admin-role-model](./completed/001cd-pm-admin-role-model.md) | [plan](../plans/2026-07-08-001cd-pm-admin-role-model.md) |
 | [001cc-feed-slice-approval-data-profile](./completed/001cc-feed-slice-approval-data-profile.md) | [summary](./summary/001cc-feed-slice-approval-data-profile.md) |
 | [001cb-lookup-value-map-project-scope](./completed/001cb-lookup-value-map-project-scope.md) | [summary](./summary/001cb-lookup-value-map-project-scope.md) |
 | [001ca-lookup-fiber-bridge](./completed/001ca-lookup-fiber-bridge.md) | [summary](./summary/001ca-lookup-fiber-bridge.md) |
