@@ -110,7 +110,12 @@ export default function ProjectMembersPage({ params }: any) {
   });
 
   const memberUserIds = new Set(members.map((m) => m.userId));
-  const availableUsers = allUsers.filter((u) => !memberUserIds.has(u.userId));
+  const availableUsers = allUsers.filter(
+    (u) =>
+      u.role !== "admin" &&
+      u.role !== "pm" &&
+      !memberUserIds.has(u.userId)
+  );
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

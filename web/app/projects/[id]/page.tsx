@@ -179,7 +179,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
         {activeTab === "members" && session ? (
           <ProjectMembersPanel
-            availableUsers={allUsers.filter((u) => !members.some((m) => m.userId === u.userId))}
+            availableUsers={allUsers.filter(
+              (u) =>
+                u.role !== "admin" &&
+                u.role !== "pm" &&
+                !members.some((m) => m.userId === u.userId)
+            )}
             members={members}
             onAdd={handleMemberAdd}
             onRemove={handleMemberRemove}
