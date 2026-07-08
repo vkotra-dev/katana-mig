@@ -167,6 +167,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               Edit
             </Link>
           ) : null}
+
+          {role === "admin" ? (
+            <Link
+              className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white"
+              href={`/admin/projects/${id}/members`}
+            >
+              Manage Members & PM
+            </Link>
+          ) : null}
         </div>
 
         <ProjectNavigationTabs
