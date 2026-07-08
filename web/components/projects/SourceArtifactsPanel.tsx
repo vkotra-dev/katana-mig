@@ -327,7 +327,7 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
                     {isExpanded && (
                       <tr className="bg-slate-50/50">
                         <td colSpan={6} className="px-6 py-4 border-t border-outline-variant">
-                          <div className="space-y-4 max-w-[calc(100vw-8rem)] md:max-w-full">
+                          <div className="space-y-4 max-w-[calc(100vw-8rem)]">
                             <div className="flex items-center justify-between">
                               <h4 className="text-sm font-bold text-slate-800">
                                 Feed Data Profile & Sample Preview ({previewLines.length} rows shown)
@@ -362,11 +362,11 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
                             {headers.length > 0 && (
                               <div>
                                 <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">PII Scan</div>
-                                <div className="flex flex-wrap gap-1.5">
+                                <div className="flex flex-wrap gap-1.5 max-w-[calc(100vw-10rem)]">
                                   {headers.map((col, i) => {
                                     const badge = piiLabel(columnPii[i]);
                                     return (
-                                      <span key={col} className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-medium bg-white ${badge.className}`}>
+                                      <span key={col} className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-medium bg-white break-all ${badge.className}`}>
                                         {badge.icon} {col}
                                       </span>
                                     );
