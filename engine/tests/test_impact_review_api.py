@@ -36,7 +36,7 @@ deps_module.SessionLocal = db_session.SessionLocal
 
 from migrations_engine.app import app  # noqa: E402
 from migrations_engine.db.base import Base  # noqa: E402
-from migrations_engine.db.models import MappingSnapshot, ProjectDefinition, ProjectRegistry, RunRecord, User  # noqa: E402
+from migrations_engine.db.models import MappingSnapshot, ProjectDefinition, ProjectMembership, ProjectRegistry, RunRecord, User  # noqa: E402
 from migrations_engine.db.session import SessionLocal  # noqa: E402
 from migrations_engine.roles import CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE  # noqa: E402
 
@@ -100,6 +100,7 @@ def _seed_rejected_run(*, with_mapping_snapshot: bool = True, with_sibling_run: 
     run_id = str(uuid.uuid4())
 
     with SessionLocal() as db:
+        db.add(ProjectMembership(project_id=project_id, user_id=_ADMIN_USER.user_id))
         db.add(
             ProjectDefinition(
                 definition_id=definition_id,
@@ -255,6 +256,7 @@ def test_acknowledge_404_when_run_not_found() -> None:
     definition_id = str(uuid.uuid4())
 
     with SessionLocal() as db:
+        db.add(ProjectMembership(project_id=project_id, user_id=_ADMIN_USER.user_id))
         db.add(ProjectDefinition(definition_id=definition_id, project_id=project_id, name="P3", status="active"))
         db.add(ProjectRegistry(project_id=project_id, name="P3", definition_id=definition_id, status="active"))
         db.commit()
@@ -270,6 +272,7 @@ def test_acknowledge_404_when_no_gate1_rejection() -> None:
     run_id = str(uuid.uuid4())
 
     with SessionLocal() as db:
+        db.add(ProjectMembership(project_id=project_id, user_id=_ADMIN_USER.user_id))
         db.add(ProjectDefinition(definition_id=definition_id, project_id=project_id, name="P4", status="active"))
         db.add(ProjectRegistry(project_id=project_id, name="P4", definition_id=definition_id, status="active"))
         db.add(

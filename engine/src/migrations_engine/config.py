@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     mysql_password: str = ""
     bootstrap_admin_email: str = ""
     bootstrap_admin_password: str = ""
-    bootstrap_admin_display_name: str = "Administrator"
+    bootstrap_admin_display_name: str = "Manager"
     jwt_secret: str = "dev-only-change-me"
     jwt_access_token_hours: int = 8
     password_reset_token_hours: int = 1

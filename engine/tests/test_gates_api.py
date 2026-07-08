@@ -163,7 +163,7 @@ def _seed_gate_run() -> tuple[str, str, str]:
         db.add(
             LookupValueMap(
                 lookup_value_map_id=str(uuid.uuid4()),
-                source_definition_id=source_definition_id,
+                project_id=project_id,
                 lookup_name="status_map",
                 destination_table=[{"id": "ACTIVE", "label": "Active"}],
                 source_value_map={"A": "ACTIVE", "B": "MISSING"},

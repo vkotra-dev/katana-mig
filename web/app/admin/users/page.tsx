@@ -59,6 +59,8 @@ export default function AdminUsersPage() {
     router.push(`/admin/users/${userId}`);
   };
 
+  const isAdmin = session?.role === "admin";
+
   return (
     <main className="min-h-screen bg-surface px-6 py-8 text-slate-800">
       <div className="mx-auto max-w-5xl space-y-6">
@@ -67,9 +69,11 @@ export default function AdminUsersPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Admin</p>
             <h1 className="text-3xl font-semibold text-slate-900">User management</h1>
           </div>
-          <Link className="rounded-md bg-primary px-4 py-3 text-sm font-semibold text-white" href="/admin/users/new">
-            Create user
-          </Link>
+          {isAdmin && (
+            <Link className="rounded-md bg-primary px-4 py-3 text-sm font-semibold text-white" href="/admin/users/new">
+              Create user
+            </Link>
+          )}
         </div>
 
         {errorMessage ? (
@@ -78,7 +82,12 @@ export default function AdminUsersPage() {
           </p>
         ) : null}
 
-        <UserList onDelete={(userId) => void handleDelete(userId)} onEdit={handleEdit} users={users.map(toUserRecord)} />
+        <UserList
+          onDelete={(userId) => void handleDelete(userId)}
+          onEdit={handleEdit}
+          showActions={isAdmin}
+          users={users.map(toUserRecord)}
+        />
       </div>
     </main>
   );

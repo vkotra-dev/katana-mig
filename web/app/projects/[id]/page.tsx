@@ -10,8 +10,10 @@ import { ProjectDetailView } from "../../../components/projects/ProjectDetailVie
 import { SourceArtifactsPanel } from "../../../components/projects/SourceArtifactsPanel";
 import { SourceList } from "../../../components/projects/SourceList";
 import { getAiModelDefaults, type AIModelDefaultsRecord } from "../../../lib/ai-model-defaults-api";
+import { addProjectMember, listProjectMembers, listUsers, removeProjectMember, type ProjectMemberResponse, type UserResponse } from "../../../lib/management-api";
 import { getProject, projectErrorMessage, type ProjectRecord } from "../../../lib/projects-api";
 import { loadUiSession, type SessionRole, type UiSession } from "../../../lib/session";
+import { ProjectMembersPanel, type ProjectMember } from "../../../components/ProjectMembersPanel";
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -21,11 +23,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [session, setSession] = useState<UiSession | null>(null);
   const [project, setProject] = useState<ProjectRecord | null>(null);
   const [modelDefaults, setModelDefaults] = useState<(AIModelDefaultsRecord["migrationModels"] & AIModelDefaultsRecord["platformModels"]) | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "feeds" | "artifacts">(
+  const [activeTab, setActiveTab] = useState<"overview" | "feeds" | "artifacts" | "members">(
     initialTab === "feeds" || initialTab === "sources" ? "feeds" : initialTab === "artifacts" ? "artifacts" : "overview",
   );
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [memberWarning, setMemberWarning] = useState<string | undefined>();
 
   useEffect(() => {
     setSession(loadUiSession());
@@ -88,8 +92,48 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     };
   }, [session]);
 
+  function joinMembers(memberRows: ProjectMemberResponse[], users: UserResponse[]): ProjectMember[] {
+    return memberRows.map((m) => {
+      const user = users.find((u) => u.userId === m.userId);
+      return {
+        projectId: m.projectId,
+        userId: m.userId,
+        displayName: user?.displayName ?? null,
+        email: user?.email ?? m.userId,
+        role: user?.role ?? "project_stakeholder",
+        status: user?.status ?? "active",
+      };
+    });
+  }
+
+  async function refreshMembers(token: string) {
+    const [memberRows, users] = await Promise.all([
+      listProjectMembers(token, id),
+      listUsers(token),
+    ]);
+    setMembers(joinMembers(memberRows, users));
+  }
+
+  useEffect(() => {
+    if (!session || activeTab !== "members") return;
+    void refreshMembers(session.accessToken);
+  }, [session, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const role: SessionRole = session?.role ?? "read_only_auditor";
-  const navigationActiveTab = activeTab === "overview" || activeTab === "feeds" || activeTab === "artifacts" ? activeTab : "overview";
+  const navigationActiveTab = activeTab === "overview" || activeTab === "feeds" || activeTab === "artifacts" || activeTab === "members" ? activeTab : "overview";
+
+  const handleMemberAdd = async (userId: string) => {
+    if (!session) return;
+    const response = await addProjectMember(session.accessToken, id, userId);
+    setMemberWarning(response.warning ?? undefined);
+    await refreshMembers(session.accessToken);
+  };
+
+  const handleMemberRemove = async (userId: string) => {
+    if (!session) return;
+    await removeProjectMember(session.accessToken, id, userId);
+    await refreshMembers(session.accessToken);
+  };
 
   const handleFeedClick = (sourceDefinitionId: string) => {
     if (!session) return;
@@ -128,9 +172,18 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           mode="detail"
           onTabChange={setActiveTab}
           projectId={id}
+          role={role}
         />
 
-        {loading ? (
+        {activeTab === "members" && session ? (
+          <ProjectMembersPanel
+            members={members}
+            onAdd={handleMemberAdd}
+            onRemove={handleMemberRemove}
+            projectId={id}
+            warning={memberWarning}
+          />
+        ) : loading ? (
           <div className="rounded-2xl border border-outline-variant bg-surface-container p-8 text-sm text-slate-600">
             Loading project...
           </div>

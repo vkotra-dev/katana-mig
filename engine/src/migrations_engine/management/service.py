@@ -15,7 +15,7 @@ from ..api.schemas import (
 )
 from ..auth.passwords import hash_password
 from ..db.models import ProjectMembership, ProjectRegistry, User, new_id
-from ..roles import PROJECT_STAKEHOLDER_ROLE
+from ..roles import CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE, PM_ROLE, ADMIN_ROLE, READ_ONLY_AUDITOR_ROLE
 from .access import is_valid_platform_role
 from .platform import ensure_platform_project, record_management_audit
 
@@ -163,10 +163,10 @@ def add_project_member(
     user = _get_user_record(db, user_id)
     if user.soft_deleted_at is not None:
         raise AuthApiError("user_not_found", "User not found.", 404)
-    if user.role != PROJECT_STAKEHOLDER_ROLE:
+    if user.role not in {CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE, PM_ROLE}:
         raise AuthApiError(
-            "not_stakeholder",
-            "Only project_stakeholder users can be assigned project membership.",
+            "invalid_role_for_membership",
+            "Only central_team, project_stakeholder, and pm users can be assigned project membership.",
             422,
         )
 
@@ -211,6 +211,14 @@ def remove_project_member(
     )
     if membership is None:
         raise AuthApiError("membership_not_found", "Project membership not found.", 404)
+
+    user = _get_user_record(db, user_id)
+    if user.role in {ADMIN_ROLE, PM_ROLE, READ_ONLY_AUDITOR_ROLE}:
+        raise AuthApiError(
+            "cannot_remove_global_role_membership",
+            f"Cannot remove membership for user with role {user.role} because their role grants global project access.",
+            422,
+        )
 
     db.delete(membership)
     record_management_audit(

@@ -31,6 +31,7 @@ from migrations_engine.config import get_settings  # noqa: E402
 from migrations_engine.db.base import Base  # noqa: E402
 from migrations_engine.db.models import (  # noqa: E402
     ProjectDefinition,
+    ProjectMembership,
     ProjectRegistry,
     User,
 )
@@ -60,6 +61,16 @@ def _setup_sqlite_db() -> None:
                 status="active",
             )
         )
+        db.add(
+            User(
+                user_id=str(uuid.uuid4()),
+                email="stakeholder@example.com",
+                display_name="Stakeholder",
+                password_hash=hash_password("stakeholder-password"),
+                role="project_stakeholder",
+                status="active",
+            )
+        )
         db.commit()
 
 
@@ -82,6 +93,11 @@ def admin_token() -> str:
     return _login(settings.bootstrap_admin_email, settings.bootstrap_admin_password)
 
 
+@pytest.fixture
+def stakeholder_token() -> str:
+    return _login("stakeholder@example.com", "stakeholder-password")
+
+
 def _create_project(db, name: str) -> tuple[str, str]:
     project_id = str(uuid.uuid4())
     definition_id = str(uuid.uuid4())
@@ -101,6 +117,11 @@ def _create_project(db, name: str) -> tuple[str, str]:
             status="active",
         )
     )
+    db.flush()
+    from sqlalchemy import select
+    st_user = db.scalar(select(User).where(User.email == "stakeholder@example.com"))
+    if st_user is not None:
+        db.add(ProjectMembership(project_id=project_id, user_id=st_user.user_id))
     db.flush()
     return project_id, definition_id
 
@@ -134,9 +155,10 @@ def _seed_project_state(project_id: str) -> None:
         db.commit()
 
 
-def test_run_crud_launch_and_resume_via_api(admin_token: str) -> None:
+def test_run_crud_launch_and_resume_via_api(admin_token: str, stakeholder_token: str) -> None:
     with SessionLocal() as db:
         project_id, _ = _create_project(db, f"Runs-{uuid.uuid4().hex[:8]}")
+        db.commit()
 
     create_source = client.post(
         f"/projects/{project_id}/sources",
@@ -156,7 +178,7 @@ def test_run_crud_launch_and_resume_via_api(admin_token: str) -> None:
     slice_id = upload.json()["source_slice_id"]
     approve = client.post(
         f"/projects/{project_id}/sources/{source_definition_id}/slices/{slice_id}/approve",
-        headers={"Authorization": f"Bearer {admin_token}"},
+        headers={"Authorization": f"Bearer {stakeholder_token}"},
     )
     assert approve.status_code == 200, approve.text
 
@@ -189,10 +211,11 @@ def test_run_crud_launch_and_resume_via_api(admin_token: str) -> None:
     assert detail_response.json()["status"] == "queued"
 
 
-def test_run_launch_and_resume_are_scoped_to_project(admin_token: str) -> None:
+def test_run_launch_and_resume_are_scoped_to_project(admin_token: str, stakeholder_token: str) -> None:
     with SessionLocal() as db:
         project_a, _ = _create_project(db, f"Runs-A-{uuid.uuid4().hex[:8]}")
         project_b, _ = _create_project(db, f"Runs-B-{uuid.uuid4().hex[:8]}")
+        db.commit()
 
     create_source = client.post(
         f"/projects/{project_a}/sources",
@@ -210,7 +233,7 @@ def test_run_launch_and_resume_are_scoped_to_project(admin_token: str) -> None:
     slice_id = upload.json()["source_slice_id"]
     approve = client.post(
         f"/projects/{project_a}/sources/{source_definition_id}/slices/{slice_id}/approve",
-        headers={"Authorization": f"Bearer {admin_token}"},
+        headers={"Authorization": f"Bearer {stakeholder_token}"},
     )
     assert approve.status_code == 200, approve.text
 

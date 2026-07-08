@@ -2,12 +2,17 @@
 
 ## Ready
 
-No pending tasks.
+| Task | Plan | Summary |
+|---|---|---|
+| [001ce-project-member-autocomplete](./001ce-project-member-autocomplete.md) | | |
+| [001cd-pm-admin-role-model](./001cd-pm-admin-role-model.md) | [plan](../plans/2026-07-08-001cd-pm-admin-role-model.md) | |
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001cc-feed-slice-approval-data-profile](./completed/001cc-feed-slice-approval-data-profile.md) | [summary](./summary/001cc-feed-slice-approval-data-profile.md) |
+| [001cb-lookup-value-map-project-scope](./completed/001cb-lookup-value-map-project-scope.md) | [summary](./summary/001cb-lookup-value-map-project-scope.md) |
 | [001ca-lookup-fiber-bridge](./completed/001ca-lookup-fiber-bridge.md) | [summary](./summary/001ca-lookup-fiber-bridge.md) |
 | [001bw-dashboard-health-view](./completed/001bw-dashboard-health-view.md) | [summary](./summary/001bw-dashboard-health-view.md) |
 | [001bv-unmapped-source-fields-warning](./completed/001bv-unmapped-source-fields-warning.md) | [summary](./summary/001bv-unmapped-source-fields-warning.md) |

@@ -13,6 +13,7 @@ from migrations_engine.auth.passwords import hash_password  # noqa: E402
 from migrations_engine.config import get_settings  # noqa: E402
 from migrations_engine.db.models import (  # noqa: E402
     ProjectDefinition,
+    ProjectMembership,
     ProjectRegistry,
     SourceDefinition,
     SourceSlice,
@@ -88,7 +89,9 @@ def _seed_project() -> tuple[str, str]:
     source_definition_id = str(uuid.uuid4())
     with SessionLocal() as db:
         admin_user = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
+        stakeholder_user = db.scalar(select(User).where(User.email == "stakeholder@example.com"))
         assert admin_user is not None
+        assert stakeholder_user is not None
         db.add(
             ProjectDefinition(
                 definition_id=definition_id,
@@ -105,6 +108,8 @@ def _seed_project() -> tuple[str, str]:
                 status="active",
             )
         )
+        db.flush()
+        db.add(ProjectMembership(project_id=project_id, user_id=stakeholder_user.user_id))
         db.add(
             SourceDefinition(
                 source_definition_id=source_definition_id,
@@ -164,7 +169,7 @@ def test_lookup_routes_enforce_auth_and_contract(admin_token: str, stakeholder_t
     project_id, source_definition_id = _seed_project()
 
     forbidden = client.post(
-        f"/projects/{project_id}/sources/{source_definition_id}/lookup-maps",
+        f"/projects/{project_id}/lookup-maps",
         headers={"Authorization": f"Bearer {stakeholder_token}"},
         json={
             "lookup_name": "STATUS_CODE",
@@ -175,7 +180,7 @@ def test_lookup_routes_enforce_auth_and_contract(admin_token: str, stakeholder_t
     assert forbidden.json()["error"]["code"] == "forbidden"
 
     create = client.post(
-        f"/projects/{project_id}/sources/{source_definition_id}/lookup-maps",
+        f"/projects/{project_id}/lookup-maps",
         headers={"Authorization": f"Bearer {admin_token}"},
         json={
             "lookup_name": "status_code",
@@ -215,7 +220,7 @@ def test_lookup_routes_enforce_auth_and_contract(admin_token: str, stakeholder_t
 
     approve = client.post(
         f"/projects/{project_id}/lookup-snapshots/{generate.json()['lookup_snapshot_id']}/approve",
-        headers={"Authorization": f"Bearer {admin_token}"},
+        headers={"Authorization": f"Bearer {stakeholder_token}"},
     )
     assert approve.status_code == 200, approve.text
     assert approve.json()["status"] == "approved"

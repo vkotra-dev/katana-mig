@@ -56,6 +56,15 @@ def _setup_sqlite_db() -> None:
             status="active",
         )
         db.add(admin)
+        pm = User(
+            user_id=str(uuid.uuid4()),
+            email="pm@example.com",
+            display_name="Project Manager",
+            password_hash=hash_password("pm-password"),
+            role="pm",
+            status="active",
+        )
+        db.add(pm)
         db.commit()
 
 
@@ -78,14 +87,19 @@ def admin_token() -> str:
     return _login(settings.bootstrap_admin_email, settings.bootstrap_admin_password)
 
 
+@pytest.fixture
+def pm_token() -> str:
+    return _login("pm@example.com", "pm-password")
+
+
 def _create_project(token: str, name: str) -> dict[str, object]:
     response = client.post("/projects", headers={"Authorization": f"Bearer {token}"}, json={"name": name})
     assert response.status_code == 201, response.text
     return response.json()
 
 
-def test_csv_source_intake_masks_and_persists_rows(admin_token: str) -> None:
-    project = _create_project(admin_token, f"Source-{uuid.uuid4().hex[:8]}")
+def test_csv_source_intake_masks_and_persists_rows(admin_token: str, pm_token: str) -> None:
+    project = _create_project(pm_token, f"Source-{uuid.uuid4().hex[:8]}")
     create = client.post(
         f"/projects/{project['project_id']}/sources",
         headers={"Authorization": f"Bearer {admin_token}"},
@@ -111,8 +125,8 @@ def test_csv_source_intake_masks_and_persists_rows(admin_token: str) -> None:
 
 
 
-def test_fixed_length_requires_copybook_before_upload(admin_token: str) -> None:
-    project = _create_project(admin_token, f"Source-{uuid.uuid4().hex[:8]}")
+def test_fixed_length_requires_copybook_before_upload(admin_token: str, pm_token: str) -> None:
+    project = _create_project(pm_token, f"Source-{uuid.uuid4().hex[:8]}")
     create = client.post(
         f"/projects/{project['project_id']}/sources",
         headers={"Authorization": f"Bearer {admin_token}"},

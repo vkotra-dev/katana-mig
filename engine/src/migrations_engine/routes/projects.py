@@ -5,10 +5,9 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..api.deps import (
-    get_central_team_user,
+    get_pm_user,
     get_current_user,
     get_db,
-    get_project_initiation_user,
 )
 from ..api.schemas import (
     MembershipResponse,
@@ -33,7 +32,7 @@ class AddMemberRequest(BaseModel):
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 def post_project(
     body: ProjectCreateRequest,
-    actor: User = Depends(get_project_initiation_user),
+    actor: User = Depends(get_pm_user),
     db: Session = Depends(get_db),
 ) -> ProjectResponse:
     return create_project(db, actor=actor, body=body)
@@ -62,7 +61,7 @@ def get_project_by_id(
 def patch_project(
     project_id: str,
     body: ProjectUpdateRequest,
-    actor: User = Depends(get_central_team_user),
+    actor: User = Depends(get_pm_user),
     db: Session = Depends(get_db),
 ) -> ProjectResponse:
     return update_project(db, actor=actor, project_id=project_id, body=body)
@@ -71,7 +70,7 @@ def patch_project(
 @router.post("/{project_id}/archive", response_model=ProjectResponse)
 def post_project_archive(
     project_id: str,
-    actor: User = Depends(get_central_team_user),
+    actor: User = Depends(get_pm_user),
     db: Session = Depends(get_db),
 ) -> ProjectResponse:
     return archive_project(db, actor=actor, project_id=project_id)
@@ -80,7 +79,7 @@ def post_project_archive(
 @router.get("/{project_id}/members", response_model=list[ProjectMemberResponse])
 def get_project_members(
     project_id: str,
-    _actor: User = Depends(get_central_team_user),
+    _actor: User = Depends(get_pm_user),
     db: Session = Depends(get_db),
 ) -> list[ProjectMemberResponse]:
     return list_project_members(db, project_id=project_id)
@@ -90,7 +89,7 @@ def get_project_members(
 def post_project_member(
     project_id: str,
     body: AddMemberRequest,
-    actor: User = Depends(get_central_team_user),
+    actor: User = Depends(get_pm_user),
     db: Session = Depends(get_db),
 ) -> MembershipResponse:
     return add_project_member(db, actor=actor, project_id=project_id, user_id=body.user_id)
@@ -100,7 +99,7 @@ def post_project_member(
 def delete_project_member(
     project_id: str,
     user_id: str,
-    actor: User = Depends(get_central_team_user),
+    actor: User = Depends(get_pm_user),
     db: Session = Depends(get_db),
 ) -> Response:
     remove_project_member(db, actor=actor, project_id=project_id, user_id=user_id)
@@ -111,7 +110,7 @@ def delete_project_member(
 def post_project_copy(
     project_id: str,
     body: ProjectCopyRequest,
-    actor: User = Depends(get_central_team_user),
+    actor: User = Depends(get_pm_user),
     db: Session = Depends(get_db),
 ) -> ProjectResponse:
     return copy_project(db, actor=actor, source_project_id=project_id, body=body)

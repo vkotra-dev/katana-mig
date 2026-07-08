@@ -92,4 +92,61 @@ def bootstrap_sqlite_database(request) -> None:
                             status="active",
                         )
                     )
-                    db.commit()
+                if db.scalar(select(User).where(User.email == "pm@example.com")) is None:
+                    db.add(
+                        User(
+                            user_id=str(uuid.uuid4()),
+                            email="pm@example.com",
+                            display_name="Project Manager",
+                            password_hash=hash_password("pm-password"),
+                            role="pm",
+                            status="active",
+                        )
+                    )
+                if db.scalar(select(User).where(User.email == "admin@example.com")) is None:
+                    db.add(
+                        User(
+                            user_id=str(uuid.uuid4()),
+                            email="admin@example.com",
+                            display_name="Manager",
+                            password_hash=hash_password("admin-password"),
+                            role="admin",
+                            status="active",
+                        )
+                    )
+                db.commit()
+
+from sqlalchemy import event
+from sqlalchemy.orm import Session
+from migrations_engine.db.models import ProjectRegistry, ProjectMembership, User
+
+@event.listens_for(Session, "before_flush")
+def auto_add_test_membership(session, flush_context, instances):
+    new_projects = [obj for obj in session.new if isinstance(obj, ProjectRegistry)]
+    if not new_projects:
+        return
+    from migrations_engine.config import get_settings
+    settings = get_settings()
+    admin_email = settings.bootstrap_admin_email.strip().lower()
+    user = session.query(User).filter(User.email == admin_email).first()
+    if not user:
+        return
+    for proj in new_projects:
+        exists_in_session = any(
+            isinstance(obj, ProjectMembership) and
+            obj.project_id == proj.project_id and
+            obj.user_id == user.user_id
+            for obj in session.new
+        )
+        if not exists_in_session:
+            exists = session.query(ProjectMembership).filter(
+                ProjectMembership.project_id == proj.project_id,
+                ProjectMembership.user_id == user.user_id
+            ).first()
+            if not exists:
+                session.add(
+                    ProjectMembership(
+                        project_id=proj.project_id,
+                        user_id=user.user_id
+                    )
+                )

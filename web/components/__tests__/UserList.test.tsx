@@ -30,4 +30,27 @@ describe("UserList", () => {
     expect(onEdit).toHaveBeenCalledWith("user-1");
     expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
   });
+
+  it("hides edit and delete actions when showActions is false", () => {
+    render(
+      <UserList
+        onDelete={vi.fn()}
+        onEdit={vi.fn()}
+        users={[
+          {
+            userId: "user-1",
+            email: "operator@example.com",
+            displayName: "Operator",
+            role: "central_team",
+            status: "active",
+          },
+        ]}
+        showActions={false}
+      />
+    );
+
+    expect(screen.getByText("operator@example.com")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+  });
 });

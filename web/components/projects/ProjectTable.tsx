@@ -57,7 +57,7 @@ export function ProjectTable({ projects, role, onInitiate, onCopyClick }: Projec
     return sortDirection === "asc" ? next : next.reverse();
   }, [projects, sortDirection, sortKey]);
 
-  const canCreate = role !== "read_only_auditor";
+  const canCreate = role === "pm";
 
   return (
     <section className="space-y-4 rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm">

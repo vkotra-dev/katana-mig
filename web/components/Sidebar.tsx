@@ -1,9 +1,10 @@
 "use client";
 
 import { navItemsForRole } from "../lib/ui-model";
+import type { SessionRole } from "../lib/session";
 
 export interface SidebarProps {
-  role: "central_team" | "project_stakeholder" | "read_only_auditor";
+  role: SessionRole;
   collapsed?: boolean;
 }
 

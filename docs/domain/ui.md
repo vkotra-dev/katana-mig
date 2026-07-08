@@ -38,8 +38,8 @@ Role is session-scoped, and `project_stakeholder` access is membership-scoped.
 
 | Role | Can do | Cannot do |
 |------|--------|-----------|
-| `central_team` | All projects, Gate 1 approval, impact review, dry-run review, initiate projects, raise CRs, manage users and membership | — |
-| `project_stakeholder` | Member projects only, Gate 2 approval, lookup-delta review, initiate projects and CRs on member projects | See other projects, Gate 1 actions |
+| `central_team` | All projects, feed slice approval (per-feed), Gate 1 approval, impact review, dry-run review, initiate projects, raise CRs, manage users and membership | — |
+| `project_stakeholder` | Member projects only, Gate 2 approval, lookup-delta review, mapping/lookup review grid (approve or request revision per feed), initiate projects and CRs on member projects | See other projects, Gate 1 or feed slice approval actions |
 | `read_only_auditor` | View all artifacts, lineage, reconciliation, download evidence | Approve, create, raise CRs, manage users or membership |
 
 ## Entry points
@@ -124,7 +124,7 @@ Route: `/projects/{id}/codegen`
 
 Panels:
 
-- **Sources** — list of source contracts with "Generate SQL" action per row (`central_team` only)
+- **Feeds** — list of feed contracts with "Generate SQL" action per row (`central_team` only)
 - **Latest active artifact** — destination name, artifact ID, created date, feed slice version; "Copy SQL" and "Download delivery bundle" buttons; full SQL preview in a scrollable code block
 - **Delivery bundle sidebar** — active artifact count; note that the download saves as `delivery-bundle.sql`
 - **Schema dependency analysis** — shows identified / processed / pending counts for destination objects; "Re-analyze DDL" button to re-run AI analysis; "analyzed at" timestamp. Empty state if no analysis has been run.
@@ -202,33 +202,49 @@ actions for the approval chain:
 2. **Business user approves**
 3. **Operator triggers**
 
+### Per-feed workspace
+
+Route: `/projects/[id]/feeds/[feedId]`
+
+Audience: role-gated. `central_team` sees the full Feed Detail workspace. `project_stakeholder` (business user) is routed directly to the review grid at `/projects/[id]/feeds/[feedId]/review`.
+
+**Feed list** (project detail → Feeds tab) — one row per feed. Row click routes by role: `central_team` → Feed Detail; `project_stakeholder` → review grid.
+
+**Feed Detail** (`central_team` workspace) — vertical sections:
+
+1. **Slice status panel** — current slice status chip (`pending_approval` / `approved` / `rejected`). Hard gate: sections below are locked with a banner until the slice is approved. Approve / Reject actions for `central_team`; Resubmit on rejected slices.
+2. **Field mapping section** — AI-identified destination tables displayed as expandable cards (one per table). Each card shows field bindings with binding type badges:
+   - `direct` — source field maps directly to destination column
+   - `detail_fk` — FK whose referenced table is also produced by this feed
+   - `lookup_fk` — FK into a reference/lookup table (amber badge); reference table name shown
+3. **Lookup fibers section** — one card per `lookup_fk` binding. Each card: source field name, reference table chip, in-place editable source value list (`discovery_type="operator"`), "Run AI mapping" button.
+4. **Reviews section** — the shared ReviewGrid component (see below).
+
+**Review grid** (`/projects/[id]/feeds/[feedId]/review`) — accessible to all roles; default landing for `project_stakeholder`.
+
+Sections:
+- **Table mapping grid** — read-only expandable accordion per destination table. Columns: Source field | Destination field | Binding type badge.
+- **Lookup value mapping grids** — one section per lookup field. Columns: Source value | Destination row | Confidence | Status.
+- **Approval strip** — Approve and Request revision controls, visible to `project_stakeholder` only. Request revision requires a comment.
+
 ### Mapping review
 
 Audience: `central_team` (operator) and `project_stakeholder` (business user).
 
-Three-step approval chain per Feed:
+The mapping and lookup review is managed per-feed through the per-feed workspace and review grid. Both operator and business user see the same ReviewGrid component; the approval controls are role-gated.
 
-1. **Operator assigns** — reviews AI-proposed field bindings and lookup mappings in the mapping grid; sets default values for destination columns with no source equivalent; adds comments for the business user; submits
-2. **Business user approves** — reviews the same grid (without the Default Value column); adjusts lookup value selections; responds to operator comments; approves
-3. **Operator triggers** — final cursory review; explicitly triggers fiber lineup for codegen
+**Mapping grid columns** (in the review grid):
 
-**Mapping grid:**
+| Source Column | Destination Column | Binding Type | Reference Table |
+|---|---|---|---|
+| `CUST_ID` | `customer_id` | direct | — |
+| `ACCT_TYPE` | `account_type_id` | lookup_fk | `account_type_ref` |
+| `FULL_NAME` | `first_name` | direct | — |
+| `DEPT_FK` | `department_id` | detail_fk | `departments` |
 
-| Source Column | Destination Column | Lookup | Default Value | Status |
-|---|---|---|---|---|
-| `CUST_ID` | `customer_id` | — | — | mapped |
-| `ACCT_TYPE` | `account_type` | `account_type_map` | — | mapped |
-| `FULL_NAME` | `first_name` | — | — | mapped |
-| `FULL_NAME` | `last_name` | — | — | mapped |
-| — | `created_by` | — | `"MIGRATION"` | default |
-| `LEGACY_CODE` | — | — | — | unmapped (data loss) |
+The AI detects which destination columns are `lookup_fk` and names the reference table — no manual lookup name entry by the operator.
 
-Rules:
-- One source field may appear on multiple rows mapping to different destination columns
-- Unmapped source columns are shown with no destination — documented as potential data loss
-- Destination columns with no source are shown with no source — operator assigns a static default value
-- Default Value column is visible to operator only; business user sees the grid without it
-- Business user may change lookup value selections (pick a different destination row for any source value)
+**Lookup value mapping grids** — one section per `lookup_fk` binding. Rows: source value → destination row, with confidence score and status (confirmed / pending / rejected).
 
 **Comments** — each Feed has a comment thread accessible to both operator and business user throughout the review. Notifications fire when either party adds a comment. AI reads the full comment thread at codegen time as additional context for scripting the migration proc.
 
@@ -470,6 +486,7 @@ Polling is used for in-app; WebSockets are not required.
 
 ## Changelog
 
+- 2026-07-04: Removed global Approvals nav item and inbox; added per-feed workspace and role-gated review grid; updated mapping review to reflect AI-driven binding type detection (direct/detail_fk/lookup_fk) and reference table names; updated role table and SQL bundle delivery to use Feeds terminology.
 - 2026-07-03: Clarified notification email delivery as SMTP-backed instead of a logging stub.
 - 2026-07-01: Added Feed/FeedSlice/Fiber vocabulary; Feed intake screen; Fiber
   management screen; Mapping review 3-step approval chain; updated delivery

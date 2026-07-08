@@ -257,15 +257,9 @@ POST /projects/{project_id}/sources/{source_definition_id}/slices/{source_slice_
 | `file_not_retained` | 422 | Resubmit attempted but `file_storage_path` is null |
 | `slice_not_found` | 404 | Slice does not belong to this project/source |
 
-**UI entry points:**
+**UI entry point:**
 
-1. **Approvals page** (`/approvals`) — global inbox listing all `pending_approval` slices
-   across projects visible to the user. Amber count badge on the Approvals nav item.
-   Per-row inline Approve + Reject actions.
-
-2. **Project detail — Artifacts tab** — shows the current slice with its status chip.
-   If `pending_approval`: inline Approve + Reject buttons.
-   If `rejected`: rejection reason + Resubmit button (opens modal for encoding/settings override).
+**Per-feed workspace** (`/projects/[id]/feeds/[feedId]`) — slice status panel shows the current slice status chip. If `pending_approval`: inline Approve + Reject buttons for `central_team`. If `rejected`: rejection reason + Resubmit button (opens modal for encoding/settings override). There is no global approvals inbox; approval surfaces only within the feed's own workspace.
 
 ## Fiber model
 
@@ -308,7 +302,7 @@ Rules:
 - `fiber_id`
 - `lookup_name`
 - `source_value`
-- `discovery_type`
+- `discovery_type` — `"sample"` (value seen in the feed window) or `"operator"` (value supplied by the operator from the complete production domain, beyond what the feed window contains)
 - `created_at`
 
 `LookupDestFeed`:
@@ -389,41 +383,50 @@ feed slice and the downstream snapshots derived from it.
 
 After source analysis:
 
-- field mapping produces the object-level field map
+- field mapping produces the object-level field map (one `MappingSnapshot` per destination table)
 - lookup mapping produces approved lookup value snapshots
 - code generation consumes the latest approved mapping and lookup snapshots
   available when the codegen stage starts
 - code generation records the exact snapshot versions it used
 
 If the source changes, source analysis reruns.
-If only mapping or lookup changes, only those approvals rerun, then codegen
-reruns.
+If only mapping or lookup changes, only those approvals rerun, then codegen reruns.
+
+### Field mapping — multi-table AI extraction
+
+One AI call per feed receives the full destination schema DDL and the feed's source columns. The AI identifies all destination tables the feed populates and maps each source field to a destination field. The AI also classifies every binding:
+
+- `direct` — source field maps to a destination column with no FK dependency
+- `detail_fk` — destination column is a FK whose referenced table is also produced by this same feed (i.e. the AI assigned that table too)
+- `lookup_fk` — destination column is a FK whose referenced table is a reference/lookup table not produced by this feed; a lookup fiber is needed to map values
+
+For every `lookup_fk` binding the AI returns the `reference_table_name` (the referenced lookup table in the DDL).
+
+The backend creates one `MappingSnapshot` per identified destination table in a single transaction. Each snapshot stores:
+- `source_definition_id`
+- `destination_object_name` (the AI-returned table name, validated against the DDL)
+- `destination_fields` (column list for that table, derived from DDL at proposal time)
+- `field_bindings` (bindings for that table, including `binding_type` and `reference_table_name`)
+
+The propose API response also returns `lookup_table_references` — one entry per `lookup_fk` binding across all tables — so the UI knows which reference table backs each lookup field without re-parsing the DDL.
 
 ### Lookup mapping
 
-Lookup mapping is the operator-managed pre-run table flow that feeds the
-runtime lookup snapshot consumed by later execution stages.
+Lookup mapping is the operator-managed flow that maps unique source values for each `lookup_fk` field to destination reference rows.
 
-The flow is:
+The flow per lookup field:
 
-1. operator saves a draft `LookupValueMap` for a `(source_definition_id, lookup_name)` pair
-2. operator maps each observed source value to a destination identifier
-3. the platform generates a draft `LookupSnapshot` from the source value summary and the selected destination ids
-4. the operator approves the generated snapshot
+1. Operator supplies the complete production value list for the source field (`LookupSourceEntry` records with `discovery_type="operator"`). The feed window alone is insufficient — the operator extracts distinct values from the full source system.
+2. Operator uploads reference rows from the destination lookup table (`LookupDestFeed` / `LookupDestEntry` records). These rows come from the destination DB (id, description, and any domain-specific codes).
+3. AI maps source values to destination rows, producing `LookupMapping` records with confidence scores. This AI run happens once per production cycle.
+4. After first approval, new unmapped source values surface in the review grid as delta rows. No AI re-run — the additive path simply creates new `LookupMapping` records without overwriting existing `confirmed` or `human`-mapped entries.
 
 Rules:
 
-- the lookup draft stores the destination table rows and the current
-  source-value-to-destination-id selections for the lookup
-- the snapshot stores the final `value_map` of source value -> destination id
-- approved mapping snapshots are versioned per project and destination object;
-  duplicate versions are rejected before insert
-- unmapped source values block snapshot generation
-- snapshot approval records audit evidence and preserves the snapshot version
-- mapping snapshot parsing currently supports only one field binding per
-  snapshot; multi-binding snapshots are rejected explicitly until that shape is
-  implemented
-- runtime lookup delta handling remains a separate path
+- `submit_lookup_inputs` is additive and re-runnable: existing `LookupMapping` records with `status="confirmed"` or `mapped_by="human"` are never overwritten
+- AI re-runs are allowed any number of times before the first production approval; after first approval, delta additions only
+- unmapped source values are directly queryable; they do not block the call but will surface as gaps in the review grid
+- runtime lookup delta handling (values discovered during execution) follows the same additive path
 
 ### Source/run snapshot policy
 
@@ -585,6 +588,7 @@ replace source analysis.
 
 ## Changelog
 
+- 2026-07-04: Replaced global approvals inbox UI entry point with per-feed workspace entry point; documented multi-table AI mapping (binding types, MappingSnapshot per table, lookup_table_references); documented LookupSourceEntry discovery_type="operator" and additive submit_lookup_inputs rule.
 - 2026-06-29: Added feed slice approval flow — status state machine, model fields, approval/reject/resubmit API pattern, UI entry points, failure modes, and acceptance criteria.
 - 2026-06-29: Expanded CodeGenerationArtifact into a full model spec with fields, status values, supersession rule, and delivery bundle assembly.
 - 2026-06-29: Clarified destination_object_references as mapping stage output baton (not an operator input); introduced CodeGenerationArtifact as the versioned output of code generation.

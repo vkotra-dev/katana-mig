@@ -72,6 +72,17 @@ def _setup_sqlite_db() -> None:
                     status="active",
                 )
             )
+        if db.scalar(select(User).where(User.email == "pm@example.com")) is None:
+            db.add(
+                User(
+                    user_id=str(uuid.uuid4()),
+                    email="pm@example.com",
+                    display_name="Project Manager",
+                    password_hash=hash_password("pm-password"),
+                    role="pm",
+                    status="active",
+                )
+            )
         db.commit()
 
 
@@ -100,9 +111,10 @@ def stakeholder_token() -> str:
 
 
 def _seed_project_with_feed(admin_token: str, add_stakeholder: bool = False) -> tuple[str, str]:
+    pm_token = _login("pm@example.com", "pm-password")
     project_resp = client.post(
         "/projects",
-        headers={"Authorization": f"Bearer {admin_token}"},
+        headers={"Authorization": f"Bearer {pm_token}"},
         json={"name": f"Comment-Test-{uuid.uuid4().hex[:8]}"},
     )
     assert project_resp.status_code == 201, project_resp.text

@@ -78,9 +78,9 @@ const projects: ProjectRecord[] = [
 ];
 
 describe("PortfolioTable", () => {
-  it("defaults to active projects and shows the initiate action for central team", () => {
+  it("defaults to active projects and shows the initiate action for pm", () => {
     const onInitiate = vi.fn();
-    render(<PortfolioTable onInitiate={onInitiate} projects={projects} role="central_team" />);
+    render(<PortfolioTable onInitiate={onInitiate} projects={projects} role="pm" />);
 
     expect(screen.getByRole("button", { name: "Initiate project" })).toBeInTheDocument();
     expect(screen.getByText("Alpha Migration")).toBeInTheDocument();
@@ -137,8 +137,14 @@ describe("PortfolioTable", () => {
     expect(screen.getAllByRole("row")[1]).toHaveTextContent("Beta Warehouse");
   });
 
-  it("hides initiate action for read only auditors", () => {
-    render(<PortfolioTable projects={projects} role="read_only_auditor" />);
+  it("hides initiate action for non-pm roles", () => {
+    const { rerender } = render(<PortfolioTable projects={projects} role="read_only_auditor" />);
+    expect(screen.queryByRole("button", { name: "Initiate project" })).not.toBeInTheDocument();
+
+    rerender(<PortfolioTable projects={projects} role="central_team" />);
+    expect(screen.queryByRole("button", { name: "Initiate project" })).not.toBeInTheDocument();
+
+    rerender(<PortfolioTable projects={projects} role="project_stakeholder" />);
     expect(screen.queryByRole("button", { name: "Initiate project" })).not.toBeInTheDocument();
   });
 

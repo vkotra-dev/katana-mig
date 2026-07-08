@@ -1,6 +1,6 @@
 "use client";
 
-export type UserRole = "central_team" | "project_stakeholder" | "read_only_auditor";
+export type UserRole = "admin" | "pm" | "central_team" | "project_stakeholder" | "read_only_auditor";
 export type UserStatus = "active" | "disabled";
 
 export interface UserFormValue {
@@ -81,6 +81,7 @@ export function UserForm({
             placeholder="Initial password"
             required
             type="password"
+            minLength={8}
           />
         </div>
       ) : null}
@@ -105,6 +106,8 @@ export function UserForm({
             defaultValue={initialValue?.role ?? "project_stakeholder"}
             name="role"
           >
+            <option value="admin">admin</option>
+            <option value="pm">pm</option>
             <option value="central_team">central_team</option>
             <option value="project_stakeholder">project_stakeholder</option>
             <option value="read_only_auditor">read_only_auditor</option>

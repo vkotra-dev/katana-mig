@@ -11,7 +11,7 @@ from sqlite_test_support import Base, SessionLocal, TEST_ENGINE
 from migrations_engine.app import app  # noqa: E402
 from migrations_engine.auth.passwords import hash_password  # noqa: E402
 from migrations_engine.config import get_settings  # noqa: E402
-from migrations_engine.db.models import ProjectDefinition, ProjectRegistry, SourceDefinition, SourceSchemaArtifact, User  # noqa: E402
+from migrations_engine.db.models import ProjectDefinition, ProjectMembership, ProjectRegistry, SourceDefinition, SourceSchemaArtifact, User  # noqa: E402
 from migrations_engine.mapping import review as mapping_review_module  # noqa: E402
 from migrations_engine.roles import CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE  # noqa: E402
 
@@ -115,8 +115,8 @@ def _seed_project(*, with_ddl: bool = True) -> tuple[str, str]:
     definition_id = str(uuid.uuid4())
     source_id = str(uuid.uuid4())
     with SessionLocal() as db:
-        admin_user = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
-        assert admin_user is not None
+        stakeholder_user = db.scalar(select(User).where(User.email == "stakeholder@example.com"))
+        assert stakeholder_user is not None
         db.add(
             ProjectDefinition(
                 definition_id=definition_id,
@@ -134,6 +134,8 @@ def _seed_project(*, with_ddl: bool = True) -> tuple[str, str]:
                 status="active",
             )
         )
+        db.flush()
+        db.add(ProjectMembership(project_id=project_id, user_id=stakeholder_user.user_id))
         db.add(
             SourceDefinition(
                 source_definition_id=source_id,
@@ -304,7 +306,7 @@ def test_patch_rejects_invalid_destination_fields(monkeypatch: pytest.MonkeyPatc
     assert response.json()["error"]["code"] == "mapping_invalid_destination_field"
 
 
-def test_approve_writes_destination_object_references(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+def test_approve_writes_destination_object_references(monkeypatch: pytest.MonkeyPatch, admin_token: str, stakeholder_token: str) -> None:
     project_id, source_id = _seed_project()
     fake = FakeAdapter([
         {"source_field": "customer_id", "destination_field": "customer_id"},
@@ -318,7 +320,7 @@ def test_approve_writes_destination_object_references(monkeypatch: pytest.Monkey
 
     response = client.post(
         f"/projects/{project_id}/sources/{source_id}/mapping/approve",
-        headers={"Authorization": f"Bearer {admin_token}"},
+        headers={"Authorization": f"Bearer {stakeholder_token}"},
     )
 
     assert response.status_code == 200, response.text
@@ -330,7 +332,7 @@ def test_approve_writes_destination_object_references(monkeypatch: pytest.Monkey
         assert source.destination_object_references == ["Customer"]
 
 
-def test_reject_marks_snapshot_rejected(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+def test_reject_marks_snapshot_rejected(monkeypatch: pytest.MonkeyPatch, admin_token: str, stakeholder_token: str) -> None:
     project_id, source_id = _seed_project()
     fake = FakeAdapter([
         {"source_field": "customer_id", "destination_field": "customer_id"},
@@ -344,7 +346,7 @@ def test_reject_marks_snapshot_rejected(monkeypatch: pytest.MonkeyPatch, admin_t
 
     response = client.post(
         f"/projects/{project_id}/sources/{source_id}/mapping/reject",
-        headers={"Authorization": f"Bearer {admin_token}"},
+        headers={"Authorization": f"Bearer {stakeholder_token}"},
         json={"reason": "Needs another source field mapped."},
     )
 
@@ -352,7 +354,7 @@ def test_reject_marks_snapshot_rejected(monkeypatch: pytest.MonkeyPatch, admin_t
     assert response.json()["status"] == "rejected"
 
 
-def test_patch_422_on_approved_snapshot(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+def test_patch_422_on_approved_snapshot(monkeypatch: pytest.MonkeyPatch, admin_token: str, stakeholder_token: str) -> None:
     project_id, source_id = _seed_project()
     fake = FakeAdapter([
         {"source_field": "customer_id", "destination_field": "customer_id"},
@@ -365,7 +367,7 @@ def test_patch_422_on_approved_snapshot(monkeypatch: pytest.MonkeyPatch, admin_t
     )
     client.post(
         f"/projects/{project_id}/sources/{source_id}/mapping/approve",
-        headers={"Authorization": f"Bearer {admin_token}"},
+        headers={"Authorization": f"Bearer {stakeholder_token}"},
     )
 
     response = client.patch(
@@ -529,7 +531,7 @@ def test_propose_creates_multiple_snapshots_and_validates_table_names(monkeypatc
         assert bindings["status_id"]["binding_type"] == "lookup_fk"
 
 
-def test_bulk_approve_and_reject_multiple_snapshots(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+def test_bulk_approve_and_reject_multiple_snapshots(monkeypatch: pytest.MonkeyPatch, admin_token: str, stakeholder_token: str) -> None:
     project_id, source_id = _seed_project()
     with SessionLocal() as db:
         definition = db.scalar(select(ProjectDefinition).join(ProjectRegistry).where(ProjectRegistry.project_id == project_id))
@@ -590,7 +592,7 @@ def test_bulk_approve_and_reject_multiple_snapshots(monkeypatch: pytest.MonkeyPa
     # 2. Approve all (bulk approve)
     resp_approve = client.post(
         f"/projects/{project_id}/sources/{source_id}/mapping/approve",
-        headers={"Authorization": f"Bearer {admin_token}"},
+        headers={"Authorization": f"Bearer {stakeholder_token}"},
     )
     assert resp_approve.status_code == 200
 
@@ -612,7 +614,7 @@ def test_bulk_approve_and_reject_multiple_snapshots(monkeypatch: pytest.MonkeyPa
     # 3. Reject all (bulk reject)
     resp_reject = client.post(
         f"/projects/{project_id}/sources/{source_id}/mapping/reject",
-        headers={"Authorization": f"Bearer {admin_token}"},
+        headers={"Authorization": f"Bearer {stakeholder_token}"},
         json={"reason": "Bulk rejection test"}
     )
     assert resp_reject.status_code == 200

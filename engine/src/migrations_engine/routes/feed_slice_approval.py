@@ -10,6 +10,7 @@ from ..api.schemas import (
     FeedSliceResponse,
 )
 from ..db.models import User
+from ..management.access import require_project_access, require_project_stakeholder
 from ..management.feeds import (
     approve_source_slice,
     reject_source_slice,
@@ -27,9 +28,11 @@ def post_source_slice_approve(
     project_id: str,
     source_definition_id: str,
     source_slice_id: str,
-    actor: User = Depends(get_central_team_user),
+    actor: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> FeedSliceResponse:
+    require_project_access(db, user=actor, project_id=project_id)
+    require_project_stakeholder(actor)
     return approve_source_slice(
         db,
         actor=actor,
@@ -48,9 +51,11 @@ def post_source_slice_reject(
     source_definition_id: str,
     source_slice_id: str,
     body: FeedSliceRejectRequest,
-    actor: User = Depends(get_central_team_user),
+    actor: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> FeedSliceResponse:
+    require_project_access(db, user=actor, project_id=project_id)
+    require_project_stakeholder(actor)
     return reject_source_slice(
         db,
         actor=actor,
@@ -73,6 +78,7 @@ def post_source_slice_resubmit(
     actor: User = Depends(get_central_team_user),
     db: Session = Depends(get_db),
 ) -> FeedSliceResponse:
+    require_project_access(db, user=actor, project_id=project_id)
     return resubmit_source_slice(
         db,
         actor=actor,

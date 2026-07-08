@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from pydantic import BaseModel
 
-from migrations_engine.ai.config import AIConfig, MigrationModelConfig, PlatformModelConfig, ProviderConfig, resolve_model
+from migrations_engine.ai.config import AIConfig, MigrationModelConfig, PlatformModelConfig, ProviderConfig, PiiConfig, resolve_model
 from migrations_engine.ai.factory import get_adapter
 from migrations_engine.ai.anthropic_adapter import AnthropicAdapter
 from migrations_engine.ai.openai_adapter import OpenAIAdapter
@@ -36,7 +36,9 @@ def _make_config() -> AIConfig:
         providers=ProviderConfig(
             anthropic_api_key_env="ANTHROPIC_API_KEY",
             openai_api_key_env="OPENAI_API_KEY",
+            gemini_api_key_env="GEMINI_API_KEY",
         ),
+        pii=PiiConfig(field_names=frozenset(), patterns=()),
     )
 
 

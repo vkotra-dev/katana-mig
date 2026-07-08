@@ -23,14 +23,14 @@ describe("Topbar", () => {
     loadUiSessionMock.mockReturnValue({
       accessToken: "token-1",
       expiresAt: "2026-06-30T12:00:00Z",
-      role: "central_team",
+      role: "pm",
       sessionVersion: 1,
       userId: "user-1",
     });
   });
 
   it("renders the Katana brand and role-aware navigation", () => {
-    render(<Topbar role="central_team" />);
+    render(<Topbar role="pm" />);
     expect(screen.getByText("Katana")).toBeInTheDocument();
     expect(screen.getByText("Portfolio")).toBeInTheDocument();
     expect(screen.getByText("Admin")).toBeInTheDocument();
@@ -48,7 +48,7 @@ describe("Topbar", () => {
   });
 
   it("logs out from the shared header", async () => {
-    render(<Topbar role="central_team" />);
+    render(<Topbar role="pm" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Log out" }));
 

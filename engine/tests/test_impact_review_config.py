@@ -36,7 +36,8 @@ def test_impact_analysis_slot_is_in_factory(tmp_path: Path, monkeypatch: pytest.
         "    impact_analysis: claude-3-haiku-20240307\n"
         "providers:\n"
         "  anthropic_api_key_env: ANTHROPIC_API_KEY\n"
-        "  openai_api_key_env: OPENAI_API_KEY\n",
+        "  openai_api_key_env: OPENAI_API_KEY\n"
+        "  gemini_api_key_env: GEMINI_API_KEY\n",
         encoding="utf-8",
     )
     monkeypatch.setenv("CONFIG_PATH", str(config_file))

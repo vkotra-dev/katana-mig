@@ -542,38 +542,40 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                       </div>
                     </div>
 
-                    {/* Preview Table */}
-                    {(latestSlice.previewRows || []).length === 0 ? (
-                      <div className="text-xs text-slate-500 italic bg-slate-50 rounded-lg p-3 text-center">
-                        No preview available.
-                      </div>
-                    ) : (
-                      <div className="space-y-1.5">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Masked Data Preview</div>
-                        <div className="max-h-72 max-w-[50vw] overflow-auto border border-outline-variant rounded-lg bg-white">
-                          <table className="text-left text-[10px] border-collapse font-mono">
-                            <thead className="bg-slate-50 border-b border-outline-variant sticky top-0">
-                              <tr>
-                                {(latestSlice.headerCsv ?? "").split(",").map((col, i) => (
-                                  <th key={i} className="px-3 py-1.5 font-bold text-slate-700 whitespace-nowrap">{col.trim()}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                              {(latestSlice.previewRows || []).map((rowStr, rowIdx) => {
-                                const rowCells = rowStr.split(",");
-                                return (
-                                  <tr key={rowIdx} className="hover:bg-slate-50/50">
-                                    {rowCells.map((cell, cellIdx) => (
-                                      <td key={cellIdx} className="px-3 py-1.5 text-slate-600 whitespace-nowrap">{cell}</td>
-                                    ))}
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
+                    {/* Preview Table — only shown after approval */}
+                    {latestSlice.status === "approved" && (
+                      (latestSlice.previewRows || []).length === 0 ? (
+                        <div className="text-xs text-slate-500 italic bg-slate-50 rounded-lg p-3 text-center">
+                          No preview available.
                         </div>
-                      </div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Masked Data Preview</div>
+                          <div className="max-h-72 max-w-[50vw] overflow-auto border border-outline-variant rounded-lg bg-white">
+                            <table className="text-left text-[10px] border-collapse font-mono">
+                              <thead className="bg-slate-50 border-b border-outline-variant sticky top-0">
+                                <tr>
+                                  {(latestSlice.headerCsv ? splitCsvRow(latestSlice.headerCsv) : []).map((col, i) => (
+                                    <th key={i} className="px-3 py-1.5 font-bold text-slate-700 whitespace-nowrap">{col.trim()}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {(latestSlice.previewRows || []).map((rowStr, rowIdx) => {
+                                  const rowCells = splitCsvRow(rowStr);
+                                  return (
+                                    <tr key={rowIdx} className="hover:bg-slate-50/50">
+                                      {rowCells.map((cell, cellIdx) => (
+                                        <td key={cellIdx} className="px-3 py-1.5 text-slate-600 whitespace-nowrap">{cell}</td>
+                                      ))}
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )
                     )}
 
                     {/* Analyze with AI Button */}

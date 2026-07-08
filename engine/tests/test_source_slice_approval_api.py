@@ -156,7 +156,7 @@ def _seed_pending_slice(
 
 
 
-def test_approve_reject_and_resubmit(admin_token: str) -> None:
+def test_approve_reject_and_resubmit(admin_token: str, stakeholder_token: str) -> None:
     project_id, _ = _create_project("Decision Project")
     source_definition_id = str(uuid.uuid4())
     with tempfile.NamedTemporaryFile(delete=False, suffix=".csv", mode="wb") as handle:
@@ -164,6 +164,9 @@ def test_approve_reject_and_resubmit(admin_token: str) -> None:
         retained_path = handle.name
 
     with SessionLocal() as db:
+        st_user = db.scalar(select(User).where(User.email == "stakeholder@example.com"))
+        assert st_user is not None
+        db.add(ProjectMembership(project_id=project_id, user_id=st_user.user_id))
         db.add(
             SourceDefinition(
                 source_definition_id=source_definition_id,
@@ -197,14 +200,14 @@ def test_approve_reject_and_resubmit(admin_token: str) -> None:
 
     approve = client.post(
         f"/projects/{project_id}/sources/{source_definition_id}/slices/{pending_slice_id}/approve",
-        headers={"Authorization": f"Bearer {admin_token}"},
+        headers={"Authorization": f"Bearer {stakeholder_token}"},
     )
     assert approve.status_code == 200, approve.text
     assert approve.json()["status"] == "approved"
 
     reject = client.post(
         f"/projects/{project_id}/sources/{source_definition_id}/slices/{pending_slice_id}/reject",
-        headers={"Authorization": f"Bearer {admin_token}"},
+        headers={"Authorization": f"Bearer {stakeholder_token}"},
         json={"reason": "needs review"},
     )
     assert reject.status_code == 409
@@ -218,7 +221,7 @@ def test_approve_reject_and_resubmit(admin_token: str) -> None:
 
     reject = client.post(
         f"/projects/{project_id}/sources/{source_definition_id}/slices/{pending_slice_id}/reject",
-        headers={"Authorization": f"Bearer {admin_token}"},
+        headers={"Authorization": f"Bearer {stakeholder_token}"},
         json={"reason": "needs review"},
     )
     assert reject.status_code == 200, reject.text

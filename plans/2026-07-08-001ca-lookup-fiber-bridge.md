@@ -94,8 +94,17 @@ def _bridge_lookup_fiber_to_value_map(db: Session, fiber: ProjectFiber) -> None:
             ).order_by(LookupValueMap.created_at.desc())
         )
         if existing:
-            existing.source_value_map = source_value_map
-            existing.destination_table = dest_entries
+            # Only add source values not already in the map.
+            # Values from previously approved fibers are never overwritten —
+            # first business-approved fiber wins per source value.
+            for src, dest in source_value_map.items():
+                if src not in existing.source_value_map:
+                    existing.source_value_map[src] = dest
+            # Merge destination rows (add any new rows not already present)
+            existing_dest_ids = {_extract_destination_id(r) for r in existing.destination_table}
+            for row in dest_entries:
+                if _extract_destination_id(row) not in existing_dest_ids:
+                    existing.destination_table = existing.destination_table + [row]
         else:
             db.add(LookupValueMap(
                 source_definition_id=fiber.feed_id,

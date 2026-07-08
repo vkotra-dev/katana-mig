@@ -62,7 +62,7 @@ def seed_admin_user(
 
     user = User(
         email=normalized_email,
-        display_name=display_name or "Administrator",
+        display_name=display_name or "Manager",
         password_hash=hash_password(password),
         role=CENTRAL_TEAM_ROLE,
         status=ACTIVE_STATUS,

@@ -18,7 +18,7 @@ describe("lookup-api", () => {
       ok: true,
       json: async () => ({
         lookup_value_map_id: "map-1",
-        source_definition_id: "source-1",
+        project_id: "project-1",
         lookup_name: "status_code",
         destination_table: [{ id: "ACTIVE", label: "Active" }],
         source_value_map: { A: "ACTIVE" },
@@ -28,14 +28,14 @@ describe("lookup-api", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await createLookupValueMap("token-1", "project-1", "source-1", {
+    const result = await createLookupValueMap("token-1", "project-1", {
       lookupName: "status_code",
       destinationTable: [{ id: "ACTIVE", label: "Active" }],
       sourceValueMap: { A: "ACTIVE" },
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      `${BASE}/projects/project-1/sources/source-1/lookup-maps`,
+      `${BASE}/projects/project-1/lookup-maps`,
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({
@@ -49,6 +49,7 @@ describe("lookup-api", () => {
       }),
     );
     expect(result.lookupValueMapId).toBe("map-1");
+    expect(result.projectId).toBe("project-1");
   });
 
   it("lists lookup value maps", async () => {
@@ -57,7 +58,7 @@ describe("lookup-api", () => {
       json: async () => [
         {
           lookup_value_map_id: "map-1",
-          source_definition_id: "source-1",
+          project_id: "project-1",
           lookup_name: "status_code",
           destination_table: [],
           source_value_map: {},
@@ -71,7 +72,7 @@ describe("lookup-api", () => {
     const result = await listLookupValueMaps("token-1", "project-1", "source-1");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      `${BASE}/projects/project-1/sources/source-1/lookup-maps`,
+      `${BASE}/projects/project-1/lookup-maps?feed_id=source-1`,
       expect.objectContaining({
         method: "GET",
         headers: expect.objectContaining({
@@ -80,6 +81,7 @@ describe("lookup-api", () => {
       }),
     );
     expect(result[0].status).toBe("approved");
+    expect(result[0].projectId).toBe("project-1");
   });
 
   it("generates lookup snapshots", async () => {

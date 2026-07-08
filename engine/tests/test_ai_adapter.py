@@ -7,7 +7,7 @@ import pytest
 from pydantic import BaseModel
 
 from migrations_engine.ai.adapter import ConfigurationError
-from migrations_engine.ai.config import AIConfig, MigrationModelConfig, PlatformModelConfig, ProviderConfig
+from migrations_engine.ai.config import AIConfig, MigrationModelConfig, PlatformModelConfig, ProviderConfig, PiiConfig
 from migrations_engine.ai.factory import get_adapter
 
 
@@ -48,7 +48,9 @@ def _make_config(
         providers=ProviderConfig(
             anthropic_api_key_env="ANTHROPIC_API_KEY",
             openai_api_key_env="OPENAI_API_KEY",
+            gemini_api_key_env="GEMINI_API_KEY",
         ),
+        pii=PiiConfig(field_names=frozenset(), patterns=()),
     )
 
 

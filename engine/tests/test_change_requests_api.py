@@ -151,7 +151,7 @@ def seed_change_request() -> dict[str, str]:
         db.add(
             LookupValueMap(
                 lookup_value_map_id=lookup_value_map_id,
-                source_definition_id=source_definition_id,
+                project_id=project_id,
                 lookup_name="account_type",
                 destination_table=[
                     {"id": "ACTIVE", "label": "Active"},
@@ -242,6 +242,12 @@ def test_get_change_request_returns_detail(admin_token: str, seed_change_request
 
 def test_get_change_request_404_wrong_project(admin_token: str, seed_change_request: dict[str, str]) -> None:
     wrong_project = str(uuid.uuid4())
+    definition_id = str(uuid.uuid4())
+    with SessionLocal() as db:
+        db.add(ProjectDefinition(definition_id=definition_id, project_id=wrong_project, name="Wrong Project", status="active"))
+        db.add(ProjectRegistry(project_id=wrong_project, name="Wrong Project", definition_id=definition_id, status="active"))
+        db.commit()
+
     response = client.get(
         f"/projects/{wrong_project}/change-requests/{seed_change_request['open_cr_id']}",
         headers={"Authorization": f"Bearer {admin_token}"},

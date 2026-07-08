@@ -1,3 +1,6 @@
+import type { SessionRole } from "./session";
+import { canAccessAdmin } from "./navigation-access";
+
 export interface NavItem {
   label: string;
   href: string;
@@ -5,7 +8,7 @@ export interface NavItem {
   badge?: string;
 }
 
-export function navItemsForRole(role: "central_team" | "project_stakeholder" | "read_only_auditor"): NavItem[] {
+export function navItemsForRole(role: SessionRole): NavItem[] {
   const common: NavItem[] = [
     { label: "Portfolio", href: "/", active: true },
     { label: "Projects", href: "/projects" },
@@ -13,12 +16,8 @@ export function navItemsForRole(role: "central_team" | "project_stakeholder" | "
     { label: "Reconciliation", href: "/reconciliation" },
   ];
 
-  if (role === "central_team") {
+  if (canAccessAdmin(role)) {
     return [...common, { label: "Admin", href: "/admin" }];
-  }
-
-  if (role === "project_stakeholder") {
-    return common;
   }
 
   return common;

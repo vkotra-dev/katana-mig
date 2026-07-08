@@ -39,10 +39,12 @@ def _login(email: str, password: str) -> str:
 
 @pytest.fixture
 def admin_token() -> str:
-    settings = get_settings()
-    if not settings.bootstrap_admin_email or not settings.bootstrap_admin_password:
-        pytest.skip("bootstrap credentials not configured")
-    return _login(settings.bootstrap_admin_email, settings.bootstrap_admin_password)
+    return _login("admin@example.com", "admin-password")
+
+
+@pytest.fixture
+def pm_token() -> str:
+    return _login("pm@example.com", "pm-password")
 
 
 @pytest.fixture
@@ -186,10 +188,8 @@ def test_admin_can_create_and_update_user(admin_token: str) -> None:
 
 
 def test_admin_can_clear_display_name_and_cannot_change_own_role(admin_token: str) -> None:
-    settings = get_settings()
-    admin_email = settings.bootstrap_admin_email.strip().lower()
     with SessionLocal() as db:
-        admin = db.scalar(select(User).where(User.email == admin_email))
+        admin = db.scalar(select(User).where(User.email == "admin@example.com"))
         assert admin is not None
         admin_id = admin.user_id
         original_display_name = admin.display_name
@@ -219,10 +219,8 @@ def test_admin_can_clear_display_name_and_cannot_change_own_role(admin_token: st
 
 
 def test_admin_cannot_delete_self(admin_token: str) -> None:
-    settings = get_settings()
-    admin_email = settings.bootstrap_admin_email.strip().lower()
     with SessionLocal() as db:
-        admin = db.scalar(select(User).where(User.email == admin_email))
+        admin = db.scalar(select(User).where(User.email == "admin@example.com"))
         assert admin is not None
         admin_id = admin.user_id
 
@@ -259,7 +257,7 @@ def test_non_admin_cannot_create_user(
 
 
 def test_membership_gates_stakeholder_project_access(
-    admin_token: str,
+    pm_token: str,
     test_project_id: str,
     stakeholder_user: tuple[str, str, str],
 ) -> None:
@@ -271,14 +269,14 @@ def test_membership_gates_stakeholder_project_access(
 
     add = client.post(
         f"/projects/{test_project_id}/members",
-        headers={"Authorization": f"Bearer {admin_token}"},
+        headers={"Authorization": f"Bearer {pm_token}"},
         json={"user_id": user_id},
     )
     assert add.status_code == 200, add.text
 
     duplicate = client.post(
         f"/projects/{test_project_id}/members",
-        headers={"Authorization": f"Bearer {admin_token}"},
+        headers={"Authorization": f"Bearer {pm_token}"},
         json={"user_id": user_id},
     )
     assert duplicate.status_code == 200
@@ -298,7 +296,7 @@ def test_membership_gates_stakeholder_project_access(
 
     remove = client.delete(
         f"/projects/{test_project_id}/members/{user_id}",
-        headers={"Authorization": f"Bearer {admin_token}"},
+        headers={"Authorization": f"Bearer {pm_token}"},
     )
     assert remove.status_code == 204
 
@@ -309,7 +307,7 @@ def test_membership_gates_stakeholder_project_access(
 
 
 def test_admin_cannot_assign_non_stakeholder_membership(
-    admin_token: str,
+    pm_token: str,
     test_project_id: str,
     auditor_user: tuple[str, str],
 ) -> None:
@@ -320,15 +318,15 @@ def test_admin_cannot_assign_non_stakeholder_membership(
 
     response = client.post(
         f"/projects/{test_project_id}/members",
-        headers={"Authorization": f"Bearer {admin_token}"},
+        headers={"Authorization": f"Bearer {pm_token}"},
         json={"user_id": auditor_id},
     )
     assert response.status_code == 422
-    assert response.json()["error"]["code"] == "not_stakeholder"
+    assert response.json()["error"]["code"] == "invalid_role_for_membership"
 
 
 def test_admin_cannot_add_member_to_archived_project(
-    admin_token: str,
+    pm_token: str,
     test_project_id: str,
     stakeholder_user: tuple[str, str, str],
 ) -> None:
@@ -336,13 +334,13 @@ def test_admin_cannot_add_member_to_archived_project(
 
     archive = client.post(
         f"/projects/{test_project_id}/archive",
-        headers={"Authorization": f"Bearer {admin_token}"},
+        headers={"Authorization": f"Bearer {pm_token}"},
     )
     assert archive.status_code == 200, archive.text
 
     response = client.post(
         f"/projects/{test_project_id}/members",
-        headers={"Authorization": f"Bearer {admin_token}"},
+        headers={"Authorization": f"Bearer {pm_token}"},
         json={"user_id": user_id},
     )
     assert response.status_code == 409

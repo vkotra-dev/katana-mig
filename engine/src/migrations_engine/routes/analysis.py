@@ -27,6 +27,7 @@ def post_source_analysis(
     actor: User = Depends(get_central_team_user),
     db: Session = Depends(get_db),
 ) -> SourceAnalysisResponse:
+    require_project_access(db, user=actor, project_id=project_id)
     return analyze_source_slice(
         db,
         actor=actor,

@@ -195,6 +195,7 @@ def post_fiber_assign(
     actor: User = Depends(get_central_team_user),
     db: Session = Depends(get_db),
 ) -> FiberResponse:
+    require_project_access(db, user=actor, project_id=project_id)
     return assign_fiber(
         db,
         actor=actor,
@@ -233,6 +234,7 @@ def post_fiber_trigger(
     actor: User = Depends(get_central_team_user),
     db: Session = Depends(get_db),
 ) -> FiberResponse:
+    require_project_access(db, user=actor, project_id=project_id)
     return trigger_fiber(
         db,
         actor=actor,

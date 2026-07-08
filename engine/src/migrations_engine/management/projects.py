@@ -30,7 +30,7 @@ from ..db.models import (
     User,
     new_id,
 )
-from ..roles import PROJECT_STAKEHOLDER_ROLE
+from ..roles import CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE, PM_ROLE
 from .platform import record_management_audit
 
 
@@ -98,9 +98,7 @@ def create_project(db: Session, *, actor: User, body: ProjectCreateRequest) -> P
     db.add(registry)
     db.flush()
 
-    auto_member = actor.role == PROJECT_STAKEHOLDER_ROLE
-    if auto_member:
-        db.add(ProjectMembership(project_id=project_id, user_id=actor.user_id))
+    db.add(ProjectMembership(project_id=project_id, user_id=actor.user_id))
 
     record_management_audit(
         db,
@@ -110,7 +108,7 @@ def create_project(db: Session, *, actor: User, body: ProjectCreateRequest) -> P
         payload={
             "project_id": project_id,
             "name": body.name,
-            "auto_member_user_id": actor.user_id if auto_member else None,
+            "auto_member_user_id": actor.user_id,
         },
     )
     db.commit()
@@ -133,7 +131,7 @@ def list_projects(
         stmt = stmt.where(ProjectRegistry.archived_at.is_(None))
     stmt = stmt.where(ProjectRegistry.soft_deleted_at.is_(None))
 
-    if actor.role == PROJECT_STAKEHOLDER_ROLE:
+    if actor.role in {CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE}:
         stmt = stmt.join(
             ProjectMembership,
             (ProjectMembership.project_id == ProjectRegistry.project_id)
@@ -516,6 +514,13 @@ def _project_response(
     )
 
 
+def _get_active_user(db: Session, user_id: str) -> User:
+    user = db.get(User, user_id)
+    if user is None or user.soft_deleted_at is not None:
+        raise AuthApiError("user_not_found", "User not found.", 404)
+    return user
+
+
 def copy_project(
     db: Session,
     *,
@@ -579,14 +584,22 @@ def copy_project(
             status="active",
         ))
 
-    # Assign stakeholders (blank by default — source stakeholders are NOT copied)
+    # Auto-member the PM actor and assign valid stakeholders
+    members_to_add = {actor.user_id}
     for user_id in body.stakeholder_user_ids:
-        user = db.get(User, user_id)
-        if user is None:
-            raise AuthApiError("user_not_found", f"User {user_id} not found.", 404)
+        user = _get_active_user(db, user_id)
+        if user.role not in {CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE, PM_ROLE}:
+            raise AuthApiError(
+                "invalid_role_for_membership",
+                "Only central_team, project_stakeholder, and pm users can be assigned project membership.",
+                422,
+            )
+        members_to_add.add(user_id)
+
+    for u_id in members_to_add:
         db.add(ProjectMembership(
             project_id=new_project_id,
-            user_id=user_id,
+            user_id=u_id,
         ))
 
     record_management_audit(

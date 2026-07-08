@@ -57,7 +57,8 @@ def test_substitutes_env_values_and_raises_for_missing_env(
         "    feed_analysis: ${MODEL_FEED_ANALYSIS}\n"
         "providers:\n"
         "  anthropic_api_key_env: ANTHROPIC_API_KEY\n"
-        "  openai_api_key_env: OPENAI_API_KEY\n",
+        "  openai_api_key_env: OPENAI_API_KEY\n"
+        "  gemini_api_key_env: GEMINI_API_KEY\n",
         encoding="utf-8",
     )
     monkeypatch.setenv("MODEL_PLANNING", "claude-opus-4-8")

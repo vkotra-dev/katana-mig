@@ -1,4 +1,4 @@
-export type SessionRole = "central_team" | "project_stakeholder" | "read_only_auditor";
+export type SessionRole = "admin" | "pm" | "central_team" | "project_stakeholder" | "read_only_auditor";
 
 export interface UiSession {
   accessToken: string;

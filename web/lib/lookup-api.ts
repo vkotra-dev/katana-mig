@@ -2,7 +2,7 @@ import { jsonRequest } from "./api-base";
 
 export interface LookupValueMapRecord {
   lookupValueMapId: string;
-  sourceDefinitionId: string;
+  projectId: string;
   lookupName: string;
   destinationTable: Array<Record<string, unknown>>;
   sourceValueMap: Record<string, string>;
@@ -32,7 +32,7 @@ export interface LookupSnapshotInput {
 
 function mapLookupValueMapResponse(response: {
   lookup_value_map_id: string;
-  source_definition_id: string;
+  project_id: string;
   lookup_name: string;
   destination_table: Array<Record<string, unknown>>;
   source_value_map: Record<string, string>;
@@ -41,7 +41,7 @@ function mapLookupValueMapResponse(response: {
 }): LookupValueMapRecord {
   return {
     lookupValueMapId: response.lookup_value_map_id,
-    sourceDefinitionId: response.source_definition_id,
+    projectId: response.project_id,
     lookupName: response.lookup_name,
     destinationTable: response.destination_table,
     sourceValueMap: response.source_value_map,
@@ -73,10 +73,13 @@ function mapLookupSnapshotResponse(response: {
 export async function listLookupValueMaps(
   token: string,
   projectId: string,
-  sourceDefinitionId: string,
+  feedId?: string,
 ): Promise<LookupValueMapRecord[]> {
+  const url = feedId
+    ? `/projects/${projectId}/lookup-maps?feed_id=${feedId}`
+    : `/projects/${projectId}/lookup-maps`;
   const response = await jsonRequest<Array<Parameters<typeof mapLookupValueMapResponse>[0]>>(
-    `/projects/${projectId}/sources/${sourceDefinitionId}/lookup-maps`,
+    url,
     { method: "GET", token },
   );
   return response.map(mapLookupValueMapResponse);
@@ -85,11 +88,10 @@ export async function listLookupValueMaps(
 export async function createLookupValueMap(
   token: string,
   projectId: string,
-  sourceDefinitionId: string,
   input: LookupValueMapInput,
 ): Promise<LookupValueMapRecord> {
   const response = await jsonRequest<Parameters<typeof mapLookupValueMapResponse>[0]>(
-    `/projects/${projectId}/sources/${sourceDefinitionId}/lookup-maps`,
+    `/projects/${projectId}/lookup-maps`,
     {
       method: "POST",
       token,

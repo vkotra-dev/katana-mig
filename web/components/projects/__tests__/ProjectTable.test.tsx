@@ -51,9 +51,9 @@ describe("ProjectTable", () => {
     expect(screen.getByText("archived", { selector: "span" })).toBeInTheDocument();
   });
 
-  it("shows initiate project only for non-auditors", () => {
+  it("shows initiate project for pm role", () => {
     const onInitiate = vi.fn();
-    render(<ProjectTable projects={[]} role="central_team" onInitiate={onInitiate} />);
+    render(<ProjectTable projects={[]} role="pm" onInitiate={onInitiate} />);
 
     fireEvent.click(screen.getByRole("button", { name: /initiate project/i }));
     fireEvent.click(screen.getByRole("button", { name: /new project/i }));
@@ -61,9 +61,9 @@ describe("ProjectTable", () => {
     expect(onInitiate).toHaveBeenCalledOnce();
   });
 
-  it("triggers onCopyClick when copy from option is clicked", () => {
+  it("triggers onCopyClick when copy from option is clicked for pm role", () => {
     const onCopyClick = vi.fn();
-    render(<ProjectTable projects={[]} role="central_team" onInitiate={vi.fn()} onCopyClick={onCopyClick} />);
+    render(<ProjectTable projects={[]} role="pm" onInitiate={vi.fn()} onCopyClick={onCopyClick} />);
 
     fireEvent.click(screen.getByRole("button", { name: /initiate project/i }));
     fireEvent.click(screen.getByRole("button", { name: /copy from/i }));
@@ -71,9 +71,14 @@ describe("ProjectTable", () => {
     expect(onCopyClick).toHaveBeenCalledOnce();
   });
 
-  it("hides initiate project for auditors", () => {
-    render(<ProjectTable projects={[]} role="read_only_auditor" onInitiate={vi.fn()} />);
+  it("hides initiate project for non-pm roles", () => {
+    const { rerender } = render(<ProjectTable projects={[]} role="read_only_auditor" onInitiate={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: /initiate project/i })).not.toBeInTheDocument();
 
+    rerender(<ProjectTable projects={[]} role="central_team" onInitiate={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: /initiate project/i })).not.toBeInTheDocument();
+
+    rerender(<ProjectTable projects={[]} role="project_stakeholder" onInitiate={vi.fn()} />);
     expect(screen.queryByRole("button", { name: /initiate project/i })).not.toBeInTheDocument();
   });
 

@@ -161,7 +161,7 @@ def test_analyze_source_slice_caps_sample_and_masks_pii(monkeypatch: pytest.Monk
     assert response.status == "completed"
     assert len(fake_adapter.calls) == 1
     assert fake_adapter.calls[0].system.startswith("You are a data analyst.")
-    assert len(fake_adapter.calls[0].user.splitlines()) == 201
+    assert len(fake_adapter.calls[0].user.splitlines()) == 11
     assert "***" in fake_adapter.calls[0].user
     assert len(schemas) == 1
     assert len(summaries) == 2

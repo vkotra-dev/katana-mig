@@ -32,6 +32,7 @@ def post_source_contract(
     actor: User = Depends(get_central_team_user),
     db: Session = Depends(get_db),
 ) -> FeedResponse:
+    require_project_access(db, user=actor, project_id=project_id)
     return create_source_contract(db, actor=actor, project_id=project_id, body=body)
 
 
@@ -64,6 +65,7 @@ def post_source_copybook(
     actor: User = Depends(get_central_team_user),
     db: Session = Depends(get_db),
 ) -> FeedResponse:
+    require_project_access(db, user=actor, project_id=project_id)
     return upload_copybook(
         db,
         actor=actor,
@@ -81,6 +83,7 @@ def post_source_slice(
     actor: User = Depends(get_central_team_user),
     db: Session = Depends(get_db),
 ) -> FeedSliceResponse:
+    require_project_access(db, user=actor, project_id=project_id)
     return upload_source_slice(
         db,
         actor=actor,

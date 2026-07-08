@@ -26,11 +26,11 @@ describe("AdminLayout", () => {
     vi.clearAllMocks();
   });
 
-  it("renders children for central team users", async () => {
+  it("renders children for pm users", async () => {
     loadUiSessionMock.mockReturnValue({
       accessToken: "token-1",
       expiresAt: "2026-06-30T12:00:00Z",
-      role: "central_team",
+      role: "pm",
       sessionVersion: 1,
       userId: "user-1",
     });
@@ -41,16 +41,36 @@ describe("AdminLayout", () => {
       </AdminLayout>
     );
 
-    expect(await screen.findByText("Topbar for central_team")).toBeInTheDocument();
+    expect(await screen.findByText("Topbar for pm")).toBeInTheDocument();
     expect(await screen.findByText("Admin content")).toBeInTheDocument();
     expect(replaceMock).not.toHaveBeenCalled();
   });
 
-  it("redirects non-admin users to the home page", async () => {
+  it("renders children for admin users", async () => {
     loadUiSessionMock.mockReturnValue({
       accessToken: "token-1",
       expiresAt: "2026-06-30T12:00:00Z",
-      role: "read_only_auditor",
+      role: "admin",
+      sessionVersion: 1,
+      userId: "user-1",
+    });
+
+    render(
+      <AdminLayout>
+        <div>Admin content</div>
+      </AdminLayout>
+    );
+
+    expect(await screen.findByText("Topbar for admin")).toBeInTheDocument();
+    expect(await screen.findByText("Admin content")).toBeInTheDocument();
+    expect(replaceMock).not.toHaveBeenCalled();
+  });
+
+  it("redirects non-admin/pm users to the home page", async () => {
+    loadUiSessionMock.mockReturnValue({
+      accessToken: "token-1",
+      expiresAt: "2026-06-30T12:00:00Z",
+      role: "central_team",
       sessionVersion: 1,
       userId: "user-1",
     });

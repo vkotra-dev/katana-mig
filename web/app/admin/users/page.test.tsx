@@ -30,7 +30,7 @@ describe("AdminUsersPage", () => {
     loadUiSessionMock.mockReturnValue({
       accessToken: "token-1",
       expiresAt: "2026-06-30T12:00:00Z",
-      role: "central_team",
+      role: "admin",
       sessionVersion: 1,
       userId: "user-1",
     });
@@ -77,5 +77,23 @@ describe("AdminUsersPage", () => {
     screen.getByRole("button", { name: "Delete" }).click();
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Unable to delete user.");
+  });
+
+  it("hides user creation and modification controls for pm role", async () => {
+    loadUiSessionMock.mockReset();
+    loadUiSessionMock.mockReturnValue({
+      accessToken: "token-1",
+      expiresAt: "2026-06-30T12:00:00Z",
+      role: "pm",
+      sessionVersion: 1,
+      userId: "user-1",
+    });
+
+    render(<AdminUsersPage />);
+
+    expect(await screen.findByText("stakeholder@example.com")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Create user" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
   });
 });

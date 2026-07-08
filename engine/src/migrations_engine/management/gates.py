@@ -152,7 +152,7 @@ def get_gate2_evidence(db: Session, *, project_id: str, run_id: str) -> Gate2Evi
 
     lookup_value_map = db.scalar(
         select(LookupValueMap).where(
-            LookupValueMap.source_definition_id == source_definition_id,
+            LookupValueMap.project_id == project_id,
             LookupValueMap.lookup_name == lookup_name,
         )
     )

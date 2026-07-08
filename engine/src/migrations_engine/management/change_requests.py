@@ -73,7 +73,7 @@ def resolve_change_request(
     lookup_value_map = db.scalar(
         select(LookupValueMap)
         .where(
-            LookupValueMap.source_definition_id == source_definition_id,
+            LookupValueMap.project_id == project_id,
             LookupValueMap.lookup_name == lookup_name,
         )
         .order_by(LookupValueMap.created_at.desc(), LookupValueMap.lookup_value_map_id.desc())

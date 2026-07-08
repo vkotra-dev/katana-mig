@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from ..api.deps import get_central_team_user, get_current_user, get_db
 from ..api.schemas import MappingPatchRequest, MappingRejectRequest, MappingReviewResponse
 from ..db.models import User
-from ..management.access import require_project_access
+from ..management.access import require_project_access, require_project_stakeholder
 from ..mapping.review import approve_mapping, get_mapping, patch_mapping, propose_mapping, reject_mapping
 
 router = APIRouter(prefix="/projects/{project_id}/sources/{source_definition_id}/mapping", tags=["mapping"])
@@ -70,10 +70,11 @@ def post_mapping_approve(
     project_id: str,
     source_definition_id: str,
     destination_object_name: str | None = None,
-    actor: User = Depends(get_central_team_user),
+    actor: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> MappingReviewResponse:
     require_project_access(db, user=actor, project_id=project_id)
+    require_project_stakeholder(actor)
     return approve_mapping(
         db,
         project_id=project_id,
@@ -89,10 +90,11 @@ def post_mapping_reject(
     source_definition_id: str,
     body: MappingRejectRequest,
     destination_object_name: str | None = None,
-    actor: User = Depends(get_central_team_user),
+    actor: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> MappingReviewResponse:
     require_project_access(db, user=actor, project_id=project_id)
+    require_project_stakeholder(actor)
     return reject_mapping(
         db,
         project_id=project_id,

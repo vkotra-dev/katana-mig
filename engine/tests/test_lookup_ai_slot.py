@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from migrations_engine.ai.adapter import ConfigurationError
-from migrations_engine.ai.config import AIConfig, MigrationModelConfig, PlatformModelConfig, ProviderConfig, get_ai_config
+from migrations_engine.ai.config import AIConfig, MigrationModelConfig, PlatformModelConfig, ProviderConfig, PiiConfig, get_ai_config
 from migrations_engine.ai.factory import get_adapter
 
 
@@ -37,7 +37,9 @@ def _make_config(*, lookup_mapping: str = "claude-sonnet-4-6") -> AIConfig:
         providers=ProviderConfig(
             anthropic_api_key_env="ANTHROPIC_API_KEY",
             openai_api_key_env="OPENAI_API_KEY",
+            gemini_api_key_env="GEMINI_API_KEY",
         ),
+        pii=PiiConfig(field_names=frozenset(), patterns=()),
     )
 
 

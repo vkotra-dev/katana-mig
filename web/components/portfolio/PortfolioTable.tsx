@@ -161,7 +161,7 @@ export function PortfolioTable({ projects, role, onInitiate }: PortfolioTablePro
     return sortDirection === "asc" ? next : next.reverse();
   }, [filteredProjects, sortDirection, sortKey]);
 
-  const canCreate = role !== "read_only_auditor";
+  const canCreate = role === "pm";
 
   const toggleSort = (nextKey: SortKey) => {
     if (sortKey === nextKey) {

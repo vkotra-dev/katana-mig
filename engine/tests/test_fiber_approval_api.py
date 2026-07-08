@@ -115,6 +115,12 @@ def _make_project_and_feed() -> tuple[str, str]:
                 status="active",
             )
         )
+        admin_user = db.scalar(select(User).where(User.email == _ADMIN_EMAIL))
+        st_user = db.scalar(select(User).where(User.email == _STAKEHOLDER_EMAIL))
+        assert admin_user is not None
+        assert st_user is not None
+        db.add(ProjectMembership(project_id=project_id, user_id=admin_user.user_id))
+        db.add(ProjectMembership(project_id=project_id, user_id=st_user.user_id))
         db.commit()
     return project_id, feed_id
 
@@ -289,6 +295,15 @@ def test_approve_requires_project_stakeholder_role(admin_token: str) -> None:
 def test_approve_requires_project_membership(stakeholder_token: str) -> None:
     project_id, feed_id = _make_project_and_feed()
     fiber_id = _seed_fiber(project_id, feed_id, status="operator_assigned")
+
+    with SessionLocal() as db:
+        st_user = db.scalar(select(User).where(User.email == _STAKEHOLDER_EMAIL))
+        assert st_user is not None
+        db.query(ProjectMembership).filter(
+            ProjectMembership.project_id == project_id,
+            ProjectMembership.user_id == st_user.user_id
+        ).delete()
+        db.commit()
 
     response = client.post(
         f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/approve",

@@ -123,7 +123,6 @@ def test_lookup_mapping_service_persists_draft_and_lists_maps() -> None:
             db,
             actor=actor,
             project_id=project_id,
-            source_definition_id=source_definition_id,
             body=LookupValueMapCreateRequest(
                 lookup_name="status_code",
                 destination_table=[
@@ -137,7 +136,6 @@ def test_lookup_mapping_service_persists_draft_and_lists_maps() -> None:
         maps = list_lookup_value_maps(
             db,
             project_id=project_id,
-            source_definition_id=source_definition_id,
         )
 
     assert response.status == "draft"
@@ -156,7 +154,6 @@ def test_lookup_mapping_service_generates_and_approves_snapshot() -> None:
             db,
             actor=actor,
             project_id=project_id,
-            source_definition_id=source_definition_id,
             body=LookupValueMapCreateRequest(
                 lookup_name="status_code",
                 destination_table=[
@@ -204,7 +201,6 @@ def test_lookup_mapping_service_rejects_unmapped_values() -> None:
             db,
             actor=actor,
             project_id=project_id,
-            source_definition_id=source_definition_id,
             body=LookupValueMapCreateRequest(
                 lookup_name="status_code",
                 destination_table=[{"id": "ACTIVE", "label": "Active"}],

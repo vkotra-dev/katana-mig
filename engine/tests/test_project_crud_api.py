@@ -31,10 +31,7 @@ def _login(email: str, password: str) -> str:
 
 @pytest.fixture
 def admin_token() -> str:
-    settings = get_settings()
-    if not settings.bootstrap_admin_email or not settings.bootstrap_admin_password:
-        pytest.skip("bootstrap credentials not configured")
-    return _login(settings.bootstrap_admin_email, settings.bootstrap_admin_password)
+    return _login("pm@example.com", "pm-password")
 
 
 def _make_user(role: str) -> tuple[str, str, str]:
@@ -74,6 +71,14 @@ def _cleanup_user(user_id: str) -> None:
 @pytest.fixture
 def stakeholder() -> tuple[str, str]:
     user_id, email, password = _make_user(PROJECT_STAKEHOLDER_ROLE)
+    token = _login(email, password)
+    yield user_id, token
+    _cleanup_user(user_id)
+
+
+@pytest.fixture
+def pm_user() -> tuple[str, str]:
+    user_id, email, password = _make_user("pm")
     token = _login(email, password)
     yield user_id, token
     _cleanup_user(user_id)
@@ -161,9 +166,9 @@ def test_create_without_domain_config_returns_null(admin_token: str) -> None:
     assert project["domain_config"] is None
 
 
-def test_stakeholder_is_auto_membered(stakeholder: tuple[str, str]) -> None:
-    user_id, token = stakeholder
-    project = _create_project(token, {"name": "Stakeholder Project"})
+def test_pm_is_auto_membered(pm_user: tuple[str, str]) -> None:
+    user_id, token = pm_user
+    project = _create_project(token, {"name": "PM Project"})
     with SessionLocal() as db:
         membership = db.scalar(
             select(ProjectMembership).where(
@@ -172,6 +177,16 @@ def test_stakeholder_is_auto_membered(stakeholder: tuple[str, str]) -> None:
             )
         )
     assert membership is not None
+
+
+def test_stakeholder_cannot_create_project(stakeholder: tuple[str, str]) -> None:
+    user_id, token = stakeholder
+    response = client.post(
+        "/projects",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"name": "Forbidden"},
+    )
+    assert response.status_code == 403
 
 
 def test_auditor_cannot_create_project(auditor_token: str) -> None:

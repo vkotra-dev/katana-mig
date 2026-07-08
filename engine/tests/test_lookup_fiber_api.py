@@ -408,7 +408,7 @@ def test_lookup_fiber_approval_bridges_to_lookup_value_map(monkeypatch: pytest.M
     with SessionLocal() as db:
         lvm = db.scalar(
             select(LookupValueMap).where(
-                LookupValueMap.source_definition_id == feed_id,
+                LookupValueMap.project_id == project_id,
                 LookupValueMap.lookup_name == "status_code",
                 LookupValueMap.status == "draft",
             )

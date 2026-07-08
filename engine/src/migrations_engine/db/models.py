@@ -396,8 +396,8 @@ class LookupValueMap(Base):
     __tablename__ = "lookup_value_maps"
 
     lookup_value_map_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    source_definition_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("source_definitions.source_definition_id"), nullable=False
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("project_registry.project_id"), nullable=False, index=True
     )
     lookup_name: Mapped[str] = mapped_column(String(128), nullable=False)
     destination_table: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)

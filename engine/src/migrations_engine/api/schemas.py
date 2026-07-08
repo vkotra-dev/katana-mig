@@ -6,7 +6,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
-PlatformRole = Literal["central_team", "project_stakeholder", "read_only_auditor"]
+PlatformRole = Literal["admin", "pm", "central_team", "project_stakeholder", "read_only_auditor"]
 UserStatus = Literal["active", "disabled"]
 
 
@@ -511,7 +511,7 @@ class LookupValueMapCreateRequest(BaseModel):
 
 class LookupValueMapResponse(BaseModel):
     lookup_value_map_id: str
-    source_definition_id: str
+    project_id: str
     lookup_name: str
     destination_table: list[dict[str, Any]]
     source_value_map: dict[str, str]

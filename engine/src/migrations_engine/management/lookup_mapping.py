@@ -15,7 +15,7 @@ from ..api.schemas import (
     LookupValueMapResponse,
     MappingSnapshotResponse,
 )
-from ..db.models import LookupSnapshot, LookupValueMap, Feed, User, new_id
+from ..db.models import LookupSnapshot, LookupValueMap, Feed, User, new_id, ProjectFiber
 from ..mapping.snapshots import select_latest_approved_mapping_snapshot
 from ..mapping.exceptions import SnapshotNotFoundError
 from .platform import record_management_audit
@@ -29,16 +29,14 @@ def create_lookup_value_map(
     *,
     actor: User,
     project_id: str,
-    source_definition_id: str,
     body: LookupValueMapCreateRequest,
 ) -> LookupValueMapResponse:
-    source_definition = _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
     lookup_name = body.lookup_name.strip()
     destination_table = [_normalize_destination_row(row) for row in body.destination_table]
     source_value_map = {key.strip(): value.strip() for key, value in body.source_value_map.items() if key.strip() and value.strip()}
     draft = LookupValueMap(
         lookup_value_map_id=new_id(),
-        source_definition_id=source_definition.source_definition_id,
+        project_id=project_id,
         lookup_name=lookup_name,
         destination_table=destination_table,
         source_value_map=source_value_map,
@@ -52,7 +50,7 @@ def create_lookup_value_map(
         actor_user_id=actor.user_id,
         event_type="lookup_value_map_saved",
         payload={
-            "source_definition_id": source_definition_id,
+            "project_id": project_id,
             "lookup_name": lookup_name,
             "destination_row_count": len(destination_table),
             "mapped_value_count": len(source_value_map),
@@ -67,13 +65,22 @@ def list_lookup_value_maps(
     db: Session,
     *,
     project_id: str,
-    source_definition_id: str,
+    feed_id: str | None = None,
 ) -> list[LookupValueMapResponse]:
-    _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
+    stmt = select(LookupValueMap).where(LookupValueMap.project_id == project_id)
+
+    if feed_id:
+        fiber_keys = db.scalars(
+            select(ProjectFiber.fiber_key).where(
+                ProjectFiber.project_id == project_id,
+                ProjectFiber.feed_id == feed_id,
+                ProjectFiber.fiber_type == "lookup",
+            )
+        ).all()
+        stmt = stmt.where(LookupValueMap.lookup_name.in_(fiber_keys))
+
     rows = db.scalars(
-        select(LookupValueMap)
-        .where(LookupValueMap.source_definition_id == source_definition_id)
-        .order_by(LookupValueMap.created_at.asc(), LookupValueMap.lookup_value_map_id.asc())
+        stmt.order_by(LookupValueMap.created_at.asc(), LookupValueMap.lookup_value_map_id.asc())
     ).all()
     return [_lookup_value_map_response(row) for row in rows]
 
@@ -90,7 +97,7 @@ def generate_lookup_snapshot(
     lookup_name = body.lookup_name.strip()
     lookup_map = _latest_lookup_value_map(
         db,
-        source_definition_id=source_definition.source_definition_id,
+        project_id=project_id,
         lookup_name=lookup_name,
     )
     mapping_snapshot = _latest_mapping_snapshot_for_lookup(
@@ -214,13 +221,13 @@ def _get_source_definition(db: Session, *, project_id: str, source_definition_id
 def _latest_lookup_value_map(
     db: Session,
     *,
-    source_definition_id: str,
+    project_id: str,
     lookup_name: str,
 ) -> LookupValueMap:
     lookup_map = db.scalar(
         select(LookupValueMap)
         .where(
-            LookupValueMap.source_definition_id == source_definition_id,
+            LookupValueMap.project_id == project_id,
             LookupValueMap.lookup_name == lookup_name,
             LookupValueMap.status == "draft",
         )
@@ -314,7 +321,7 @@ def _extract_destination_id(row: dict[str, Any]) -> str:
 def _lookup_value_map_response(row: LookupValueMap) -> LookupValueMapResponse:
     return LookupValueMapResponse(
         lookup_value_map_id=row.lookup_value_map_id,
-        source_definition_id=row.source_definition_id,
+        project_id=row.project_id,
         lookup_name=row.lookup_name,
         destination_table=row.destination_table,
         source_value_map=row.source_value_map,

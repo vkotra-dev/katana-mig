@@ -2,11 +2,11 @@
 
 import { logout } from "../lib/auth-api";
 import { navItemsForRole, type NavItem } from "../lib/ui-model";
-import { clearUiSession, loadUiSession } from "../lib/session";
+import { clearUiSession, loadUiSession, type SessionRole } from "../lib/session";
 import { NotificationBell } from "./notifications/NotificationBell";
 
 export interface TopbarProps {
-  role: "central_team" | "project_stakeholder" | "read_only_auditor";
+  role: SessionRole;
 }
 
 export function Topbar({ role }: TopbarProps) {

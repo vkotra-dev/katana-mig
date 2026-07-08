@@ -211,21 +211,35 @@ def _bridge_lookup_fiber_to_value_map(db: Session, fiber: ProjectFiber) -> None:
                 if dest_id:
                     source_value_map[m.source_value] = dest_id
 
-        # Find existing draft for this feed + lookup_name and replace it
+        # Find existing draft for this project + lookup_name and merge
         existing = db.scalar(
             select(LookupValueMap).where(
-                LookupValueMap.source_definition_id == fiber.feed_id,
+                LookupValueMap.project_id == fiber.project_id,
                 LookupValueMap.lookup_name == lookup_name,
                 LookupValueMap.status == "draft",
             ).order_by(LookupValueMap.created_at.desc())
         )
         if existing:
-            existing.source_value_map = source_value_map
-            existing.destination_table = dest_entries
+            new_source_value_map = dict(existing.source_value_map)
+            for src, dest in source_value_map.items():
+                if src not in new_source_value_map:
+                    new_source_value_map[src] = dest
+            existing.source_value_map = new_source_value_map
+
+            existing_dest_ids = {
+                _extract_destination_id(r)
+                for r in existing.destination_table
+                if _extract_destination_id(r)
+            }
+            new_dest_table = list(existing.destination_table)
+            for row in dest_entries:
+                if _extract_destination_id(row) not in existing_dest_ids:
+                    new_dest_table.append(row)
+            existing.destination_table = new_dest_table
         else:
             db.add(LookupValueMap(
                 lookup_value_map_id=new_id(),
-                source_definition_id=fiber.feed_id,
+                project_id=fiber.project_id,
                 lookup_name=lookup_name,
                 destination_table=dest_entries,
                 source_value_map=source_value_map,

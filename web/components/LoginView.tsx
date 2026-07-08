@@ -37,7 +37,7 @@ export function LoginView({ onSubmit, errorMessage, loading = false }: LoginView
             autoComplete="username"
             name="email"
             placeholder="operator@katana.io"
-            type="email"
+            type="text"
             required
           />
         </div>
