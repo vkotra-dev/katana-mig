@@ -88,28 +88,28 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
   // Expanded detail and inline approval states
   const [expandedSliceId, setExpandedSliceId] = useState<string | null>(null);
   const [unmaskedSlices, setUnmaskedSlices] = useState<Record<string, FeedSliceRecord>>({});
-  const [showOriginal, setShowOriginal] = useState<Record<string, boolean>>({});
+  const [globalShowOriginal, setGlobalShowOriginal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [approvalError, setApprovalError] = useState<string | null>(null);
   const [inlineApprovalLoading, setInlineApprovalLoading] = useState<"approve" | "reject" | null>(null);
 
-  const handleToggleUnmasked = async (sourceDefinitionId: string, sliceId: string) => {
-    const currentVal = !!showOriginal[sliceId];
-    const nextVal = !currentVal;
-    setShowOriginal((prev) => ({ ...prev, [sliceId]: nextVal }));
-
-    if (nextVal && !unmaskedSlices[sliceId]) {
-      try {
-        const fetchedSlices = await listFeedSlices(token, projectId, sourceDefinitionId, false);
-        const target = fetchedSlices.find((s) => s.sourceSliceId === sliceId);
-        if (target) {
-          setUnmaskedSlices((prev) => ({ ...prev, [sliceId]: target }));
-        }
-      } catch (e) {
-        setErrorMessage(e instanceof Error ? e.message : "Failed to load unmasked data.");
+  useEffect(() => {
+    if (globalShowOriginal && expandedSliceId && !unmaskedSlices[expandedSliceId]) {
+      const targetRow = rows.find((r) => r.slice.sourceSliceId === expandedSliceId);
+      if (targetRow) {
+        listFeedSlices(token, projectId, targetRow.sourceDefinitionId, false)
+          .then((fetchedSlices) => {
+            const target = fetchedSlices.find((s) => s.sourceSliceId === expandedSliceId);
+            if (target) {
+              setUnmaskedSlices((prev) => ({ ...prev, [expandedSliceId]: target }));
+            }
+          })
+          .catch((e: unknown) => {
+            setErrorMessage(e instanceof Error ? e.message : "Failed to load unmasked data.");
+          });
       }
     }
-  };
+  }, [globalShowOriginal, expandedSliceId, rows, token, projectId, unmaskedSlices]);
 
   const loadRows = async (): Promise<ArtifactRow[]> => {
     const contracts = await listFeedContracts(token, projectId);
@@ -195,8 +195,26 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
           No feed slices yet.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-outline-variant max-w-full">
-          <table className="w-full border-collapse text-left">
+        <div className="space-y-3">
+          {(role === "admin" || role === "pm") && (
+            <div className="flex items-center gap-2 self-start pb-1">
+              <label htmlFor="global-toggle-switch" className="relative inline-flex items-center cursor-pointer select-none">
+                <input
+                  id="global-toggle-switch"
+                  type="checkbox"
+                  checked={globalShowOriginal}
+                  onChange={(e) => setGlobalShowOriginal(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                <span className="ml-2.5 text-xs font-semibold text-slate-700">
+                  {globalShowOriginal ? "Showing original data" : "Showing masked data"}
+                </span>
+              </label>
+            </div>
+          )}
+          <div className="overflow-x-auto rounded-xl border border-outline-variant max-w-full">
+            <table className="w-full border-collapse text-left">
             <thead className="bg-surface">
               <tr className="text-xs uppercase tracking-[0.16em] text-slate-500">
                 <th className="px-4 py-3">Artifact</th>
@@ -210,7 +228,7 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
             <tbody>
               {rows.map((row) => {
                 const isExpanded = expandedSliceId === row.slice.sourceSliceId;
-                const activeSlice = showOriginal[row.slice.sourceSliceId] && unmaskedSlices[row.slice.sourceSliceId]
+                const activeSlice = globalShowOriginal && unmaskedSlices[row.slice.sourceSliceId]
                   ? unmaskedSlices[row.slice.sourceSliceId]
                   : row.slice;
 
@@ -332,15 +350,6 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
                               <h4 className="text-sm font-bold text-slate-800">
                                 Feed Data Profile & Sample Preview ({previewLines.length} rows shown)
                               </h4>
-                              {(role === "admin" || role === "pm") && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleUnmasked(row.sourceDefinitionId, row.slice.sourceSliceId)}
-                                  className="rounded-md border border-outline-variant bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                                >
-                                  {showOriginal[row.slice.sourceSliceId] ? "Show Masked Data" : "Show Original Data"}
-                                </button>
-                              )}
                             </div>
 
                             {/* Stats Cards */}
@@ -488,6 +497,7 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
             </tbody>
           </table>
         </div>
+      </div>
       )}
 
       {rejectTarget ? (
