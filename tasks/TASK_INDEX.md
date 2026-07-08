@@ -8,6 +8,7 @@ No pending tasks.
 
 | Task | Summary |
 |---|---|
+| [001ca-lookup-fiber-bridge](./completed/001ca-lookup-fiber-bridge.md) | [summary](./summary/001ca-lookup-fiber-bridge.md) |
 | [001bw-dashboard-health-view](./completed/001bw-dashboard-health-view.md) | [summary](./summary/001bw-dashboard-health-view.md) |
 | [001bv-unmapped-source-fields-warning](./completed/001bv-unmapped-source-fields-warning.md) | [summary](./summary/001bv-unmapped-source-fields-warning.md) |
 | [001bt-project-copy-prompt-config](./completed/001bt-project-copy-prompt-config.md) | [summary](./summary/001bt-project-copy-prompt-config.md) |

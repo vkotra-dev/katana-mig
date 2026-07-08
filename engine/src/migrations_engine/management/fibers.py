@@ -34,6 +34,7 @@ from ..db.models import (
     LookupDestFeed,
     LookupMapping,
     LookupSourceEntry,
+    LookupValueMap,
     ProjectDefinition,
     ProjectFiber,
     ProjectRegistry,
@@ -43,6 +44,7 @@ from ..db.models import (
 from ..mapping.exceptions import SnapshotNotFoundError
 from ..mapping.snapshots import select_latest_approved_lookup_snapshot
 from ..management.access import require_project_access
+from .lookup_mapping import _extract_destination_id
 from ..roles import PROJECT_STAKEHOLDER_ROLE
 
 
@@ -165,6 +167,72 @@ def assign_fiber(
     return _fiber_response(fiber)
 
 
+def _bridge_lookup_fiber_to_value_map(db: Session, fiber: ProjectFiber) -> None:
+    """
+    After a lookup fiber is approved, compile confirmed LookupMapping rows
+    into LookupValueMap so generate_lookup_snapshot can proceed.
+    One LookupValueMap upserted per lookup_name on the fiber.
+    """
+    confirmed_mappings = db.scalars(
+        select(LookupMapping).where(
+            LookupMapping.fiber_id == fiber.fiber_id,
+            LookupMapping.status == "confirmed",
+        )
+    ).all()
+
+    if not confirmed_mappings:
+        return
+
+    # Group by lookup_name (a fiber may cover multiple lookup columns)
+    by_name: dict[str, list[LookupMapping]] = {}
+    for m in confirmed_mappings:
+        by_name.setdefault(m.lookup_name, []).append(m)
+
+    # Fetch destination reference rows for this fiber (one LookupDestFeed per fiber)
+    dest_feed = db.scalar(
+        select(LookupDestFeed).where(LookupDestFeed.fiber_id == fiber.fiber_id)
+    )
+    dest_entries: list[dict] = []
+    if dest_feed:
+        dest_entries = [
+            row.row_data
+            for row in db.scalars(
+                select(LookupDestEntry).where(
+                    LookupDestEntry.dest_feed_id == dest_feed.dest_feed_id
+                )
+            ).all()
+        ]
+
+    for lookup_name, mappings in by_name.items():
+        source_value_map = {}
+        for m in mappings:
+            if m.dest_row:
+                dest_id = _extract_destination_id(m.dest_row)
+                if dest_id:
+                    source_value_map[m.source_value] = dest_id
+
+        # Find existing draft for this feed + lookup_name and replace it
+        existing = db.scalar(
+            select(LookupValueMap).where(
+                LookupValueMap.source_definition_id == fiber.feed_id,
+                LookupValueMap.lookup_name == lookup_name,
+                LookupValueMap.status == "draft",
+            ).order_by(LookupValueMap.created_at.desc())
+        )
+        if existing:
+            existing.source_value_map = source_value_map
+            existing.destination_table = dest_entries
+        else:
+            db.add(LookupValueMap(
+                lookup_value_map_id=new_id(),
+                source_definition_id=fiber.feed_id,
+                lookup_name=lookup_name,
+                destination_table=dest_entries,
+                source_value_map=source_value_map,
+                status="draft",
+            ))
+
+
 def approve_fiber(
     db: Session,
     *,
@@ -186,6 +254,8 @@ def approve_fiber(
     if fiber.status != "operator_assigned":
         raise AuthApiError("fiber_not_ready", "Fiber is not in the expected state.", 409)
     fiber.status = "business_approved"
+    if fiber.fiber_type == "lookup":
+        _bridge_lookup_fiber_to_value_map(db, fiber)
     db.commit()
     db.refresh(fiber)
     return _fiber_response(fiber)
