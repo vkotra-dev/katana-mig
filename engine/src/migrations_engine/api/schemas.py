@@ -205,6 +205,7 @@ class ProjectResponse(BaseModel):
     archived_at: datetime | None
     latest_run_summary: LatestRunSummary | None = None
     health: ProjectHealthSummary | None = None
+    pm_user_id: str | None = None
 
 
 class ProjectCreateRequest(BaseModel):
@@ -242,6 +243,10 @@ class ProjectUpdateRequest(BaseModel):
     assumptions: list[str] | None = None
     domain_config: MigrationProjectConfig | None = None
     lexicon_scope: str | None = None
+
+
+class AssignProjectManagerRequest(BaseModel):
+    pm_user_id: str
 
 
 class FeedCreateRequest(BaseModel):

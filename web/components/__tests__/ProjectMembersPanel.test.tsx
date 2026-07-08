@@ -20,6 +20,17 @@ describe("ProjectMembersPanel", () => {
             warning: "User is already a member of this project.",
           },
         ]}
+        availableUsers={[
+          {
+            userId: "user-2",
+            email: "other@example.com",
+            displayName: "Other User",
+            role: "project_stakeholder",
+            status: "active",
+            createdAt: "2026-06-30T12:00:00Z",
+            updatedAt: "2026-06-30T12:00:00Z",
+          }
+        ]}
         onAdd={onAdd}
         onRemove={onRemove}
         projectId="project-1"
@@ -27,10 +38,14 @@ describe("ProjectMembersPanel", () => {
       />
     );
 
-    fireEvent.change(screen.getByPlaceholderText("User ID"), {
-      target: { value: "user-2" },
+    const input = screen.getByPlaceholderText("Search users by email or name...");
+    fireEvent.focus(input);
+    fireEvent.change(input, {
+      target: { value: "other" },
     });
-    fireEvent.submit(screen.getByRole("button", { name: "Add member" }).closest("form") as HTMLFormElement);
+
+    const option = await screen.findByText("other@example.com — Other User (project_stakeholder)");
+    fireEvent.click(option);
 
     await waitFor(() => expect(onAdd).toHaveBeenCalledWith("user-2"));
     expect(screen.getByText("User is already a member of this project.")).toBeInTheDocument();

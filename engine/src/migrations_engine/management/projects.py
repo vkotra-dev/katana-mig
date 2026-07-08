@@ -92,13 +92,12 @@ def create_project(db: Session, *, actor: User, body: ProjectCreateRequest) -> P
         name=body.name,
         definition_id=definition_id,
         lexicon_scope=body.lexicon_scope,
+        pm_user_id=actor.user_id,
         status="active",
     )
     db.add(definition)
     db.add(registry)
     db.flush()
-
-    db.add(ProjectMembership(project_id=project_id, user_id=actor.user_id))
 
     record_management_audit(
         db,
@@ -108,7 +107,7 @@ def create_project(db: Session, *, actor: User, body: ProjectCreateRequest) -> P
         payload={
             "project_id": project_id,
             "name": body.name,
-            "auto_member_user_id": actor.user_id,
+            "pm_user_id": actor.user_id,
         },
     )
     db.commit()
@@ -131,7 +130,9 @@ def list_projects(
         stmt = stmt.where(ProjectRegistry.archived_at.is_(None))
     stmt = stmt.where(ProjectRegistry.soft_deleted_at.is_(None))
 
-    if actor.role in {CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE}:
+    if actor.role == PM_ROLE:
+        stmt = stmt.where(ProjectRegistry.pm_user_id == actor.user_id)
+    elif actor.role in {CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE}:
         stmt = stmt.join(
             ProjectMembership,
             (ProjectMembership.project_id == ProjectRegistry.project_id)
@@ -511,6 +512,7 @@ def _project_response(
         archived_at=registry.archived_at,
         latest_run_summary=latest_run_summary,
         health=health,
+        pm_user_id=registry.pm_user_id,
     )
 
 
@@ -560,6 +562,7 @@ def copy_project(
         name=body.name,
         definition_id=new_definition_id,
         lexicon_scope=source_registry.lexicon_scope,
+        pm_user_id=actor.user_id,
         status="active",
     )
     db.add(new_registry)
@@ -584,22 +587,18 @@ def copy_project(
             status="active",
         ))
 
-    # Auto-member the PM actor and assign valid stakeholders
-    members_to_add = {actor.user_id}
+    # Assign valid stakeholders
     for user_id in body.stakeholder_user_ids:
         user = _get_active_user(db, user_id)
-        if user.role not in {CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE, PM_ROLE}:
+        if user.role not in {CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE}:
             raise AuthApiError(
                 "invalid_role_for_membership",
-                "Only central_team, project_stakeholder, and pm users can be assigned project membership.",
+                "Only central_team and project_stakeholder users can be assigned project membership.",
                 422,
             )
-        members_to_add.add(user_id)
-
-    for u_id in members_to_add:
         db.add(ProjectMembership(
             project_id=new_project_id,
-            user_id=u_id,
+            user_id=user_id,
         ))
 
     record_management_audit(
@@ -618,3 +617,32 @@ def copy_project(
     db.refresh(new_registry)
     db.refresh(new_definition)
     return _project_response(new_registry, new_definition)
+
+
+def assign_project_manager(
+    db: Session,
+    *,
+    actor: User,
+    project_id: str,
+    pm_user_id: str,
+) -> ProjectResponse:
+    registry, definition = _get_project_rows(db, project_id)
+    user = _get_active_user(db, pm_user_id)
+    if user.role != PM_ROLE:
+        raise AuthApiError(
+            "invalid_role_for_pm",
+            "Only users with role 'pm' can be assigned as project manager.",
+            422,
+        )
+    registry.pm_user_id = pm_user_id
+    record_management_audit(
+        db,
+        project_id=project_id,
+        actor_user_id=actor.user_id,
+        event_type="project.pm_assigned",
+        payload={"project_id": project_id, "pm_user_id": pm_user_id},
+    )
+    db.commit()
+    db.refresh(registry)
+    db.refresh(definition)
+    return _project_response(registry, definition)

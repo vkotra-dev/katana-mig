@@ -8,6 +8,7 @@ from ..api.deps import (
     get_pm_user,
     get_current_user,
     get_db,
+    get_admin_user,
 )
 from ..api.schemas import (
     MembershipResponse,
@@ -16,10 +17,11 @@ from ..api.schemas import (
     ProjectResponse,
     ProjectUpdateRequest,
     ProjectCopyRequest,
+    AssignProjectManagerRequest,
 )
 from ..db.models import User
 from ..management.access import require_project_access
-from ..management.projects import archive_project, create_project, get_project, list_projects, update_project, copy_project
+from ..management.projects import archive_project, create_project, get_project, list_projects, update_project, copy_project, assign_project_manager
 from ..management.service import add_project_member, list_project_members, remove_project_member
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -114,3 +116,13 @@ def post_project_copy(
     db: Session = Depends(get_db),
 ) -> ProjectResponse:
     return copy_project(db, actor=actor, source_project_id=project_id, body=body)
+
+
+@router.patch("/{project_id}/manager", response_model=ProjectResponse)
+def patch_project_manager(
+    project_id: str,
+    body: AssignProjectManagerRequest,
+    actor: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+) -> ProjectResponse:
+    return assign_project_manager(db, actor=actor, project_id=project_id, pm_user_id=body.pm_user_id)

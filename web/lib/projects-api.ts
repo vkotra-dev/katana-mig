@@ -94,6 +94,7 @@ export interface ProjectRecord {
   archivedAt: string | null;
   latestRunSummary?: LatestRunSummary | null;
   health?: ProjectHealthSummary;
+  pmUserId?: string | null;
 }
 
 export interface ProjectCreateInput {
@@ -357,6 +358,7 @@ function mapProjectRecord(record: {
     mapping_status: string;
     lookup_status: string;
   } | null;
+  pm_user_id: string | null;
 }): ProjectRecord {
   return {
     projectId: record.project_id,
@@ -392,6 +394,7 @@ function mapProjectRecord(record: {
           lookupStatus: record.health.lookup_status as HealthStatus,
         }
       : undefined,
+    pmUserId: record.pm_user_id ?? null,
   };
 }
 
@@ -514,4 +517,20 @@ export function projectErrorMessage(error: unknown): string {
     return error.message;
   }
   return "Unable to load project.";
+}
+
+export async function assignProjectManager(
+  token: string,
+  projectId: string,
+  pmUserId: string,
+): Promise<ProjectRecord> {
+  const data = await requestJson<Parameters<typeof mapProjectRecord>[0]>(
+    `/projects/${projectId}/manager`,
+    {
+      method: "PATCH",
+      token,
+      body: JSON.stringify({ pm_user_id: pmUserId }),
+    },
+  );
+  return mapProjectRecord(data);
 }

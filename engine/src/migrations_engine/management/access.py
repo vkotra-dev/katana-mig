@@ -59,8 +59,13 @@ def require_project_access(db: Session, *, user: User, project_id: str) -> None:
 
 
 def user_has_project_access(db: Session, *, user: User, project_id: str) -> bool:
-    if user.role in {ADMIN_ROLE, PM_ROLE, READ_ONLY_AUDITOR_ROLE}:
+    if user.role in {ADMIN_ROLE, READ_ONLY_AUDITOR_ROLE}:
         return True
+    if user.role == PM_ROLE:
+        pm_user_id = db.scalar(
+            select(ProjectRegistry.pm_user_id).where(ProjectRegistry.project_id == project_id)
+        )
+        return pm_user_id == user.user_id
     if user.role not in {CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE}:
         return False
     membership = db.scalar(

@@ -4,7 +4,7 @@
 
 | Task | Plan | Summary |
 |---|---|---|
-| [001ce-project-member-autocomplete](./001ce-project-member-autocomplete.md) | | |
+| [001ce-project-member-autocomplete](./001ce-project-member-autocomplete.md) | [plan](../plans/2026-07-08-001ce-project-member-autocomplete-pm-scoping.md) | |
 | [001cd-pm-admin-role-model](./001cd-pm-admin-role-model.md) | [plan](../plans/2026-07-08-001cd-pm-admin-role-model.md) | |
 
 ## Completed

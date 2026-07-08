@@ -30,6 +30,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [memberWarning, setMemberWarning] = useState<string | undefined>();
+  const [allUsers, setAllUsers] = useState<UserResponse[]>([]);
 
   useEffect(() => {
     setSession(loadUiSession());
@@ -111,6 +112,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       listProjectMembers(token, id),
       listUsers(token),
     ]);
+    setAllUsers(users);
     setMembers(joinMembers(memberRows, users));
   }
 
@@ -177,6 +179,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
         {activeTab === "members" && session ? (
           <ProjectMembersPanel
+            availableUsers={allUsers.filter((u) => !members.some((m) => m.userId === u.userId))}
             members={members}
             onAdd={handleMemberAdd}
             onRemove={handleMemberRemove}

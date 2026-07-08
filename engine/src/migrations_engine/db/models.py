@@ -70,6 +70,9 @@ class ProjectRegistry(Base):
     definition_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("project_definitions.definition_id"), nullable=False, unique=True
     )
+    pm_user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.user_id"), nullable=True, index=True
+    )
     lexicon_scope: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     created_at: Mapped[datetime] = mapped_column(

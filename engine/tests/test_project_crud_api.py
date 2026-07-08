@@ -11,7 +11,7 @@ from migrations_engine.app import app
 from migrations_engine.auth.passwords import hash_password
 from migrations_engine.config import get_settings
 from migrations_engine.db.models import AuditEvent, AuthSession, Notification, ProjectDefinition, ProjectMembership, ProjectRegistry, User, Feed
-from migrations_engine.roles import PROJECT_STAKEHOLDER_ROLE, READ_ONLY_AUDITOR_ROLE
+from migrations_engine.roles import PROJECT_STAKEHOLDER_ROLE, READ_ONLY_AUDITOR_ROLE, ADMIN_ROLE, PM_ROLE
 
 client = TestClient(app)
 
@@ -166,9 +166,10 @@ def test_create_without_domain_config_returns_null(admin_token: str) -> None:
     assert project["domain_config"] is None
 
 
-def test_pm_is_auto_membered(pm_user: tuple[str, str]) -> None:
+def test_pm_is_assigned_via_pm_user_id(pm_user: tuple[str, str]) -> None:
     user_id, token = pm_user
     project = _create_project(token, {"name": "PM Project"})
+    assert project["pm_user_id"] == user_id
     with SessionLocal() as db:
         membership = db.scalar(
             select(ProjectMembership).where(
@@ -176,7 +177,7 @@ def test_pm_is_auto_membered(pm_user: tuple[str, str]) -> None:
                 ProjectMembership.user_id == user_id,
             )
         )
-    assert membership is not None
+    assert membership is None
 
 
 def test_stakeholder_cannot_create_project(stakeholder: tuple[str, str]) -> None:
@@ -578,3 +579,72 @@ def test_project_health_summaries(admin_token: str) -> None:
     assert p_data["health"]["feed_status"] == "healthy"
     assert p_data["health"]["mapping_status"] == "healthy"
     assert p_data["health"]["lookup_status"] == "healthy"
+
+
+def test_assign_project_manager_workflow(pm_user: tuple[str, str]) -> None:
+    # 1. PM1 creates a project
+    pm1_user_id, pm1_token = pm_user
+    project = _create_project(pm1_token, {"name": "Isolation Project"})
+    project_id = project["project_id"]
+
+    # PM1 can see their project
+    get_res = client.get(f"/projects/{project_id}", headers={"Authorization": f"Bearer {pm1_token}"})
+    assert get_res.status_code == 200
+    assert get_res.json()["pm_user_id"] == pm1_user_id
+
+    # 2. Create PM2, Admin, and Stakeholder
+    pm2_user_id, pm2_email, pm2_pw = _make_user("pm")
+    pm2_token = _login(pm2_email, pm2_pw)
+
+    admin_user_id, admin_email, admin_pw = _make_user(ADMIN_ROLE)
+    real_admin_token = _login(admin_email, admin_pw)
+
+    sh_user_id, sh_email, sh_pw = _make_user(PROJECT_STAKEHOLDER_ROLE)
+
+    try:
+        # PM2 cannot see PM1's project
+        get_res2 = client.get(f"/projects/{project_id}", headers={"Authorization": f"Bearer {pm2_token}"})
+        assert get_res2.status_code == 403
+
+        # PM2 list_projects does not include PM1's project
+        list_res = client.get("/projects", headers={"Authorization": f"Bearer {pm2_token}"})
+        assert list_res.status_code == 200
+        assert not any(p["project_id"] == project_id for p in list_res.json())
+
+        # 3. Non-admin (PM) cannot assign project manager
+        assign_res = client.patch(
+            f"/projects/{project_id}/manager",
+            headers={"Authorization": f"Bearer {pm1_token}"},
+            json={"pm_user_id": pm2_user_id},
+        )
+        assert assign_res.status_code == 403
+
+        # 4. Admin assigning a non-PM user ID returns 422
+        assign_res_bad = client.patch(
+            f"/projects/{project_id}/manager",
+            headers={"Authorization": f"Bearer {real_admin_token}"},
+            json={"pm_user_id": sh_user_id},
+        )
+        assert assign_res_bad.status_code == 422
+        assert assign_res_bad.json()["error"]["code"] == "invalid_role_for_pm"
+
+        # 5. Admin successfully reassigns project to PM2
+        assign_res_ok = client.patch(
+            f"/projects/{project_id}/manager",
+            headers={"Authorization": f"Bearer {real_admin_token}"},
+            json={"pm_user_id": pm2_user_id},
+        )
+        assert assign_res_ok.status_code == 200
+        assert assign_res_ok.json()["pm_user_id"] == pm2_user_id
+
+        # 6. PM2 can now see the project, PM1 cannot
+        get_res_pm2 = client.get(f"/projects/{project_id}", headers={"Authorization": f"Bearer {pm2_token}"})
+        assert get_res_pm2.status_code == 200
+
+        get_res_pm1 = client.get(f"/projects/{project_id}", headers={"Authorization": f"Bearer {pm1_token}"})
+        assert get_res_pm1.status_code == 403
+
+    finally:
+        _cleanup_user(pm2_user_id)
+        _cleanup_user(admin_user_id)
+        _cleanup_user(sh_user_id)

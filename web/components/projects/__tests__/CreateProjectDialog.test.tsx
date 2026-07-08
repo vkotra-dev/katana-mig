@@ -32,6 +32,7 @@ const stubResponse = {
   updated_at: "2026-06-30T00:00:00Z",
   archived_at: null,
   latest_run_summary: null,
+  pm_user_id: null,
 };
 
 const stub: ProjectRecord = {
@@ -62,6 +63,7 @@ const stub: ProjectRecord = {
   updatedAt: "2026-06-30T00:00:00Z",
   archivedAt: null,
   latestRunSummary: null,
+  pmUserId: null,
 };
 
 afterEach(() => {

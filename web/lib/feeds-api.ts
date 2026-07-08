@@ -13,7 +13,7 @@ export interface FeedContractRecord {
   copybookText: string | null;
   status: string;
   createdAt: string;
-  mappingHints: string | null;
+  mappingHints?: string | null;
 }
 
 export interface FeedSchemaColumnRecord {

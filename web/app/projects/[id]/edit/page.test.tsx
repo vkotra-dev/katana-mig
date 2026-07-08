@@ -23,7 +23,6 @@ const project: ProjectRecord = {
   goal: "Migrate all CRM data",
   repos: null,
   workspace: null,
-  environment: "PROD",
   executionEnvironments: ["STG", "UAT", "PROD"],
   modelPolicy: null,
   canonicalTerms: null,

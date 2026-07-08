@@ -10,7 +10,6 @@ function makeProject(overrides: Partial<ProjectRecord>): ProjectRecord {
     goal: "Move customer data into the new platform",
     repos: null,
     workspace: null,
-    environment: null,
     executionEnvironments: ["dev", "prod"],
     modelPolicy: null,
     canonicalTerms: null,
