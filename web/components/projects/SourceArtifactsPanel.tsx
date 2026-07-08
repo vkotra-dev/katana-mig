@@ -327,7 +327,7 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
                     {isExpanded && (
                       <tr className="bg-slate-50/50">
                         <td colSpan={6} className="px-6 py-4 border-t border-outline-variant">
-                          <div className="space-y-4">
+                          <div className="space-y-4 max-w-[calc(100vw-8rem)] md:max-w-full">
                             <div className="flex items-center justify-between">
                               <h4 className="text-sm font-bold text-slate-800">
                                 Feed Data Profile & Sample Preview ({previewLines.length} rows shown)
