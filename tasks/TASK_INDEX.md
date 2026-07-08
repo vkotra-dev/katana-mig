@@ -2,14 +2,13 @@
 
 ## Ready
 
-| Task | Plan | Summary |
-|---|---|---|
-| [001ci-remove-project-id-display](./001ci-remove-project-id-display.md) | [plan](../plans/2026-07-08-001ci-remove-project-id-display.md) | Remove project GUID/UUID display from UI dashboards and details views |
+*No pending tasks.*
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001ci-remove-project-id-display](./completed/001ci-remove-project-id-display.md) | [plan](../plans/2026-07-08-001ci-remove-project-id-display.md) |
 | [001ch-pm-project-edit-access](./completed/001ch-pm-project-edit-access.md) | [plan](../plans/2026-07-08-001ch-pm-project-edit-access.md) |
 | [001cg-project-member-role-filtering](./completed/001cg-project-member-role-filtering.md) | [plan](../plans/2026-07-08-001cg-project-member-role-filtering.md) |
 | [001cf-admin-pm-assignment-nav](./completed/001cf-admin-pm-assignment-nav.md) | [plan](../plans/2026-07-08-001cf-admin-pm-assignment-nav.md) |
