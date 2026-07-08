@@ -2,7 +2,9 @@
 
 ## Ready
 
-*No pending tasks.*
+| Task | Plan | Summary |
+|---|---|---|
+| [001cf-admin-pm-assignment-nav](./001cf-admin-pm-assignment-nav.md) | [plan](../plans/2026-07-08-001cf-admin-pm-assignment-nav.md) | Admin top-nav dropdown + standalone assign-PM page |
 
 ## Completed
 
