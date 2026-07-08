@@ -2,14 +2,13 @@
 
 ## Ready
 
-| Task | Plan | Summary |
-|---|---|---|
-| [001ch-pm-project-edit-access](./001ch-pm-project-edit-access.md) | [plan](../plans/2026-07-08-001ch-pm-project-edit-access.md) | Gate project edit button to PM role in frontend UI |
+*No pending tasks.*
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001ch-pm-project-edit-access](./completed/001ch-pm-project-edit-access.md) | [plan](../plans/2026-07-08-001ch-pm-project-edit-access.md) |
 | [001cg-project-member-role-filtering](./completed/001cg-project-member-role-filtering.md) | [plan](../plans/2026-07-08-001cg-project-member-role-filtering.md) |
 | [001cf-admin-pm-assignment-nav](./completed/001cf-admin-pm-assignment-nav.md) | [plan](../plans/2026-07-08-001cf-admin-pm-assignment-nav.md) |
 | [001ce-project-member-autocomplete](./completed/001ce-project-member-autocomplete.md) | [plan](../plans/2026-07-08-001ce-project-member-autocomplete-pm-scoping.md) |
