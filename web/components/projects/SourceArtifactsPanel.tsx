@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import {
   listFeedContracts,
@@ -13,11 +13,43 @@ import {
   resubmitFeedSlice,
 } from "../../lib/feed-slice-approval-api";
 import type { SessionRole } from "../../lib/session";
+import { splitCsvRow } from "../../lib/csv-utils";
 
 export interface SourceArtifactsPanelProps {
   projectId: string;
   token: string;
   role: SessionRole;
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SSN_RE = /^\d{3}-?\d{2}-?\d{4}$/;
+const CARD_RE = /^\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}$/;
+const PHONE_RE = /^\+?[\d\s\-().]{7,15}$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$|^\d{2}\/\d{2}\/\d{4}$/;
+
+type PiiLevel = "pii" | "possible" | "clean";
+
+function scanColumnPii(values: string[]): PiiLevel {
+  const filled = values.filter((v) => v.trim().length > 0);
+  if (filled.length === 0) return "clean";
+
+  const strongHits = filled.filter(
+    (v) => EMAIL_RE.test(v) || SSN_RE.test(v) || CARD_RE.test(v)
+  ).length;
+  if (strongHits / filled.length > 0.6) return "pii";
+
+  const softHits = filled.filter(
+    (v) => PHONE_RE.test(v) || DATE_RE.test(v)
+  ).length;
+  if (softHits / filled.length > 0.3) return "possible";
+
+  return "clean";
+}
+
+function piiLabel(level: PiiLevel): { icon: string; className: string; text: string } {
+  if (level === "pii") return { icon: "🔴", className: "text-red-600", text: "PII" };
+  if (level === "possible") return { icon: "⚠️", className: "text-amber-600", text: "Possible PII" };
+  return { icon: "✅", className: "text-emerald-600", text: "Clean" };
 }
 
 interface ArtifactRow {
@@ -52,6 +84,32 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
   const [resubmitEncoding, setResubmitEncoding] = useState("utf-8");
   const [resubmitParseSettings, setResubmitParseSettings] = useState("{}");
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Expanded detail and inline approval states
+  const [expandedSliceId, setExpandedSliceId] = useState<string | null>(null);
+  const [unmaskedSlices, setUnmaskedSlices] = useState<Record<string, FeedSliceRecord>>({});
+  const [showOriginal, setShowOriginal] = useState<Record<string, boolean>>({});
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [approvalError, setApprovalError] = useState<string | null>(null);
+  const [inlineApprovalLoading, setInlineApprovalLoading] = useState<"approve" | "reject" | null>(null);
+
+  const handleToggleUnmasked = async (sourceDefinitionId: string, sliceId: string) => {
+    const currentVal = !!showOriginal[sliceId];
+    const nextVal = !currentVal;
+    setShowOriginal((prev) => ({ ...prev, [sliceId]: nextVal }));
+
+    if (nextVal && !unmaskedSlices[sliceId]) {
+      try {
+        const fetchedSlices = await listFeedSlices(token, projectId, sourceDefinitionId, false);
+        const target = fetchedSlices.find((s) => s.sourceSliceId === sliceId);
+        if (target) {
+          setUnmaskedSlices((prev) => ({ ...prev, [sliceId]: target }));
+        }
+      } catch (e) {
+        setErrorMessage(e instanceof Error ? e.message : "Failed to load unmasked data.");
+      }
+    }
+  };
 
   const loadRows = async (): Promise<ArtifactRow[]> => {
     const contracts = await listFeedContracts(token, projectId);
@@ -150,83 +208,283 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr key={row.slice.sourceSliceId} className="border-t border-outline-variant">
-                  <td className="px-4 py-3 text-sm text-slate-700">Feed intake</td>
-                  <td className="px-4 py-3">
-                    <div className="text-sm font-semibold text-slate-900">Feed slice</div>
-                    <div className="text-xs text-slate-500">
-                      {row.sourceLabel} · {row.sourceType}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-slate-700">{row.slice.sourceSliceVersion ?? "—"}</td>
-                  <td className="px-4 py-3">
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClassName(row.slice.status)}`}>
-                      {row.slice.status}
-                    </span>
-                    {row.slice.status === "rejected" && row.slice.approvalRejectionReason ? (
-                      <div className="mt-2 text-xs text-rose-700">{row.slice.approvalRejectionReason}</div>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-slate-700">{formatDate(row.slice.createdAt)}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2 items-center">
-                      <button
-                        className="rounded-md border border-outline-variant px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-outline-variant/40"
-                        onClick={() => router.push(`/projects/${projectId}/feeds/${row.sourceDefinitionId}`)}
-                        type="button"
-                      >
-                        View details
-                      </button>
-                      {role === "project_stakeholder" && row.slice.status === "pending_approval" ? (
-                        <>
+              {rows.map((row) => {
+                const isExpanded = expandedSliceId === row.slice.sourceSliceId;
+                const activeSlice = showOriginal[row.slice.sourceSliceId] && unmaskedSlices[row.slice.sourceSliceId]
+                  ? unmaskedSlices[row.slice.sourceSliceId]
+                  : row.slice;
+
+                const headers = activeSlice.headerCsv ? splitCsvRow(activeSlice.headerCsv) : [];
+                const previewLines = activeSlice.previewRows || [];
+                const parsedRows = previewLines.map((r) => splitCsvRow(r));
+
+                const blankColumns = headers.filter((_, colIdx) =>
+                  parsedRows.every((r) => !r[colIdx]?.trim())
+                );
+
+                const columnPii = headers.map((_, colIdx) =>
+                  scanColumnPii(parsedRows.map((r) => r[colIdx] ?? ""))
+                );
+
+                const isNonAuditor = role !== "read_only_auditor";
+
+                return (
+                  <Fragment key={row.slice.sourceSliceId}>
+                    <tr
+                      className="border-t border-outline-variant hover:bg-slate-50/50 cursor-pointer"
+                      onClick={(e) => {
+                        const target = e.target as HTMLElement;
+                        if (target.closest("button") || target.closest("input") || target.closest("textarea")) {
+                          return;
+                        }
+                        setExpandedSliceId(isExpanded ? null : row.slice.sourceSliceId);
+                        setApprovalError(null);
+                        setRejectionReason("");
+                      }}
+                    >
+                      <td className="px-4 py-3 text-sm text-slate-700">Feed intake</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-400 font-mono w-4 text-center">
+                            {isExpanded ? "▼" : "▶"}
+                          </span>
+                          <div>
+                            <div className="text-sm font-semibold text-slate-900">Feed slice</div>
+                            <div className="text-xs text-slate-500">
+                              {row.sourceLabel} · {row.sourceType}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{row.slice.sourceSliceVersion ?? "—"}</td>
+                      <td className="px-4 py-3">
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClassName(row.slice.status)}`}>
+                          {row.slice.status}
+                        </span>
+                        {row.slice.status === "rejected" && row.slice.approvalRejectionReason ? (
+                          <div className="mt-2 text-xs text-rose-700">{row.slice.approvalRejectionReason}</div>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{formatDate(row.slice.createdAt)}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-2 items-center">
                           <button
-                            className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                            disabled={actionLoading}
-                            onClick={() =>
-                              void runAction(() =>
-                                approveFeedSlice(
-                                  token,
-                                  projectId,
-                                  row.sourceDefinitionId,
-                                  row.slice.sourceSliceId,
-                                ),
-                              )
-                            }
+                            className="rounded-md border border-outline-variant px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-outline-variant/40"
+                            onClick={() => router.push(`/projects/${projectId}/feeds/${row.sourceDefinitionId}`)}
                             type="button"
                           >
-                            Approve
+                            View details
                           </button>
-                          <button
-                            className="rounded-md border border-error px-3 py-2 text-sm font-semibold text-error disabled:opacity-60"
-                            disabled={actionLoading}
-                            onClick={() => {
-                              setRejectTarget(row);
-                              setRejectReason("");
-                            }}
-                            type="button"
-                          >
-                            Reject
-                          </button>
-                        </>
-                      ) : role === "central_team" && row.slice.status === "rejected" ? (
-                        <button
-                          className="rounded-md border border-outline-variant px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
-                          disabled={actionLoading}
-                          onClick={() => {
-                            setResubmitTarget(row);
-                            setResubmitEncoding("utf-8");
-                            setResubmitParseSettings("{}");
-                          }}
-                          type="button"
-                        >
-                          Resubmit
-                        </button>
-                      ) : null}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                          {isNonAuditor && row.slice.status === "pending_approval" ? (
+                            <>
+                              <button
+                                className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                                disabled={actionLoading}
+                                onClick={() =>
+                                  void runAction(() =>
+                                    approveFeedSlice(
+                                      token,
+                                      projectId,
+                                      row.sourceDefinitionId,
+                                      row.slice.sourceSliceId,
+                                    ),
+                                  )
+                                }
+                                type="button"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                className="rounded-md border border-error px-3 py-2 text-sm font-semibold text-error disabled:opacity-60"
+                                disabled={actionLoading}
+                                onClick={() => {
+                                  setRejectTarget(row);
+                                  setRejectReason("");
+                                }}
+                                type="button"
+                              >
+                                Reject
+                              </button>
+                            </>
+                          ) : role === "central_team" && row.slice.status === "rejected" ? (
+                            <button
+                              className="rounded-md border border-outline-variant px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
+                              disabled={actionLoading}
+                              onClick={() => {
+                                setResubmitTarget(row);
+                                setResubmitEncoding("utf-8");
+                                setResubmitParseSettings("{}");
+                              }}
+                              type="button"
+                            >
+                              Resubmit
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+
+                    {isExpanded && (
+                      <tr className="bg-slate-50/50">
+                        <td colSpan={6} className="px-6 py-4 border-t border-outline-variant">
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-bold text-slate-800">
+                                Feed Data Profile & Sample Preview ({previewLines.length} rows shown)
+                              </h4>
+                              {(role === "admin" || role === "pm") && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleUnmasked(row.sourceDefinitionId, row.slice.sourceSliceId)}
+                                  className="rounded-md border border-outline-variant bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                >
+                                  {showOriginal[row.slice.sourceSliceId] ? "Show Masked Data" : "Show Original Data"}
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Stats Cards */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                              {[
+                                { label: "Columns", value: headers.length },
+                                { label: "Total Rows", value: activeSlice.rowCount },
+                                { label: "Preview Rows", value: previewLines.length },
+                                { label: "Blank Columns", value: blankColumns.length, alert: blankColumns.length > 0 },
+                              ].map(({ label, value, alert }) => (
+                                <div key={label} className={`rounded-xl border p-3 text-center ${alert ? "border-amber-300 bg-amber-50" : "border-outline-variant bg-white"}`}>
+                                  <div className={`text-lg font-bold ${alert ? "text-amber-700" : "text-slate-900"}`}>{value}</div>
+                                  <div className="text-[9px] uppercase tracking-wider text-slate-500 mt-0.5">{label}</div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* PII badges */}
+                            {headers.length > 0 && (
+                              <div>
+                                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">PII Scan</div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {headers.map((col, i) => {
+                                    const badge = piiLabel(columnPii[i]);
+                                    return (
+                                      <span key={col} className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-medium bg-white ${badge.className}`}>
+                                        {badge.icon} {col}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                                {blankColumns.length > 0 && (
+                                  <p className="mt-2 text-[10px] text-amber-700">
+                                    Blank columns: {blankColumns.join(", ")}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Preview data table */}
+                            {previewLines.length > 0 ? (
+                              <div className="max-h-60 overflow-auto rounded-lg border border-outline-variant bg-white">
+                                <table className="text-left text-[10px] border-collapse font-mono w-full">
+                                  <thead className="bg-slate-50 border-b border-outline-variant sticky top-0">
+                                    <tr>
+                                      {headers.map((col, i) => {
+                                        const badge = piiLabel(columnPii[i]);
+                                        return (
+                                          <th key={i} className="px-3 py-2 font-bold text-slate-700 whitespace-nowrap">
+                                            <span className={badge.className}>{badge.icon}</span> {col}
+                                          </th>
+                                        );
+                                      })}
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {parsedRows.map((cells, rowIdx) => (
+                                      <tr key={rowIdx} className="hover:bg-slate-50/50">
+                                        {headers.map((_, colIdx) => {
+                                          const val = cells[colIdx] ?? "";
+                                          const blank = !val.trim();
+                                          return (
+                                            <td key={colIdx} className={`px-3 py-1.5 whitespace-nowrap ${blank ? "bg-amber-50/50 text-amber-400 italic" : "text-slate-600"}`}>
+                                              {blank ? "—" : val}
+                                            </td>
+                                          );
+                                        })}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : (
+                              <div className="rounded-lg border border-dashed border-outline-variant bg-white px-4 py-6 text-center text-xs text-slate-500">
+                                No preview data available for this slice.
+                              </div>
+                            )}
+
+                            {/* Inline Approval for non-auditors */}
+                            {isNonAuditor && activeSlice.status === "pending_approval" && (
+                              <div className="border-t border-outline-variant pt-4 space-y-2">
+                                <div className="text-xs font-semibold text-slate-800">Decide on this slice version</div>
+                                {approvalError && <p className="text-xs text-red-600">{approvalError}</p>}
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                                  <button
+                                    type="button"
+                                    disabled={inlineApprovalLoading !== null}
+                                    onClick={async () => {
+                                      setInlineApprovalLoading("approve");
+                                      setApprovalError(null);
+                                      try {
+                                        await approveFeedSlice(token, projectId, row.sourceDefinitionId, activeSlice.sourceSliceId);
+                                        await refresh();
+                                        setExpandedSliceId(null);
+                                      } catch (e) {
+                                        setApprovalError(e instanceof Error ? e.message : "Approval failed.");
+                                      } finally {
+                                        setInlineApprovalLoading(null);
+                                      }
+                                    }}
+                                    className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                                  >
+                                    {inlineApprovalLoading === "approve" ? "Approving…" : "Approve"}
+                                  </button>
+                                  <div className="flex flex-1 flex-col gap-1.5">
+                                    <input
+                                      type="text"
+                                      placeholder="Rejection reason (required to reject)"
+                                      value={rejectionReason}
+                                      onChange={(e) => setRejectionReason(e.target.value)}
+                                      className="rounded-lg border border-outline-variant px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 bg-white"
+                                    />
+                                    <button
+                                      type="button"
+                                      disabled={!rejectionReason.trim() || inlineApprovalLoading !== null}
+                                      onClick={async () => {
+                                        setInlineApprovalLoading("reject");
+                                        setApprovalError(null);
+                                        try {
+                                          await rejectFeedSlice(token, projectId, row.sourceDefinitionId, activeSlice.sourceSliceId, rejectionReason.trim());
+                                          await refresh();
+                                          setExpandedSliceId(null);
+                                          setRejectionReason("");
+                                        } catch (e) {
+                                          setApprovalError(e instanceof Error ? e.message : "Rejection failed.");
+                                        } finally {
+                                          setInlineApprovalLoading(null);
+                                        }
+                                      }}
+                                      className="rounded-lg border border-red-300 px-4 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-40 self-start"
+                                    >
+                                      {inlineApprovalLoading === "reject" ? "Rejecting…" : "Reject"}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

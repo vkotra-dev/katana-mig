@@ -30,8 +30,8 @@ def require_pm(user: User) -> None:
 
 
 def require_project_stakeholder(user: User) -> None:
-    if user.role != PROJECT_STAKEHOLDER_ROLE:
-        raise AuthApiError("forbidden", "Business approval requires project_stakeholder role.", 403)
+    if user.role not in {PROJECT_STAKEHOLDER_ROLE, ADMIN_ROLE, PM_ROLE, CENTRAL_TEAM_ROLE}:
+        raise AuthApiError("forbidden", "Business approval requires stakeholder, central team, admin, or PM access.", 403)
 
 
 def require_central_team(user: User) -> None:
