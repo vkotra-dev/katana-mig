@@ -571,7 +571,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                               {showOriginal ? "Original Data Preview" : "Masked Data Preview"}
                             </div>
-                            {(role === "admin" || role === "pm") && (
+                            {(role === "admin" || role === "pm" || role === "central_team") && (
                               <button
                                 onClick={handleToggleShowOriginal}
                                 className="text-[10px] font-semibold text-primary hover:underline"

@@ -196,7 +196,7 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
         </div>
       ) : (
         <div className="space-y-3">
-          {(role === "admin" || role === "pm") && (
+          {(role === "admin" || role === "pm" || role === "central_team") && (
             <div className="flex items-center gap-2 self-start pb-1">
               <label htmlFor="global-toggle-switch" className="relative inline-flex items-center cursor-pointer select-none">
                 <input

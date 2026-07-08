@@ -103,9 +103,9 @@ def get_source_slices(
 ) -> list[FeedSliceResponse]:
     require_project_access(db, user=actor, project_id=project_id)
     if not masked:
-        from ..roles import ADMIN_ROLE, PM_ROLE
-        if actor.role not in {ADMIN_ROLE, PM_ROLE}:
-            raise AuthApiError("forbidden", "Only admin or PM can request unmasked data.", 403)
+        from ..roles import ADMIN_ROLE, PM_ROLE, CENTRAL_TEAM_ROLE
+        if actor.role not in {ADMIN_ROLE, PM_ROLE, CENTRAL_TEAM_ROLE}:
+            raise AuthApiError("forbidden", "Only admin, PM, or operator can request unmasked data.", 403)
     return list_source_slices(db, project_id=project_id, source_definition_id=source_definition_id, masked=masked)
 
 
@@ -120,9 +120,9 @@ def get_source_slice_by_id(
 ) -> FeedSliceResponse:
     require_project_access(db, user=actor, project_id=project_id)
     if not masked:
-        from ..roles import ADMIN_ROLE, PM_ROLE
-        if actor.role not in {ADMIN_ROLE, PM_ROLE}:
-            raise AuthApiError("forbidden", "Only admin or PM can request unmasked data.", 403)
+        from ..roles import ADMIN_ROLE, PM_ROLE, CENTRAL_TEAM_ROLE
+        if actor.role not in {ADMIN_ROLE, PM_ROLE, CENTRAL_TEAM_ROLE}:
+            raise AuthApiError("forbidden", "Only admin, PM, or operator can request unmasked data.", 403)
     return get_source_slice(
         db,
         project_id=project_id,
