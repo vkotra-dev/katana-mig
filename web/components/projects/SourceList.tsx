@@ -104,7 +104,6 @@ export function SourceList({ projectId, token, role, onFeedClick }: SourceListPr
                 <tr key={source.sourceDefinitionId} className="border-t border-outline-variant">
                   <td className="px-4 py-3">
                     <div className="text-sm font-semibold text-slate-900">{source.label}</div>
-                    <div className="mono-id mt-1">{source.sourceDefinitionId}</div>
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-700">{sourceTypeLabel(source.sourceType)}</td>
                   <td className="px-4 py-3 text-sm text-slate-700">{source.encoding}</td>
