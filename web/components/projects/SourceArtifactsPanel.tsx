@@ -88,28 +88,28 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
   // Expanded detail and inline approval states
   const [expandedSliceId, setExpandedSliceId] = useState<string | null>(null);
   const [unmaskedSlices, setUnmaskedSlices] = useState<Record<string, FeedSliceRecord>>({});
-  const [globalShowOriginal, setGlobalShowOriginal] = useState(false);
+  const [showOriginal, setShowOriginal] = useState<Record<string, boolean>>({});
   const [rejectionReason, setRejectionReason] = useState("");
   const [approvalError, setApprovalError] = useState<string | null>(null);
   const [inlineApprovalLoading, setInlineApprovalLoading] = useState<"approve" | "reject" | null>(null);
 
-  useEffect(() => {
-    if (globalShowOriginal && expandedSliceId && !unmaskedSlices[expandedSliceId]) {
-      const targetRow = rows.find((r) => r.slice.sourceSliceId === expandedSliceId);
-      if (targetRow) {
-        listFeedSlices(token, projectId, targetRow.sourceDefinitionId, false)
-          .then((fetchedSlices) => {
-            const target = fetchedSlices.find((s) => s.sourceSliceId === expandedSliceId);
-            if (target) {
-              setUnmaskedSlices((prev) => ({ ...prev, [expandedSliceId]: target }));
-            }
-          })
-          .catch((e: unknown) => {
-            setErrorMessage(e instanceof Error ? e.message : "Failed to load unmasked data.");
-          });
+  const handleToggleUnmasked = async (sourceDefinitionId: string, sliceId: string) => {
+    const currentVal = !!showOriginal[sliceId];
+    const nextVal = !currentVal;
+    setShowOriginal((prev) => ({ ...prev, [sliceId]: nextVal }));
+
+    if (nextVal && !unmaskedSlices[sliceId]) {
+      try {
+        const fetchedSlices = await listFeedSlices(token, projectId, sourceDefinitionId, false);
+        const target = fetchedSlices.find((s) => s.sourceSliceId === sliceId);
+        if (target) {
+          setUnmaskedSlices((prev) => ({ ...prev, [sliceId]: target }));
+        }
+      } catch (e) {
+        setErrorMessage(e instanceof Error ? e.message : "Failed to load unmasked data.");
       }
     }
-  }, [globalShowOriginal, expandedSliceId, rows, token, projectId, unmaskedSlices]);
+  };
 
   const loadRows = async (): Promise<ArtifactRow[]> => {
     const contracts = await listFeedContracts(token, projectId);
@@ -195,26 +195,8 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
           No feed slices yet.
         </div>
       ) : (
-        <div className="space-y-3">
-          {(role === "admin" || role === "pm" || role === "central_team") && (
-            <div className="flex items-center gap-2 self-start pb-1">
-              <label htmlFor="global-toggle-switch" className="relative inline-flex items-center cursor-pointer select-none">
-                <input
-                  id="global-toggle-switch"
-                  type="checkbox"
-                  checked={globalShowOriginal}
-                  onChange={(e) => setGlobalShowOriginal(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-                <span className="ml-2.5 text-xs font-semibold text-slate-700">
-                  {globalShowOriginal ? "Showing original data" : "Showing masked data"}
-                </span>
-              </label>
-            </div>
-          )}
-          <div className="overflow-x-auto rounded-xl border border-outline-variant max-w-full">
-            <table className="w-full border-collapse text-left">
+        <div className="overflow-x-auto rounded-xl border border-outline-variant max-w-full">
+          <table className="w-full border-collapse text-left">
             <thead className="bg-surface">
               <tr className="text-xs uppercase tracking-[0.16em] text-slate-500">
                 <th className="px-4 py-3">Artifact</th>
@@ -228,7 +210,7 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
             <tbody>
               {rows.map((row) => {
                 const isExpanded = expandedSliceId === row.slice.sourceSliceId;
-                const activeSlice = globalShowOriginal && unmaskedSlices[row.slice.sourceSliceId]
+                const activeSlice = showOriginal[row.slice.sourceSliceId] && unmaskedSlices[row.slice.sourceSliceId]
                   ? unmaskedSlices[row.slice.sourceSliceId]
                   : row.slice;
 
@@ -391,36 +373,56 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
 
                             {/* Preview data table */}
                             {previewLines.length > 0 ? (
-                              <div className="max-h-60 max-w-[calc(100vw-8rem)] md:max-w-full overflow-auto rounded-lg border border-outline-variant bg-white">
-                                <table className="text-left text-[10px] border-collapse font-mono w-full">
-                                  <thead className="bg-slate-50 border-b border-outline-variant sticky top-0">
-                                    <tr>
-                                      {headers.map((col, i) => {
-                                        const badge = piiLabel(columnPii[i]);
-                                        return (
-                                          <th key={i} className="px-3 py-2 font-bold text-slate-700 whitespace-nowrap">
-                                            <span className={badge.className}>{badge.icon}</span> {col}
-                                          </th>
-                                        );
-                                      })}
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-slate-100">
-                                    {parsedRows.map((cells, rowIdx) => (
-                                      <tr key={rowIdx} className="hover:bg-slate-50/50">
-                                        {headers.map((_, colIdx) => {
-                                          const val = cells[colIdx] ?? "";
-                                          const blank = !val.trim();
+                              <div className="space-y-2">
+                                {(role === "admin" || role === "pm" || role === "central_team") && (
+                                  <div className="flex items-center gap-2 self-start pb-1">
+                                    <label htmlFor={`toggle-switch-${activeSlice.sourceSliceId}`} className="relative inline-flex items-center cursor-pointer select-none">
+                                      <input
+                                        id={`toggle-switch-${activeSlice.sourceSliceId}`}
+                                        type="checkbox"
+                                        checked={!!showOriginal[activeSlice.sourceSliceId]}
+                                        onChange={() => handleToggleUnmasked(row.sourceDefinitionId, activeSlice.sourceSliceId)}
+                                        className="sr-only peer"
+                                      />
+                                      <div className="w-8 h-4.5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-primary"></div>
+                                      <span className="ml-2 text-[10px] font-semibold text-slate-700">
+                                        {showOriginal[activeSlice.sourceSliceId] ? "Showing original data" : "Showing masked data"}
+                                      </span>
+                                    </label>
+                                  </div>
+                                )}
+
+                                <div className="max-h-60 max-w-[calc(100vw-8rem)] md:max-w-full overflow-auto rounded-lg border border-outline-variant bg-white">
+                                  <table className="text-left text-[10px] border-collapse font-mono w-full">
+                                    <thead className="bg-slate-50 border-b border-outline-variant sticky top-0">
+                                      <tr>
+                                        {headers.map((col, i) => {
+                                          const badge = piiLabel(columnPii[i]);
                                           return (
-                                            <td key={colIdx} className={`px-3 py-1.5 whitespace-nowrap ${blank ? "bg-amber-50/50 text-amber-400 italic" : "text-slate-600"}`}>
-                                              {blank ? "—" : val}
-                                            </td>
+                                            <th key={i} className="px-3 py-2 font-bold text-slate-700 whitespace-nowrap">
+                                              <span className={badge.className}>{badge.icon}</span> {col}
+                                            </th>
                                           );
                                         })}
                                       </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                      {parsedRows.map((cells, rowIdx) => (
+                                        <tr key={rowIdx} className="hover:bg-slate-50/50">
+                                          {headers.map((_, colIdx) => {
+                                            const val = cells[colIdx] ?? "";
+                                            const blank = !val.trim();
+                                            return (
+                                              <td key={colIdx} className={`px-3 py-1.5 whitespace-nowrap ${blank ? "bg-amber-50/50 text-amber-400 italic" : "text-slate-600"}`}>
+                                                {blank ? "—" : val}
+                                              </td>
+                                            );
+                                          })}
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
                               </div>
                             ) : (
                               <div className="rounded-lg border border-dashed border-outline-variant bg-white px-4 py-6 text-center text-xs text-slate-500">
@@ -497,7 +499,6 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
             </tbody>
           </table>
         </div>
-      </div>
       )}
 
       {rejectTarget ? (
