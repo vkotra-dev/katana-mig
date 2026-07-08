@@ -75,6 +75,14 @@ const CENTRAL_TEAM_SESSION = {
   userId: "user-3",
 };
 
+const PM_SESSION = {
+  accessToken: "tok-4",
+  expiresAt: "2027-01-01T00:00:00Z",
+  role: "pm" as const,
+  sessionVersion: 1,
+  userId: "user-4",
+};
+
 const AUDITOR_SESSION = {
   accessToken: "tok-2",
   expiresAt: "2027-01-01T00:00:00Z",
@@ -155,8 +163,8 @@ describe("ProjectDetailPage", () => {
     expect(await screen.findByRole("button", { name: "SQL Bundle" })).toBeInTheDocument();
   });
 
-  it("shows an edit link for central team users", async () => {
-    loadUiSessionMock.mockReturnValue(CENTRAL_TEAM_SESSION);
+  it("shows an edit link for pm users", async () => {
+    loadUiSessionMock.mockReturnValue(PM_SESSION);
     await renderPage("proj-1");
     expect(await screen.findByRole("link", { name: "Edit" })).toHaveAttribute("href", "/projects/proj-1/edit");
   });

@@ -159,7 +159,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             Back to projects
           </button>
 
-          {role === "central_team" ? (
+          {role === "pm" ? (
             <Link
               className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white"
               href={`/projects/${id}/edit`}
