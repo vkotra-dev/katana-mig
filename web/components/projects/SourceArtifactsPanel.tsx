@@ -270,10 +270,10 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
                         <div className="flex flex-wrap gap-2 items-center">
                           <button
                             className="rounded-md border border-outline-variant px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-outline-variant/40"
-                            onClick={() => router.push(`/projects/${projectId}/feeds/${row.sourceDefinitionId}`)}
+                            onClick={() => setExpandedSliceId(isExpanded ? null : row.slice.sourceSliceId)}
                             type="button"
                           >
-                            View details
+                            {isExpanded ? "Hide details" : "View details"}
                           </button>
                           {isNonAuditor && row.slice.status === "pending_approval" ? (
                             <>

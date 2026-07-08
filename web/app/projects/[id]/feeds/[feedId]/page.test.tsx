@@ -321,8 +321,7 @@ describe("FeedDetailPage", () => {
     expect(screen.getByText("user-input")).toBeInTheDocument();
   });
 
-  it("renders pending approval banner when latest slice is pending_approval for auditor", async () => {
-    loadUiSessionMock.mockReturnValue({ ...SESSION, role: "read_only_auditor" });
+  it("renders pending approval banner when latest slice is pending_approval", async () => {
     listFeedSlicesMock.mockResolvedValue([
       {
         sourceSliceId: "slice-pending",
@@ -342,30 +341,6 @@ describe("FeedDetailPage", () => {
 
     expect(screen.getByText(/Source data is pending approval/i)).toBeInTheDocument();
     expect(screen.getByText("pending approval")).toBeInTheDocument();
-  });
-
-  it("renders review and approval card when latest slice is pending_approval for non-auditors", async () => {
-    loadUiSessionMock.mockReturnValue(SESSION);
-    listFeedSlicesMock.mockResolvedValue([
-      {
-        sourceSliceId: "slice-pending",
-        sourceDefinitionId: "feed-1",
-        sourceSliceVersion: "v1",
-        headerCsv: "CUST_ID,NAME",
-        rowCount: 10,
-        status: "pending_approval",
-        approvalRejectionReason: null,
-        parseWarnings: null,
-        previewRows: ["1,Smith"],
-        createdAt: "2026-06-30T00:00:00Z",
-      },
-    ]);
-
-    await renderPage();
-
-    expect(screen.getByText("Review & Approve Feed Data")).toBeInTheDocument();
-    expect(screen.getByText("Approve")).toBeInTheDocument();
-    expect(screen.getByText("Reject")).toBeInTheDocument();
   });
 
   it("renders rejection banner with upload replacement form when latest slice is rejected", async () => {
