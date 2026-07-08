@@ -199,8 +199,8 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
           <table className="w-full border-collapse text-left">
             <thead className="bg-surface">
               <tr className="text-xs uppercase tracking-[0.16em] text-slate-500">
-                <th className="px-4 py-3">Stage</th>
                 <th className="px-4 py-3">Artifact</th>
+                <th className="px-4 py-3">Stage</th>
                 <th className="px-4 py-3">Version</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Produced</th>
@@ -242,20 +242,20 @@ export function SourceArtifactsPanel({ projectId, token, role }: SourceArtifacts
                         setRejectionReason("");
                       }}
                     >
-                      <td className="px-4 py-3 text-sm text-slate-700">Feed intake</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-slate-400 font-mono w-4 text-center">
                             {isExpanded ? "▼" : "▶"}
                           </span>
                           <div>
-                            <div className="text-sm font-semibold text-slate-900">Feed slice</div>
+                            <div className="text-sm font-semibold text-slate-900">{row.sourceLabel}</div>
                             <div className="text-xs text-slate-500">
-                              {row.sourceLabel} · {row.sourceType}
+                              {row.sourceType} · Feed slice
                             </div>
                           </div>
                         </div>
                       </td>
+                      <td className="px-4 py-3 text-sm text-slate-700">Feed intake</td>
                       <td className="px-4 py-3 text-sm text-slate-700">{row.slice.sourceSliceVersion ?? "—"}</td>
                       <td className="px-4 py-3">
                         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClassName(row.slice.status)}`}>
