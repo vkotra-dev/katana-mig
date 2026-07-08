@@ -6,6 +6,7 @@ export interface NavItem {
   href: string;
   active?: boolean;
   badge?: string;
+  children?: NavItem[];
 }
 
 export function navItemsForRole(role: SessionRole): NavItem[] {
@@ -17,6 +18,19 @@ export function navItemsForRole(role: SessionRole): NavItem[] {
   ];
 
   if (canAccessAdmin(role)) {
+    if (role === "admin") {
+      return [
+        ...common,
+        {
+          label: "Admin",
+          href: "/admin",
+          children: [
+            { label: "Manage Users", href: "/admin/users" },
+            { label: "Assign PM to Project", href: "/admin/assign-pm" },
+          ],
+        },
+      ];
+    }
     return [...common, { label: "Admin", href: "/admin" }];
   }
 

@@ -38,6 +38,20 @@ describe("Topbar", () => {
     expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
   });
 
+  it("renders Admin dropdown for admin role and opens sub-items on click", async () => {
+    render(<Topbar role="admin" />);
+    const adminBtn = screen.getByRole("button", { name: /Admin/i });
+    expect(adminBtn).toBeInTheDocument();
+
+    expect(screen.queryByText("Manage Users")).not.toBeInTheDocument();
+    expect(screen.queryByText("Assign PM to Project")).not.toBeInTheDocument();
+
+    fireEvent.click(adminBtn);
+
+    expect(screen.getByText("Manage Users")).toBeInTheDocument();
+    expect(screen.getByText("Assign PM to Project")).toBeInTheDocument();
+  });
+
   it("hides admin and approvals for read-only auditors", () => {
     render(<Topbar role="read_only_auditor" />);
 
