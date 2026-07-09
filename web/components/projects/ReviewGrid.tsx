@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { SignOffStatusRecord } from "../../lib/sign-offs-api";
 
 export interface MappingTableRecord {
   destinationTableName: string;
+  destinationFields?: string[];
   bindings: Array<{
     sourceField: string;
     destinationField: string;
@@ -40,6 +41,142 @@ interface ReviewGridProps {
   onDestinationFieldChange?: (tableName: string, sourceField: string, newDest: string) => void;
   onSignLookup?: (lookupValueMapId: string) => void;
   onUnsignLookup?: (lookupValueMapId: string) => void;
+}
+
+interface AutocompleteInputProps {
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+  className?: string;
+  placeholder?: string;
+}
+
+function AutocompleteInput({
+  value,
+  options,
+  onChange,
+  className = "",
+  placeholder = "",
+}: AutocompleteInputProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState(value);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setQuery(value);
+  }, [value]);
+
+  const filteredOptions = query.trim() === ""
+    ? options
+    : options.filter((opt) =>
+        opt.toLowerCase().includes(query.toLowerCase())
+      );
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setIsOpen(true);
+      setHighlightedIndex((prev) =>
+        prev < filteredOptions.length - 1 ? prev + 1 : 0
+      );
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setIsOpen(true);
+      setHighlightedIndex((prev) =>
+        prev > 0 ? prev - 1 : filteredOptions.length - 1
+      );
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (isOpen && highlightedIndex >= 0 && highlightedIndex < filteredOptions.length) {
+        selectOption(filteredOptions[highlightedIndex]);
+      } else {
+        onChange(query);
+        setIsOpen(false);
+      }
+    } else if (e.key === "Escape") {
+      setIsOpen(false);
+    }
+  };
+
+  const selectOption = (opt: string) => {
+    setQuery(opt);
+    onChange(opt);
+    setIsOpen(false);
+    setHighlightedIndex(-1);
+  };
+
+  return (
+    <div ref={containerRef} className="relative w-full max-w-[240px]">
+      <div className="relative flex items-center">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            onChange(e.target.value);
+            setIsOpen(true);
+            setHighlightedIndex(-1);
+          }}
+          onFocus={() => setIsOpen(true)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          className={`${className} pr-8`}
+        />
+        <button
+          type="button"
+          onClick={() => setIsOpen((prev) => !prev)}
+          className="absolute right-0 top-1/2 -translate-y-1/2 px-2.5 py-1 text-slate-400 hover:text-slate-600 focus:outline-none"
+        >
+          <svg
+            className={`h-3 w-3 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      </div>
+
+      {isOpen && filteredOptions.length > 0 && (
+        <ul className="absolute left-0 right-0 z-[100] mt-1 max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 text-xs shadow-lg ring-1 ring-black/5 focus:outline-none font-mono">
+          {filteredOptions.map((opt, index) => {
+            const isHighlighted = index === highlightedIndex;
+            const isSelected = opt === value;
+            return (
+              <li
+                key={opt}
+                onClick={() => selectOption(opt)}
+                onMouseEnter={() => setHighlightedIndex(index)}
+                className={`relative cursor-pointer select-none px-3 py-1.5 transition-colors ${
+                  isHighlighted
+                    ? "bg-primary text-white"
+                    : isSelected
+                    ? "bg-slate-100 text-slate-900 font-bold"
+                    : "text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                {opt}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 export function ReviewGrid({
@@ -319,11 +456,12 @@ export function ReviewGrid({
                                 </td>
                                 <td className="py-2.5 font-mono text-slate-900 font-medium">
                                   {editingEnabled ? (
-                                    <input
-                                      type="text"
+                                    <AutocompleteInput
                                       value={binding.destinationField}
-                                      onChange={(e) => onDestinationFieldChange?.(table.destinationTableName, binding.sourceField, e.target.value)}
-                                      className="rounded border border-slate-200 bg-white px-2 py-1 font-mono text-xs w-full max-w-[240px] focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                                      options={table.destinationFields || []}
+                                      onChange={(newVal) => onDestinationFieldChange?.(table.destinationTableName, binding.sourceField, newVal)}
+                                      className="rounded border border-slate-200 bg-white px-2 py-1 font-mono text-xs w-full focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                                      placeholder="destination field..."
                                     />
                                   ) : (
                                     binding.destinationField

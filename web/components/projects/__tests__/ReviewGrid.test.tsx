@@ -82,4 +82,47 @@ describe("ReviewGrid", () => {
 
     expect(onRequestRevision).toHaveBeenCalledWith("Please verify status A mappings");
   });
+
+  it("renders AutocompleteInput and calls onDestinationFieldChange when option is selected", () => {
+    const onDestinationFieldChange = vi.fn();
+    const testProps = {
+      ...props,
+      editingEnabled: true,
+      onDestinationFieldChange,
+      mappingTables: [
+        {
+          destinationTableName: "accounts",
+          destinationFields: ["id", "status_id", "name", "created_at"],
+          bindings: [
+            {
+              sourceField: "src_id",
+              destinationField: "id",
+              bindingType: "direct" as const,
+            },
+          ],
+        },
+      ],
+    };
+
+    render(<ReviewGrid {...testProps} />);
+
+    // Expand the accounts accordion
+    fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
+
+    // Find the input field
+    const input = screen.getByPlaceholderText("destination field...") as HTMLInputElement;
+    expect(input).toBeInTheDocument();
+    expect(input.value).toBe("id");
+
+    // Click input to open dropdown or type
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "stat" } });
+
+    // Find dropdown option "status_id" and click it
+    const option = screen.getByText("status_id");
+    expect(option).toBeInTheDocument();
+    fireEvent.click(option);
+
+    expect(onDestinationFieldChange).toHaveBeenCalledWith("accounts", "src_id", "status_id");
+  });
 });

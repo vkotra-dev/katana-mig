@@ -239,6 +239,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
     if (!mappingTablesMap[tblName]) {
       mappingTablesMap[tblName] = {
         destinationTableName: tblName,
+        destinationFields: snapshot.destinationFields || [],
         bindings: [],
       };
     }

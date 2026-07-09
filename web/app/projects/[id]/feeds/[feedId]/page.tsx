@@ -296,7 +296,11 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
   for (const snapshot of allMappingSnapshots) {
     const tblName = snapshot.destinationObjectName;
     if (!mappingTablesMap[tblName]) {
-      mappingTablesMap[tblName] = { destinationTableName: tblName, bindings: [] };
+      mappingTablesMap[tblName] = {
+        destinationTableName: tblName,
+        destinationFields: snapshot.destinationFields || [],
+        bindings: [],
+      };
     }
     for (const binding of snapshot.fieldBindings) {
       mappingTablesMap[tblName].bindings.push({
