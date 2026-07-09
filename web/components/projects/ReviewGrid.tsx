@@ -126,11 +126,14 @@ function AutocompleteInput({
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
-            onChange(e.target.value);
             setIsOpen(true);
             setHighlightedIndex(-1);
           }}
           onFocus={() => setIsOpen(true)}
+          onBlur={() => {
+            onChange(query);
+            setIsOpen(false);
+          }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className={`${className} pr-8`}
@@ -159,6 +162,10 @@ function AutocompleteInput({
             return (
               <li
                 key={opt}
+                onMouseDown={(e) => {
+                  e.preventDefault(); // Prevents input blur before selection
+                  selectOption(opt);
+                }}
                 onClick={() => selectOption(opt)}
                 onMouseEnter={() => setHighlightedIndex(index)}
                 className={`relative cursor-pointer select-none px-3 py-1.5 transition-colors ${

@@ -171,6 +171,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
   };
 
   const handleDestinationFieldChange = async (tableName: string, sourceField: string, newDest: string) => {
+    setError(null);
     // 1. Instantly update the input field value in local state for zero lag
     setMappingSnapshots((prev) =>
       prev.map((snapshot) => {
