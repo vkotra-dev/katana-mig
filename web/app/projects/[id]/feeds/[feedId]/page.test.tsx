@@ -213,7 +213,7 @@ describe("FeedDetailPage", () => {
     });
   });
 
-  it("allows central_team to edit destination field and save", async () => {
+  it("renders destination field as plain text and is read-only", async () => {
     listFeedSlicesMock.mockResolvedValue([]);
     const snapshotWithMultipleCols = {
       ...DRAFT_SNAPSHOT,
@@ -226,51 +226,25 @@ describe("FeedDetailPage", () => {
     // Expand accordion
     fireEvent.click(screen.getByRole("button", { name: /users\s+\d+\s+fields$/i }));
 
-    // Select should be present
-    const select = screen.getByRole("combobox");
-    expect(select).toBeInTheDocument();
-    expect(select).toHaveValue("status_id");
-
-    // Change value
-    fireEvent.change(select, { target: { value: "status_desc" } });
-    expect(select).toHaveValue("status_desc");
-
-    // Save button should be rendered and clickable
-    const saveBtn = screen.getByRole("button", { name: "Save" });
-    expect(saveBtn).toBeInTheDocument();
-    fireEvent.click(saveBtn);
-
-    await waitFor(() => {
-      expect(patchMappingSnapshotMock).toHaveBeenCalledWith(
-        "token-1",
-        "proj-1",
-        "feed-1",
-        [
-          {
-            sourceField: "src_status",
-            destinationField: "status_desc",
-            lookupName: "status_map",
-            bindingType: "lookup_fk",
-            referenceTableName: "status_ref",
-            destinationTableName: undefined
-          }
-        ],
-        "users"
-      );
-    });
+    // Select should not be present
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    // Destination field text should be present
+    expect(screen.getByText("status_id")).toBeInTheDocument();
+    // Save button should not be present
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
   });
 
-  it("allows central_team to submit mapping for review", async () => {
+  it("renders 'Go to review page' button when mapping snapshots exist", async () => {
     listFeedSlicesMock.mockResolvedValue([]);
     getAllApprovedMappingSnapshotsMock.mockResolvedValue([DRAFT_SNAPSHOT]);
 
     await renderPage();
 
-    const submitBtn = screen.getByRole("button", { name: "Submit for review" });
-    expect(submitBtn).toBeInTheDocument();
-    fireEvent.click(submitBtn);
+    const reviewBtn = screen.getByRole("button", { name: "Go to review page" });
+    expect(reviewBtn).toBeInTheDocument();
+    fireEvent.click(reviewBtn);
 
-    expect(screen.getByText("Mapping submitted for business review.")).toBeInTheDocument();
+    expect(routerPushMock).toHaveBeenCalledWith("/projects/proj-1/feeds/feed-1/review");
   });
 
   it("allows central_team to edit and save mapping hints", async () => {
