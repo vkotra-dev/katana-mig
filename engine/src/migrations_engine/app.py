@@ -31,9 +31,11 @@ from .routes.fibers import feeds_router as fiber_analysis_router
 from .routes.reconciliation import router as reconciliation_router
 from .routes.feeds import router as feeds_router
 from .routes.feed_comments import router as feed_comments_router
+from .routes.feed_slice_comments import router as feed_slice_comments_router
 from .routes.feed_slice_approval import router as feed_slice_approval_router
 from .routes.notifications import router as notifications_router
 from .routes.users import router as users_router
+from .routes.sign_offs import router as sign_offs_router
 
 
 def _validate_runtime_settings(settings: object) -> None:
@@ -75,8 +77,10 @@ app.include_router(fiber_analysis_router)
 app.include_router(reconciliation_router)
 app.include_router(feeds_router)
 app.include_router(feed_comments_router)
+app.include_router(feed_slice_comments_router)
 app.include_router(feed_slice_approval_router)
 app.include_router(notifications_router)
+app.include_router(sign_offs_router)
 
 
 @app.exception_handler(AuthApiError)

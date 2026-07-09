@@ -218,12 +218,13 @@ def test_source_slice_display_time_masking_and_gating(admin_token: str, pm_token
     assert get_slice_by_id_default.status_code == 200
     assert get_slice_by_id_default.json()["preview_rows"][0] == "100042,***,***,DATABASE"
 
-    # 4. Get with masked=False as operator (role="central_team") -> Should fail with 403 Forbidden
+    # 4. Get with masked=False as operator (role="central_team") -> Should succeed now
     get_slices_unmasked_operator = client.get(
         f"/projects/{project['project_id']}/sources/{source['source_definition_id']}/slices?masked=false",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert get_slices_unmasked_operator.status_code == 403
+    assert get_slices_unmasked_operator.status_code == 200
+    assert get_slices_unmasked_operator.json()[0]["preview_rows"][0] == "100042,Smith,19800101,DATABASE"
 
     # 5. Get with masked=False as PM -> Should succeed and return unmasked
     get_slices_unmasked_pm = client.get(

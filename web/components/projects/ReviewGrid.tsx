@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { SignOffStatusRecord } from "../../lib/sign-offs-api";
 
 export interface MappingTableRecord {
   destinationTableName: string;
@@ -15,6 +16,7 @@ export interface MappingTableRecord {
 export interface LookupValueGroup {
   lookupName: string;
   referenceTableName: string;
+  lookupValueMapId?: string;
   pairs: Array<{
     sourceValue: string;
     destinationRow: Record<string, unknown>;
@@ -30,6 +32,14 @@ interface ReviewGridProps {
   unmappedSourceFields?: string[];
   onApprove?: () => void;           // present for business_user only
   onRequestRevision?: (comment: string) => void;
+  signOffStatus?: SignOffStatusRecord;
+  currentUserRole?: string;
+  editingEnabled?: boolean;
+  onSignBinding?: (tableName: string, sourceField: string) => void;
+  onUnsignBinding?: (tableName: string, sourceField: string) => void;
+  onDestinationFieldChange?: (tableName: string, sourceField: string, newDest: string) => void;
+  onSignLookup?: (lookupValueMapId: string) => void;
+  onUnsignLookup?: (lookupValueMapId: string) => void;
 }
 
 export function ReviewGrid({
@@ -39,10 +49,144 @@ export function ReviewGrid({
   unmappedSourceFields = [],
   onApprove,
   onRequestRevision,
+  signOffStatus,
+  currentUserRole,
+  editingEnabled = false,
+  onSignBinding,
+  onUnsignBinding,
+  onDestinationFieldChange,
+  onSignLookup,
+  onUnsignLookup,
 }: ReviewGridProps) {
   const [expandedTables, setExpandedTables] = useState<Record<string, boolean>>({});
   const [revisionOpen, setRevisionOpen] = useState(false);
   const [revisionComment, setRevisionComment] = useState("");
+
+  const renderSignOffChips = (tableName: string, sourceField: string) => {
+    if (!signOffStatus) return null;
+    const bindingStatus = signOffStatus.bindings[tableName]?.[sourceField];
+    if (!bindingStatus) return null;
+
+    const op = bindingStatus.centralTeam;
+    const st = bindingStatus.projectStakeholder;
+
+    const handleSignClick = () => {
+      if (currentUserRole === "central_team") {
+        if (op.signed) {
+          onUnsignBinding?.(tableName, sourceField);
+        } else {
+          onSignBinding?.(tableName, sourceField);
+        }
+      } else if (currentUserRole === "project_stakeholder") {
+        if (st.signed) {
+          onUnsignBinding?.(tableName, sourceField);
+        } else {
+          onSignBinding?.(tableName, sourceField);
+        }
+      }
+    };
+
+    const showSignButton =
+      (currentUserRole === "central_team" || currentUserRole === "project_stakeholder");
+
+    return (
+      <div className="flex items-center gap-1.5 font-sans">
+        <span
+          title={op.signed && op.signedAt ? `Signed at ${op.signedAt} by ${op.userId}` : "Unsigned"}
+          className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-semibold ${
+            op.signed ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-slate-100 text-slate-400 border border-slate-200"
+          }`}
+        >
+          OP {op.signed ? "✓" : "—"}
+        </span>
+
+        <span
+          title={st.signed && st.signedAt ? `Signed at ${st.signedAt} by ${st.userId}` : "Unsigned"}
+          className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-semibold ${
+            st.signed ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-slate-100 text-slate-400 border border-slate-200"
+          }`}
+        >
+          ST {st.signed ? "✓" : "—"}
+        </span>
+
+        {showSignButton && (
+          <button
+            type="button"
+            onClick={handleSignClick}
+            className="text-[9px] font-bold text-primary hover:underline focus:outline-none"
+          >
+            {((currentUserRole === "central_team" && op.signed) ||
+              (currentUserRole === "project_stakeholder" && st.signed))
+              ? "Unsign"
+              : "Sign off"}
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  const renderLookupSignOffChips = (lookupValueMapId: string) => {
+    if (!signOffStatus) return null;
+    const lookupStatus = signOffStatus.lookups[lookupValueMapId];
+    if (!lookupStatus) return null;
+
+    const op = lookupStatus.centralTeam;
+    const st = lookupStatus.projectStakeholder;
+
+    const handleSignClick = () => {
+      if (currentUserRole === "central_team") {
+        if (op.signed) {
+          onUnsignLookup?.(lookupValueMapId);
+        } else {
+          onSignLookup?.(lookupValueMapId);
+        }
+      } else if (currentUserRole === "project_stakeholder") {
+        if (st.signed) {
+          onUnsignLookup?.(lookupValueMapId);
+        } else {
+          onSignLookup?.(lookupValueMapId);
+        }
+      }
+    };
+
+    const showSignButton =
+      (currentUserRole === "central_team" || currentUserRole === "project_stakeholder");
+
+    return (
+      <div className="flex items-center gap-1.5 font-sans">
+        <span
+          title={op.signed && op.signedAt ? `Signed at ${op.signedAt} by ${op.userId}` : "Unsigned"}
+          className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-semibold ${
+            op.signed ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-slate-100 text-slate-400 border border-slate-200"
+          }`}
+        >
+          OP {op.signed ? "✓" : "—"}
+        </span>
+
+        <span
+          title={st.signed && st.signedAt ? `Signed at ${st.signedAt} by ${st.userId}` : "Unsigned"}
+          className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-semibold ${
+            st.signed ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-slate-100 text-slate-400 border border-slate-200"
+          }`}
+        >
+          ST {st.signed ? "✓" : "—"}
+        </span>
+
+        {showSignButton && (
+          <button
+            type="button"
+            onClick={handleSignClick}
+            className="text-[9px] font-bold text-primary hover:underline focus:outline-none"
+          >
+            {((currentUserRole === "central_team" && op.signed) ||
+              (currentUserRole === "project_stakeholder" && st.signed))
+              ? "Unsign"
+              : "Sign off"}
+          </button>
+        )}
+      </div>
+    );
+  };
 
   const toggleTable = (tableName: string) => {
     setExpandedTables((current) => ({
@@ -151,6 +295,7 @@ export function ReviewGrid({
                               <th className="py-2">Source Field</th>
                               <th className="py-2">Destination Field</th>
                               <th className="py-2">Type</th>
+                              {signOffStatus && <th className="py-2">Sign Off</th>}
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
@@ -173,9 +318,23 @@ export function ReviewGrid({
                                   })()}
                                 </td>
                                 <td className="py-2.5 font-mono text-slate-900 font-medium">
-                                  {binding.destinationField}
+                                  {editingEnabled ? (
+                                    <input
+                                      type="text"
+                                      value={binding.destinationField}
+                                      onChange={(e) => onDestinationFieldChange?.(table.destinationTableName, binding.sourceField, e.target.value)}
+                                      className="rounded border border-slate-200 bg-white px-2 py-1 font-mono text-xs w-full max-w-[240px] focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                                    />
+                                  ) : (
+                                    binding.destinationField
+                                  )}
                                 </td>
                                 <td className="py-2.5">{getBindingBadge(binding.bindingType)}</td>
+                                {signOffStatus && (
+                                  <td className="py-2.5">
+                                    {renderSignOffChips(table.destinationTableName, binding.sourceField)}
+                                  </td>
+                                )}
                               </tr>
                             ))}
                           </tbody>
@@ -244,7 +403,10 @@ export function ReviewGrid({
               >
                 <div className="flex items-center justify-between border-b border-slate-200/60 pb-3">
                   <div className="space-y-1">
-                    <h4 className="text-base font-bold text-slate-900">{group.lookupName}</h4>
+                    <h4 className="text-base font-bold text-slate-900 flex items-center gap-3">
+                      <span>{group.lookupName}</span>
+                      {group.lookupValueMapId && renderLookupSignOffChips(group.lookupValueMapId)}
+                    </h4>
                     <p className="text-xs text-slate-500">
                       Maps to reference table:{" "}
                       <span className="font-mono text-slate-700 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">

@@ -7,6 +7,7 @@ import {
   getAllApprovedMappingSnapshots,
   approveMappingSnapshot,
   rejectMappingSnapshot,
+  patchMappingSnapshot,
   type MappingSnapshotRecord,
 } from "../../../../../../lib/mapping-api";
 import {
@@ -17,6 +18,17 @@ import { listFeedSlices } from "../../../../../../lib/feeds-api";
 import { loadUiSession, type SessionRole, type UiSession } from "../../../../../../lib/session";
 import { ReviewGrid, type MappingTableRecord, type LookupValueGroup } from "../../../../../../components/projects/ReviewGrid";
 import { splitCsvRow } from "../../../../../../lib/csv-utils";
+import {
+  getSignOffStatus,
+  signBinding,
+  unsignBinding,
+  signLookup,
+  unsignLookup,
+  pushForReview,
+  pokeReviewer,
+  type SignOffStatusRecord,
+} from "../../../../../../lib/sign-offs-api";
+import { FeedCommentThread } from "../../../../../../components/feeds/FeedCommentThread";
 
 export default function ReviewPage({ params }: { params: Promise<{ id: string; feedId: string }> }) {
   const router = useRouter();
@@ -32,6 +44,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
   const [lookupMaps, setLookupMaps] = useState<LookupValueMapRecord[]>([]);
   const [sampleValues, setSampleValues] = useState<Record<string, string[]>>({});
   const [allSourceColumns, setAllSourceColumns] = useState<string[]>([]);
+  const [signOffStatus, setSignOffStatus] = useState<SignOffStatusRecord | null>(null);
 
   useEffect(() => {
     const s = loadUiSession();
@@ -41,16 +54,17 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
     }
   }, []);
 
-
   const loadData = async (token: string) => {
     try {
-      const [snapshotsData, mapsData, slicesData] = await Promise.all([
+      const [snapshotsData, mapsData, slicesData, statusData] = await Promise.all([
         getAllApprovedMappingSnapshots(token, projectId, feedId, true),
         listLookupValueMaps(token, projectId, feedId),
         listFeedSlices(token, projectId, feedId),
+        getSignOffStatus(token, projectId, feedId),
       ]);
       setMappingSnapshots(snapshotsData);
       setLookupMaps(mapsData);
+      setSignOffStatus(statusData);
 
       const approvedSlice = slicesData
         .filter((s) => s.status === "approved")
@@ -116,6 +130,108 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
     }
   };
 
+  const handleSignBinding = async (tableName: string, sourceField: string) => {
+    if (!session) return;
+    try {
+      const updated = await signBinding(session.accessToken, projectId, feedId, tableName, sourceField);
+      setSignOffStatus(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to sign field binding.");
+    }
+  };
+
+  const handleUnsignBinding = async (tableName: string, sourceField: string) => {
+    if (!session) return;
+    try {
+      const updated = await unsignBinding(session.accessToken, projectId, feedId, tableName, sourceField);
+      setSignOffStatus(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to unsign field binding.");
+    }
+  };
+
+  const handleSignLookup = async (lookupValueMapId: string) => {
+    if (!session) return;
+    try {
+      const updated = await signLookup(session.accessToken, projectId, feedId, lookupValueMapId);
+      setSignOffStatus(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to sign lookup mapping.");
+    }
+  };
+
+  const handleUnsignLookup = async (lookupValueMapId: string) => {
+    if (!session) return;
+    try {
+      const updated = await unsignLookup(session.accessToken, projectId, feedId, lookupValueMapId);
+      setSignOffStatus(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to unsign lookup mapping.");
+    }
+  };
+
+  const handleDestinationFieldChange = async (tableName: string, sourceField: string, newDest: string) => {
+    // 1. Instantly update the input field value in local state for zero lag
+    setMappingSnapshots((prev) =>
+      prev.map((snapshot) => {
+        if (snapshot.destinationObjectName !== tableName) return snapshot;
+        return {
+          ...snapshot,
+          fieldBindings: snapshot.fieldBindings.map((binding) => {
+            if (binding.sourceField !== sourceField) return binding;
+            return { ...binding, destinationField: newDest };
+          }),
+        };
+      })
+    );
+
+    // 2. Commit the patched bindings in the background
+    if (!session) return;
+    try {
+      const targetSnapshot = mappingSnapshots.find((s) => s.destinationObjectName === tableName);
+      if (!targetSnapshot) return;
+
+      const updatedBindings = targetSnapshot.fieldBindings.map((binding) => {
+        if (binding.sourceField === sourceField) {
+          return { sourceField: binding.sourceField, destinationField: newDest, lookupName: binding.lookupName };
+        }
+        return { sourceField: binding.sourceField, destinationField: binding.destinationField, lookupName: binding.lookupName };
+      });
+
+      await patchMappingSnapshot(session.accessToken, projectId, feedId, updatedBindings, tableName);
+
+      // Sign-off status automatically resets in the DB for modified fields, fetch the new status
+      const updated = await getSignOffStatus(session.accessToken, projectId, feedId);
+      setSignOffStatus(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update destination field binding.");
+    }
+  };
+
+  const handlePushForReview = async () => {
+    if (!session) return;
+    setLoading(true);
+    try {
+      const updated = await pushForReview(session.accessToken, projectId, feedId);
+      setSignOffStatus(updated);
+      setNotice("Mappings successfully pushed to review state!");
+      await loadData(session.accessToken);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to push mappings for review.");
+      setLoading(false);
+    }
+  };
+
+  const handlePoke = async () => {
+    if (!session || !signOffStatus?.currentBallRole) return;
+    try {
+      await pokeReviewer(session.accessToken, projectId, feedId, signOffStatus.currentBallRole);
+      setNotice(`Sent review poke notification to ${signOffStatus.currentBallRole === "central_team" ? "Central Team" : "Project Stakeholders"}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send poke notification.");
+    }
+  };
+
   // Build props for ReviewGrid
   const mappingTablesMap: Record<string, MappingTableRecord> = {};
   for (const snapshot of mappingSnapshots) {
@@ -165,6 +281,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
         lookupGroups.push({
           lookupName: binding.lookupName,
           referenceTableName: refTable,
+          lookupValueMapId: latestMap?.lookupValueMapId,
           pairs,
         });
       }
@@ -181,14 +298,18 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
     ? "rejected"
     : "draft";
 
-  // Only project_stakeholder has decision controls in this version
-  const showControls = role === "project_stakeholder" && mappingSnapshots.some(s => s.status === "draft");
+  // Check editing and notification controls
+  const isAnyDraft = mappingSnapshots.some(s => s.status === "draft");
+  const editingEnabled = signOffStatus?.currentBallRole === role && isAnyDraft;
+  const showPushReviewButton = editingEnabled && signOffStatus?.complete;
+  const showStakeholderActionButtons = role === "project_stakeholder" && isAnyDraft;
+  const showPokeButton = (role === "pm" || role === "admin") && isAnyDraft;
 
   return (
     <main className="flex min-h-screen flex-col bg-surface text-slate-800">
       <Topbar role={role} />
-      
-      <section className="mx-auto w-full max-w-[1200px] flex-1 px-6 py-6 space-y-6">
+
+      <section className="mx-auto w-full max-w-[1400px] flex-1 px-6 py-6 space-y-6">
         <div className="flex items-center justify-between">
           <button
             onClick={() => {
@@ -203,7 +324,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
           >
             Back to {role === "project_stakeholder" ? "project" : "workspace"}
           </button>
-          
+
           <div className="flex flex-col items-end">
             <h1 className="text-xl font-bold text-slate-900">Review Mappings & Lookups</h1>
             {aggregateStatus && (
@@ -232,32 +353,91 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
           </div>
         )}
 
+        {mappingSnapshots.some(s => s.status === "draft") && signOffStatus && (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-base">ℹ️</span>
+              <div>
+                <p className="text-sm font-medium text-slate-700">
+                  Editing ball: <span className="font-bold uppercase">{signOffStatus.currentBallRole?.replace("_", " ")}</span>
+                </p>
+                <p className="text-xs text-slate-500">
+                  {editingEnabled
+                    ? "You hold the ball. You can make inline edits, sign off, and push to review."
+                    : `Viewing read-only. Edit control currently resides with the ${signOffStatus.currentBallRole?.replace("_", " ")}.`}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {showPushReviewButton && (
+                <button
+                  onClick={handlePushForReview}
+                  className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white shadow hover:bg-primary-hover focus:outline-none"
+                  type="button"
+                >
+                  Push for Review
+                </button>
+              )}
+              {showPokeButton && (
+                <button
+                  onClick={handlePoke}
+                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none"
+                  type="button"
+                >
+                  Poke Reviewer ({signOffStatus.currentBallRole === "central_team" ? "Central Team" : "Stakeholders"})
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="rounded-2xl border border-outline-variant bg-surface-container p-8 text-sm text-slate-600">
             Loading review grids...
           </div>
         ) : (
-          <div className="bg-surface-container border border-outline-variant rounded-2xl p-6 shadow-sm">
-            {representativeSnapshot ? (
-              (() => {
-                const boundSet = new Set(mappingSnapshots.flatMap((s) => s.fieldBindings || []).map((b) => b.sourceField.toLowerCase()));
-                const unmappedSourceFields = allSourceColumns.filter((h) => h && h.trim() && !boundSet.has(h.trim().toLowerCase()));
-                return (
-                  <ReviewGrid
-                    mappingTables={mappingTables}
-                    lookupGroups={lookupGroups}
-                    sampleValues={sampleValues}
-                    unmappedSourceFields={unmappedSourceFields}
-                    onApprove={showControls ? handleApprove : undefined}
-                    onRequestRevision={showControls ? handleRequestRevision : undefined}
-                  />
-                );
-              })()
-            ) : (
-              <div className="text-sm text-slate-500 text-center py-12">
-                No mapping snapshot has been proposed yet for this feed.
-              </div>
-            )}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 bg-surface-container border border-outline-variant rounded-2xl p-6 shadow-sm">
+              {representativeSnapshot ? (
+                (() => {
+                  const boundSet = new Set(mappingSnapshots.flatMap((s) => s.fieldBindings || []).map((b) => b.sourceField.toLowerCase()));
+                  const unmappedSourceFields = allSourceColumns.filter((h) => h && h.trim() && !boundSet.has(h.trim().toLowerCase()));
+                  return (
+                    <ReviewGrid
+                      mappingTables={mappingTables}
+                      lookupGroups={lookupGroups}
+                      sampleValues={sampleValues}
+                      unmappedSourceFields={unmappedSourceFields}
+                      onApprove={showStakeholderActionButtons ? handleApprove : undefined}
+                      onRequestRevision={showStakeholderActionButtons ? handleRequestRevision : undefined}
+                      signOffStatus={signOffStatus || undefined}
+                      currentUserRole={role}
+                      editingEnabled={editingEnabled}
+                      onSignBinding={handleSignBinding}
+                      onUnsignBinding={handleUnsignBinding}
+                      onDestinationFieldChange={handleDestinationFieldChange}
+                      onSignLookup={handleSignLookup}
+                      onUnsignLookup={handleUnsignLookup}
+                    />
+                  );
+                })()
+              ) : (
+                <div className="text-sm text-slate-500 text-center py-12">
+                  No mapping snapshot has been proposed yet for this feed.
+                </div>
+              )}
+            </div>
+
+            <div className="bg-surface-container border border-outline-variant rounded-2xl p-6 shadow-sm h-fit">
+              {session && (
+                <FeedCommentThread
+                  feedId={feedId}
+                  projectId={projectId}
+                  token={session.accessToken}
+                />
+              )}
+            </div>
           </div>
         )}
       </section>

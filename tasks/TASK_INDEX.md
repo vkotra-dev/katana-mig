@@ -2,7 +2,10 @@
 
 ## Ready
 
-*No pending tasks.*
+| Task | Summary |
+|---|---|
+| [001cl-review-page-edit-and-feed-thread](./001cl-review-page-edit-and-feed-thread.md) | Multi-party sign-off per binding/lookup, inbox-gated edit, PM poke, feed thread on review page, codegen context |
+| [001cm-slice-comment-thread](./001cm-slice-comment-thread.md) | FeedSliceComment model + thread on slice approval screen + codegen context injection |
 
 ## Completed
 

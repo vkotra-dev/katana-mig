@@ -352,6 +352,22 @@ class FeedCommentResponse(BaseModel):
     created_at: datetime
 
 
+class FeedSliceCommentCreateRequest(BaseModel):
+    body: str = Field(min_length=1)
+
+
+class FeedSliceCommentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    comment_id: str
+    source_slice_id: str
+    user_id: str
+    display_name: str | None
+    role: str
+    body: str
+    created_at: datetime
+
+
 class FiberCreateRequest(BaseModel):
     fiber_type: Literal["lookup", "domain_object"]
     fiber_key: str = Field(min_length=1, max_length=255)
@@ -561,6 +577,7 @@ class MappingSnapshotResponse(BaseModel):
     mapping_snapshot_version: str
     field_bindings: list[MappingFieldBindingResponse]
     status: str
+    current_ball_role: str | None = None
     approved_at: datetime | None
     approved_by_user_id: str | None
     created_at: datetime
@@ -822,3 +839,35 @@ class ReconciliationExportResponse(BaseModel):
     overall_status: Literal["in_progress", "pass", "fail"]
     row_count_summary: RowCountSummary | None
     lineage_rows: list[LineageRowResponse]
+
+
+class BindingSignOffEntry(BaseModel):
+    signed: bool
+    signed_at: datetime | None = None
+    user_id: str | None = None
+
+
+class BindingSignOffStatus(BaseModel):
+    central_team: BindingSignOffEntry
+    project_stakeholder: BindingSignOffEntry
+
+
+class SignOffStatusResponse(BaseModel):
+    complete: bool
+    current_ball_role: str | None = None
+    bindings: dict[str, dict[str, BindingSignOffStatus]]
+    lookups: dict[str, dict[str, BindingSignOffEntry]]
+
+
+class SignBindingRequest(BaseModel):
+    destination_object_name: str
+    source_field: str
+
+
+class UnsignBindingRequest(BaseModel):
+    destination_object_name: str
+    source_field: str
+
+
+class PokeRequest(BaseModel):
+    target_role: Literal["central_team", "project_stakeholder"]

@@ -369,6 +369,7 @@ class MappingSnapshot(Base):
     field_bindings: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
     destination_fields: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="approved")
+    current_ball_role: Mapped[str | None] = mapped_column(String(50), nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     approved_by_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.user_id"))
     ai_trace: Mapped[dict | None] = mapped_column(JSON, nullable=True)
@@ -665,4 +666,62 @@ class Notification(Base):
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
+    )
+
+
+class MappingBindingSignOff(Base):
+    __tablename__ = "mapping_binding_sign_offs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    mapping_snapshot_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("mapping_snapshots.mapping_snapshot_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    destination_object_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    source_field: Mapped[str] = mapped_column(String(255), nullable=False)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    role: Mapped[str] = mapped_column(String(50), nullable=False)
+    signed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "mapping_snapshot_id",
+            "destination_object_name",
+            "source_field",
+            "user_id",
+            name="uq_mapping_binding_sign_off",
+        ),
+    )
+
+
+class LookupSignOff(Base):
+    __tablename__ = "lookup_sign_offs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    lookup_value_map_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("lookup_value_maps.lookup_value_map_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    role: Mapped[str] = mapped_column(String(50), nullable=False)
+    signed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint("lookup_value_map_id", "user_id", name="uq_lookup_sign_off"),
+    )
+
+
+class FeedSliceComment(Base):
+    __tablename__ = "feed_slice_comments"
+
+    comment_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    source_slice_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("source_slices.source_slice_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.user_id"), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )

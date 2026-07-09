@@ -20,9 +20,7 @@ import {
 import {
   getAllApprovedMappingSnapshots,
   proposeMappingSnapshot,
-  patchMappingSnapshot,
   type MappingSnapshotRecord,
-  type MappingFieldBindingRecord,
 } from "../../../../../lib/mapping-api";
 import {
   listLookupValueMaps,
@@ -33,6 +31,7 @@ import {
 import { loadUiSession, type SessionRole, type UiSession } from "../../../../../lib/session";
 import { ReviewGrid, type MappingTableRecord, type LookupValueGroup } from "../../../../../components/projects/ReviewGrid";
 import { splitCsvRow } from "../../../../../lib/csv-utils";
+import { FeedSliceCommentThread } from "../../../../../components/feeds/FeedSliceCommentThread";
 
 export default function FeedDetailPage({ params }: { params: Promise<{ id: string; feedId: string }> }) {
   const router = useRouter();
@@ -59,9 +58,6 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
   // Lookup fibers drafts state
   const [lookupDrafts, setLookupDrafts] = useState<Record<string, { sourceText: string; destText: string; analyzing: boolean; error: string | null }>>({});
 
-  // Mapping edits state
-  const [bindingEdits, setBindingEdits] = useState<Record<string, MappingFieldBindingRecord[]>>({});
-  const [savingTable, setSavingTable] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   // Hints state
@@ -164,66 +160,6 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
       setAnalysisError(err instanceof Error ? err.message : "Unable to trigger AI analysis.");
     } finally {
       setAnalyzing(false);
-    }
-  };
-
-  const updateBindingEdit = (tblName: string, idx: number, newDestField: string) => {
-    setBindingEdits(prev => {
-      const snapshot = allMappingSnapshots.find(s => s.destinationObjectName === tblName);
-      if (!snapshot) return prev;
-      
-      const currentBindings = prev[tblName] || snapshot.fieldBindings.map(b => ({ ...b }));
-      const updatedBindings = [...currentBindings];
-      updatedBindings[idx] = {
-        ...updatedBindings[idx],
-        destinationField: newDestField
-      };
-      return {
-        ...prev,
-        [tblName]: updatedBindings
-      };
-    });
-  };
-
-  const handleSaveBindings = async (tblName: string) => {
-    if (!session) return;
-    const edits = bindingEdits[tblName];
-    if (!edits) return;
-    
-    setSavingTable(tblName);
-    setError(null);
-    setNotice(null);
-    try {
-      await patchMappingSnapshot(
-        session.accessToken,
-        projectId,
-        feedId,
-        edits.map(b => ({
-          sourceField: b.sourceField,
-          destinationField: b.destinationField,
-          lookupName: b.lookupName,
-          bindingType: b.bindingType,
-          referenceTableName: b.referenceTableName,
-          destinationTableName: b.destinationTableName
-        })),
-        tblName
-      );
-      
-      // Clear edits for this table immediately
-      setBindingEdits(prev => {
-        const next = { ...prev };
-        delete next[tblName];
-        return next;
-      });
-      
-      // Reload snapshots
-      const snapshotsData = await getAllApprovedMappingSnapshots(session.accessToken, projectId, feedId, true);
-      setAllMappingSnapshots(snapshotsData);
-      setNotice(`Mappings for ${tblName} saved successfully.`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSavingTable(null);
     }
   };
 
@@ -661,6 +597,17 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                 )}
               </div>
 
+              {latestSlice && session && (
+                <div className="mt-4">
+                  <FeedSliceCommentThread
+                    projectId={projectId}
+                    feedId={feedId}
+                    sliceId={latestSlice.sourceSliceId}
+                    token={session.accessToken}
+                  />
+                </div>
+              )}
+
               {/* Mapping Hints Panel (central_team only) */}
               {session?.role === "central_team" && (
                 <div className="rounded-2xl border border-outline-variant bg-surface-container p-5 shadow-sm space-y-4">
@@ -697,13 +644,13 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                     <h3 className="text-lg font-bold text-slate-900">Field Mappings</h3>
                     <p className="text-xs text-slate-500">Verify AI extraction classifications across destination tables.</p>
                   </div>
-                  {session?.role === "central_team" && allMappingSnapshots.some(s => s.status === "draft") && (
+                  {allMappingSnapshots.length > 0 && (
                     <button
                       type="button"
-                      onClick={() => setNotice("Mapping submitted for business review.")}
-                      className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white shadow hover:bg-primary-hover focus:outline-none"
+                      onClick={() => router.push(`/projects/${projectId}/feeds/${feedId}/review`)}
+                      className="rounded-lg border border-primary px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5 focus:outline-none"
                     >
-                      Submit for review
+                      Go to review page
                     </button>
                   )}
                 </div>
@@ -716,65 +663,34 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                       const tblName = tbl.destinationTableName;
                       const isOpen = expandedTables.has(tblName);
                       const snapshot = allMappingSnapshots.find(s => s.destinationObjectName === tblName);
-                      const isDraft = snapshot?.status === "draft";
-                      const isOperator = session?.role === "central_team";
-                      const isEditable = isOperator && isDraft;
-                      const destinationFields = snapshot?.destinationFields ?? [];
-                      
-                      const currentBindings = bindingEdits[tblName] || snapshot?.fieldBindings || [];
-                      const hasEdits = !!bindingEdits[tblName];
 
                       return (
                         <div key={tblName} className="border border-outline-variant rounded-xl overflow-hidden bg-white">
-                          <div className="w-full flex items-center justify-between bg-slate-50 px-4 py-3 hover:bg-slate-100 transition-colors">
-                            <button
-                              type="button"
-                              onClick={() => toggleTable(tblName)}
-                              className="flex-1 flex items-center justify-between text-left"
-                            >
-                              <span className="font-mono text-xs font-bold text-slate-700">{tblName}</span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">{tbl.bindings.length} fields</span>
-                                <svg
-                                  className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`}
-                                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
-                                >
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
-                                </svg>
-                              </div>
-                            </button>
-                            {isEditable && hasEdits && (
-                              <button
-                                type="button"
-                                disabled={savingTable === tblName}
-                                onClick={() => handleSaveBindings(tblName)}
-                                className="ml-4 rounded bg-primary px-2 py-1 text-[10px] font-semibold text-white hover:bg-primary-hover disabled:bg-slate-300"
+                          <button
+                            type="button"
+                            onClick={() => toggleTable(tblName)}
+                            className="w-full flex items-center justify-between bg-slate-50 px-4 py-3 hover:bg-slate-100 transition-colors text-left"
+                          >
+                            <span className="font-mono text-xs font-bold text-slate-700">{tblName}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">{tbl.bindings.length} fields</span>
+                              <svg
+                                className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`}
+                                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
                               >
-                                {savingTable === tblName ? "Saving..." : "Save"}
-                              </button>
-                            )}
-                          </div>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
+                              </svg>
+                            </div>
+                          </button>
                           {isOpen && (
                             <>
                               <table className="w-full text-left text-xs border-collapse border-t border-outline-variant">
                                 <tbody className="divide-y divide-slate-100">
-                                  {currentBindings.map((b, idx) => (
+                                  {(snapshot?.fieldBindings || []).map((b, idx) => (
                                     <tr key={idx} className="hover:bg-slate-50/40">
                                       <td className="px-4 py-2 font-mono text-slate-600 w-1/3">{b.sourceField}</td>
                                       <td className="px-4 py-2 font-mono font-bold text-slate-800 w-1/2">
-                                        {isEditable && destinationFields.length > 0 ? (
-                                          <select
-                                            value={b.destinationField}
-                                            onChange={(e) => updateBindingEdit(tblName, idx, e.target.value)}
-                                            className="rounded border border-slate-200 bg-white px-2 py-1 font-mono text-xs w-full max-w-[200px]"
-                                          >
-                                            {destinationFields.map(col => (
-                                              <option key={col} value={col}>{col}</option>
-                                            ))}
-                                          </select>
-                                        ) : (
-                                          <span>{b.destinationField}</span>
-                                        )}
+                                        <span>{b.destinationField}</span>
                                       </td>
                                       <td className="px-4 py-2">
                                         {b.bindingType === "direct" && (

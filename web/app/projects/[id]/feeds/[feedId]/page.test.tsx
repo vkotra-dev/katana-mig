@@ -48,6 +48,11 @@ vi.mock("../../../../../lib/feeds-api", () => ({
   uploadFeedSlice: uploadFeedSliceMock,
 }));
 
+vi.mock("../../../../../lib/feed-slice-comments-api", () => ({
+  listFeedSliceComments: vi.fn(() => Promise.resolve([])),
+  createFeedSliceComment: vi.fn(),
+}));
+
 vi.mock("../../../../../lib/mapping-api", () => ({
   getAllApprovedMappingSnapshots: getAllApprovedMappingSnapshotsMock,
   proposeMappingSnapshot: proposeMappingSnapshotMock,

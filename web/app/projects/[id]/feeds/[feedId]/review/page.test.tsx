@@ -9,6 +9,15 @@ const {
   approveMappingSnapshotMock,
   rejectMappingSnapshotMock,
   listFeedSlicesMock,
+  listFeedCommentsMock,
+  createFeedCommentMock,
+  getSignOffStatusMock,
+  signBindingMock,
+  unsignBindingMock,
+  signLookupMock,
+  unsignLookupMock,
+  pushForReviewMock,
+  pokeReviewerMock,
   routerPushMock,
 } = vi.hoisted(() => ({
   loadUiSessionMock: vi.fn(),
@@ -17,6 +26,20 @@ const {
   approveMappingSnapshotMock: vi.fn(),
   rejectMappingSnapshotMock: vi.fn(),
   listFeedSlicesMock: vi.fn(),
+  listFeedCommentsMock: vi.fn(() => Promise.resolve([])),
+  createFeedCommentMock: vi.fn(),
+  getSignOffStatusMock: vi.fn(() => Promise.resolve({
+    complete: false,
+    currentBallRole: "central_team",
+    bindings: {},
+    lookups: {},
+  })),
+  signBindingMock: vi.fn(),
+  unsignBindingMock: vi.fn(),
+  signLookupMock: vi.fn(),
+  unsignLookupMock: vi.fn(),
+  pushForReviewMock: vi.fn(),
+  pokeReviewerMock: vi.fn(),
   routerPushMock: vi.fn(),
 }));
 
@@ -28,6 +51,7 @@ vi.mock("../../../../../../lib/mapping-api", () => ({
   getAllApprovedMappingSnapshots: getAllApprovedMappingSnapshotsMock,
   approveMappingSnapshot: approveMappingSnapshotMock,
   rejectMappingSnapshot: rejectMappingSnapshotMock,
+  patchMappingSnapshot: vi.fn(),
 }));
 
 vi.mock("../../../../../../lib/lookup-api", () => ({
@@ -36,6 +60,18 @@ vi.mock("../../../../../../lib/lookup-api", () => ({
 
 vi.mock("../../../../../../lib/feeds-api", () => ({
   listFeedSlices: listFeedSlicesMock,
+  listFeedComments: listFeedCommentsMock,
+  createFeedComment: createFeedCommentMock,
+}));
+
+vi.mock("../../../../../../lib/sign-offs-api", () => ({
+  getSignOffStatus: getSignOffStatusMock,
+  signBinding: signBindingMock,
+  unsignBinding: unsignBindingMock,
+  signLookup: signLookupMock,
+  unsignLookup: unsignLookupMock,
+  pushForReview: pushForReviewMock,
+  pokeReviewer: pokeReviewerMock,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -88,6 +124,13 @@ describe("ReviewPage", () => {
     getAllApprovedMappingSnapshotsMock.mockResolvedValue([SNAPSHOT]);
     listLookupValueMapsMock.mockResolvedValue([]);
     listFeedSlicesMock.mockResolvedValue([]);
+    listFeedCommentsMock.mockResolvedValue([]);
+    getSignOffStatusMock.mockResolvedValue({
+      complete: false,
+      currentBallRole: "central_team",
+      bindings: {},
+      lookups: {},
+    });
   });
 
   async function renderPage() {

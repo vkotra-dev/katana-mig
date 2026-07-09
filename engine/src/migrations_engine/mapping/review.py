@@ -247,6 +247,7 @@ def _snapshot_to_response(
             for binding in snapshot.field_bindings
         ],
         status=snapshot.status,
+        current_ball_role=snapshot.current_ball_role,
         approved_at=snapshot.approved_at,
         approved_by_user_id=snapshot.approved_by_user_id,
         created_at=snapshot.created_at,
@@ -453,6 +454,7 @@ def propose_mapping(
             field_bindings=field_bindings,
             destination_fields=destination_fields,
             status="draft",
+            current_ball_role="central_team",
             approved_at=None,
             approved_by_user_id=None,
             ai_trace=ai_trace,
@@ -572,6 +574,25 @@ def patch_mapping(
             "reference_table_name": existing.get("reference_table_name"),
         })
 
+    # Detect changed fields and delete their sign-off records
+    changed_fields = []
+    for binding in field_bindings:
+        src = binding.source_field
+        dest = binding.destination_field
+        existing = existing_by_src.get(src)
+        if existing is None or existing.get("destination_field") != dest:
+            changed_fields.append(src)
+
+    if changed_fields:
+        from ..db.models import MappingBindingSignOff
+        from sqlalchemy import delete
+        db.execute(
+            delete(MappingBindingSignOff).where(
+                MappingBindingSignOff.mapping_snapshot_id == snapshot.mapping_snapshot_id,
+                MappingBindingSignOff.source_field.in_(changed_fields),
+            )
+        )
+
     snapshot.field_bindings = new_bindings
     record_management_audit(
         db,
@@ -640,6 +661,7 @@ def approve_mapping(
                 )
             continue
         snapshot.status = "approved"
+        snapshot.current_ball_role = None
         snapshot.approved_at = now
         snapshot.approved_by_user_id = actor_user_id
         approved_tables.append(snapshot.destination_object_name)
@@ -710,6 +732,7 @@ def reject_mapping(
                 )
             continue
         snapshot.status = "rejected"
+        snapshot.current_ball_role = "central_team"
         record_management_audit(
             db,
             project_id=project_id,

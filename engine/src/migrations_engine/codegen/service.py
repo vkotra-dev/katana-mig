@@ -16,6 +16,8 @@ from ..db.models import (
     ProjectRegistry,
     Feed,
     FeedSlice,
+    FeedComment,
+    FeedSliceComment,
     User,
     new_id,
 )
@@ -93,6 +95,20 @@ def generate_codegen_artifact(
         adapter = get_adapter("script_generation", project_definition.model_policy)
     except TypeError:
         adapter = get_adapter("script_generation")
+    comments = list(db.execute(
+        select(FeedComment, User.role)
+        .join(User, User.user_id == FeedComment.user_id)
+        .where(FeedComment.feed_id == source_definition_id)
+        .order_by(FeedComment.created_at.asc())
+    ).all())
+
+    slice_comments = list(db.execute(
+        select(FeedSliceComment, User.role)
+        .join(User, User.user_id == FeedSliceComment.user_id)
+        .where(FeedSliceComment.source_slice_id == source_slice.source_slice_id)
+        .order_by(FeedSliceComment.created_at.asc())
+    ).all())
+
     generated_sql = adapter.call(
         system=_build_system_prompt(project_config=project_config, destination_object_name=destination_object_name),
         user=_build_user_prompt(
@@ -101,6 +117,8 @@ def generate_codegen_artifact(
             mapping_snapshot=mapping_snapshot,
             lookup_snapshot_version=lookup_snapshot_version,
             project_config=project_config,
+            comments=comments,
+            slice_comments=slice_comments,
         ),
         response_model=GeneratedSQL,
     )
@@ -376,6 +394,49 @@ def _build_system_prompt(*, project_config: MigrationProjectConfig, destination_
     )
 
 
+_MAX_COMMENT_CHARS = 400
+_MAX_DISCUSSION_CHARS = 3000
+_MAX_COMMENT_COUNT = 30
+
+
+def _format_discussion(comments: list[tuple[FeedComment, str]]) -> str:
+    if not comments:
+        return ""
+    recent = comments[-_MAX_COMMENT_COUNT:]
+    lines = ["Feed discussion (context for mapping intent and business rules):"]
+    total = len(lines[0])
+    for fc, role in recent:
+        content = " ".join((fc.body or "").split())  # collapse whitespace/newlines
+        if len(content) > _MAX_COMMENT_CHARS:
+            content = content[:_MAX_COMMENT_CHARS] + "…"
+        line = f"[{role}] {fc.created_at.date() if fc.created_at else ''}: {content}"
+        if total + len(line) + 1 > _MAX_DISCUSSION_CHARS:
+            lines.append("[discussion truncated]")
+            break
+        lines.append(line)
+        total += len(line) + 1
+    return "\n".join(lines)
+
+
+def _format_slice_discussion(comments: list[tuple[FeedSliceComment, str]]) -> str:
+    if not comments:
+        return ""
+    recent = comments[-_MAX_COMMENT_COUNT:]
+    lines = ["Slice discussion (context for schema adjustments and anomalies):"]
+    total = len(lines[0])
+    for sc, role in recent:
+        content = " ".join((sc.body or "").split())  # collapse whitespace/newlines
+        if len(content) > _MAX_COMMENT_CHARS:
+            content = content[:_MAX_COMMENT_CHARS] + "…"
+        line = f"[{role}] {sc.created_at.date() if sc.created_at else ''}: {content}"
+        if total + len(line) + 1 > _MAX_DISCUSSION_CHARS:
+            lines.append("[discussion truncated]")
+            break
+        lines.append(line)
+        total += len(line) + 1
+    return "\n".join(lines)
+
+
 def _build_user_prompt(
     *,
     source_definition: Feed,
@@ -383,6 +444,8 @@ def _build_user_prompt(
     mapping_snapshot: MappingSnapshot,
     lookup_snapshot_version: str | None,
     project_config: MigrationProjectConfig,
+    comments: list[tuple[FeedComment, str]],
+    slice_comments: list[tuple[FeedSliceComment, str]],
 ) -> str:
     lines = [
         f"Source contract: {source_definition.source_definition_id}",
@@ -399,6 +462,17 @@ def _build_user_prompt(
             f"- {binding.get('source_field')} -> {binding.get('destination_field')} "
             f"(lookup: {binding.get('lookup_name') or 'none'})"
         )
+
+    discussion = _format_discussion(comments)
+    if discussion:
+        lines.append("")
+        lines.append(discussion)
+
+    slice_discussion = _format_slice_discussion(slice_comments)
+    if slice_discussion:
+        lines.append("")
+        lines.append(slice_discussion)
+
     return "\n".join(lines)
 
 
