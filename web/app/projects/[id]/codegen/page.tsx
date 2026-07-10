@@ -92,8 +92,15 @@ const generateTransformationInstructionsTemplate = (
   fibers: FiberRecord[],
   stagingSchema: string
 ): string => {
-  const lookupFibers = fibers.filter(f => f.fiberType === "lookup");
-  const domainFibers = fibers.filter(f => f.fiberType === "domain_object");
+  const approvedFibers = fibers.filter(f =>
+    f.status === "business_approved" ||
+    f.status === "operator_triggered" ||
+    f.status === "codegen_complete" ||
+    f.status === "active" ||
+    f.status === "approved"
+  );
+  const lookupFibers = approvedFibers.filter(f => f.fiberType === "lookup");
+  const domainFibers = approvedFibers.filter(f => f.fiberType === "domain_object");
 
   let lookupSection = "";
   if (lookupFibers.length > 0) {
