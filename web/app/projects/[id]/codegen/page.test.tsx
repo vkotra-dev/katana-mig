@@ -12,6 +12,8 @@ const {
   triggerSchemaAnalysisMock,
   routerPushMock,
   getProjectMock,
+  listFeedFibersMock,
+  listFeedSlicesMock,
 } = vi.hoisted(() => ({
   loadUiSessionMock: vi.fn(),
   listFeedContractsMock: vi.fn(),
@@ -22,6 +24,8 @@ const {
   triggerSchemaAnalysisMock: vi.fn(),
   routerPushMock: vi.fn(),
   getProjectMock: vi.fn(),
+  listFeedFibersMock: vi.fn(),
+  listFeedSlicesMock: vi.fn(),
 }));
 
 vi.mock("../../../../components/Topbar", () => ({
@@ -38,6 +42,8 @@ vi.mock("../../../../lib/projects-api", () => ({
 
 vi.mock("../../../../lib/feeds-api", () => ({
   listFeedContracts: listFeedContractsMock,
+  listFeedFibers: listFeedFibersMock,
+  listFeedSlices: listFeedSlicesMock,
 }));
 
 vi.mock("../../../../lib/codegen-api", () => ({
@@ -140,6 +146,35 @@ describe("CodegenPage", () => {
       processedCount: 1,
       analyzedAt: "2026-06-30T01:00:00Z",
     });
+    listFeedFibersMock.mockResolvedValue([
+      {
+        fiberId: "fiber-1",
+        feedId: "source-1",
+        projectId: "project-1",
+        fiberType: "lookup",
+        fiberKey: "insurance_plan_lkp",
+        status: "active",
+        proposedMappings: [
+          {
+            sourceValue: "Gold Plan",
+            destEntryId: "entry-1",
+            destRow: { plan_id: 1, plan_name: "Gold" },
+            confidenceScore: 0.95,
+          },
+        ],
+        fieldBindings: [],
+        outputSql: null,
+      },
+    ]);
+    listFeedSlicesMock.mockResolvedValue([
+      {
+        sourceSliceId: "slice-1",
+        sourceDefinitionId: "source-1",
+        sourceSliceVersion: "v1",
+        rowCount: 12000,
+        status: "approved",
+      },
+    ]);
   });
 
   it("renders sources and the latest artifact preview", async () => {
@@ -237,5 +272,24 @@ describe("CodegenPage", () => {
     expect(textarea.value).toContain("Schemas and Scoping");
 
     confirmSpy.mockRestore();
+  });
+
+  it("generates feed-specific transformation instructions", async () => {
+    render(<CodegenPage params={Promise.resolve({ id: "project-1" })} />);
+
+    await screen.findByText("Customer extract");
+
+    const toggleBtn = screen.getByText("▶");
+    fireEvent.click(toggleBtn);
+
+    const generateBtn = await screen.findByRole("button", { name: "Generate Instructions" });
+    fireEvent.click(generateBtn);
+
+    const textarea = screen.getByPlaceholderText(/e.g. Map claim_no -> external_claim_number/i);
+    await waitFor(() => {
+      expect(textarea.value).toContain("Transformation Instructions for Feed:");
+      expect(textarea.value).toContain("insurance_plan_lkp");
+      expect(textarea.value).toContain("Gold Plan");
+    });
   });
 });

@@ -12,7 +12,7 @@ import {
   type CodegenArtifactRecord,
   type SchemaAnalysisRecord,
 } from "../../../../lib/codegen-api";
-import { listFeedContracts, saveTransformationInstructions, type FeedContractRecord } from "../../../../lib/feeds-api";
+import { listFeedContracts, saveTransformationInstructions, listFeedFibers, listFeedSlices, type FeedContractRecord, type FiberRecord } from "../../../../lib/feeds-api";
 import { getProject, saveCodegenInstructions, type ProjectRecord } from "../../../../lib/projects-api";
 import { loadUiSession, type SessionRole, type UiSession } from "../../../../lib/session";
 
@@ -86,6 +86,64 @@ const generateCodingStandardsTemplate = (
    - No default timestamps or hardcoded environment configurations.`;
 };
 
+const generateTransformationInstructionsTemplate = (
+  feedLabel: string,
+  rowCount: number,
+  fibers: FiberRecord[]
+): string => {
+  const lookupFibers = fibers.filter(f => f.fiberType === "lookup");
+  const domainFibers = fibers.filter(f => f.fiberType === "domain_object");
+
+  let lookupSection = "";
+  if (lookupFibers.length > 0) {
+    lookupSection = "\n### 1. Lookup Tables\n";
+    lookupFibers.forEach(f => {
+      lookupSection += `- Create a lookup table for "${f.fiberKey}" with source and destination columns call look_bind_column_code_gen.\n`;
+      const mappings = f.proposedMappings ?? [];
+      if (mappings.length > 0) {
+        lookupSection += "  Seed values:\n";
+        mappings.forEach(m => {
+          const destVal = m.destRow ? JSON.stringify(m.destRow) : (m.destEntryId ?? "NULL");
+          lookupSection += `    * Source value: "${m.sourceValue}" -> Destination: ${destVal}\n`;
+        });
+      }
+    });
+  } else {
+    lookupSection = "\n### 1. Lookup Tables\n- No lookup fibers identified for this feed.\n";
+  }
+
+  let mappingSection = "";
+  if (domainFibers.length > 0) {
+    mappingSection = "\n### 2. Table Mappings & Stored Procedures\n";
+    domainFibers.forEach(f => {
+      mappingSection += `- Look for a table with the same name as "${feedLabel}" in the source schema and upsert rows into target table "${f.fiberKey}" using these field mappings:\n`;
+      const bindings = f.fieldBindings ?? [];
+      bindings.forEach(b => {
+        const lkpText = b.lookupName ? ` (Lookup: ${b.lookupName})` : "";
+        mappingSection += `    * ${b.sourceField} -> ${b.destinationField}${lkpText}\n`;
+      });
+    });
+  } else {
+    mappingSection = "\n### 2. Table Mappings & Stored Procedures\n- No table mapping fibers identified for this feed.\n";
+  }
+
+  let strategy = "Direct Insert/Upsert script (Small volume)";
+  if (rowCount > 100000) {
+    strategy = "Chunked / Batch Upsert stored procedure (High volume > 100k rows)";
+  } else if (rowCount > 10000) {
+    strategy = "Bulk copy upsert with merge statement (Medium volume > 10k rows)";
+  }
+
+  return `### Transformation Instructions for Feed: ${feedLabel}
+
+${lookupSection}
+${mappingSection}
+### 3. Execution Strategy (Row Count: ${rowCount})
+- Recommended strategy: **${strategy}**
+- Pick the best strategy based on the row count of ${rowCount} to generate the SQL stored procedure.
+- For any lookup-type destination fields, use the lookup tables populated under look_bind_column_code_gen to map input codes.`;
+};
+
 export default function CodegenPage({ params }: { params: Promise<{ id: string }> }) {
   const [routeParams, setRouteParams] = useState<{ id: string } | null>(null);
   const [session, setSession] = useState<UiSession | null>(null);
@@ -103,6 +161,7 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
   const [expandedFeed, setExpandedFeed] = useState<string | null>(null);
   const [feedInstructions, setFeedInstructions] = useState<Record<string, string>>({});
   const [feedSaveLoading, setFeedSaveLoading] = useState<Record<string, boolean>>({});
+  const [feedSuggestLoading, setFeedSuggestLoading] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setSession(loadUiSession());
@@ -321,6 +380,39 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
     }
   };
 
+  const handleSuggestFeedInstructions = async (feedId: string, feedLabel: string): Promise<void> => {
+    if (!session || !routeParams) return;
+
+    const currentText = feedInstructions[feedId] ?? "";
+    if (currentText.trim() && !window.confirm("This will overwrite your existing feed-specific instructions. Are you sure you want to proceed?")) {
+      return;
+    }
+
+    setFeedSuggestLoading((prev) => ({ ...prev, [feedId]: true }));
+    setPageError(null);
+    setStatusMessage(null);
+    try {
+      const [fibers, slices] = await Promise.all([
+        listFeedFibers(session.accessToken, routeParams.id, feedId),
+        listFeedSlices(session.accessToken, routeParams.id, feedId),
+      ]);
+
+      const activeSlice = slices.find((s) => s.status === "approved" || s.status === "active") || slices[0];
+      const rowCount = activeSlice ? activeSlice.rowCount : 0;
+
+      const template = generateTransformationInstructionsTemplate(feedLabel, rowCount, fibers);
+      setFeedInstructions((prev) => ({
+        ...prev,
+        [feedId]: template.trim(),
+      }));
+      setStatusMessage("Suggested transformation instructions generated based on fiber mappings and row count.");
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : "Unable to suggest transformation instructions.");
+    } finally {
+      setFeedSuggestLoading((prev) => ({ ...prev, [feedId]: false }));
+    }
+  };
+
   return (
     <main className="flex min-h-screen flex-col bg-surface text-slate-800">
       <Topbar role={role} />
@@ -476,12 +568,20 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
                                     disabled={role !== "central_team" && role !== "admin"}
                                   />
                                   {(role === "central_team" || role === "admin") && (
-                                    <div className="flex justify-end">
+                                    <div className="flex justify-end gap-2">
+                                      <button
+                                        type="button"
+                                        className="rounded-lg border border-outline-variant bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
+                                        onClick={() => void handleSuggestFeedInstructions(source.sourceDefinitionId, source.label)}
+                                        disabled={feedSuggestLoading[source.sourceDefinitionId] || feedSaveLoading[source.sourceDefinitionId]}
+                                      >
+                                        {feedSuggestLoading[source.sourceDefinitionId] ? "Generating..." : "Generate Instructions"}
+                                      </button>
                                       <button
                                         type="button"
                                         className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-hover disabled:bg-slate-200 disabled:text-slate-400"
                                         onClick={() => void handleSaveFeedInstructions(source.sourceDefinitionId)}
-                                        disabled={feedSaveLoading[source.sourceDefinitionId]}
+                                        disabled={feedSaveLoading[source.sourceDefinitionId] || feedSuggestLoading[source.sourceDefinitionId]}
                                       >
                                         {feedSaveLoading[source.sourceDefinitionId] ? "Saving..." : "Save"}
                                       </button>
