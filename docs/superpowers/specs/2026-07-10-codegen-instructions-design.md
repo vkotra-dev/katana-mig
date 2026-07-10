@@ -22,6 +22,36 @@ Add natural-language instruction blocks — at project level and per-feed level 
 
 ---
 
+## Copy-on-Write Persistence Paths
+
+`ProjectDefinition` is immutable — every `update_project()` call creates a **new** `ProjectDefinition` row and swaps the registry pointer. Any field not explicitly carried forward is silently lost. `copy_project()` builds a new definition and new feed rows from an explicit field list, with the same risk.
+
+Both paths must include the new fields:
+
+### `update_project()` (`management/projects.py`)
+
+Add to the `new_definition = ProjectDefinition(...)` constructor:
+```python
+codegen_instructions=current_definition.codegen_instructions,
+```
+
+### `copy_project()` — project definition (`management/projects.py`)
+
+Add to the `new_definition = ProjectDefinition(...)` constructor:
+```python
+codegen_instructions=source_definition.codegen_instructions,
+```
+
+### `copy_project()` — feed duplication loop (`management/projects.py`)
+
+The feed copy loop currently copies `mapping_hints`. Add `transformation_instructions` alongside it:
+```python
+mapping_hints=feed.mapping_hints,
+transformation_instructions=feed.transformation_instructions,
+```
+
+---
+
 ## Out of Scope
 
 - Structured/typed rule forms (rename, format, derive as separate UI controls)
@@ -210,6 +240,19 @@ Verify `down_revision` against latest migration before writing:
 ```bash
 ls engine/migrations/versions/ | sort | tail -1
 ```
+
+---
+
+## Domain Page Update
+
+Per governance, behavior changes must patch the relevant domain page together with the code.
+
+**File:** `docs/domain/source-model.md`
+
+Add a subsection under the codegen artifact section documenting:
+- `codegen_instructions` on `ProjectDefinition` — purpose, scope (all feeds in project), how it enters the system prompt
+- `transformation_instructions` on `Feed` — purpose, scope (single feed), how it enters the user prompt
+- That both fields survive `update_project()` copy-on-write and `copy_project()` duplication
 
 ---
 
