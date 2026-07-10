@@ -238,6 +238,34 @@ def list_fibers(db: Session, *, project_id: str, feed_id: str) -> list[FiberResp
                 )
                 .order_by(LookupValueMap.created_at.desc(), LookupValueMap.lookup_value_map_id.desc())
             )
+            if not val_map:
+                # If there's no lookup value map, but we have proposed mappings, auto-create a draft value map
+                if f.proposed_mappings:
+                    source_value_map = {}
+                    destination_table = []
+                    seen_dest_ids = set()
+                    for pm in f.proposed_mappings:
+                        src_val = pm.get("source_value")
+                        dest_id = pm.get("dest_entry_id")
+                        dest_row = pm.get("dest_row")
+                        if src_val and dest_id:
+                            source_value_map[src_val] = str(dest_id)
+                        if dest_row:
+                            row_id = dest_row.get("id") or dest_row.get("destination_id")
+                            if row_id and row_id not in seen_dest_ids:
+                                seen_dest_ids.add(row_id)
+                                destination_table.append(dest_row)
+                    val_map = LookupValueMap(
+                        lookup_value_map_id=new_id(),
+                        project_id=project_id,
+                        lookup_name=f.fiber_key,
+                        destination_table=destination_table,
+                        source_value_map=source_value_map,
+                        status="draft",
+                    )
+                    db.add(val_map)
+                    healed = True
+
             if val_map:
                 expected = f.status
                 if val_map.status == "approved":
@@ -256,6 +284,10 @@ def list_fibers(db: Session, *, project_id: str, feed_id: str) -> list[FiberResp
                             expected = "deferred"
                 if f.status != expected:
                     f.status = expected
+                    healed = True
+            else:
+                if f.status != "deferred":
+                    f.status = "deferred"
                     healed = True
                     
     if healed:
