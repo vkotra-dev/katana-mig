@@ -76,7 +76,10 @@ _FEED_ANALYSIS_SYSTEM = (
 
 _FIELD_MAPPING_SYSTEM = (
     "You are a field mapper. "
-    "Given source columns and destination DDL, propose field bindings. Return JSON."
+    "Given source columns and destination DDL, propose field bindings. Return JSON. "
+    "For each binding set destination_data_type to the exact SQL type of the destination column "
+    "as declared in the destination_schema_ddl (e.g. 'INT', 'NVARCHAR(255)', 'DATE', 'DECIMAL(18,2)'). "
+    "Set destination_data_type to null if the column is not found in the DDL."
 )
 
 
@@ -98,6 +101,7 @@ class _FieldBinding(BaseModel):
     source_field: str | None
     destination_field: str
     lookup_name: str | None
+    destination_data_type: str | None = None
 
 
 class _FieldMappingResult(BaseModel):

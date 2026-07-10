@@ -10,8 +10,8 @@ INSTRUCTIONS FOR SQL BUNDLE GENERATION:
    - Destination tables already exist — do NOT create them.
    - Source/staging tables already exist — do NOT create them.
 LOOKUP RESOLUTION RULES (apply when a field uses a lookup table):
-   - Declare a local variable whose type matches the [id] column type in the lookup table DDL you generated (e.g. if [id] is INT, declare INT; if BIGINT, declare BIGINT)
-   - Declare it before the loop: DECLARE @_<lookup_name>_id <id_type> = NULL
+   - The destination column type is shown in the field binding as [TYPE] (e.g. "claim_status [INT]")
+   - Declare a local variable of that exact type before the loop: DECLARE @_<lookup_name>_id <destination_type> = NULL
    - Inside the loop, resolve before INSERT/UPDATE: SELECT @_<lookup_name>_id = [id] FROM [schema].[lookup_table] WHERE [source_value] = @_source_field
    - Use the resolved variable directly in INSERT/UPDATE — do NOT use inline subqueries or CAST to NVARCHAR
 RUN LOGGING REQUIREMENTS (mandatory in every stored procedure):
