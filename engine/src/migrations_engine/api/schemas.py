@@ -489,6 +489,9 @@ class CodegenTriggerResponse(BaseModel):
     source_slice_version: str | None
     mapping_snapshot_version: str | None
     lookup_snapshot_version: str | None
+    compiled_system_prompt: str | None = None
+    compiled_user_prompt: str | None = None
+    raw_llm_response: str | None = None
     created_at: datetime
 
 
@@ -501,6 +504,9 @@ class CodegenArtifactResponse(BaseModel):
     mapping_snapshot_version: str | None
     lookup_snapshot_version: str | None
     sql_bundle: str | None
+    compiled_system_prompt: str | None = None
+    compiled_user_prompt: str | None = None
+    raw_llm_response: str | None = None
     status: Literal["active", "superseded"]
     created_at: datetime
     superseded_at: datetime | None

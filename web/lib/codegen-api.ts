@@ -9,6 +9,9 @@ export interface CodegenTriggerRecord {
   sourceSliceVersion: string | null;
   mappingSnapshotVersion: string | null;
   lookupSnapshotVersion: string | null;
+  compiledSystemPrompt?: string | null;
+  compiledUserPrompt?: string | null;
+  rawLlmResponse?: string | null;
   createdAt: string;
 }
 
@@ -21,6 +24,9 @@ export interface CodegenArtifactRecord {
   mappingSnapshotVersion: string | null;
   lookupSnapshotVersion: string | null;
   sqlBundle: string | null;
+  compiledSystemPrompt?: string | null;
+  compiledUserPrompt?: string | null;
+  rawLlmResponse?: string | null;
   status: "active" | "superseded";
   createdAt: string;
   supersededAt: string | null;
@@ -128,6 +134,9 @@ function mapTriggerResponse(response: {
   source_slice_version: string | null;
   mapping_snapshot_version: string | null;
   lookup_snapshot_version: string | null;
+  compiled_system_prompt?: string | null;
+  compiled_user_prompt?: string | null;
+  raw_llm_response?: string | null;
   created_at: string;
 }): CodegenTriggerRecord {
   return {
@@ -139,6 +148,9 @@ function mapTriggerResponse(response: {
     sourceSliceVersion: response.source_slice_version,
     mappingSnapshotVersion: response.mapping_snapshot_version,
     lookupSnapshotVersion: response.lookup_snapshot_version,
+    compiledSystemPrompt: response.compiled_system_prompt,
+    compiledUserPrompt: response.compiled_user_prompt,
+    rawLlmResponse: response.raw_llm_response,
     createdAt: response.created_at,
   };
 }
@@ -152,6 +164,9 @@ function mapArtifactResponse(response: {
   mapping_snapshot_version: string | null;
   lookup_snapshot_version: string | null;
   sql_bundle: string | null;
+  compiled_system_prompt?: string | null;
+  compiled_user_prompt?: string | null;
+  raw_llm_response?: string | null;
   status: "active" | "superseded";
   created_at: string;
   superseded_at: string | null;
@@ -165,6 +180,9 @@ function mapArtifactResponse(response: {
     mappingSnapshotVersion: response.mapping_snapshot_version,
     lookupSnapshotVersion: response.lookup_snapshot_version,
     sqlBundle: response.sql_bundle,
+    compiledSystemPrompt: response.compiled_system_prompt,
+    compiledUserPrompt: response.compiled_user_prompt,
+    rawLlmResponse: response.raw_llm_response,
     status: response.status,
     createdAt: response.created_at,
     supersededAt: response.superseded_at,

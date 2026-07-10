@@ -12,7 +12,21 @@
       "Bash(grep -v \"^$\")",
       "Skill(code-review)",
       "Bash(git diff *)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(tee /tmp/review_diff3.txt)",
+      "Bash(xargs -I{} basename {})",
+      "Bash(python -m pytest tests/test_masking.py -v)",
+      "Bash(python -m pytest tests/test_masking.py -v --rootdir=.)",
+      "Bash(python -m pytest engine/tests/test_masking.py -v)",
+      "Bash(ps *)",
+      "Bash(.venv/bin/python -c \"from migrations_engine.management.source_analysis import analyze_source_slice; print\\('import OK'\\)\")",
+      "Bash(.venv/bin/python *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/health)",
+      "Bash(curl -s http://localhost:8000/docs)",
+      "Bash(curl -s -X POST \"http://localhost:8000/projects/test/sources/test/analyze\" -H \"Authorization: Bearer test\" -w \"\\\\nHTTP %{http_code}\")",
+      "Bash(.venv/bin/pip show *)",
+      "Bash(.venv/bin/pip install *)",
+      "Bash(npx tsc *)"
     ]
   }
 }

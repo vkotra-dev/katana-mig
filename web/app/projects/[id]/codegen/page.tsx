@@ -173,6 +173,9 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
   const [feedSaveLoading, setFeedSaveLoading] = useState<Record<string, boolean>>({});
   const [feedSuggestLoading, setFeedSuggestLoading] = useState<Record<string, boolean>>({});
 
+  const [inspectingArtifact, setInspectingArtifact] = useState<CodegenArtifactRecord | null>(null);
+  const [inspectActiveTab, setInspectActiveTab] = useState<"system" | "user" | "raw" | "sql">("system");
+
   useEffect(() => {
     setSession(loadUiSession());
   }, []);
@@ -773,6 +776,7 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
                         <th className="px-4 py-3">Status</th>
                         <th className="px-4 py-3">Version</th>
                         <th className="px-4 py-3">Created</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -788,6 +792,18 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
                             {artifact.sourceSliceVersion ?? "—"} / {artifact.mappingSnapshotVersion ?? "—"}
                           </td>
                           <td className="px-4 py-3 text-sm text-slate-700">{formatDate(artifact.createdAt)}</td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setInspectingArtifact(artifact);
+                                setInspectActiveTab("system");
+                              }}
+                              className="rounded-lg border border-outline bg-surface px-3 py-1.5 text-xs font-semibold text-primary hover:bg-slate-50 transition"
+                            >
+                              Inspect AI Logs
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -798,6 +814,104 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
           </>
         ) : null}
       </section>
+
+      {inspectingArtifact && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="flex h-[80vh] w-full max-w-4xl flex-col rounded-2xl border border-outline bg-surface-container shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-outline-variant px-6 py-4 bg-surface">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">
+                  Inspect AI Logs for {inspectingArtifact.destinationObjectName}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Artifact ID: {inspectingArtifact.codegenArtifactId}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInspectingArtifact(null)}
+                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b border-outline-variant bg-surface px-6">
+              {[
+                { id: "system", label: "System Prompt" },
+                { id: "user", label: "User Prompt" },
+                { id: "raw", label: "Raw LLM JSON" },
+                { id: "sql", label: "Assembled SQL" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setInspectActiveTab(tab.id as any)}
+                  className={`border-b-2 px-4 py-3 text-sm font-semibold transition ${
+                    inspectActiveTab === tab.id
+                      ? "border-primary text-primary"
+                      : "border-transparent text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab content area */}
+            <div className="flex-1 overflow-auto bg-surface-container-low p-6 font-mono text-sm text-slate-800 relative">
+              <div className="absolute top-4 right-4 z-10">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const textToCopy =
+                      inspectActiveTab === "system"
+                        ? inspectingArtifact.compiledSystemPrompt
+                        : inspectActiveTab === "user"
+                        ? inspectingArtifact.compiledUserPrompt
+                        : inspectActiveTab === "raw"
+                        ? inspectingArtifact.rawLlmResponse
+                        : inspectingArtifact.sqlBundle;
+                    if (textToCopy) {
+                      navigator.clipboard.writeText(textToCopy);
+                      alert("Copied to clipboard!");
+                    }
+                  }}
+                  className="rounded-lg border border-outline bg-surface px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-sm"
+                >
+                  Copy to clipboard
+                </button>
+              </div>
+
+              {inspectActiveTab === "system" && (
+                <pre className="whitespace-pre-wrap rounded-xl border border-outline-variant bg-surface p-4 overflow-auto max-h-full">
+                  {inspectingArtifact.compiledSystemPrompt || "No system prompt logged for this version."}
+                </pre>
+              )}
+
+              {inspectActiveTab === "user" && (
+                <pre className="whitespace-pre-wrap rounded-xl border border-outline-variant bg-surface p-4 overflow-auto max-h-full">
+                  {inspectingArtifact.compiledUserPrompt || "No user prompt logged for this version."}
+                </pre>
+              )}
+
+              {inspectActiveTab === "raw" && (
+                <pre className="whitespace-pre-wrap rounded-xl border border-outline-variant bg-surface p-4 overflow-auto max-h-full">
+                  {inspectingArtifact.rawLlmResponse || "No raw model response logged for this version."}
+                </pre>
+              )}
+
+              {inspectActiveTab === "sql" && (
+                <pre className="whitespace-pre-wrap rounded-xl border border-outline-variant bg-surface p-4 overflow-auto max-h-full">
+                  {inspectingArtifact.sqlBundle || "No SQL bundle logged for this version."}
+                </pre>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

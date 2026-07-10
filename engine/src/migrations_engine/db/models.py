@@ -620,6 +620,9 @@ class CodeGenerationArtifact(Base):
     mapping_snapshot_version: Mapped[str | None] = mapped_column(String(255))
     lookup_snapshot_version: Mapped[str | None] = mapped_column(String(255))
     sql_bundle: Mapped[str | None] = mapped_column(Text)
+    compiled_system_prompt: Mapped[str | None] = mapped_column(Text)
+    compiled_user_prompt: Mapped[str | None] = mapped_column(Text)
+    raw_llm_response: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

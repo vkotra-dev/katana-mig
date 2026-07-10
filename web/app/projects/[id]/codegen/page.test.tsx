@@ -342,4 +342,49 @@ describe("CodegenPage", () => {
       expect(textarea.value).toContain('Source field "cust_id" -> Destination column "customer_id"');
     });
   });
+
+  it("allows inspecting AI prompt logs", async () => {
+    listCodegenArtifactsMock.mockResolvedValue([
+      {
+        codegenArtifactId: "artifact-1",
+        projectId: "project-1",
+        destinationObjectName: "customer",
+        runId: null,
+        sourceSliceVersion: "v1",
+        mappingSnapshotVersion: "v1",
+        lookupSnapshotVersion: null,
+        sqlBundle: "CREATE TABLE stg_customer (customer_id INT);",
+        compiledSystemPrompt: "System rules content",
+        compiledUserPrompt: "User mapping content",
+        rawLlmResponse: '{"staging_table_ddl": "sql"}',
+        status: "active",
+        createdAt: "2026-06-30T01:00:00Z",
+        supersededAt: null,
+      },
+    ]);
+
+    render(<CodegenPage params={Promise.resolve({ id: "project-1" })} />);
+
+    const inspectBtn = await screen.findByRole("button", { name: "Inspect AI Logs" });
+    fireEvent.click(inspectBtn);
+
+    expect(screen.getByText("Inspect AI Logs for customer")).toBeInTheDocument();
+    expect(screen.getByText("System rules content")).toBeInTheDocument();
+
+    const userTab = screen.getByRole("button", { name: "User Prompt" });
+    fireEvent.click(userTab);
+    expect(screen.getByText("User mapping content")).toBeInTheDocument();
+
+    const rawTab = screen.getByRole("button", { name: "Raw LLM JSON" });
+    fireEvent.click(rawTab);
+    expect(screen.getByText('{"staging_table_ddl": "sql"}')).toBeInTheDocument();
+
+    const sqlTab = screen.getByRole("button", { name: "Assembled SQL" });
+    fireEvent.click(sqlTab);
+    expect(screen.getAllByText("CREATE TABLE stg_customer (customer_id INT);")[0]).toBeInTheDocument();
+
+    const closeBtn = screen.getByRole("button", { name: "✕" });
+    fireEvent.click(closeBtn);
+    expect(screen.queryByText("Inspect AI Logs for customer")).not.toBeInTheDocument();
+  });
 });

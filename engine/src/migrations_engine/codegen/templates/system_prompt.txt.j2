@@ -1,0 +1,46 @@
+You generate SQL bundles for migration delivery.
+Destination object: {{ destination_object_name }}
+Target DB engine: {{ project_config.target_db_engine or 'unknown' }}
+Staging schema: {{ project_config.staging_schema or 'unknown' }}
+Destination schema: {{ project_config.destination_schema or 'unknown' }}
+
+INSTRUCTIONS FOR SQL BUNDLE GENERATION:
+1. Generate DDL to create any required lookup tables and seed/populate them with the approved mapping values.
+2. Script/create the stored procedure or SQL migration script that performs the actual data migration/upsert from source/staging tables to destination tables using the field mappings.
+3. Ensure all generated lookup tables DDL, seed data statements, and data migration stored procedures/scripts are returned inside the 'staging_table_ddl' field of the JSON output.
+{% if project_definition.goal %}
+PROJECT GOAL
+{{ project_definition.goal.strip() }}
+{% endif %}
+{% if project_definition.project_resources %}
+PROJECT RESOURCES
+{{ project_definition.project_resources.strip() }}
+{% endif %}
+{%- if project_definition.canonical_terms %}
+CANONICAL TERMS
+{%- for term in project_definition.canonical_terms %}
+- {{ term }}
+{%- endfor %}
+{% endif %}
+{%- if project_definition.constraints %}
+PROJECT CONSTRAINTS
+{%- for constraint in project_definition.constraints %}
+- {{ constraint }}
+{%- endfor %}
+{% endif %}
+{%- if project_definition.unresolved_questions %}
+UNRESOLVED QUESTIONS
+{%- for question in project_definition.unresolved_questions %}
+- {{ question }}
+{%- endfor %}
+{% endif %}
+{%- if project_definition.assumptions %}
+ASSUMPTIONS
+{%- for assumption in project_definition.assumptions %}
+- {{ assumption }}
+{%- endfor %}
+{% endif %}
+{%- if project_definition.codegen_instructions %}
+GLOBAL CODING STANDARDS
+{{ project_definition.codegen_instructions.strip() }}
+{% endif %}

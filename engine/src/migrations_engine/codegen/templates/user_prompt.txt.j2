@@ -1,0 +1,21 @@
+Source contract: {{ source_definition.source_definition_id }}
+Source slice version: {{ source_slice.source_slice_version }}
+Destination object: {{ mapping_snapshot.destination_object_name }}
+Mapping snapshot version: {{ mapping_snapshot.mapping_snapshot_version }}
+Lookup snapshot version: {{ lookup_snapshot_version or 'none' }}
+Target DB engine: {{ project_config.target_db_engine or 'unknown' }}
+Staging schema: {{ project_config.staging_schema or 'unknown' }}
+Field bindings:
+{%- for binding in mapping_snapshot.field_bindings %}
+- {{ binding.get('source_field') }} -> {{ binding.get('destination_field') }} (lookup: {{ binding.get('lookup_name') or 'none' }})
+{%- endfor %}
+{% if source_definition.transformation_instructions %}
+FEED-SPECIFIC TRANSFORMATION INSTRUCTIONS
+{{ source_definition.transformation_instructions.strip() }}
+{% endif %}
+{%- if discussion %}
+{{ discussion }}
+{%- endif %}
+{%- if slice_discussion %}
+{{ slice_discussion }}
+{%- endif %}

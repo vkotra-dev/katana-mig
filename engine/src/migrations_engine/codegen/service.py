@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import os
 from typing import Any, Literal
+from jinja2 import Environment, FileSystemLoader
+
+TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
+jinja_env = Environment(loader=FileSystemLoader(TEMPLATES_DIR), trim_blocks=True, lstrip_blocks=True)
 
 from pydantic import BaseModel, Field
 from sqlalchemy import case, or_, select, update
@@ -108,21 +113,24 @@ def generate_codegen_artifact(
         .order_by(FeedComment.created_at.asc())
     ).all())
 
+    system_prompt = _build_system_prompt(
+        project_config=project_config,
+        destination_object_name=destination_object_name,
+        project_definition=project_definition,
+    )
+    user_prompt = _build_user_prompt(
+        source_definition=source_definition,
+        source_slice=source_slice,
+        mapping_snapshot=mapping_snapshot,
+        lookup_snapshot_version=lookup_snapshot_version,
+        project_config=project_config,
+        comments=comments,
+        slice_comments=slice_comments,
+    )
+
     generated_sql = adapter.call(
-        system=_build_system_prompt(
-            project_config=project_config,
-            destination_object_name=destination_object_name,
-            project_definition=project_definition,
-        ),
-        user=_build_user_prompt(
-            source_definition=source_definition,
-            source_slice=source_slice,
-            mapping_snapshot=mapping_snapshot,
-            lookup_snapshot_version=lookup_snapshot_version,
-            project_config=project_config,
-            comments=comments,
-            slice_comments=slice_comments,
-        ),
+        system=system_prompt,
+        user=user_prompt,
         response_model=GeneratedSQL,
     )
 
@@ -143,6 +151,9 @@ def generate_codegen_artifact(
         mapping_snapshot_version=mapping_snapshot.mapping_snapshot_version,
         lookup_snapshot_version=lookup_snapshot_version,
         sql_bundle=sql_bundle,
+        compiled_system_prompt=system_prompt,
+        compiled_user_prompt=user_prompt,
+        raw_llm_response=generated_sql.model_dump_json(indent=2),
         status="active",
     )
     db.add(artifact)
@@ -254,6 +265,9 @@ def _trigger_response(artifact: CodeGenerationArtifact) -> CodegenTriggerRespons
         source_slice_version=artifact.source_slice_version,
         mapping_snapshot_version=artifact.mapping_snapshot_version,
         lookup_snapshot_version=artifact.lookup_snapshot_version,
+        compiled_system_prompt=artifact.compiled_system_prompt,
+        compiled_user_prompt=artifact.compiled_user_prompt,
+        raw_llm_response=artifact.raw_llm_response,
         created_at=artifact.created_at,
     )
 
@@ -268,6 +282,9 @@ def _artifact_response(artifact: CodeGenerationArtifact) -> CodegenArtifactRespo
         mapping_snapshot_version=artifact.mapping_snapshot_version,
         lookup_snapshot_version=artifact.lookup_snapshot_version,
         sql_bundle=artifact.sql_bundle,
+        compiled_system_prompt=artifact.compiled_system_prompt,
+        compiled_user_prompt=artifact.compiled_user_prompt,
+        raw_llm_response=artifact.raw_llm_response,
         status=artifact.status,
         created_at=artifact.created_at,
         superseded_at=artifact.superseded_at,
@@ -387,68 +404,18 @@ def _assemble_sql_bundle(generated_sql: GeneratedSQL) -> str:
     bundle_parts.extend(view.strip() for view in generated_sql.views if view.strip())
     return "\n\n".join(bundle_parts).strip()
 
-
 def _build_system_prompt(
     *,
     project_config: MigrationProjectConfig,
     destination_object_name: str,
     project_definition: ProjectDefinition,
 ) -> str:
-    lines = [
-        "You generate SQL bundles for migration delivery.",
-        f"Destination object: {destination_object_name}",
-        f"Target DB engine: {project_config.target_db_engine or 'unknown'}",
-        f"Staging schema: {project_config.staging_schema or 'unknown'}",
-        f"Destination schema: {project_config.destination_schema or 'unknown'}",
-        "",
-        "INSTRUCTIONS FOR SQL BUNDLE GENERATION:",
-        "1. Generate DDL to create any required lookup tables and seed/populate them with the approved mapping values.",
-        "2. Script/create the stored procedure or SQL migration script that performs the actual data migration/upsert from source/staging tables to destination tables using the field mappings.",
-        "3. Ensure all generated lookup tables DDL, seed data statements, and data migration stored procedures/scripts are returned inside the 'staging_table_ddl' field of the JSON output.",
-    ]
-
-    if project_definition.goal:
-        lines.append("")
-        lines.append("PROJECT GOAL")
-        lines.append(project_definition.goal.strip())
-
-    if project_definition.project_resources:
-        lines.append("")
-        lines.append("PROJECT RESOURCES")
-        lines.append(project_definition.project_resources.strip())
-
-    if project_definition.canonical_terms:
-        lines.append("")
-        lines.append("CANONICAL TERMS")
-        for term in project_definition.canonical_terms:
-            lines.append(f"- {term}")
-
-    if project_definition.constraints:
-        lines.append("")
-        lines.append("PROJECT CONSTRAINTS")
-        for constraint in project_definition.constraints:
-            lines.append(f"- {constraint}")
-
-    if project_definition.unresolved_questions:
-        lines.append("")
-        lines.append("UNRESOLVED QUESTIONS")
-        for question in project_definition.unresolved_questions:
-            lines.append(f"- {question}")
-
-    if project_definition.assumptions:
-        lines.append("")
-        lines.append("ASSUMPTIONS")
-        for assumption in project_definition.assumptions:
-            lines.append(f"- {assumption}")
-
-    codegen_instructions = getattr(project_definition, "codegen_instructions", None)
-    if codegen_instructions and codegen_instructions.strip():
-        lines.append("")
-        lines.append("GLOBAL CODING STANDARDS")
-        lines.append(codegen_instructions.strip())
-
-    return "\n".join(lines)
-
+    template = jinja_env.get_template("system_prompt.txt.j2")
+    return template.render(
+        project_config=project_config,
+        destination_object_name=destination_object_name,
+        project_definition=project_definition,
+    ).strip()
 
 _MAX_COMMENT_CHARS = 400
 _MAX_DISCUSSION_CHARS = 3000
@@ -503,39 +470,16 @@ def _build_user_prompt(
     comments: list[tuple[FeedComment, str]],
     slice_comments: list[tuple[FeedComment, str]],
 ) -> str:
-    lines = [
-        f"Source contract: {source_definition.source_definition_id}",
-        f"Source slice version: {source_slice.source_slice_version}",
-        f"Destination object: {mapping_snapshot.destination_object_name}",
-        f"Mapping snapshot version: {mapping_snapshot.mapping_snapshot_version}",
-        f"Lookup snapshot version: {lookup_snapshot_version or 'none'}",
-        f"Target DB engine: {project_config.target_db_engine or 'unknown'}",
-        f"Staging schema: {project_config.staging_schema or 'unknown'}",
-        "Field bindings:",
-    ]
-    for binding in mapping_snapshot.field_bindings:
-        lines.append(
-            f"- {binding.get('source_field')} -> {binding.get('destination_field')} "
-            f"(lookup: {binding.get('lookup_name') or 'none'})"
-        )
-
-    ti = getattr(source_definition, "transformation_instructions", None)
-    if ti and ti.strip():
-        lines.append("")
-        lines.append("FEED-SPECIFIC TRANSFORMATION INSTRUCTIONS")
-        lines.append(ti.strip())
-
-    discussion = _format_discussion(comments)
-    if discussion:
-        lines.append("")
-        lines.append(discussion)
-
-    slice_discussion = _format_slice_discussion(slice_comments)
-    if slice_discussion:
-        lines.append("")
-        lines.append(slice_discussion)
-
-    return "\n".join(lines)
+    template = jinja_env.get_template("user_prompt.txt.j2")
+    return template.render(
+        source_definition=source_definition,
+        source_slice=source_slice,
+        mapping_snapshot=mapping_snapshot,
+        lookup_snapshot_version=lookup_snapshot_version,
+        project_config=project_config,
+        discussion=_format_discussion(comments),
+        slice_discussion=_format_slice_discussion(slice_comments),
+    ).strip()
 
 
 def _supersede_previous_artifacts(
