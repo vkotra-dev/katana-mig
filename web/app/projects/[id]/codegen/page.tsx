@@ -41,6 +41,51 @@ function sourceDestinationLabel(source: FeedContractRecord): string {
   return refs.length > 0 ? refs.join(", ") : "Unassigned";
 }
 
+const generateCodingStandardsTemplate = (
+  dbEngine: string,
+  stagingSchema: string,
+  destSchema: string
+): string => {
+  const engineName = dbEngine || "target database";
+  const stg = stagingSchema || "staging";
+  const dest = destSchema || "destination";
+
+  let specificStandards = "";
+  const lowerEngine = dbEngine?.toLowerCase() || "";
+  if (lowerEngine === "postgresql") {
+    specificStandards = `
+     - Use standard PostgreSQL coding conventions: lowercase identifiers, snake_case for tables/columns, explicit type casting (e.g. ::date, ::integer).
+     - Stored procedures/functions should be written in PL/pgSQL using dollar-quoting.`;
+  } else if (lowerEngine === "mssql" || lowerEngine === "sqlserver") {
+    specificStandards = `
+     - Use T-SQL coding conventions: UPPERCASE SQL keywords, square brackets for identifiers only when necessary, proper schema qualifiers.
+     - Stored procedures should check for object existence before drop/create, and use standard error handling (TRY...CATCH).`;
+  } else if (lowerEngine === "oracle") {
+    specificStandards = `
+     - Use PL/SQL coding conventions: UPPERCASE keywords/types, clear EXCEPTION blocks, schema-qualified table references.
+     - All object names must respect Oracle length limits (max 30 or 128 characters depending on version).`;
+  } else if (lowerEngine === "mysql") {
+    specificStandards = `
+     - Use standard MySQL coding conventions: backticks for reserved word identifiers, snake_case table/column names.
+     - Stored procedures should use clear parameter scoping and DELIMITER declarations.`;
+  }
+
+  return `### Coding Standards and Guidelines
+
+1. **Schemas and Scoping**:
+   - All stored procedures and destination tables must be created under the "${dest}" schema.
+   - All staging and source tables must be read from the "${stg}" schema.
+   - All DDL for lookup tables must be created in the "${stg}" schema.
+
+2. **Database Engine Conventions (${engineName})**:
+   - Write all DDL and stored procedures complying with the standard coding conventions pertinent to ${engineName}.${specificStandards}
+
+3. **General Best Practices**:
+   - Ensure all scripts are repeatable and idempotent (check for existence before creation, use DROP IF EXISTS/CREATE OR REPLACE).
+   - Use explicit column lists in all INSERT statements.
+   - No default timestamps or hardcoded environment configurations.`;
+};
+
 export default function CodegenPage({ params }: { params: Promise<{ id: string }> }) {
   const [routeParams, setRouteParams] = useState<{ id: string } | null>(null);
   const [session, setSession] = useState<UiSession | null>(null);
@@ -193,6 +238,22 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
     }
   };
 
+  const handleSuggestGlobalInstructions = () => {
+    if (
+      globalInstructions.trim() &&
+      !window.confirm("This will overwrite your existing global instructions. Are you sure you want to proceed?")
+    ) {
+      return;
+    }
+
+    const engine = project?.domainConfig?.targetDbEngine || "";
+    const staging = project?.domainConfig?.stagingSchema || "";
+    const dest = project?.domainConfig?.destinationSchema || "";
+
+    const template = generateCodingStandardsTemplate(engine, staging, dest);
+    setGlobalInstructions(template.trim());
+  };
+
   const handleSaveGlobalInstructions = async (): Promise<void> => {
     if (!session || !routeParams) return;
     setSaveLoading(true);
@@ -292,9 +353,20 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
             <ProjectNavigationTabs activeTab="sql-bundle" mode="codegen" projectId={routeParams.id} />
 
             <section className="space-y-4 rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm">
-              <div>
-                <h2 className="text-xl font-semibold text-slate-900">Coding Standards & Global Instructions</h2>
-                <p className="text-sm text-slate-600">Applied to all feeds in this project during SQL generation.</p>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-900">Coding Standards & Global Instructions</h2>
+                  <p className="text-sm text-slate-600">Applied to all feeds in this project during SQL generation.</p>
+                </div>
+                {(role === "central_team" || role === "admin") && (
+                  <button
+                    type="button"
+                    className="rounded-lg border border-outline-variant bg-surface px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    onClick={handleSuggestGlobalInstructions}
+                  >
+                    Suggest Standards
+                  </button>
+                )}
               </div>
               <div className="space-y-2">
                 <textarea

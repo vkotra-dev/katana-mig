@@ -218,4 +218,24 @@ describe("CodegenPage", () => {
     });
     expect(await screen.findByText("Schema analysis completed.")).toBeInTheDocument();
   });
+
+  it("suggests coding standards template when clicking Suggest Standards", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<CodegenPage params={Promise.resolve({ id: "project-1" })} />);
+
+    await screen.findByText("Customer extract");
+
+    const textarea = screen.getByPlaceholderText(/e.g. All date columns must use DATE type/i);
+    expect(textarea).toHaveValue("Date rules");
+
+    const suggestBtn = screen.getByRole("button", { name: "Suggest Standards" });
+    fireEvent.click(suggestBtn);
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(textarea.value).toContain("Coding Standards and Guidelines");
+    expect(textarea.value).toContain("Schemas and Scoping");
+
+    confirmSpy.mockRestore();
+  });
 });
