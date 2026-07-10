@@ -123,9 +123,9 @@ const generateTransformationInstructionsTemplate = (
   let mappingSection = "";
   if (domainFibers.length > 0) {
     mappingSection = "\n### 2. Table Mappings & Stored Procedures\n";
-    mappingSection += `Look for a table in the source schema with the same name as the feed ("${feedLabel}") and upsert the mapped source fields into the target destination table(s) using the field mappings described below:\n\n`;
+    mappingSection += `Look for a table in the source schema with the same name as the feed ("${feedLabel}") and upsert the mapped source fields into the target destination table(s) using the stakeholder-approved field mappings described below:\n\n`;
     domainFibers.forEach(f => {
-      mappingSection += `- **Target Table: "${f.fiberKey}"**\n  Field mappings:\n`;
+      mappingSection += `- **Table Mapping Fiber: "${f.fiberKey}"**\n  Stakeholder-approved field mappings:\n`;
       const bindings = f.fieldBindings ?? [];
       bindings.forEach(b => {
         const lkpText = b.lookupName ? ` (Lookup: ${b.lookupName})` : "";
