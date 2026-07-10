@@ -138,9 +138,8 @@ const generateTransformationInstructionsTemplate = (
 
 ${lookupSection}
 ${mappingSection}
-### 3. Execution Strategy (Row Count: ${rowCount})
+### 3. Execution Strategy
 - Recommended strategy: **${strategy}**
-- Pick the best strategy based on the row count of ${rowCount} to generate the SQL stored procedure.
 - For any lookup-type destination fields, use the lookup tables populated under look_bind_column_code_gen to map input codes.`;
 };
 
