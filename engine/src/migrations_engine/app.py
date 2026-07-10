@@ -5,7 +5,7 @@ import os
 
 logging.basicConfig(level=logging.INFO, format="%(name)s %(levelname)s %(message)s")
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -83,9 +83,22 @@ app.include_router(notifications_router)
 app.include_router(sign_offs_router)
 
 
-@app.exception_handler(AuthApiError)
-async def auth_api_error_handler(_request: object, exc: AuthApiError) -> JSONResponse:
+def _cors_response(request: Request, status_code: int, content: dict) -> JSONResponse:
+    origin = request.headers.get("origin") or "*"
     return JSONResponse(
+        status_code=status_code,
+        content=content,
+        headers={
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true" if origin != "*" else "false",
+        },
+    )
+
+
+@app.exception_handler(AuthApiError)
+async def auth_api_error_handler(request: Request, exc: AuthApiError) -> JSONResponse:
+    return _cors_response(
+        request,
         status_code=exc.status_code,
         content={"error": {"code": exc.code, "message": exc.message}},
     )
@@ -93,15 +106,17 @@ async def auth_api_error_handler(_request: object, exc: AuthApiError) -> JSONRes
 
 
 @app.exception_handler(RequestValidationError)
-async def request_validation_error_handler(_request: object, _exc: RequestValidationError) -> JSONResponse:
-    return JSONResponse(
+async def request_validation_error_handler(request: Request, _exc: RequestValidationError) -> JSONResponse:
+    return _cors_response(
+        request,
         status_code=422,
         content={"error": {"code": "validation_error", "message": "Invalid request body."}},
     )
 
 
+
 @app.exception_handler(Exception)
-async def general_exception_handler(_request: object, exc: Exception) -> JSONResponse:
+async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     from .ai.adapter import AICallError
     if isinstance(exc, AICallError):
         message = str(exc)
@@ -111,7 +126,8 @@ async def general_exception_handler(_request: object, exc: Exception) -> JSONRes
             status_code = 429
             code = "ai_rate_limited"
             message = "AI service rate limit reached. Please try again later."
-        return JSONResponse(
+        return _cors_response(
+            request,
             status_code=status_code,
             content={"error": {"code": code, "message": message}},
         )
