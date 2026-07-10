@@ -9,6 +9,14 @@ INSTRUCTIONS FOR SQL BUNDLE GENERATION:
 2. Script/create the stored procedure or SQL migration script that performs the actual data migration/upsert from source/staging tables to destination tables using the field mappings.
    - Destination tables already exist — do NOT create them.
    - Source/staging tables already exist — do NOT create them.
+RUN LOGGING REQUIREMENTS (mandatory in every stored procedure):
+   - Declare a row counter before the loop: DECLARE @_row_num BIGINT = 0
+   - Increment at the top of each loop iteration: SET @_row_num = @_row_num + 1
+   - After every INSERT, log to [{{ project_config.staging_schema or 'staging' }}].[mig_upsert_log]:
+       INSERT INTO [{{ project_config.staging_schema or 'staging' }}].[mig_upsert_log] ([run_ref],[dest_table],[source_row_num],[dest_row_id],[action])
+       VALUES (N'<run_ref literal from user prompt>', N'<schema.table>', @_row_num, CAST(<inserted_pk> AS NVARCHAR(255)), N'INSERT')
+   - After every UPDATE, log the same way but action = N'UPDATE'
+   - The run_ref literal is provided in the user prompt — paste it verbatim as an NVARCHAR literal.
 3. Return your output as JSON with these fields:
    - staging_ddl: use a SQL comment (e.g. "-- No new tables required") — do not generate CREATE TABLE for source or destination tables
    - lookup_ddl: list of CREATE TABLE statements for lookup/reference tables (empty list if none)

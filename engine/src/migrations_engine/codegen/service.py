@@ -126,6 +126,7 @@ def generate_codegen_artifact(
         mapping_snapshot=mapping_snapshot,
         lookup_snapshot_version=lookup_snapshot_version,
         project_config=project_config,
+        run_ref=f"{project_id}_{source_definition_id}",
         comments=comments,
         slice_comments=slice_comments,
     )
@@ -414,8 +415,7 @@ def _mig_upsert_log_ddl(staging_schema: str) -> str:
         f"        [action]         NVARCHAR(10)  NOT NULL,\n"
         f"        [logged_at]      DATETIME2(0)  NOT NULL DEFAULT GETDATE()\n"
         f"    );\n"
-        f"END;\n"
-        f"GO"
+        f"END;"
     )
 
 
@@ -492,6 +492,7 @@ def _build_user_prompt(
     mapping_snapshot: MappingSnapshot,
     lookup_snapshot_version: str | None,
     project_config: MigrationProjectConfig,
+    run_ref: str,
     comments: list[tuple[FeedComment, str]],
     slice_comments: list[tuple[FeedComment, str]],
 ) -> str:
@@ -502,6 +503,7 @@ def _build_user_prompt(
         mapping_snapshot=mapping_snapshot,
         lookup_snapshot_version=lookup_snapshot_version,
         project_config=project_config,
+        run_ref=run_ref,
         discussion=_format_discussion(comments),
         slice_discussion=_format_slice_discussion(slice_comments),
     ).strip()
