@@ -91,12 +91,32 @@ async def auth_api_error_handler(_request: object, exc: AuthApiError) -> JSONRes
     )
 
 
+
 @app.exception_handler(RequestValidationError)
 async def request_validation_error_handler(_request: object, _exc: RequestValidationError) -> JSONResponse:
     return JSONResponse(
         status_code=422,
         content={"error": {"code": "validation_error", "message": "Invalid request body."}},
     )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(_request: object, exc: Exception) -> JSONResponse:
+    from .ai.adapter import AICallError
+    if isinstance(exc, AICallError):
+        message = str(exc)
+        status_code = 502
+        code = "ai_provider_error"
+        if "rate limit" in message.lower() or "429" in message:
+            status_code = 429
+            code = "ai_rate_limited"
+            message = "AI service rate limit reached. Please try again later."
+        return JSONResponse(
+            status_code=status_code,
+            content={"error": {"code": code, "message": message}},
+        )
+    # fall back to default behavior (Starlette handles general unhandled exceptions as 500)
+    raise exc
 
 
 @app.get("/healthz")
