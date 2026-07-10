@@ -98,7 +98,7 @@ const generateTransformationInstructionsTemplate = (
   if (lookupFibers.length > 0) {
     lookupSection = "\n### 1. Lookup Tables\n";
     lookupFibers.forEach(f => {
-      lookupSection += `- Create a lookup table for "${f.fiberKey}" with source and destination columns call look_bind_column_code_gen.\n`;
+      lookupSection += `- Create a lookup table "${f.fiberKey}" with source as first column and destination columns as other fields and instruction for the code generation lookup mechanism to find the id values for insert.\n`;
       const mappings = f.proposedMappings ?? [];
       if (mappings.length > 0) {
         lookupSection += "  Seed values:\n";

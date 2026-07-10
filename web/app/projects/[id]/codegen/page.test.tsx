@@ -290,6 +290,7 @@ describe("CodegenPage", () => {
       expect(textarea.value).toContain("Transformation Instructions for Feed:");
       expect(textarea.value).toContain("insurance_plan_lkp");
       expect(textarea.value).toContain("Gold Plan");
+      expect(textarea.value).toContain("source as first column and destination columns as other fields");
     });
   });
 });
