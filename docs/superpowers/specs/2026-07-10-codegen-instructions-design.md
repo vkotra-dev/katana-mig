@@ -243,16 +243,20 @@ ls engine/migrations/versions/ | sort | tail -1
 
 ---
 
-## Domain Page Update
+## Domain Page Updates
 
-Per governance, behavior changes must patch the relevant domain page together with the code.
+Per governance, behavior changes must patch the relevant domain page together with the code. Two domain pages are affected.
 
-**File:** `docs/domain/source-model.md`
+### `docs/domain/project.md`
+
+The `ProjectDefinition` field list (lines 61-77) must be updated to include:
+- `codegen_instructions` — natural-language global coding standards applied to all SQL generation for this project; survives copy-on-write and project copy
+
+### `docs/domain/source-model.md`
 
 Add a subsection under the codegen artifact section documenting:
-- `codegen_instructions` on `ProjectDefinition` — purpose, scope (all feeds in project), how it enters the system prompt
-- `transformation_instructions` on `Feed` — purpose, scope (single feed), how it enters the user prompt
-- That both fields survive `update_project()` copy-on-write and `copy_project()` duplication
+- `transformation_instructions` on `Feed` — natural-language per-feed transformation rules injected into the codegen user prompt; copied when a project is duplicated
+- How the codegen prompt is now structured: project context block (staging schema, destination schema, target DB engine) → global coding standards (`codegen_instructions`) → feed-specific transformation instructions (`transformation_instructions`) → field mapping context
 
 ---
 
