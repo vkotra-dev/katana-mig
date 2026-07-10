@@ -70,7 +70,9 @@ def analyze_source_slice(
     if existing_artifact is not None:
         return SourceAnalysisResponse(schema_artifact_id=existing_artifact.schema_artifact_id)
 
-    sample_rows = _load_slice_rows(db, source_slice_id=source_slice.source_slice_id, limit=10)
+    _policy = source_definition.sample_policy or {}
+    _limit = _policy.get("max_rows") or 10
+    sample_rows = _load_slice_rows(db, source_slice_id=source_slice.source_slice_id, limit=_limit)
     if source_slice.header_csv:
         from ..intake.masking import mask_row
         headers = _parse_csv_row(source_slice.header_csv)
