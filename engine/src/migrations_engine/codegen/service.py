@@ -400,6 +400,11 @@ def _build_system_prompt(
         f"Target DB engine: {project_config.target_db_engine or 'unknown'}",
         f"Staging schema: {project_config.staging_schema or 'unknown'}",
         f"Destination schema: {project_config.destination_schema or 'unknown'}",
+        "",
+        "INSTRUCTIONS FOR SQL BUNDLE GENERATION:",
+        "1. Generate DDL to create any required lookup tables and seed/populate them with the approved mapping values.",
+        "2. Script/create the stored procedure or SQL migration script that performs the actual data migration/upsert from source/staging tables to destination tables using the field mappings.",
+        "3. Ensure all generated lookup tables DDL, seed data statements, and data migration stored procedures/scripts are returned inside the 'staging_table_ddl' field of the JSON output.",
     ]
 
     if project_definition.goal:
