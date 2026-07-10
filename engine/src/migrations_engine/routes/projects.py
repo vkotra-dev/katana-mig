@@ -10,6 +10,7 @@ from ..api.deps import (
     get_db,
     get_admin_user,
     get_central_team_user,
+    get_project_modifier_user,
 )
 from ..api.schemas import (
     MembershipResponse,
@@ -65,7 +66,7 @@ def get_project_by_id(
 def patch_project(
     project_id: str,
     body: ProjectUpdateRequest,
-    actor: User = Depends(get_pm_user),
+    actor: User = Depends(get_project_modifier_user),
     db: Session = Depends(get_db),
 ) -> ProjectResponse:
     return update_project(db, actor=actor, project_id=project_id, body=body)

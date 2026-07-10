@@ -82,6 +82,13 @@ def get_admin_or_pm_user(user: User = Depends(get_current_user)) -> User:
     return user
 
 
+def get_project_modifier_user(user: User = Depends(get_current_user)) -> User:
+    from ..roles import ADMIN_ROLE, PM_ROLE, CENTRAL_TEAM_ROLE
+    if user.role not in {ADMIN_ROLE, PM_ROLE, CENTRAL_TEAM_ROLE}:
+        raise AuthApiError("forbidden", "Administrator, Project Manager, or Central Team access is required.", 403)
+    return user
+
+
 def get_central_team_user(user: User = Depends(get_current_user)) -> User:
     from ..management.access import require_central_team
 

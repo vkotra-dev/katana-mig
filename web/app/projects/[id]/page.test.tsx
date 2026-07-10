@@ -169,6 +169,18 @@ describe("ProjectDetailPage", () => {
     expect(await screen.findByRole("link", { name: "Edit" })).toHaveAttribute("href", "/projects/proj-1/edit");
   });
 
+  it("shows an edit link for central team users", async () => {
+    loadUiSessionMock.mockReturnValue({
+      accessToken: "token-1",
+      expiresAt: "2026-06-30T12:00:00Z",
+      role: "central_team",
+      sessionVersion: 1,
+      userId: "user-1",
+    });
+    await renderPage("proj-1");
+    expect(await screen.findByRole("link", { name: "Edit" })).toHaveAttribute("href", "/projects/proj-1/edit");
+  });
+
   it("hides edit for read-only auditors", async () => {
     loadUiSessionMock.mockReturnValue(AUDITOR_SESSION);
     await renderPage("proj-1");
