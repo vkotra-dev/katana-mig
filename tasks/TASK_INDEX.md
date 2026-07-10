@@ -6,6 +6,8 @@
 |---|---|
 | [001cl-review-page-edit-and-feed-thread](./001cl-review-page-edit-and-feed-thread.md) | Multi-party sign-off per binding/lookup, inbox-gated edit, PM poke, feed thread on review page, codegen context |
 | [001cm-slice-comment-thread](./001cm-slice-comment-thread.md) | FeedSliceComment model + thread on slice approval screen + codegen context injection |
+| [001cn-codegen-instructions](./001cn-codegen-instructions.md) | Project-wide coding standards + per-feed transformation instructions injected into AI codegen prompt |
+| [001co-ai-call-log](./001co-ai-call-log.md) | Single ai_call_log table captures every AI adapter call — system prompt, user prompt, raw response, model ID |
 
 ## Completed
 
