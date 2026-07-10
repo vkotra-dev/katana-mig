@@ -348,7 +348,7 @@ def propose_mapping(
         "3. Classify each binding as 'direct', 'detail_fk', or 'lookup_fk'.\n"
         "4. A binding is 'detail_fk' when its destination column is a foreign key whose referenced table "
         "is also mapped in this response. It is 'lookup_fk' when it references a lookup table not mapped here.\n"
-        "5. For any lookup_fk binding, set the reference_table_name.\n"
+        "5. For any lookup_fk binding, set the reference_table_name. If the referenced lookup table does not exist in the DDL, suggest a logical name for it (e.g., '{source_field}_ref').\n"
         "6. If the DDL is invalid or you cannot find any matching tables, set error_code and error_message.\n"
         "Return valid JSON matching the schema."
     )
@@ -429,6 +429,9 @@ def propose_mapping(
             l_name = None
             if b_type == "lookup_fk":
                 l_name = binding.source_field  # default lookup name to source field name
+                if not ref_table:
+                    clean_field = binding.source_field.lower().strip().replace(" ", "_").replace("'", "").replace('"', "")
+                    ref_table = f"{clean_field}_ref"
                 
             field_bindings.append({
                 "source_field": binding.source_field,

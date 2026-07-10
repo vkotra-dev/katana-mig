@@ -10,6 +10,7 @@ const {
   rejectMappingSnapshotMock,
   unapproveMappingSnapshotMock,
   listFeedSlicesMock,
+  getFeedContractMock,
   listFeedCommentsMock,
   createFeedCommentMock,
   getSignOffStatusMock,
@@ -28,6 +29,7 @@ const {
   rejectMappingSnapshotMock: vi.fn(),
   unapproveMappingSnapshotMock: vi.fn(),
   listFeedSlicesMock: vi.fn(),
+  getFeedContractMock: vi.fn(),
   listFeedCommentsMock: vi.fn(() => Promise.resolve([])),
   createFeedCommentMock: vi.fn(),
   getSignOffStatusMock: vi.fn(() => Promise.resolve({
@@ -63,6 +65,7 @@ vi.mock("../../../../../../lib/lookup-api", () => ({
 
 vi.mock("../../../../../../lib/feeds-api", () => ({
   listFeedSlices: listFeedSlicesMock,
+  getFeedContract: getFeedContractMock,
   listFeedComments: listFeedCommentsMock,
   createFeedComment: createFeedCommentMock,
 }));
@@ -127,6 +130,18 @@ describe("ReviewPage", () => {
     getAllApprovedMappingSnapshotsMock.mockResolvedValue([SNAPSHOT]);
     listLookupValueMapsMock.mockResolvedValue([]);
     listFeedSlicesMock.mockResolvedValue([]);
+    getFeedContractMock.mockResolvedValue({
+      sourceDefinitionId: "feed-1",
+      projectId: "proj-1",
+      sourceType: "csv",
+      label: "Mock Feed Name",
+      encoding: "utf-8",
+      destinationObjectReferences: [],
+      layoutInformation: [],
+      copybookText: null,
+      status: "active",
+      createdAt: "2026-06-30T12:00:00Z",
+    });
     listFeedCommentsMock.mockResolvedValue([]);
     getSignOffStatusMock.mockResolvedValue({
       complete: false,
@@ -148,7 +163,7 @@ describe("ReviewPage", () => {
 
     await renderPage();
 
-    expect(await screen.findByText("Review Mappings & Lookups")).toBeInTheDocument();
+    expect(await screen.findByText(/Review Mappings & Lookups/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Approve" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Approve" }));
@@ -162,7 +177,7 @@ describe("ReviewPage", () => {
 
     await renderPage();
 
-    expect(await screen.findByText("Review Mappings & Lookups")).toBeInTheDocument();
+    expect(await screen.findByText(/Review Mappings & Lookups/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
   });
 
@@ -228,7 +243,7 @@ describe("ReviewPage", () => {
       { ...SNAPSHOT, destinationObjectName: "table_2", status: "draft" }
     ]);
     await renderPage();
-    expect(await screen.findByText("Review Mappings & Lookups")).toBeInTheDocument();
+    expect(await screen.findByText(/Review Mappings & Lookups/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Approve" })).toBeInTheDocument();
   });
 
@@ -239,7 +254,7 @@ describe("ReviewPage", () => {
       { ...SNAPSHOT, destinationObjectName: "table_2", status: "approved" }
     ]);
     await renderPage();
-    expect(await screen.findByText("Review Mappings & Lookups")).toBeInTheDocument();
+    expect(await screen.findByText(/Review Mappings & Lookups/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
   });
 
@@ -250,7 +265,7 @@ describe("ReviewPage", () => {
       { ...SNAPSHOT, destinationObjectName: "table_2", status: "draft" }
     ]);
     await renderPage();
-    expect(await screen.findByText("Review Mappings & Lookups")).toBeInTheDocument();
+    expect(await screen.findByText(/Review Mappings & Lookups/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
   });
 
@@ -273,7 +288,7 @@ describe("ReviewPage", () => {
 
     await renderPage();
 
-    expect(await screen.findByText("Review Mappings & Lookups")).toBeInTheDocument();
+    expect(await screen.findByText(/Review Mappings & Lookups/)).toBeInTheDocument();
 
     // Expand accordion
     fireEvent.click(screen.getByRole("button", { name: /users/ }));
@@ -302,7 +317,7 @@ describe("ReviewPage", () => {
 
     await renderPage();
 
-    expect(await screen.findByText("Review Mappings & Lookups")).toBeInTheDocument();
+    expect(await screen.findByText(/Review Mappings & Lookups/)).toBeInTheDocument();
     expect(screen.getByText(/Unmapped source fields/i)).toBeInTheDocument();
     expect(screen.getByText("lost_column")).toBeInTheDocument();
     expect(screen.getByText("unmapped_val")).toBeInTheDocument();

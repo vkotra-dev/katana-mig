@@ -15,7 +15,7 @@ import {
   listLookupValueMaps,
   type LookupValueMapRecord,
 } from "../../../../../../lib/lookup-api";
-import { listFeedSlices } from "../../../../../../lib/feeds-api";
+import { listFeedSlices, getFeedContract, type FeedContractRecord } from "../../../../../../lib/feeds-api";
 import { loadUiSession, type SessionRole, type UiSession } from "../../../../../../lib/session";
 import { ReviewGrid, type MappingTableRecord, type LookupValueGroup } from "../../../../../../components/projects/ReviewGrid";
 import { splitCsvRow } from "../../../../../../lib/csv-utils";
@@ -49,6 +49,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
   const [signOffStatus, setSignOffStatus] = useState<SignOffStatusRecord | null>(null);
   const [approvedSlice, setApprovedSlice] = useState<FeedSliceRecord | null>(null);
   const [latestSliceId, setLatestSliceId] = useState<string | undefined>(undefined);
+  const [feed, setFeed] = useState<FeedContractRecord | null>(null);
 
   useEffect(() => {
     const s = loadUiSession();
@@ -60,13 +61,15 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
 
   const loadData = async (token: string) => {
     try {
-      const [snapshotsData, mapsData, slicesData] = await Promise.all([
+      const [snapshotsData, mapsData, slicesData, feedData] = await Promise.all([
         getAllApprovedMappingSnapshots(token, projectId, feedId, true),
         listLookupValueMaps(token, projectId, feedId),
         listFeedSlices(token, projectId, feedId),
+        getFeedContract(token, projectId, feedId),
       ]);
       setMappingSnapshots(snapshotsData);
       setLookupMaps(mapsData);
+      setFeed(feedData);
 
       // Fetch sign-off status independently so a failure doesn't break the whole page
       getSignOffStatus(token, projectId, feedId)
@@ -373,7 +376,9 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
           </button>
 
           <div className="flex flex-col items-end">
-            <h1 className="text-xl font-bold text-slate-900">Review Mappings & Lookups</h1>
+            <h1 className="text-xl font-bold text-slate-900">
+              Review Mappings & Lookups{feed ? `: ${feed.label}` : ""}
+            </h1>
             {aggregateStatus && (
               <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
                 aggregateStatus === "approved"
