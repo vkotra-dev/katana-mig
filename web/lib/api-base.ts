@@ -16,19 +16,19 @@ export async function jsonRequest<TResponse>(
 
   if (!response.ok) {
     const text = await response.text();
+    let errorMessage = text;
     try {
       const parsed = JSON.parse(text);
       const detail = parsed.detail || parsed.error || parsed;
       if (detail && typeof detail === "object" && "message" in detail && typeof detail.message === "string") {
-        throw new Error(detail.message);
-      }
-      if (typeof detail === "string") {
-        throw new Error(detail);
+        errorMessage = detail.message;
+      } else if (typeof detail === "string") {
+        errorMessage = detail;
       }
     } catch {
       // not JSON or parsing failed, fallback
     }
-    throw new Error(text);
+    throw new Error(errorMessage);
   }
 
   return (await response.json()) as TResponse;
