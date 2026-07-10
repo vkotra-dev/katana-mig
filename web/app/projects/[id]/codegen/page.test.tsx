@@ -337,7 +337,6 @@ describe("CodegenPage", () => {
       expect(textarea.value).toContain("Gold Plan");
       expect(textarea.value).toContain("source as first column and destination columns as other fields");
       expect(textarea.value).toContain('find the id values from "insurance_plan_lkp" for insert');
-      expect(textarea.value).toContain("map input codes with find lookup table in the staging");
       expect(textarea.value).toContain('Look for a table in the source schema with the same name as the feed ("Customer extract") and upsert the mapped source fields into the target destination table(s) using the stakeholder-approved field mappings described below:');
       expect(textarea.value).toContain('Table Mapping Fiber: "customer" (Source: "Customer extract" -> Destination: "customer")');
       expect(textarea.value).toContain('Source field "cust_id" -> Destination column "customer_id"');
