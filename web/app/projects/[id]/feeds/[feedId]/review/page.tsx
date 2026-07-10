@@ -15,7 +15,7 @@ import {
   listLookupValueMaps,
   type LookupValueMapRecord,
 } from "../../../../../../lib/lookup-api";
-import { listFeedSlices, getFeedContract, type FeedContractRecord } from "../../../../../../lib/feeds-api";
+import { listFeedSlices, getFeedContract, listFeedFibers, type FeedContractRecord } from "../../../../../../lib/feeds-api";
 import { loadUiSession, type SessionRole, type UiSession } from "../../../../../../lib/session";
 import { ReviewGrid, type MappingTableRecord, type LookupValueGroup } from "../../../../../../components/projects/ReviewGrid";
 import { splitCsvRow } from "../../../../../../lib/csv-utils";
@@ -50,6 +50,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
   const [approvedSlice, setApprovedSlice] = useState<FeedSliceRecord | null>(null);
   const [latestSliceId, setLatestSliceId] = useState<string | undefined>(undefined);
   const [feed, setFeed] = useState<FeedContractRecord | null>(null);
+  const [fibers, setFibers] = useState<any[]>([]);
 
   useEffect(() => {
     const s = loadUiSession();
@@ -61,15 +62,17 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
 
   const loadData = async (token: string) => {
     try {
-      const [snapshotsData, mapsData, slicesData, feedData] = await Promise.all([
+      const [snapshotsData, mapsData, slicesData, feedData, fibersData] = await Promise.all([
         getAllApprovedMappingSnapshots(token, projectId, feedId, true),
         listLookupValueMaps(token, projectId, feedId),
         listFeedSlices(token, projectId, feedId),
         getFeedContract(token, projectId, feedId),
+        listFeedFibers(token, projectId, feedId),
       ]);
       setMappingSnapshots(snapshotsData);
       setLookupMaps(mapsData);
       setFeed(feedData);
+      setFibers(fibersData);
 
       // Fetch sign-off status independently so a failure doesn't break the whole page
       getSignOffStatus(token, projectId, feedId)
@@ -297,6 +300,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
         seenLookups.add(binding.lookupName);
         const refTable = refMap[binding.lookupName] || "unknown_ref";
         const latestMap = lookupMaps.find((m) => m.lookupName === binding.lookupName);
+        const fiber = fibers.find(f => f.fiberKey === binding.lookupName);
         const pairs = [];
         if (latestMap) {
           for (const [srcVal, destId] of Object.entries(latestMap.sourceValueMap)) {
@@ -320,6 +324,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
           lookupName: binding.lookupName,
           referenceTableName: refTable,
           lookupValueMapId: latestMap?.lookupValueMapId,
+          fiberStatus: fiber?.status,
           pairs,
         });
       }

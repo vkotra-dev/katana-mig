@@ -18,9 +18,10 @@ export interface LookupValueGroup {
   lookupName: string;
   referenceTableName: string;
   lookupValueMapId?: string;
+  fiberStatus?: string;
   pairs: Array<{
     sourceValue: string;
-    destinationRow: Record<string, unknown>;
+    destinationRow: Record<string, unknown> | null;
     confidenceScore: number;
     status: "confirmed" | "pending" | "rejected";
   }>;
@@ -587,6 +588,19 @@ export function ReviewGrid({
                   <div className="space-y-1">
                     <h4 className="text-base font-bold text-slate-900 flex items-center gap-3">
                       <span>{group.lookupName}</span>
+                      {group.fiberStatus && (
+                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-mono uppercase font-semibold ${
+                          group.fiberStatus === "operator_triggered" || group.fiberStatus === "codegen_complete"
+                            ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700"
+                            : group.fiberStatus === "business_approved"
+                            ? "border-blue-500/20 bg-blue-500/10 text-blue-700"
+                            : group.fiberStatus === "operator_assigned"
+                            ? "border-amber-500/20 bg-amber-500/10 text-amber-700"
+                            : "border-slate-200 bg-slate-50 text-slate-600"
+                        }`}>
+                          {group.fiberStatus.replace(/_/g, " ")}
+                        </span>
+                      )}
                       {group.lookupValueMapId && renderLookupSignOffChips(group.lookupValueMapId)}
                     </h4>
                     <p className="text-xs text-slate-500">

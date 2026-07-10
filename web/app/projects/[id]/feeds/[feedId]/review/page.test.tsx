@@ -11,6 +11,7 @@ const {
   unapproveMappingSnapshotMock,
   listFeedSlicesMock,
   getFeedContractMock,
+  listFeedFibersMock,
   listFeedCommentsMock,
   createFeedCommentMock,
   getSignOffStatusMock,
@@ -30,6 +31,7 @@ const {
   unapproveMappingSnapshotMock: vi.fn(),
   listFeedSlicesMock: vi.fn(),
   getFeedContractMock: vi.fn(),
+  listFeedFibersMock: vi.fn(),
   listFeedCommentsMock: vi.fn(() => Promise.resolve([])),
   createFeedCommentMock: vi.fn(),
   getSignOffStatusMock: vi.fn(() => Promise.resolve({
@@ -66,6 +68,7 @@ vi.mock("../../../../../../lib/lookup-api", () => ({
 vi.mock("../../../../../../lib/feeds-api", () => ({
   listFeedSlices: listFeedSlicesMock,
   getFeedContract: getFeedContractMock,
+  listFeedFibers: listFeedFibersMock,
   listFeedComments: listFeedCommentsMock,
   createFeedComment: createFeedCommentMock,
 }));
@@ -130,6 +133,7 @@ describe("ReviewPage", () => {
     getAllApprovedMappingSnapshotsMock.mockResolvedValue([SNAPSHOT]);
     listLookupValueMapsMock.mockResolvedValue([]);
     listFeedSlicesMock.mockResolvedValue([]);
+    listFeedFibersMock.mockResolvedValue([]);
     getFeedContractMock.mockResolvedValue({
       sourceDefinitionId: "feed-1",
       projectId: "proj-1",
