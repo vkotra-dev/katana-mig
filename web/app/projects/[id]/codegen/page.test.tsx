@@ -356,7 +356,7 @@ describe("CodegenPage", () => {
         sqlBundle: "CREATE TABLE stg_customer (customer_id INT);",
         compiledSystemPrompt: "System rules content",
         compiledUserPrompt: "User mapping content",
-        rawLlmResponse: '{"staging_table_ddl": "sql"}',
+        rawLlmResponse: '{"staging_ddl": "sql", "lookup_ddl": [], "seed_data": [], "stored_procedures": []}',
         status: "active",
         createdAt: "2026-06-30T01:00:00Z",
         supersededAt: null,
@@ -377,7 +377,7 @@ describe("CodegenPage", () => {
 
     const rawTab = screen.getByRole("button", { name: "Raw LLM JSON" });
     fireEvent.click(rawTab);
-    expect(screen.getByText('{"staging_table_ddl": "sql"}')).toBeInTheDocument();
+    expect(screen.getByText('{"staging_ddl": "sql", "lookup_ddl": [], "seed_data": [], "stored_procedures": []}')).toBeInTheDocument();
 
     const sqlTab = screen.getByRole("button", { name: "Assembled SQL" });
     fireEvent.click(sqlTab);

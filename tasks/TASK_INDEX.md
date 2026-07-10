@@ -9,6 +9,7 @@
 | [001cn-codegen-instructions](./001cn-codegen-instructions.md) | Project-wide coding standards + per-feed transformation instructions injected into AI codegen prompt |
 | [001co-ai-call-log](./001co-ai-call-log.md) | Single ai_call_log table captures every AI adapter call — system prompt, user prompt, raw response, model ID |
 | [001cp-migration-run-logging](./001cp-migration-run-logging.md) | mig_upsert_log in staging schema — every upsert logged with source row number, dest row ID, and fiber (dest table) |
+| [001cq-generated-sql-schema-split](./001cq-generated-sql-schema-split.md) | Split GeneratedSQL.staging_table_ddl into staging_ddl, lookup_ddl, seed_data, stored_procedures so AI generates complete bundles |
 
 ## Completed
 

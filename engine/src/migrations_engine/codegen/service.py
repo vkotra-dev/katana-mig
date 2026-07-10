@@ -33,8 +33,10 @@ from .schema_analysis import get_schema_analysis
 
 
 class GeneratedSQL(BaseModel):
-    staging_table_ddl: str = Field(min_length=1)
-    views: list[str] = Field(default_factory=list)
+    staging_ddl: str = Field(min_length=1)
+    lookup_ddl: list[str] = Field(default_factory=list)
+    seed_data: list[str] = Field(default_factory=list)
+    stored_procedures: list[str] = Field(default_factory=list)
     notes: str | None = None
 
 
@@ -134,7 +136,7 @@ def generate_codegen_artifact(
         response_model=GeneratedSQL,
     )
 
-    sql_bundle = _assemble_sql_bundle(generated_sql)
+    sql_bundle = _assemble_sql_bundle(generated_sql, staging_schema=project_config.staging_schema)
     _supersede_previous_artifacts(
         db,
         project_id=project_id,
@@ -399,10 +401,33 @@ def _select_lookup_snapshot_version(
     return None
 
 
-def _assemble_sql_bundle(generated_sql: GeneratedSQL) -> str:
-    bundle_parts = [generated_sql.staging_table_ddl.strip()]
-    bundle_parts.extend(view.strip() for view in generated_sql.views if view.strip())
-    return "\n\n".join(bundle_parts).strip()
+def _mig_upsert_log_ddl(staging_schema: str) -> str:
+    return (
+        f"IF OBJECT_ID(N'[{staging_schema}].[mig_upsert_log]', N'U') IS NULL\n"
+        f"BEGIN\n"
+        f"    CREATE TABLE [{staging_schema}].[mig_upsert_log] (\n"
+        f"        [log_id]         BIGINT IDENTITY(1,1) PRIMARY KEY,\n"
+        f"        [run_ref]        NVARCHAR(255) NOT NULL,\n"
+        f"        [dest_table]     NVARCHAR(255) NOT NULL,\n"
+        f"        [source_row_num] BIGINT        NULL,\n"
+        f"        [dest_row_id]    NVARCHAR(255) NULL,\n"
+        f"        [action]         NVARCHAR(10)  NOT NULL,\n"
+        f"        [logged_at]      DATETIME2(0)  NOT NULL DEFAULT GETDATE()\n"
+        f"    );\n"
+        f"END;\n"
+        f"GO"
+    )
+
+
+def _assemble_sql_bundle(generated_sql: GeneratedSQL, *, staging_schema: str | None = None) -> str:
+    parts: list[str] = []
+    if staging_schema:
+        parts.append(_mig_upsert_log_ddl(staging_schema))
+    parts.append(generated_sql.staging_ddl.strip())
+    parts.extend(s.strip() for s in generated_sql.lookup_ddl if s.strip())
+    parts.extend(s.strip() for s in generated_sql.seed_data if s.strip())
+    parts.extend(s.strip() for s in generated_sql.stored_procedures if s.strip())
+    return "\n\nGO\n\n".join(parts).strip()
 
 def _build_system_prompt(
     *,
