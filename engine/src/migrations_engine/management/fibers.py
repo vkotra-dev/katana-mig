@@ -131,6 +131,62 @@ def create_fiber(
 
 def list_fibers(db: Session, *, project_id: str, feed_id: str) -> list[FiberResponse]:
     _get_feed(db, project_id=project_id, feed_id=feed_id)
+    
+    # Auto-heal missing fibers from existing snapshots
+    from ..db.models import MappingSnapshot
+    snapshots = db.scalars(
+        select(MappingSnapshot)
+        .where(
+            MappingSnapshot.project_id == project_id,
+            MappingSnapshot.source_definition_id == feed_id,
+        )
+    ).all()
+    
+    existing_fibers = db.scalars(
+        select(ProjectFiber)
+        .where(ProjectFiber.project_id == project_id)
+        .where(ProjectFiber.feed_id == feed_id)
+    ).all()
+    
+    existing_keys = {(f.fiber_type, f.fiber_key) for f in existing_fibers}
+    healed = False
+    
+    for snapshot in snapshots:
+        # 1. Ensure domain_object fiber exists for the destination table
+        tbl_name = snapshot.destination_object_name
+        if ("domain_object", tbl_name) not in existing_keys:
+            fiber = ProjectFiber(
+                project_id=project_id,
+                feed_id=feed_id,
+                fiber_type="domain_object",
+                fiber_key=tbl_name,
+                status="mapped",
+                source="auto",
+            )
+            db.add(fiber)
+            existing_keys.add(("domain_object", tbl_name))
+            healed = True
+            
+        # 2. Ensure lookup fiber exists for any lookup_fk bindings
+        for binding in (snapshot.field_bindings or []):
+            if binding.get("binding_type") == "lookup_fk" and binding.get("lookup_name"):
+                l_name = binding["lookup_name"]
+                if ("lookup", l_name) not in existing_keys:
+                    fiber = ProjectFiber(
+                        project_id=project_id,
+                        feed_id=feed_id,
+                        fiber_type="lookup",
+                        fiber_key=l_name,
+                        status="deferred",
+                        source="auto",
+                    )
+                    db.add(fiber)
+                    existing_keys.add(("lookup", l_name))
+                    healed = True
+                    
+    if healed:
+        db.commit()
+
     rows = db.scalars(
         select(ProjectFiber)
         .where(ProjectFiber.project_id == project_id)
