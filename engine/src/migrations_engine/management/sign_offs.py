@@ -336,12 +336,25 @@ def push_for_review(
                 403,
             )
 
-    # hard gate 2: 422 if completeness fails
+    # hard gate 2: 422 if completeness fails for the actor's role
     status = get_sign_off_status(db, project_id=project_id, source_definition_id=source_definition_id)
-    if not status["complete"]:
+    role_key = actor.role
+    if role_key not in {"central_team", "project_stakeholder"}:
+        role_key = "central_team"  # fallback
+
+    actor_complete = True
+    for obj_name, fields in status.get("bindings", {}).items():
+        for sf, status_entry in fields.items():
+            if not status_entry[role_key]["signed"]:
+                actor_complete = False
+    for lid, status_entry in status.get("lookups", {}).items():
+        if not status_entry[role_key]["signed"]:
+            actor_complete = False
+
+    if not actor_complete:
         raise AuthApiError(
             "incomplete_sign_off",
-            "Completeness check failed. All bindings and lookups must be signed by both roles.",
+            f"Completeness check failed. All bindings and lookups must be signed by {role_key}.",
             422,
         )
 
@@ -416,6 +429,15 @@ def poke_reviewer(
             User.role == target_role,
         )
     ).all()
+
+    if not target_members:
+        # Fallback: notify all active users with the target role
+        target_members = db.scalars(
+            select(User).where(
+                User.role == target_role,
+                User.status == "active",
+            )
+        ).all()
 
     deep_link = f"/projects/{project_id}/feeds/{source_definition_id}/review"
     for tm in target_members:

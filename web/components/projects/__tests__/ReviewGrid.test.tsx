@@ -54,19 +54,42 @@ describe("ReviewGrid", () => {
     expect(screen.getByText("status_map")).toBeInTheDocument();
     expect(screen.getByText("status_ref")).toBeInTheDocument();
     expect(screen.getByText("A")).toBeInTheDocument();
-    expect(screen.getByText(/ACTIVE/)).toBeInTheDocument();
+    expect(screen.getByText(/Active/)).toBeInTheDocument();
     expect(screen.getByText("95%")).toBeInTheDocument();
   });
 
   it("handles conditional approval and revision request workflows", () => {
     const onApprove = vi.fn();
     const onRequestRevision = vi.fn();
+    const signOffStatus = {
+      complete: true,
+      currentBallRole: "project_stakeholder" as const,
+      bindings: {
+        accounts: {
+          src_id: {
+            centralTeam: { signed: true, signedAt: null, userId: null },
+            projectStakeholder: { signed: true, signedAt: null, userId: null },
+          },
+          src_status: {
+            centralTeam: { signed: true, signedAt: null, userId: null },
+            projectStakeholder: { signed: true, signedAt: null, userId: null },
+          },
+        },
+      },
+      lookups: {
+        status_map: {
+          centralTeam: { signed: true, signedAt: null, userId: null },
+          projectStakeholder: { signed: true, signedAt: null, userId: null },
+        },
+      },
+    };
 
     render(
       <ReviewGrid
         {...props}
         onApprove={onApprove}
         onRequestRevision={onRequestRevision}
+        signOffStatus={signOffStatus}
       />
     );
 

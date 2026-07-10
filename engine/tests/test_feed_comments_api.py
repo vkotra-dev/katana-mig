@@ -393,3 +393,43 @@ def test_post_comment_notifies_central_team_for_stakeholder_comment(
         admin = db.scalar(select(User).where(User.email == get_settings().bootstrap_admin_email.strip().lower()))
         assert admin is not None
     assert recipient_ids == [admin.user_id]
+
+
+def test_post_comment_with_source_slice_id(admin_token: str) -> None:
+    project_id, feed_id = _seed_project_with_feed(admin_token)
+
+    # Seed a slice
+    from migrations_engine.db.models import FeedSlice
+    slice_id = str(uuid.uuid4())
+    with SessionLocal() as db:
+        db.add(
+            FeedSlice(
+                source_slice_id=slice_id,
+                source_definition_id=feed_id,
+                source_contract_version="v1",
+                source_slice_version="v_test_comments",
+                status="pending_approval",
+            )
+        )
+        db.commit()
+
+    # Post comment with slice_id
+    response = client.post(
+        f"/projects/{project_id}/feeds/{feed_id}/comments",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"body": "Comment on slice v_test_comments", "source_slice_id": slice_id},
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["source_slice_id"] == slice_id
+    assert response.json()["source_slice_version"] == "v_test_comments"
+
+    # Get list of comments and verify slice version is returned
+    list_response = client.get(
+        f"/projects/{project_id}/feeds/{feed_id}/comments",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert list_response.status_code == 200
+    items = list_response.json()
+    assert len(items) == 1
+    assert items[0]["source_slice_id"] == slice_id
+    assert items[0]["source_slice_version"] == "v_test_comments"

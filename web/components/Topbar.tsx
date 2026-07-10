@@ -14,6 +14,35 @@ export function Topbar({ role }: TopbarProps) {
   const items: NavItem[] = navItemsForRole(role);
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [initials, setInitials] = useState<string>("AD");
+
+  useEffect(() => {
+    const session = loadUiSession();
+    if (session) {
+      if (session.displayName) {
+        const parts = session.displayName.trim().split(/\s+/);
+        if (parts.length >= 2) {
+          setInitials((parts[0][0] + parts[parts.length - 1][0]).toUpperCase());
+        } else if (parts.length === 1 && parts[0]) {
+          setInitials(parts[0].slice(0, 2).toUpperCase());
+        }
+      } else if (session.email) {
+        const parts = session.email.split("@")[0].split(/[\._-]/);
+        if (parts.length >= 2) {
+          setInitials((parts[0][0] + parts[parts.length - 1][0]).toUpperCase());
+        } else if (parts.length === 1 && parts[0]) {
+          setInitials(parts[0].slice(0, 2).toUpperCase());
+        }
+      } else {
+        const parts = session.role.split(/[-_]/);
+        if (parts.length >= 2) {
+          setInitials((parts[0][0] + parts[1][0]).toUpperCase());
+        } else {
+          setInitials(session.role.slice(0, 2).toUpperCase());
+        }
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -93,7 +122,7 @@ export function Topbar({ role }: TopbarProps) {
       </nav>
       <div className="ml-auto flex items-center">
         <NotificationBell />
-        <div className="mono-id">AD</div>
+        <div className="mono-id" data-testid="user-initials">{initials}</div>
         <button
           aria-label="Log out"
           className="ml-4 inline-flex h-9 w-9 items-center justify-center rounded-md border border-outline-variant text-slate-700 hover:bg-outline-variant"

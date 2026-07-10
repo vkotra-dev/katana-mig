@@ -368,7 +368,7 @@ def _load_project_health_summaries(
             (FeedSlice.source_definition_id == latest_slice_subquery.c.source_definition_id)
             & (FeedSlice.created_at == latest_slice_subquery.c.max_created_at)
         )
-        .where(Feed.project_id.in_(project_ids))
+        .where(Feed.project_id.in_(project_ids), Feed.status != "discarded")
     )
 
     project_feed_statuses: dict[str, list[str]] = {pid: [] for pid in project_ids}
@@ -417,7 +417,7 @@ def _load_project_health_summaries(
             (MappingSnapshot.source_definition_id == latest_snap_subquery.c.source_definition_id)
             & (MappingSnapshot.created_at == latest_snap_subquery.c.max_created_at),
         )
-        .where(Feed.project_id.in_(project_ids))
+        .where(Feed.project_id.in_(project_ids), Feed.status != "discarded")
     )
 
     project_mapping_statuses: dict[str, list[str]] = {pid: [] for pid in project_ids}

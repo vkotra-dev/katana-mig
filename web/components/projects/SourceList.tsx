@@ -25,12 +25,13 @@ export function SourceList({ projectId, token, role, onFeedClick }: SourceListPr
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [showDiscarded, setShowDiscarded] = useState(false);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setErrorMessage(null);
-    void listFeedContracts(token, projectId)
+    void listFeedContracts(token, projectId, { includeDiscarded: showDiscarded })
       .then((response) => {
         if (active) {
           setSources(response);
@@ -50,7 +51,7 @@ export function SourceList({ projectId, token, role, onFeedClick }: SourceListPr
     return () => {
       active = false;
     };
-  }, [projectId, token]);
+  }, [projectId, token, showDiscarded]);
 
 
 
@@ -61,15 +62,26 @@ export function SourceList({ projectId, token, role, onFeedClick }: SourceListPr
           <h2 className="text-xl font-semibold text-slate-900">Feeds</h2>
           <p className="text-sm text-slate-600">Declared feed contracts and uploaded slices.</p>
         </div>
-        {role === "central_team" ? (
-          <button
-            className="rounded-md bg-primary px-4 py-3 text-sm font-semibold text-white"
-            onClick={() => setDialogOpen(true)}
-            type="button"
-          >
-            Add Feed
-          </button>
-        ) : null}
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showDiscarded}
+              onChange={(e) => setShowDiscarded(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 accent-primary"
+            />
+            Show discarded
+          </label>
+          {role === "central_team" ? (
+            <button
+              className="rounded-md bg-primary px-4 py-3 text-sm font-semibold text-white"
+              onClick={() => setDialogOpen(true)}
+              type="button"
+            >
+              Add Feed
+            </button>
+          ) : null}
+        </div>
       </div>
 
 
@@ -100,26 +112,41 @@ export function SourceList({ projectId, token, role, onFeedClick }: SourceListPr
               </tr>
             </thead>
             <tbody>
-              {sources.map((source) => (
-                <tr key={source.sourceDefinitionId} className="border-t border-outline-variant">
-                  <td className="px-4 py-3">
-                    <div className="text-sm font-semibold text-slate-900">{source.label}</div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-slate-700">{sourceTypeLabel(source.sourceType)}</td>
-                  <td className="px-4 py-3 text-sm text-slate-700">{source.encoding}</td>
-                  <td className="px-4 py-3 text-sm text-slate-700">{source.status}</td>
-                  <td className="px-4 py-3 text-sm text-slate-700">{formatDate(source.createdAt)}</td>
-                  <td className="px-4 py-3">
-                    <button
-                      className="inline-flex rounded-md border border-outline-variant px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-outline-variant/40"
-                      onClick={() => onFeedClick(source.sourceDefinitionId)}
-                      type="button"
-                    >
-                      Open feed
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {sources.map((source) => {
+                const isDiscarded = source.status === "discarded";
+                return (
+                  <tr
+                    key={source.sourceDefinitionId}
+                    className={`border-t border-outline-variant ${isDiscarded ? "opacity-50" : ""}`}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-slate-900">{source.label}</span>
+                        {isDiscarded && (
+                          <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold bg-slate-100 text-slate-500 ring-1 ring-inset ring-slate-200">
+                            discarded
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-slate-700">{sourceTypeLabel(source.sourceType)}</td>
+                    <td className="px-4 py-3 text-sm text-slate-700">{source.encoding}</td>
+                    <td className="px-4 py-3 text-sm text-slate-700">{source.status}</td>
+                    <td className="px-4 py-3 text-sm text-slate-700">{formatDate(source.createdAt)}</td>
+                    <td className="px-4 py-3">
+                      {!isDiscarded && (
+                        <button
+                          className="inline-flex rounded-md border border-outline-variant px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-outline-variant/40"
+                          onClick={() => onFeedClick(source.sourceDefinitionId)}
+                          type="button"
+                        >
+                          Open feed
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -129,7 +156,7 @@ export function SourceList({ projectId, token, role, onFeedClick }: SourceListPr
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
         onCreated={async () => {
-          const response = await listFeedContracts(token, projectId);
+          const response = await listFeedContracts(token, projectId, { includeDiscarded: showDiscarded });
           setSources(response);
         }}
         projectId={projectId}

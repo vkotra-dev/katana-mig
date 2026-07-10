@@ -269,12 +269,28 @@ function mapFiberResponse(response: {
 export async function listFeedContracts(
   token: string,
   projectId: string,
+  { includeDiscarded = false }: { includeDiscarded?: boolean } = {},
 ): Promise<FeedContractRecord[]> {
+  const url = includeDiscarded
+    ? `/projects/${projectId}/sources?include_discarded=true`
+    : `/projects/${projectId}/sources`;
   const response = await requestJson<Array<Parameters<typeof mapFeedContractResponse>[0]>>(
-    `/projects/${projectId}/sources`,
+    url,
     { method: "GET", token },
   );
   return response.map(mapFeedContractResponse);
+}
+
+export async function discardFeed(
+  token: string,
+  projectId: string,
+  sourceDefinitionId: string,
+): Promise<FeedContractRecord> {
+  const response = await requestJson<Parameters<typeof mapFeedContractResponse>[0]>(
+    `/projects/${projectId}/sources/${sourceDefinitionId}`,
+    { method: "DELETE", token },
+  );
+  return mapFeedContractResponse(response);
 }
 
 export async function getFeedContract(
@@ -408,6 +424,33 @@ export async function listFeedFibers(
   return response.map(mapFiberResponse);
 }
 
+export interface FiberCreateInput {
+  fiberType: "lookup" | "domain_object";
+  fiberKey: string;
+  source: "auto" | "manual";
+}
+
+export async function createFiber(
+  token: string,
+  projectId: string,
+  feedId: string,
+  input: FiberCreateInput,
+): Promise<FiberRecord> {
+  const response = await requestJson<Parameters<typeof mapFiberResponse>[0]>(
+    `/projects/${projectId}/feeds/${feedId}/fibers`,
+    {
+      method: "POST",
+      token,
+      body: JSON.stringify({
+        fiber_type: input.fiberType,
+        fiber_key: input.fiberKey,
+        source: input.source,
+      }),
+    },
+  );
+  return mapFiberResponse(response);
+}
+
 export async function getFiber(
   token: string,
   projectId: string,
@@ -419,6 +462,48 @@ export async function getFiber(
     { method: "GET", token },
   );
   return mapFiberResponse(response);
+}
+
+export interface LookupSourceEntryRecord {
+  entryId: string;
+  sourceValue: string;
+}
+
+export interface LookupDestEntryRecord {
+  entryId: string;
+  rowData: Record<string, any>;
+}
+
+export async function getLookupSourceEntries(
+  token: string,
+  projectId: string,
+  feedId: string,
+  fiberId: string,
+): Promise<LookupSourceEntryRecord[]> {
+  const response = await requestJson<any[]>(
+    `/projects/${projectId}/feeds/${feedId}/fibers/${fiberId}/source-entries`,
+    { method: "GET", token },
+  );
+  return response.map((item) => ({
+    entryId: item.entry_id,
+    sourceValue: item.source_value,
+  }));
+}
+
+export async function getLookupDestEntries(
+  token: string,
+  projectId: string,
+  feedId: string,
+  fiberId: string,
+): Promise<LookupDestEntryRecord[]> {
+  const response = await requestJson<any[]>(
+    `/projects/${projectId}/feeds/${feedId}/fibers/${fiberId}/dest-feed/entries`,
+    { method: "GET", token },
+  );
+  return response.map((item) => ({
+    entryId: item.entry_id,
+    rowData: item.row_data,
+  }));
 }
 
 export async function assignFiber(
@@ -468,6 +553,8 @@ export interface FeedCommentRecord {
   role: string;
   body: string;
   createdAt: string;
+  sourceSliceId?: string | null;
+  sourceSliceVersion?: string | null;
 }
 
 function mapFeedCommentResponse(response: {
@@ -478,6 +565,8 @@ function mapFeedCommentResponse(response: {
   role: string;
   body: string;
   created_at: string;
+  source_slice_id?: string | null;
+  source_slice_version?: string | null;
 }): FeedCommentRecord {
   return {
     commentId: response.comment_id,
@@ -487,6 +576,8 @@ function mapFeedCommentResponse(response: {
     role: response.role,
     body: response.body,
     createdAt: response.created_at,
+    sourceSliceId: response.source_slice_id,
+    sourceSliceVersion: response.source_slice_version,
   };
 }
 
@@ -507,13 +598,14 @@ export async function createFeedComment(
   projectId: string,
   feedId: string,
   body: string,
+  sourceSliceId?: string,
 ): Promise<FeedCommentRecord> {
   const response = await requestJson<Parameters<typeof mapFeedCommentResponse>[0]>(
     `/projects/${projectId}/feeds/${feedId}/comments`,
     {
       method: "POST",
       token,
-      body: JSON.stringify({ body }),
+      body: JSON.stringify({ body, source_slice_id: sourceSliceId }),
     },
   );
   return mapFeedCommentResponse(response);

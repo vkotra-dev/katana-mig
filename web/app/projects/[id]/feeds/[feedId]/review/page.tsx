@@ -8,6 +8,7 @@ import {
   approveMappingSnapshot,
   rejectMappingSnapshot,
   patchMappingSnapshot,
+  unapproveMappingSnapshot,
   type MappingSnapshotRecord,
 } from "../../../../../../lib/mapping-api";
 import {
@@ -28,7 +29,8 @@ import {
   pokeReviewer,
   type SignOffStatusRecord,
 } from "../../../../../../lib/sign-offs-api";
-import { FeedCommentThread } from "../../../../../../components/feeds/FeedCommentThread";
+import { UnifiedCommentThread } from "../../../../../../components/feeds/UnifiedCommentThread";
+import { type FeedSliceRecord } from "../../../../../../lib/feeds-api";
 
 export default function ReviewPage({ params }: { params: Promise<{ id: string; feedId: string }> }) {
   const router = useRouter();
@@ -45,6 +47,8 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
   const [sampleValues, setSampleValues] = useState<Record<string, string[]>>({});
   const [allSourceColumns, setAllSourceColumns] = useState<string[]>([]);
   const [signOffStatus, setSignOffStatus] = useState<SignOffStatusRecord | null>(null);
+  const [approvedSlice, setApprovedSlice] = useState<FeedSliceRecord | null>(null);
+  const [latestSliceId, setLatestSliceId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const s = loadUiSession();
@@ -56,19 +60,28 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
 
   const loadData = async (token: string) => {
     try {
-      const [snapshotsData, mapsData, slicesData, statusData] = await Promise.all([
+      const [snapshotsData, mapsData, slicesData] = await Promise.all([
         getAllApprovedMappingSnapshots(token, projectId, feedId, true),
         listLookupValueMaps(token, projectId, feedId),
         listFeedSlices(token, projectId, feedId),
-        getSignOffStatus(token, projectId, feedId),
       ]);
       setMappingSnapshots(snapshotsData);
       setLookupMaps(mapsData);
-      setSignOffStatus(statusData);
+
+      // Fetch sign-off status independently so a failure doesn't break the whole page
+      getSignOffStatus(token, projectId, feedId)
+        .then(setSignOffStatus)
+        .catch(() => setSignOffStatus(null));
 
       const approvedSlice = slicesData
         .filter((s) => s.status === "approved")
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] ?? null;
+
+      setApprovedSlice(approvedSlice);
+
+      const latest = slicesData
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] ?? null;
+      setLatestSliceId(latest?.sourceSliceId);
 
       if (approvedSlice?.headerCsv) {
         const headers = splitCsvRow(approvedSlice.headerCsv);
@@ -126,6 +139,21 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
       await loadData(session.accessToken);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to submit revision request.");
+      setLoading(false);
+    }
+  };
+
+  const handleRevertToDraft = async () => {
+    if (!session) return;
+    setLoading(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await unapproveMappingSnapshot(session.accessToken, projectId, feedId);
+      setNotice("Mapping snapshot reverted back to draft.");
+      await loadData(session.accessToken);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to revert mapping snapshot back to draft.");
       setLoading(false);
     }
   };
@@ -272,11 +300,16 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
             const destRow = latestMap.destinationTable.find(
               (row) => String(row.id) === String(destId) || String(row.destination_id) === String(destId)
             ) || { id: destId };
+            const isConfirmed = latestMap.status === "approved" || (
+              signOffStatus &&
+              signOffStatus.lookups[latestMap.lookupValueMapId]?.centralTeam.signed &&
+              signOffStatus.lookups[latestMap.lookupValueMapId]?.projectStakeholder.signed
+            );
             pairs.push({
               sourceValue: srcVal,
               destinationRow: destRow,
               confidenceScore: 0.95,
-              status: (latestMap.status === "approved" ? "confirmed" : "pending") as any,
+              status: (isConfirmed ? "confirmed" : "pending") as any,
             });
           }
         }
@@ -303,7 +336,19 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
   // Check editing and notification controls
   const isAnyDraft = mappingSnapshots.some(s => s.status === "draft");
   const editingEnabled = signOffStatus?.currentBallRole === role && isAnyDraft;
-  const showPushReviewButton = editingEnabled && signOffStatus?.complete;
+  const isActorSignOffComplete = (() => {
+    if (!signOffStatus || !role) return false;
+    const rKey = role === "project_stakeholder" ? "projectStakeholder" : "centralTeam";
+    for (const table of Object.values(signOffStatus.bindings)) {
+      for (const binding of Object.values(table)) {
+        if (!binding[rKey]?.signed) return false;
+      }
+    }
+    for (const lookup of Object.values(signOffStatus.lookups)) {
+      if (!lookup[rKey]?.signed) return false;
+    }
+    return true;
+  })();
   const showStakeholderActionButtons = role === "project_stakeholder" && isAnyDraft;
   const showPokeButton = (role === "pm" || role === "admin") && isAnyDraft;
 
@@ -340,6 +385,15 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
                 {aggregateStatus}
               </span>
             )}
+            {aggregateStatus === "approved" && (role === "pm" || role === "admin") && (
+              <button
+                onClick={handleRevertToDraft}
+                className="mt-2 rounded-lg border border-red-300 bg-red-50 hover:bg-red-100 px-3 py-1 text-xs font-semibold text-red-700 transition-colors"
+                type="button"
+              >
+                Revert to Draft
+              </button>
+            )}
           </div>
         </div>
 
@@ -372,10 +426,12 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
             </div>
 
             <div className="flex items-center gap-2">
-              {showPushReviewButton && (
+              {editingEnabled && (
                 <button
                   onClick={handlePushForReview}
-                  className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white shadow hover:bg-primary-hover focus:outline-none"
+                  disabled={!isActorSignOffComplete}
+                  title={!isActorSignOffComplete ? "Sign off all items first" : undefined}
+                  className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white shadow hover:bg-primary-hover focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                   type="button"
                 >
                   Push for Review
@@ -431,11 +487,12 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
               )}
             </div>
 
-            <div className="bg-surface-container border border-outline-variant rounded-2xl p-6 shadow-sm h-fit">
+            <div>
               {session && (
-                <FeedCommentThread
-                  feedId={feedId}
+                <UnifiedCommentThread
                   projectId={projectId}
+                  feedId={feedId}
+                  sliceId={latestSliceId}
                   token={session.accessToken}
                 />
               )}

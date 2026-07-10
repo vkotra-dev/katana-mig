@@ -11,6 +11,8 @@ const {
   analyzeFeedSourceMock,
   patchFeedMappingHintsMock,
   uploadFeedSliceMock,
+  getLookupSourceEntriesMock,
+  getLookupDestEntriesMock,
   getAllApprovedMappingSnapshotsMock,
   proposeMappingSnapshotMock,
   patchMappingSnapshotMock,
@@ -26,6 +28,8 @@ const {
   analyzeFeedSourceMock: vi.fn(),
   patchFeedMappingHintsMock: vi.fn(),
   uploadFeedSliceMock: vi.fn(),
+  getLookupSourceEntriesMock: vi.fn(() => Promise.resolve([])),
+  getLookupDestEntriesMock: vi.fn(() => Promise.resolve([])),
   getAllApprovedMappingSnapshotsMock: vi.fn(),
   proposeMappingSnapshotMock: vi.fn(),
   patchMappingSnapshotMock: vi.fn(),
@@ -46,6 +50,8 @@ vi.mock("../../../../../lib/feeds-api", () => ({
   analyzeFeedSource: analyzeFeedSourceMock,
   patchFeedMappingHints: patchFeedMappingHintsMock,
   uploadFeedSlice: uploadFeedSliceMock,
+  getLookupSourceEntries: getLookupSourceEntriesMock,
+  getLookupDestEntries: getLookupDestEntriesMock,
 }));
 
 vi.mock("../../../../../lib/feed-slice-comments-api", () => ({

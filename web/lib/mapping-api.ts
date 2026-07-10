@@ -172,6 +172,18 @@ export async function proposeMappingSnapshot(
   return mapMappingReviewResponse(response);
 }
 
+export async function unapproveMappingSnapshot(
+  token: string,
+  projectId: string,
+  sourceDefinitionId: string,
+): Promise<MappingReviewRecord> {
+  const response = await requestMappingJson<MappingReviewRaw>(
+    `/projects/${projectId}/sources/${sourceDefinitionId}/mapping/unapprove`,
+    { method: "POST", token },
+  );
+  return mapMappingReviewResponse(response);
+}
+
 export async function getMappingSnapshot(
   token: string,
   projectId: string,

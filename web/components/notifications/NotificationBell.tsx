@@ -14,6 +14,23 @@ function formatTimestamp(value: string): string {
   return value.slice(0, 16).replace("T", " ");
 }
 
+function getNotificationMessage(notification: NotificationRecord): string {
+  switch (notification.eventType) {
+    case "review.sign_off_reminder": {
+      const pokedBy = notification.payload?.poked_by ? "The Project Manager" : "An administrator";
+      return `${pokedBy} sent you a review poke reminder for mappings.`;
+    }
+    case "feed_comment_added":
+      return "New comment added to discussion thread.";
+    case "gate_1_waiting":
+      return "Gate 1 is waiting for review/approval.";
+    case "gate_2_waiting":
+      return "Gate 2 is waiting for review/approval.";
+    default:
+      return notification.eventType.replace(/[._]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  }
+}
+
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState<number | null>(null);
@@ -195,7 +212,7 @@ export function NotificationBell() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <a className="font-semibold text-slate-900 hover:underline" href={notification.deepLink}>
-                        {notification.eventType}
+                        {getNotificationMessage(notification)}
                       </a>
                       <div className="mt-1 text-xs text-slate-500">{formatTimestamp(notification.createdAt)}</div>
                     </div>

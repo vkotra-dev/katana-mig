@@ -176,7 +176,7 @@ def _bridge_lookup_fiber_to_value_map(db: Session, fiber: ProjectFiber) -> None:
     confirmed_mappings = db.scalars(
         select(LookupMapping).where(
             LookupMapping.fiber_id == fiber.fiber_id,
-            LookupMapping.status == "confirmed",
+            LookupMapping.status.in_(["proposed", "confirmed"]),
         )
     ).all()
 
@@ -485,8 +485,44 @@ def submit_lookup_inputs(
     body: LookupInputsRequest,
 ) -> FiberResponse:
     fiber = _require_lookup_fiber(db, feed_id=feed_id, fiber_id=fiber_id, project_id=project_id)
-    if fiber.status != "deferred":
-        raise AuthApiError("fiber_not_deferred", "Fiber must be in 'deferred' status.", 409)
+    if fiber.status not in ("deferred", "mapped", "inputs_ready"):
+        raise AuthApiError(
+            "fiber_not_deferred",
+            "Fiber must be in 'deferred', 'inputs_ready', or 'mapped' status.",
+            409,
+        )
+
+    # Check if this lookup has already been signed off by either reviewer
+    from ..db.models import LookupValueMap, LookupSignOff
+    value_map = db.scalar(
+        select(LookupValueMap)
+        .where(
+            LookupValueMap.project_id == project_id,
+            LookupValueMap.lookup_name == fiber.fiber_key,
+        )
+        .order_by(LookupValueMap.created_at.desc(), LookupValueMap.lookup_value_map_id.desc())
+    )
+    if value_map is not None:
+        has_sign_off = db.scalar(
+            select(LookupSignOff)
+            .where(LookupSignOff.lookup_value_map_id == value_map.lookup_value_map_id)
+            .limit(1)
+        ) is not None
+        if has_sign_off:
+            raise AuthApiError(
+                "lookup_already_approved",
+                f"Cannot re-analyze lookup '{fiber.fiber_key}' because it has already been signed off by a reviewer.",
+                409,
+            )
+
+    # Clean up any existing lookup mapping/entries for this fiber to allow re-analysis
+    db.execute(delete(LookupMapping).where(LookupMapping.fiber_id == fiber.fiber_id))
+    db.execute(delete(LookupSourceEntry).where(LookupSourceEntry.fiber_id == fiber.fiber_id))
+    existing_dest_feed = db.scalar(select(LookupDestFeed).where(LookupDestFeed.fiber_id == fiber.fiber_id))
+    if existing_dest_feed is not None:
+        db.execute(delete(LookupDestEntry).where(LookupDestEntry.dest_feed_id == existing_dest_feed.dest_feed_id))
+        db.delete(existing_dest_feed)
+    db.flush()
 
     columns, dest_rows = _parse_destination_csv(body.destination_lookup_csv)
     dest_feed = LookupDestFeed(
@@ -691,6 +727,29 @@ def patch_mapping(
     body: LookupMappingPatchRequest,
 ) -> LookupMappingResponse:
     fiber = _require_lookup_fiber(db, feed_id=feed_id, fiber_id=fiber_id, project_id=project_id)
+    # Check if this lookup has already been signed off by either reviewer
+    from ..db.models import LookupValueMap, LookupSignOff
+    value_map = db.scalar(
+        select(LookupValueMap)
+        .where(
+            LookupValueMap.project_id == project_id,
+            LookupValueMap.lookup_name == fiber.fiber_key,
+        )
+        .order_by(LookupValueMap.created_at.desc(), LookupValueMap.lookup_value_map_id.desc())
+    )
+    if value_map is not None:
+        has_sign_off = db.scalar(
+            select(LookupSignOff)
+            .where(LookupSignOff.lookup_value_map_id == value_map.lookup_value_map_id)
+            .limit(1)
+        ) is not None
+        if has_sign_off:
+            raise AuthApiError(
+                "lookup_already_approved",
+                f"Cannot update mappings for lookup '{fiber.fiber_key}' because it has already been signed off by a reviewer.",
+                409,
+            )
+
     mapping = db.scalar(
         select(LookupMapping).where(
             LookupMapping.mapping_id == mapping_id,

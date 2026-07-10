@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
 from ..api.schemas import FeedCommentCreateRequest, FeedCommentResponse
-from ..db.models import Feed, FeedComment, ProjectMembership, User, new_id
+from ..db.models import Feed, FeedComment, FeedSlice, ProjectMembership, User, new_id
 from ..db.session import SessionLocal
 from ..management.notifications import create_notification
 from ..roles import CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE
@@ -25,8 +25,9 @@ def list_feed_comments(
     _require_feed_in_project(db, project_id=project_id, feed_id=feed_id)
 
     rows = db.execute(
-        select(FeedComment, User)
+        select(FeedComment, User, FeedSlice)
         .join(User, FeedComment.user_id == User.user_id)
+        .outerjoin(FeedSlice, FeedComment.source_slice_id == FeedSlice.source_slice_id)
         .where(FeedComment.feed_id == feed_id)
         .order_by(FeedComment.created_at.asc(), FeedComment.comment_id.asc())
     ).all()
@@ -39,8 +40,10 @@ def list_feed_comments(
             role=user.role,
             body=comment.body,
             created_at=comment.created_at,
+            source_slice_id=comment.source_slice_id,
+            source_slice_version=slice.source_slice_version if slice else None,
         )
-        for comment, user in rows
+        for comment, user, slice in rows
     ]
 
 
@@ -57,11 +60,25 @@ def create_feed_comment(
     if not cleaned_body:
         raise AuthApiError("validation_error", "Comment body is required.", 422)
 
+    # Validate source_slice_id if provided
+    slice_version = None
+    if body.source_slice_id:
+        source_slice = db.scalar(
+            select(FeedSlice).where(
+                FeedSlice.source_slice_id == body.source_slice_id,
+                FeedSlice.source_definition_id == feed_id,
+            )
+        )
+        if source_slice is None:
+            raise AuthApiError("not_found", "Associated slice not found for this feed.", 404)
+        slice_version = source_slice.source_slice_version
+
     comment = FeedComment(
         comment_id=new_id(),
         feed_id=feed_id,
         user_id=actor.user_id,
         body=cleaned_body,
+        source_slice_id=body.source_slice_id,
         created_at=datetime.now(UTC),
     )
     db.add(comment)
@@ -75,6 +92,8 @@ def create_feed_comment(
         role=actor.role,
         body=comment.body,
         created_at=comment.created_at,
+        source_slice_id=comment.source_slice_id,
+        source_slice_version=slice_version,
     )
 
     try:

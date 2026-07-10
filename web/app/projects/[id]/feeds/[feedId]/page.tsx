@@ -9,9 +9,13 @@ import {
   listFeedFibers,
   listFeedSchema,
   analyzeFeedSource,
+  createFiber,
   patchFeedMappingHints,
   uploadFeedSlice,
   resubmitFeedSlice,
+  getLookupSourceEntries,
+  getLookupDestEntries,
+  discardFeed,
   type FeedContractRecord,
   type FeedSliceRecord,
   type FiberRecord,
@@ -29,9 +33,9 @@ import {
   type LookupValueMapRecord,
 } from "../../../../../lib/lookup-api";
 import { loadUiSession, type SessionRole, type UiSession } from "../../../../../lib/session";
-import { ReviewGrid, type MappingTableRecord, type LookupValueGroup } from "../../../../../components/projects/ReviewGrid";
+import { type MappingTableRecord } from "../../../../../components/projects/ReviewGrid";
 import { splitCsvRow } from "../../../../../lib/csv-utils";
-import { FeedSliceCommentThread } from "../../../../../components/feeds/FeedSliceCommentThread";
+import { UnifiedCommentThread } from "../../../../../components/feeds/UnifiedCommentThread";
 
 export default function FeedDetailPage({ params }: { params: Promise<{ id: string; feedId: string }> }) {
   const router = useRouter();
@@ -67,6 +71,10 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
   const [replacementFile, setReplacementFile] = useState<string | null>(null);
   const [uploadingReplacement, setUploadingReplacement] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+
+  const [discardConfirm, setDiscardConfirm] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
 
   useEffect(() => {
     const s = loadUiSession();
@@ -88,6 +96,48 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
       setMappingHints(feedData.mappingHints || "");
       setSlices(slicesData);
       setFibers(fibersData);
+
+      // Populate lookup drafts for lookups if they exist in DB
+      for (const fiber of fibersData) {
+        if (fiber.fiberType === "lookup") {
+          try {
+            const [sourceEntries, destEntries] = await Promise.all([
+              getLookupSourceEntries(token, projectId, feedId, fiber.fiberId),
+              getLookupDestEntries(token, projectId, feedId, fiber.fiberId),
+            ]);
+            const sourceText = sourceEntries.map((e) => e.sourceValue).join("\n");
+            
+            // Reconstruct CSV for destination entries
+            let destText = "";
+            if (destEntries.length > 0) {
+              const columns = Object.keys(destEntries[0].rowData);
+              const headerRow = columns.join(",");
+              const dataRows = destEntries.map((entry) =>
+                columns.map((col) => {
+                  const val = entry.rowData[col];
+                  if (typeof val === "string") {
+                    return val.startsWith("'") && val.endsWith("'") ? val : `'${val}'`;
+                  }
+                  return String(val);
+                }).join(",")
+              );
+              destText = [headerRow, ...dataRows].join("\n");
+            }
+
+            setLookupDrafts((current) => ({
+              ...current,
+              [fiber.fiberKey]: {
+                sourceText,
+                destText,
+                analyzing: false,
+                error: null,
+              },
+            }));
+          } catch (e) {
+            console.error("Failed to load lookup draft values for", fiber.fiberKey, e);
+          }
+        }
+      }
 
       // Try fetching feed schema (might fail with 404 if no slices/schema parsed yet)
       try {
@@ -126,14 +176,14 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
     if (!session || !latestSlice) return;
     const nextShowOriginal = !showOriginal;
     try {
-      setLoading(true);
+      setLoadingPreview(true);
       const refreshedSlices = await listFeedSlices(session.accessToken, projectId, feedId, !nextShowOriginal);
       setSlices(refreshedSlices);
       setShowOriginal(nextShowOriginal);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load original values.");
     } finally {
-      setLoading(false);
+      setLoadingPreview(false);
     }
   };
 
@@ -209,6 +259,21 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
 
 
 
+  const handleDiscard = async () => {
+    if (!session) return;
+    setDiscarding(true);
+    setError(null);
+    try {
+      await discardFeed(session.accessToken, projectId, feedId);
+      router.push(`/projects/${projectId}?tab=feeds`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to discard feed.");
+      setDiscardConfirm(false);
+    } finally {
+      setDiscarding(false);
+    }
+  };
+
   function parseAndConvertDestToCsv(destText: string): string {
     const trimmed = destText.trim();
     if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
@@ -243,7 +308,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
     }
   }
 
-  const handleAnalyzeLookup = async (lookupName: string, fiberId: string) => {
+  const handleAnalyzeLookup = async (lookupName: string, passedFiberId: string) => {
     if (!session) return;
     const draft = lookupDrafts[lookupName] || { sourceText: "", destText: "", analyzing: false, error: null };
     
@@ -264,7 +329,17 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
 
       const destinationLookupCsv = parseAndConvertDestToCsv(draft.destText);
 
-      await submitLookupInputs(session.accessToken, projectId, feedId, fiberId, {
+      let targetFiberId = passedFiberId;
+      if (!targetFiberId) {
+        const newFiber = await createFiber(session.accessToken, projectId, feedId, {
+          fiberType: "lookup",
+          fiberKey: lookupName,
+          source: "manual",
+        });
+        targetFiberId = newFiber.fiberId;
+      }
+
+      await submitLookupInputs(session.accessToken, projectId, feedId, targetFiberId, {
         sourceValues,
         destinationLookupCsv,
       });
@@ -291,7 +366,6 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
     }
   };
 
-  // Build props for ReviewGrid
   const mappingTablesMap: Record<string, MappingTableRecord> = {};
   for (const snapshot of allMappingSnapshots) {
     const tblName = snapshot.destinationObjectName;
@@ -322,40 +396,6 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
           .filter((h) => h && !boundSet.has(h.toLowerCase()))
       : [];
 
-  const lookupGroups: LookupValueGroup[] = [];
-  const seenLookups = new Set<string>();
-  for (const snapshot of allMappingSnapshots) {
-    const refMap = Object.fromEntries(
-      (snapshot.lookupTableReferences ?? []).map((r) => [r.lookupName, r.destinationTableName])
-    );
-    for (const binding of snapshot.fieldBindings) {
-      if (binding.lookupName && !seenLookups.has(binding.lookupName)) {
-        seenLookups.add(binding.lookupName);
-        const refTable = refMap[binding.lookupName] || "unknown_ref";
-        const latestMap = lookupMaps.find((m) => m.lookupName === binding.lookupName);
-        const pairs = [];
-        if (latestMap) {
-          for (const [srcVal, destId] of Object.entries(latestMap.sourceValueMap)) {
-            const destRow = latestMap.destinationTable.find(
-              (row) => String(row.id) === String(destId) || String(row.destination_id) === String(destId)
-            ) || { id: destId };
-            pairs.push({
-              sourceValue: srcVal,
-              destinationRow: destRow,
-              confidenceScore: 0.95,
-              status: (latestMap.status === "approved" ? "confirmed" : "pending") as any,
-            });
-          }
-        }
-        lookupGroups.push({
-          lookupName: binding.lookupName,
-          referenceTableName: refTable,
-          pairs,
-        });
-      }
-    }
-  }
-
   // Lookup FK bindings for fibers section
   const lookupFkBinds = allMappingSnapshots.flatMap((s) =>
     s.fieldBindings.filter((b) => b.bindingType === "lookup_fk" && b.lookupName)
@@ -382,12 +422,60 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
           >
             Back to project
           </button>
-          
+
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-bold text-slate-900">{feed?.label || "Feed details"}</h1>
             <span className="text-xs text-slate-500 font-mono">({feedId})</span>
+            {feed?.status === "discarded" && (
+              <span className="inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-500 ring-1 ring-inset ring-slate-200">
+                discarded
+              </span>
+            )}
+            {(role === "central_team" || role === "admin") && !loading && feed?.status !== "discarded" && (
+              <button
+                type="button"
+                onClick={() => setDiscardConfirm(true)}
+                className="rounded-lg border border-red-300 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
+              >
+                Discard feed
+              </button>
+            )}
           </div>
         </div>
+
+        {discardConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl space-y-4">
+              <h2 className="text-lg font-bold text-slate-900">Discard this feed?</h2>
+              <p className="text-sm text-slate-600">
+                This will mark <span className="font-semibold">{feed?.label}</span> as discarded. It will no longer appear in the active feeds list. This cannot be undone from the UI.
+              </p>
+              {error && (
+                <div role="alert" className="rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setDiscardConfirm(false); setError(null); }}
+                  className="rounded-lg border border-outline-variant px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  disabled={discarding}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleDiscard()}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                  disabled={discarding}
+                >
+                  {discarding ? "Discarding…" : "Discard feed"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {error && (
           <div role="alert" className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-700">
@@ -521,8 +609,13 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                               </button>
                             )}
                           </div>
-                          <div className="max-h-72 max-w-[50vw] overflow-auto border border-outline-variant rounded-lg bg-white">
-                            <table className="text-left text-[10px] border-collapse font-mono">
+                          <div className="relative max-h-72 max-w-[50vw] overflow-auto border border-outline-variant rounded-lg bg-white">
+                            {loadingPreview && (
+                              <div className="absolute inset-0 bg-white/70 flex items-center justify-center text-xs font-semibold text-slate-600 z-10">
+                                Loading preview...
+                              </div>
+                            )}
+                            <table className="text-left text-[10px] border-collapse font-mono w-full">
                               <thead className="bg-slate-50 border-b border-outline-variant sticky top-0">
                                 <tr>
                                   {(latestSlice.headerCsv ? splitCsvRow(latestSlice.headerCsv) : []).map((col, i) => (
@@ -601,18 +694,23 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                 )}
               </div>
 
-              {latestSlice && session && (
+              {session && (
                 <div className="mt-4">
-                  <FeedSliceCommentThread
+                  <UnifiedCommentThread
                     projectId={projectId}
                     feedId={feedId}
-                    sliceId={latestSlice.sourceSliceId}
+                    sliceId={latestSlice?.sourceSliceId}
                     token={session.accessToken}
                   />
                 </div>
               )}
 
-              {/* Mapping Hints Panel (central_team only) */}
+            </div>
+
+            {/* Right Column: downstream steps */}
+            <div className="space-y-6">
+
+              {/* AI Mapping Hints (central_team only) */}
               {session?.role === "central_team" && (
                 <div className="rounded-2xl border border-outline-variant bg-surface-container p-5 shadow-sm space-y-4">
                   <div className="flex items-center justify-between">
@@ -636,10 +734,6 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                   />
                 </div>
               )}
-            </div>
-
-            {/* Right Column: downstream steps */}
-            <div className="space-y-6">
 
               {/* A. Mapping Tables Accordions */}
               <div className="rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm space-y-4">
@@ -817,8 +911,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                       const isAnalyzeDisabled =
                         !draft.sourceText.trim() ||
                         !draft.destText.trim() ||
-                        draft.analyzing ||
-                        !fiberId;
+                        draft.analyzing;
 
                       const isLookupOpen = expandedLookups.has(lName);
                       return (
@@ -888,7 +981,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
 
                               {fiber?.proposedMappings && fiber.proposedMappings.length > 0 && (
                                 <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
-                                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-bold">
+                                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                                     AI Proposed Mappings ({fiber.proposedMappings.length})
                                   </div>
                                   <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
@@ -938,30 +1031,6 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                 )}
               </div>
 
-              {/* C. Reviews panel */}
-              <div className="rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-bold text-slate-900 font-bold">Reviews</h3>
-                  <button
-                    onClick={() => router.push(`/projects/${projectId}/feeds/${feedId}/review`)}
-                    className="rounded border border-primary text-primary px-3 py-1.5 text-xs font-semibold hover:bg-primary/5"
-                    type="button"
-                  >
-                    View review page
-                  </button>
-                </div>
-                
-                {allMappingSnapshots.length > 0 ? (
-                  <ReviewGrid
-                    mappingTables={mappingTables}
-                    lookupGroups={lookupGroups}
-                  />
-                ) : (
-                  <div className="text-sm text-slate-500 text-center py-6">
-                    No approved mapping snapshot to render reviews.
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         )}

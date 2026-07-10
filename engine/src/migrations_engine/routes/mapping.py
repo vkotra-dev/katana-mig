@@ -7,7 +7,9 @@ from ..api.deps import get_central_team_user, get_current_user, get_db
 from ..api.schemas import MappingPatchRequest, MappingRejectRequest, MappingReviewResponse
 from ..db.models import User
 from ..management.access import require_project_access, require_project_stakeholder
-from ..mapping.review import approve_mapping, get_mapping, patch_mapping, propose_mapping, reject_mapping
+from ..mapping.review import approve_mapping, get_mapping, patch_mapping, propose_mapping, reject_mapping, unapprove_mapping
+from ..roles import PM_ROLE, ADMIN_ROLE
+from ..api.deps import AuthApiError
 
 router = APIRouter(prefix="/projects/{project_id}/sources/{source_definition_id}/mapping", tags=["mapping"])
 
@@ -101,5 +103,25 @@ def post_mapping_reject(
         source_definition_id=source_definition_id,
         actor_user_id=actor.user_id,
         reason=body.reason,
+        destination_object_name=destination_object_name,
+    )
+
+
+@router.post("/unapprove", response_model=MappingReviewResponse)
+def post_mapping_unapprove(
+    project_id: str,
+    source_definition_id: str,
+    destination_object_name: str | None = None,
+    actor: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MappingReviewResponse:
+    require_project_access(db, user=actor, project_id=project_id)
+    if actor.role not in {PM_ROLE, ADMIN_ROLE}:
+        raise AuthApiError("forbidden", "Only project managers or administrators can unapprove mappings.", 403)
+    return unapprove_mapping(
+        db,
+        project_id=project_id,
+        source_definition_id=source_definition_id,
+        actor_user_id=actor.user_id,
         destination_object_name=destination_object_name,
     )

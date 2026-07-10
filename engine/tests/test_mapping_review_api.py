@@ -13,7 +13,7 @@ from migrations_engine.auth.passwords import hash_password  # noqa: E402
 from migrations_engine.config import get_settings  # noqa: E402
 from migrations_engine.db.models import ProjectDefinition, ProjectMembership, ProjectRegistry, SourceDefinition, SourceSchemaArtifact, User  # noqa: E402
 from migrations_engine.mapping import review as mapping_review_module  # noqa: E402
-from migrations_engine.roles import CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE  # noqa: E402
+from migrations_engine.roles import CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE, PM_ROLE  # noqa: E402
 
 client = TestClient(app)
 
@@ -330,6 +330,67 @@ def test_approve_writes_destination_object_references(monkeypatch: pytest.Monkey
         source = db.scalar(select(SourceDefinition).where(SourceDefinition.source_definition_id == source_id))
         assert source is not None
         assert source.destination_object_references == ["Customer"]
+
+
+def test_unapprove_mapping_by_pm(monkeypatch: pytest.MonkeyPatch, admin_token: str, stakeholder_token: str) -> None:
+    project_id, source_id = _seed_project()
+    fake = FakeAdapter([
+        {"source_field": "customer_id", "destination_field": "customer_id"},
+    ])
+    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: fake)
+
+    client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/propose",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/approve",
+        headers={"Authorization": f"Bearer {stakeholder_token}"},
+    )
+
+    # Verify approved state
+    with SessionLocal() as db:
+        source = db.scalar(select(SourceDefinition).where(SourceDefinition.source_definition_id == source_id))
+        assert source is not None
+        assert source.destination_object_references == ["Customer"]
+
+    # Seed and log in PM user
+    with SessionLocal() as db:
+        pm_user = db.scalar(select(User).where(User.email == "pm_test@example.com"))
+        if not pm_user:
+            db.add(
+                User(
+                    user_id=str(uuid.uuid4()),
+                    email="pm_test@example.com",
+                    display_name="PM Test",
+                    password_hash=hash_password("pm-password"),
+                    role=PM_ROLE,
+                    status="active",
+                )
+            )
+            db.commit()
+
+    pm_token = _login("pm_test@example.com", "pm-password")
+
+    # Update pm_user_id on project registry to grant PM access
+    with SessionLocal() as db:
+        pm_db = db.scalar(select(User).where(User.email == "pm_test@example.com"))
+        registry = db.scalar(select(ProjectRegistry).where(ProjectRegistry.project_id == project_id))
+        registry.pm_user_id = pm_db.user_id
+        db.commit()
+
+    response = client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/unapprove",
+        headers={"Authorization": f"Bearer {pm_token}"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "draft"
+
+    # Verify unapproved state in DB
+    with SessionLocal() as db:
+        source = db.scalar(select(SourceDefinition).where(SourceDefinition.source_definition_id == source_id))
+        assert source is not None
+        assert source.destination_object_references == []
 
 
 def test_reject_marks_snapshot_rejected(monkeypatch: pytest.MonkeyPatch, admin_token: str, stakeholder_token: str) -> None:

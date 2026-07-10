@@ -311,6 +311,7 @@ NotificationEventType = Literal[
     "knowledge_freeze_published",
     "execution_complete",
     "feed_comment_added",
+    "review.sign_off_reminder",
 ]
 
 
@@ -338,6 +339,7 @@ class NotificationMarkAllResponse(BaseModel):
 
 class FeedCommentCreateRequest(BaseModel):
     body: str = Field(min_length=1)
+    source_slice_id: str | None = Field(default=None, max_length=36)
 
 
 class FeedCommentResponse(BaseModel):
@@ -350,22 +352,8 @@ class FeedCommentResponse(BaseModel):
     role: str
     body: str
     created_at: datetime
-
-
-class FeedSliceCommentCreateRequest(BaseModel):
-    body: str = Field(min_length=1)
-
-
-class FeedSliceCommentResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    comment_id: str
-    source_slice_id: str
-    user_id: str
-    display_name: str | None
-    role: str
-    body: str
-    created_at: datetime
+    source_slice_id: str | None = None
+    source_slice_version: str | None = None
 
 
 class FiberCreateRequest(BaseModel):

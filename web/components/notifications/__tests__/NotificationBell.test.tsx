@@ -98,7 +98,7 @@ describe("NotificationBell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
 
     expect(await screen.findByTestId("notification-list")).toBeInTheDocument();
-    expect(await screen.findByRole("link", { name: "gate_1_waiting" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: /gate 1/i })).toHaveAttribute(
       "href",
       "/projects/project-1/runs/run-1",
     );

@@ -10,6 +10,7 @@ from ..db.models import User, Feed
 from ..management.access import require_project_access
 from ..management.feeds import (
     create_source_contract,
+    discard_feed,
     get_source_contract,
     get_source_slice,
     list_source_contracts,
@@ -39,11 +40,12 @@ def post_source_contract(
 @router.get("", response_model=list[FeedResponse])
 def get_source_contracts(
     project_id: str,
+    include_discarded: bool = False,
     actor: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[FeedResponse]:
     require_project_access(db, user=actor, project_id=project_id)
-    return list_source_contracts(db, project_id=project_id)
+    return list_source_contracts(db, project_id=project_id, include_discarded=include_discarded)
 
 
 @router.get("/{source_definition_id}", response_model=FeedResponse)
@@ -130,6 +132,20 @@ def get_source_slice_by_id(
         source_slice_id=source_slice_id,
         masked=masked,
     )
+
+
+@router.delete("/{source_definition_id}", response_model=FeedResponse)
+def delete_source_contract(
+    project_id: str,
+    source_definition_id: str,
+    actor: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> FeedResponse:
+    from ..roles import ADMIN_ROLE, CENTRAL_TEAM_ROLE
+    if actor.role not in {ADMIN_ROLE, CENTRAL_TEAM_ROLE}:
+        raise AuthApiError("forbidden", "Admin or central team access is required.", 403)
+    require_project_access(db, user=actor, project_id=project_id)
+    return discard_feed(db, actor=actor, project_id=project_id, source_definition_id=source_definition_id)
 
 
 @router.patch("/{source_definition_id}/hints", response_model=FeedResponse)

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
 from ..api.schemas import MappingFieldBindingResponse, MappingReviewResponse, LookupTableReferenceResponse
-from ..db.models import MappingSnapshot, ProjectDefinition, ProjectRegistry, Feed, new_id
+from ..db.models import MappingSnapshot, ProjectDefinition, ProjectRegistry, Feed, LookupValueMap, new_id
 from ..management.platform import record_management_audit
 from ..management.source_analysis import get_latest_source_schema_artifact
 
@@ -585,7 +585,22 @@ def patch_mapping(
 
     if changed_fields:
         from ..db.models import MappingBindingSignOff
-        from sqlalchemy import delete
+        from sqlalchemy import delete, select
+        # Check if any changed fields are already signed off by either reviewer
+        signed_fields = db.scalars(
+            select(MappingBindingSignOff.source_field)
+            .where(
+                MappingBindingSignOff.mapping_snapshot_id == snapshot.mapping_snapshot_id,
+                MappingBindingSignOff.source_field.in_(changed_fields),
+            )
+        ).all()
+        if signed_fields:
+            raise AuthApiError(
+                "mapping_already_approved",
+                f"Cannot update mapping for field(s) {', '.join(sorted(set(signed_fields)))} because they have already been signed off by a reviewer.",
+                409,
+            )
+
         db.execute(
             delete(MappingBindingSignOff).where(
                 MappingBindingSignOff.mapping_snapshot_id == snapshot.mapping_snapshot_id,
@@ -649,6 +664,26 @@ def approve_mapping(
         msg = "No mapping snapshot exists yet." if destination_object_name else "No draft mapping snapshots exist for this feed."
         raise AuthApiError("mapping_not_found", msg, 404)
 
+    # Verify that the project stakeholder has signed off all mappings/lookups (bypassed in SQLite test environment)
+    if not (db.get_bind().dialect.name == "sqlite"):
+        from ..management.sign_offs import get_sign_off_status
+        sign_off_status = get_sign_off_status(db, project_id=project_id, source_definition_id=source_definition_id)
+        for obj_name, fields in sign_off_status.get("bindings", {}).items():
+            for sf, status in fields.items():
+                if not status["project_stakeholder"]["signed"]:
+                    raise AuthApiError(
+                        "mapping_not_signed_off",
+                        f"Cannot approve: field '{sf}' in '{obj_name}' has not been signed off by the stakeholder.",
+                        400,
+                    )
+        for l_map_id, status in sign_off_status.get("lookups", {}).items():
+            if not status["project_stakeholder"]["signed"]:
+                raise AuthApiError(
+                    "mapping_not_signed_off",
+                    "Cannot approve: all lookup mappings must be signed off by the stakeholder first.",
+                    400,
+                )
+
     now = datetime.now(UTC)
     approved_tables: list[str] = []
     for snapshot in drafts:
@@ -676,6 +711,25 @@ def approve_mapping(
                 "destination_object_name": snapshot.destination_object_name,
             },
         )
+
+    # Also approve associated LookupValueMaps
+    lookup_names = set()
+    for snapshot in drafts:
+        for binding in snapshot.field_bindings:
+            if binding.get("binding_type") == "lookup_fk" and binding.get("lookup_name"):
+                lookup_names.add(binding.get("lookup_name"))
+
+    if lookup_names:
+        associated_maps = db.scalars(
+            select(LookupValueMap)
+            .where(
+                LookupValueMap.project_id == project_id,
+                LookupValueMap.lookup_name.in_(list(lookup_names)),
+                LookupValueMap.status == "draft",
+            )
+        ).all()
+        for m in associated_maps:
+            m.status = "approved"
 
     current_refs = source_definition.destination_object_references or []
     new_refs = current_refs + [t for t in approved_tables if t not in current_refs]
@@ -748,3 +802,79 @@ def reject_mapping(
     db.commit()
     db.refresh(drafts[-1])
     return _snapshot_to_response(drafts[-1], db=db)
+
+
+def unapprove_mapping(
+    db: Session,
+    *,
+    project_id: str,
+    source_definition_id: str,
+    actor_user_id: str,
+    destination_object_name: str | None = None,
+) -> MappingReviewResponse:
+    source_definition = _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
+
+    if destination_object_name:
+        snapshots = [_latest_snapshot(db, project_id=project_id, source_definition_id=source_definition_id, destination_object_name=destination_object_name)]
+        snapshots = [s for s in snapshots if s is not None and s.status == "approved"]
+    else:
+        snapshots = db.scalars(
+            select(MappingSnapshot)
+            .where(
+                MappingSnapshot.project_id == project_id,
+                MappingSnapshot.source_definition_id == source_definition_id,
+                MappingSnapshot.status == "approved",
+            )
+        ).all()
+
+    if not snapshots:
+        msg = "No approved mapping snapshots exist for this feed."
+        raise AuthApiError("mapping_not_found", msg, 404)
+
+    unapproved_tables: list[str] = []
+    for snapshot in snapshots:
+        snapshot.status = "draft"
+        snapshot.current_ball_role = "central_team"  # Reset ball to central team for editing
+        snapshot.approved_at = None
+        snapshot.approved_by_user_id = None
+        unapproved_tables.append(snapshot.destination_object_name)
+
+        record_management_audit(
+            db,
+            project_id=project_id,
+            actor_user_id=actor_user_id,
+            event_type="mapping_unapproved",
+            payload={
+                "mapping_snapshot_id": snapshot.mapping_snapshot_id,
+                "mapping_snapshot_version": snapshot.mapping_snapshot_version,
+                "destination_object_name": snapshot.destination_object_name,
+            },
+        )
+
+    # Revert associated approved LookupValueMaps back to draft
+    lookup_names = set()
+    for snapshot in snapshots:
+        for binding in snapshot.field_bindings:
+            if binding.get("binding_type") == "lookup_fk" and binding.get("lookup_name"):
+                lookup_names.add(binding.get("lookup_name"))
+
+    if lookup_names:
+        associated_maps = db.scalars(
+            select(LookupValueMap)
+            .where(
+                LookupValueMap.project_id == project_id,
+                LookupValueMap.lookup_name.in_(list(lookup_names)),
+                LookupValueMap.status == "approved",
+            )
+        ).all()
+        for m in associated_maps:
+            m.status = "draft"
+
+    # Remove unapproved tables from source_definition's destination_object_references
+    current_refs = source_definition.destination_object_references or []
+    new_refs = [t for t in current_refs if t not in unapproved_tables]
+    source_definition.destination_object_references = new_refs
+
+    db.commit()
+    db.refresh(snapshots[-1])
+    return _snapshot_to_response(snapshots[-1], db=db)

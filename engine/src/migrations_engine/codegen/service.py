@@ -17,7 +17,6 @@ from ..db.models import (
     Feed,
     FeedSlice,
     FeedComment,
-    FeedSliceComment,
     User,
     new_id,
 )
@@ -98,15 +97,15 @@ def generate_codegen_artifact(
     comments = list(db.execute(
         select(FeedComment, User.role)
         .join(User, User.user_id == FeedComment.user_id)
-        .where(FeedComment.feed_id == source_definition_id)
+        .where(FeedComment.feed_id == source_definition_id, FeedComment.source_slice_id.is_(None))
         .order_by(FeedComment.created_at.asc())
     ).all())
 
     slice_comments = list(db.execute(
-        select(FeedSliceComment, User.role)
-        .join(User, User.user_id == FeedSliceComment.user_id)
-        .where(FeedSliceComment.source_slice_id == source_slice.source_slice_id)
-        .order_by(FeedSliceComment.created_at.asc())
+        select(FeedComment, User.role)
+        .join(User, User.user_id == FeedComment.user_id)
+        .where(FeedComment.source_slice_id == source_slice.source_slice_id)
+        .order_by(FeedComment.created_at.asc())
     ).all())
 
     generated_sql = adapter.call(
@@ -418,7 +417,7 @@ def _format_discussion(comments: list[tuple[FeedComment, str]]) -> str:
     return "\n".join(lines)
 
 
-def _format_slice_discussion(comments: list[tuple[FeedSliceComment, str]]) -> str:
+def _format_slice_discussion(comments: list[tuple[FeedComment, str]]) -> str:
     if not comments:
         return ""
     recent = comments[-_MAX_COMMENT_COUNT:]
@@ -445,7 +444,7 @@ def _build_user_prompt(
     lookup_snapshot_version: str | None,
     project_config: MigrationProjectConfig,
     comments: list[tuple[FeedComment, str]],
-    slice_comments: list[tuple[FeedSliceComment, str]],
+    slice_comments: list[tuple[FeedComment, str]],
 ) -> str:
     lines = [
         f"Source contract: {source_definition.source_definition_id}",

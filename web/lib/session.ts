@@ -7,6 +7,8 @@ export interface UiSession {
   role: SessionRole;
   sessionVersion: number;
   projectIds?: string[];
+  displayName?: string | null;
+  email?: string;
 }
 
 const SESSION_STORAGE_KEY = "katana.ui.session";

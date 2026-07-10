@@ -298,6 +298,9 @@ class FeedComment(Base):
     )
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.user_id"), nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
+    source_slice_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("source_slices.source_slice_id", ondelete="CASCADE"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -713,15 +716,4 @@ class LookupSignOff(Base):
     )
 
 
-class FeedSliceComment(Base):
-    __tablename__ = "feed_slice_comments"
 
-    comment_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    source_slice_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("source_slices.source_slice_id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.user_id"), nullable=False)
-    body: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )

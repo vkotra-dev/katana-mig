@@ -206,6 +206,21 @@ export function ReviewGrid({
   const [revisionOpen, setRevisionOpen] = useState(false);
   const [revisionComment, setRevisionComment] = useState("");
 
+  const allSignedByStakeholder = (() => {
+    if (!signOffStatus) return false;
+    // Check bindings
+    for (const table of Object.values(signOffStatus.bindings)) {
+      for (const binding of Object.values(table)) {
+        if (!binding.projectStakeholder.signed) return false;
+      }
+    }
+    // Check lookups
+    for (const lookup of Object.values(signOffStatus.lookups)) {
+      if (!lookup.projectStakeholder.signed) return false;
+    }
+    return true;
+  })();
+
   const renderSignOffChips = (tableName: string, sourceField: string) => {
     if (!signOffStatus) return null;
     const bindingStatus = signOffStatus.bindings[tableName]?.[sourceField];
@@ -257,7 +272,12 @@ export function ReviewGrid({
           <button
             type="button"
             onClick={handleSignClick}
-            className="text-[9px] font-bold text-primary hover:underline focus:outline-none"
+            className={`text-[9px] font-semibold px-2 py-0.5 rounded border focus:outline-none transition-colors ${
+              ((currentUserRole === "central_team" && op.signed) ||
+                (currentUserRole === "project_stakeholder" && st.signed))
+                ? "border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200"
+                : "border-primary bg-primary text-white hover:bg-primary-hover"
+            }`}
           >
             {((currentUserRole === "central_team" && op.signed) ||
               (currentUserRole === "project_stakeholder" && st.signed))
@@ -320,7 +340,12 @@ export function ReviewGrid({
           <button
             type="button"
             onClick={handleSignClick}
-            className="text-[9px] font-bold text-primary hover:underline focus:outline-none"
+            className={`text-[9px] font-semibold px-2 py-0.5 rounded border focus:outline-none transition-colors ${
+              ((currentUserRole === "central_team" && op.signed) ||
+                (currentUserRole === "project_stakeholder" && st.signed))
+                ? "border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200"
+                : "border-primary bg-primary text-white hover:bg-primary-hover"
+            }`}
           >
             {((currentUserRole === "central_team" && op.signed) ||
               (currentUserRole === "project_stakeholder" && st.signed))
@@ -439,7 +464,7 @@ export function ReviewGrid({
                               <th className="py-2">Source Field</th>
                               <th className="py-2">Destination Field</th>
                               <th className="py-2">Type</th>
-                              {signOffStatus && <th className="py-2">Sign Off</th>}
+                              {signOffStatus && <th className="py-2">Sign-offs</th>}
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
@@ -462,17 +487,29 @@ export function ReviewGrid({
                                   })()}
                                 </td>
                                 <td className="py-2.5 font-mono text-slate-900 font-medium">
-                                  {editingEnabled ? (
-                                    <AutocompleteInput
-                                      value={binding.destinationField}
-                                      options={table.destinationFields || []}
-                                      onChange={(newVal) => onDestinationFieldChange?.(table.destinationTableName, binding.sourceField, newVal)}
-                                      className="rounded border border-slate-200 bg-white px-2 py-1 font-mono text-xs w-full focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
-                                      placeholder="destination field..."
-                                    />
-                                  ) : (
-                                    binding.destinationField
-                                  )}
+                                  {(() => {
+                                    const bindingStatus = signOffStatus?.bindings[table.destinationTableName]?.[binding.sourceField];
+                                    const isSignedByEither = !!(bindingStatus && (bindingStatus.centralTeam.signed || bindingStatus.projectStakeholder.signed));
+                                    const rowEditable = editingEnabled && !isSignedByEither;
+                                    return rowEditable ? (
+                                      <AutocompleteInput
+                                        value={binding.destinationField}
+                                        options={table.destinationFields || []}
+                                        onChange={(newVal) => onDestinationFieldChange?.(table.destinationTableName, binding.sourceField, newVal)}
+                                        className="rounded border border-slate-200 bg-white px-2 py-1 font-mono text-xs w-full focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                                        placeholder="destination field..."
+                                      />
+                                    ) : (
+                                      <div className="flex items-center gap-1.5 py-1 text-slate-700">
+                                        <span>{binding.destinationField || <span className="text-slate-400 italic font-sans text-xs">unmapped</span>}</span>
+                                        {isSignedByEither && (
+                                          <span title="Locked because this mapping has been signed off by a reviewer" className="text-[10px] text-slate-400 select-none">
+                                            🔒
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
                                 </td>
                                 <td className="py-2.5">{getBindingBadge(binding.bindingType)}</td>
                                 {signOffStatus && (
@@ -575,8 +612,25 @@ export function ReviewGrid({
                       {group.pairs.map((pair, idx) => (
                         <tr key={idx} className="hover:bg-slate-50/50">
                           <td className="py-3 font-medium text-slate-800">{pair.sourceValue}</td>
-                          <td className="py-3 font-mono text-slate-600 max-w-md truncate">
-                            {JSON.stringify(pair.destinationRow)}
+                          <td className="py-3 pr-4">
+                            {pair.destinationRow ? (
+                              <div className="grid grid-cols-[repeat(auto-fit,minmax(72px,1fr))] gap-2 p-2 border border-slate-100 rounded-lg bg-slate-50/40 text-[10px] font-mono w-full">
+                                {Object.entries(pair.destinationRow)
+                                  .filter(([key]) => key !== "id" && key !== "destination_id")
+                                  .map(([key, val]) => (
+                                    <div key={key} className="flex flex-col border-l-2 border-primary/20 pl-2 min-w-[72px]">
+                                      <span className="text-slate-400 font-medium text-[8px] uppercase tracking-wider truncate" title={key}>
+                                        {key.trim().replace(/['"`]/g, "")}
+                                      </span>
+                                      <span className="text-slate-800 font-semibold truncate" title={String(val)}>
+                                        {String(val).replace(/['"`]/g, "")}
+                                      </span>
+                                    </div>
+                                  ))}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 italic">—</span>
+                            )}
                           </td>
                           <td className="py-3">
                             <div className="flex items-center gap-2">
@@ -630,7 +684,9 @@ export function ReviewGrid({
               {onApprove && (
                 <button
                   onClick={onApprove}
-                  className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  disabled={!allSignedByStakeholder}
+                  title={!allSignedByStakeholder ? "Please sign off all individual field and lookup mappings first." : undefined}
+                  className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
                   type="button"
                 >
                   Approve

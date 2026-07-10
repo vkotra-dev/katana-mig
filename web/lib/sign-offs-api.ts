@@ -60,28 +60,64 @@ async function requestSignOffJson<T>(
     }
   }
 
-  // Handle 204 No Content
   if (response.status === 204) {
     return {} as T;
   }
 
-  const raw = await response.json();
-  return mapSnakeToCamel(raw) as T;
+  return response.json() as Promise<T>;
 }
 
-// Helper to convert snake_case JSON keys from backend to camelCase in frontend
-function mapSnakeToCamel(obj: any): any {
-  if (Array.isArray(obj)) {
-    return obj.map(mapSnakeToCamel);
-  } else if (obj !== null && typeof obj === "object" && !(obj instanceof Date)) {
-    const n: Record<string, any> = {};
-    for (const key of Object.keys(obj)) {
-      const camel = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
-      n[camel] = mapSnakeToCamel(obj[key]);
+// Custom manual mapper to preserve case of dynamic table/field names
+function mapSignOffStatus(raw: any): SignOffStatusRecord {
+  const bindings: Record<string, Record<string, BindingSignOffStatus>> = {};
+  if (raw.bindings) {
+    for (const [tableName, fields] of Object.entries(raw.bindings)) {
+      bindings[tableName] = {};
+      if (fields && typeof fields === "object") {
+        for (const [fieldName, status] of Object.entries(fields as any)) {
+          const s = status as any;
+          bindings[tableName][fieldName] = {
+            centralTeam: {
+              signed: s?.central_team?.signed ?? false,
+              signedAt: s?.central_team?.signed_at ?? null,
+              userId: s?.central_team?.user_id ?? null,
+            },
+            projectStakeholder: {
+              signed: s?.project_stakeholder?.signed ?? false,
+              signedAt: s?.project_stakeholder?.signed_at ?? null,
+              userId: s?.project_stakeholder?.user_id ?? null,
+            },
+          };
+        }
+      }
     }
-    return n;
   }
-  return obj;
+
+  const lookups: Record<string, Record<string, BindingSignOffEntry>> = {};
+  if (raw.lookups) {
+    for (const [lookupId, rolesMap] of Object.entries(raw.lookups)) {
+      const r = rolesMap as any;
+      lookups[lookupId] = {
+        centralTeam: {
+          signed: r?.central_team?.signed ?? false,
+          signedAt: r?.central_team?.signed_at ?? null,
+          userId: r?.central_team?.user_id ?? null,
+        },
+        projectStakeholder: {
+          signed: r?.project_stakeholder?.signed ?? false,
+          signedAt: r?.project_stakeholder?.signed_at ?? null,
+          userId: r?.project_stakeholder?.user_id ?? null,
+        },
+      };
+    }
+  }
+
+  return {
+    complete: raw.complete ?? false,
+    currentBallRole: raw.current_ball_role ?? null,
+    bindings,
+    lookups,
+  };
 }
 
 export async function getSignOffStatus(
@@ -89,10 +125,11 @@ export async function getSignOffStatus(
   projectId: string,
   feedId: string,
 ): Promise<SignOffStatusRecord> {
-  return requestSignOffJson<SignOffStatusRecord>(
+  const raw = await requestSignOffJson<any>(
     `/projects/${projectId}/sources/${feedId}/sign-off-status`,
     { method: "GET", token },
   );
+  return mapSignOffStatus(raw);
 }
 
 export async function signBinding(
@@ -102,7 +139,7 @@ export async function signBinding(
   destObj: string,
   sourceField: string,
 ): Promise<SignOffStatusRecord> {
-  return requestSignOffJson<SignOffStatusRecord>(
+  const raw = await requestSignOffJson<any>(
     `/projects/${projectId}/sources/${feedId}/mapping/sign-off`,
     {
       method: "POST",
@@ -113,6 +150,7 @@ export async function signBinding(
       }),
     },
   );
+  return mapSignOffStatus(raw);
 }
 
 export async function unsignBinding(
@@ -122,7 +160,7 @@ export async function unsignBinding(
   destObj: string,
   sourceField: string,
 ): Promise<SignOffStatusRecord> {
-  return requestSignOffJson<SignOffStatusRecord>(
+  const raw = await requestSignOffJson<any>(
     `/projects/${projectId}/sources/${feedId}/mapping/sign-off`,
     {
       method: "DELETE",
@@ -133,6 +171,7 @@ export async function unsignBinding(
       }),
     },
   );
+  return mapSignOffStatus(raw);
 }
 
 export async function signLookup(
@@ -141,10 +180,11 @@ export async function signLookup(
   feedId: string,
   lookupValueMapId: string,
 ): Promise<SignOffStatusRecord> {
-  return requestSignOffJson<SignOffStatusRecord>(
+  const raw = await requestSignOffJson<any>(
     `/projects/${projectId}/sources/${feedId}/lookups/${lookupValueMapId}/sign-off`,
     { method: "POST", token },
   );
+  return mapSignOffStatus(raw);
 }
 
 export async function unsignLookup(
@@ -153,10 +193,11 @@ export async function unsignLookup(
   feedId: string,
   lookupValueMapId: string,
 ): Promise<SignOffStatusRecord> {
-  return requestSignOffJson<SignOffStatusRecord>(
+  const raw = await requestSignOffJson<any>(
     `/projects/${projectId}/sources/${feedId}/lookups/${lookupValueMapId}/sign-off`,
     { method: "DELETE", token },
   );
+  return mapSignOffStatus(raw);
 }
 
 export async function pushForReview(
@@ -164,10 +205,11 @@ export async function pushForReview(
   projectId: string,
   feedId: string,
 ): Promise<SignOffStatusRecord> {
-  return requestSignOffJson<SignOffStatusRecord>(
+  const raw = await requestSignOffJson<any>(
     `/projects/${projectId}/sources/${feedId}/push-for-review`,
     { method: "POST", token },
   );
+  return mapSignOffStatus(raw);
 }
 
 export async function pokeReviewer(

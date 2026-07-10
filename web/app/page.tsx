@@ -26,6 +26,8 @@ function toUiSession(
     sessionVersion: response.sessionVersion,
     userId: response.user.user_id,
     projectIds: response.projectIds,
+    displayName: response.user.display_name,
+    email: response.user.email,
   };
 }
 
@@ -40,6 +42,8 @@ function toUiSessionFromCurrentSession(
     sessionVersion: response.session_version,
     userId: response.user_id,
     projectIds: response.project_ids,
+    displayName: response.display_name,
+    email: response.email,
   };
 }
 

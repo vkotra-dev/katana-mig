@@ -8,6 +8,7 @@ const {
   listLookupValueMapsMock,
   approveMappingSnapshotMock,
   rejectMappingSnapshotMock,
+  unapproveMappingSnapshotMock,
   listFeedSlicesMock,
   listFeedCommentsMock,
   createFeedCommentMock,
@@ -25,6 +26,7 @@ const {
   listLookupValueMapsMock: vi.fn(),
   approveMappingSnapshotMock: vi.fn(),
   rejectMappingSnapshotMock: vi.fn(),
+  unapproveMappingSnapshotMock: vi.fn(),
   listFeedSlicesMock: vi.fn(),
   listFeedCommentsMock: vi.fn(() => Promise.resolve([])),
   createFeedCommentMock: vi.fn(),
@@ -52,6 +54,7 @@ vi.mock("../../../../../../lib/mapping-api", () => ({
   approveMappingSnapshot: approveMappingSnapshotMock,
   rejectMappingSnapshot: rejectMappingSnapshotMock,
   patchMappingSnapshot: vi.fn(),
+  unapproveMappingSnapshot: unapproveMappingSnapshotMock,
 }));
 
 vi.mock("../../../../../../lib/lookup-api", () => ({
@@ -303,5 +306,37 @@ describe("ReviewPage", () => {
     expect(screen.getByText(/Unmapped source fields/i)).toBeInTheDocument();
     expect(screen.getByText("lost_column")).toBeInTheDocument();
     expect(screen.getByText("unmapped_val")).toBeInTheDocument();
+  });
+
+  it("renders Revert to Draft button for pm and admin when approved, and handles reversion", async () => {
+    const pmSession = {
+      accessToken: "token-pm",
+      expiresAt: "2026-06-30T12:00:00Z",
+      role: "pm" as const,
+      sessionVersion: 1,
+    };
+    loadUiSessionMock.mockReturnValue(pmSession);
+
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([
+      { ...SNAPSHOT, destinationObjectName: "table_1", status: "approved" },
+    ]);
+
+    unapproveMappingSnapshotMock.mockResolvedValue({
+      ...SNAPSHOT,
+      status: "draft",
+    });
+
+    await renderPage();
+
+    expect(await screen.findByText("approved")).toBeInTheDocument();
+    
+    const revertBtn = screen.getByRole("button", { name: "Revert to Draft" });
+    expect(revertBtn).toBeInTheDocument();
+
+    fireEvent.click(revertBtn);
+
+    await waitFor(() => {
+      expect(unapproveMappingSnapshotMock).toHaveBeenCalledWith("token-pm", "proj-1", "feed-1");
+    });
   });
 });

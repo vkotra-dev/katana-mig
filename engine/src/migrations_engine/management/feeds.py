@@ -14,7 +14,7 @@ from ..api.schemas import (
     FeedSliceResubmitRequest,
     FeedSliceResponse,
 )
-from ..db.models import ProjectMembership, ProjectRegistry, Feed, FeedSlice, FeedSliceRow, User, new_id
+from ..db.models import ProjectMembership, ProjectRegistry, Feed, FeedSlice, FeedSliceRow, RunRecord, User, new_id
 from ..intake.cobol_parser import parse_copybook
 from ..intake.csv_intake import ingest_csv
 from ..intake.fixed_intake import ingest_fixed
@@ -57,13 +57,55 @@ def create_source_contract(
     return _source_contract_response(source_definition)
 
 
-def list_source_contracts(db: Session, *, project_id: str) -> list[FeedResponse]:
-    rows = db.scalars(
-        select(Feed)
-        .where(Feed.project_id == project_id)
-        .order_by(Feed.created_at.asc())
-    ).all()
+def list_source_contracts(
+    db: Session,
+    *,
+    project_id: str,
+    include_discarded: bool = False,
+) -> list[FeedResponse]:
+    stmt = select(Feed).where(Feed.project_id == project_id)
+    if not include_discarded:
+        stmt = stmt.where(Feed.status != "discarded")
+    stmt = stmt.order_by(Feed.created_at.asc())
+    rows = db.scalars(stmt).all()
     return [_source_contract_response(row) for row in rows]
+
+
+def discard_feed(
+    db: Session,
+    *,
+    actor: User,
+    project_id: str,
+    source_definition_id: str,
+) -> FeedResponse:
+    feed = _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
+    if feed.status == "discarded":
+        raise AuthApiError("already_discarded", "Feed is already discarded.", 409)
+
+    active_run = db.scalars(
+        select(RunRecord).where(
+            RunRecord.source_definition_reference == source_definition_id,
+            RunRecord.status.in_(["running", "awaiting_approval"]),
+        ).limit(1)
+    ).first()
+    if active_run is not None:
+        raise AuthApiError(
+            "run_in_progress",
+            "Cannot discard a feed while a run is active or awaiting approval.",
+            409,
+        )
+
+    feed.status = "discarded"
+    record_management_audit(
+        db,
+        project_id=project_id,
+        actor_user_id=actor.user_id,
+        event_type="source.feed.discarded",
+        payload={"source_definition_id": source_definition_id},
+    )
+    db.commit()
+    db.refresh(feed)
+    return _source_contract_response(feed)
 
 
 def get_source_contract(db: Session, *, project_id: str, source_definition_id: str) -> FeedResponse:
@@ -355,12 +397,52 @@ def _source_slice_response(db: Session, source_slice: FeedSlice, *, masked: bool
     row_count = db.scalar(
         select(func.count(FeedSliceRow.id)).where(FeedSliceRow.source_slice_id == source_slice.source_slice_id)
     ) or 0
-    preview_rows = db.scalars(
-        select(FeedSliceRow.row_csv)
-        .where(FeedSliceRow.source_slice_id == source_slice.source_slice_id)
-        .order_by(FeedSliceRow.row_index.asc())
-        .limit(10)
-    ).all()
+
+    preview_rows = []
+    if not masked and source_slice.file_storage_path:
+        try:
+            import os
+            import csv
+            import io
+            source_definition = db.get(Feed, source_slice.source_definition_id)
+            if source_definition and os.path.exists(source_slice.file_storage_path):
+                if source_definition.source_type == "csv":
+                    with open(source_slice.file_storage_path, "r", encoding="utf-8") as f:
+                        reader = csv.reader(f)
+                        next(reader, None)  # skip header
+                        for i, values in enumerate(reader):
+                            if i >= 10:
+                                break
+                            buffer = io.StringIO()
+                            csv.writer(buffer).writerow(values)
+                            preview_rows.append(buffer.getvalue().rstrip("\r\n"))
+                elif source_definition.source_type == "fixed_length_file" and source_definition.layout_information:
+                    from ..intake.copybook import parse_copybook
+                    from ..intake.fixed_intake import _iter_non_empty_lines
+                    fields = parse_copybook(source_definition.layout_information)
+                    total_width = fields[-1].offset + fields[-1].width
+                    with open(source_slice.file_storage_path, "r", encoding="utf-8") as f:
+                        text = f.read()
+                        for i, line in enumerate(_iter_non_empty_lines(text)):
+                            if i >= 10:
+                                break
+                            normalized_line = line.rstrip("\r\n")
+                            padded_line = normalized_line[:total_width].ljust(total_width)
+                            values = [padded_line[field.offset : field.offset + field.width].strip() for field in fields]
+                            buffer = io.StringIO()
+                            csv.writer(buffer).writerow(values)
+                            preview_rows.append(buffer.getvalue().rstrip("\r\n"))
+        except Exception:
+            pass
+
+    if not preview_rows:
+        preview_rows = db.scalars(
+            select(FeedSliceRow.row_csv)
+            .where(FeedSliceRow.source_slice_id == source_slice.source_slice_id)
+            .order_by(FeedSliceRow.row_index.asc())
+            .limit(10)
+        ).all()
+
     if masked and source_slice.header_csv:
         from ..intake.masking import mask_row
         headers = _parse_csv_row(source_slice.header_csv)
