@@ -761,6 +761,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                       const tblName = tbl.destinationTableName;
                       const isOpen = expandedTables.has(tblName);
                       const snapshot = allMappingSnapshots.find(s => s.destinationObjectName === tblName);
+                      const fiber = fibers.find((f) => f.fiberType === "domain_object" && f.fiberKey === tblName);
 
                       return (
                         <div key={tblName} className="border border-outline-variant rounded-xl overflow-hidden bg-white">
@@ -771,6 +772,19 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                           >
                             <span className="font-mono text-xs font-bold text-slate-700">{tblName}</span>
                             <div className="flex items-center gap-2">
+                              {fiber?.status && (
+                                <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-mono uppercase font-semibold ${
+                                  fiber.status === "operator_triggered" || fiber.status === "codegen_complete"
+                                    ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700"
+                                    : fiber.status === "business_approved"
+                                    ? "border-blue-500/20 bg-blue-500/10 text-blue-700"
+                                    : fiber.status === "operator_assigned"
+                                    ? "border-amber-500/20 bg-amber-500/10 text-amber-700"
+                                    : "border-slate-200 bg-slate-50 text-slate-600"
+                                }`}>
+                                  {fiber.status.replace(/_/g, " ")}
+                                </span>
+                              )}
                               <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">{tbl.bindings.length} fields</span>
                               <svg
                                 className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`}
