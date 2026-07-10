@@ -271,10 +271,12 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
   const mappingTablesMap: Record<string, MappingTableRecord> = {};
   for (const snapshot of mappingSnapshots) {
     const tblName = snapshot.destinationObjectName;
+    const fiber = fibers.find((f) => f.fiberType === "domain_object" && f.fiberKey === tblName);
     if (!mappingTablesMap[tblName]) {
       mappingTablesMap[tblName] = {
         destinationTableName: tblName,
         destinationFields: snapshot.destinationFields || [],
+        fiberStatus: fiber?.status,
         bindings: [],
       };
     }

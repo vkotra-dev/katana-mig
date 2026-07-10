@@ -6,6 +6,7 @@ import { SignOffStatusRecord } from "../../lib/sign-offs-api";
 export interface MappingTableRecord {
   destinationTableName: string;
   destinationFields?: string[];
+  fiberStatus?: string;
   bindings: Array<{
     sourceField: string;
     destinationField: string;
@@ -442,6 +443,19 @@ export function ReviewGrid({
                       <span className="text-sm font-mono text-primary font-bold">
                         {table.destinationTableName}
                       </span>
+                      {table.fiberStatus && (
+                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-mono uppercase font-semibold ${
+                          table.fiberStatus === "operator_triggered" || table.fiberStatus === "codegen_complete"
+                            ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700"
+                            : table.fiberStatus === "business_approved"
+                            ? "border-blue-500/20 bg-blue-500/10 text-blue-700"
+                            : table.fiberStatus === "operator_assigned"
+                            ? "border-amber-500/20 bg-amber-500/10 text-amber-700"
+                            : "border-slate-200 bg-slate-50 text-slate-600"
+                        }`}>
+                          {table.fiberStatus.replace(/_/g, " ")}
+                        </span>
+                      )}
                       <span className="text-xs font-normal text-slate-500">
                         ({table.bindings.length} fields mapped)
                       </span>
