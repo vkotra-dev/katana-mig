@@ -8,7 +8,7 @@ INSTRUCTIONS FOR SQL BUNDLE GENERATION:
 1. Generate DDL to create any required lookup tables and seed/populate them with the approved mapping values.
 2. Script/create the stored procedure or SQL migration script that performs the actual data migration/upsert from source/staging tables to destination tables using the field mappings.
 3. Return your output as JSON with these fields:
-   - staging_ddl: the CREATE TABLE statement for the staging table (required)
+   - staging_ddl: CREATE TABLE for any new staging/destination tables needed (use a SQL comment if no new tables required)
    - lookup_ddl: list of CREATE TABLE statements for lookup/reference tables (empty list if none)
    - seed_data: list of INSERT statements to populate lookup tables (empty list if none)
    - stored_procedures: list of CREATE PROCEDURE statements for data migration (empty list if none)
