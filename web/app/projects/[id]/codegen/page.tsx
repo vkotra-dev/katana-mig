@@ -670,7 +670,19 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
                     </div>
 
                     <div className="rounded-xl border border-outline-variant bg-surface px-4 py-4">
-                      <div className="mb-3 text-xs uppercase tracking-[0.16em] text-slate-500">SQL preview</div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-xs uppercase tracking-[0.16em] text-slate-500">SQL preview</div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await navigator.clipboard.writeText(latestArtifact.sqlBundle ?? "");
+                            setStatusMessage("SQL bundle copied to clipboard.");
+                          }}
+                          className="rounded-md border border-outline bg-surface px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+                        >
+                          Copy
+                        </button>
+                      </div>
                       <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-950 px-4 py-4 text-xs leading-6 text-slate-100">
                         {latestArtifact.sqlBundle ?? "No SQL bundle stored."}
                       </pre>
