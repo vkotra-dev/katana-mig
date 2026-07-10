@@ -318,6 +318,15 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
               status: (isConfirmed ? "confirmed" : "pending") as any,
             });
           }
+        } else if (fiber && fiber.proposedMappings) {
+          for (const pm of fiber.proposedMappings) {
+            pairs.push({
+              sourceValue: pm.sourceValue,
+              destinationRow: pm.destRow,
+              confidenceScore: pm.confidenceScore ?? 0.95,
+              status: "pending",
+            });
+          }
         }
         lookupGroups.push({
           lookupName: binding.lookupName,
