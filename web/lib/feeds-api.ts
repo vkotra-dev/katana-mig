@@ -14,6 +14,7 @@ export interface FeedContractRecord {
   status: string;
   createdAt: string;
   mappingHints?: string | null;
+  transformationInstructions?: string | null;
 }
 
 export interface FeedSchemaColumnRecord {
@@ -160,6 +161,7 @@ function mapFeedContractResponse(response: {
   status: string;
   created_at: string;
   mapping_hints?: string | null;
+  transformation_instructions?: string | null;
 }): FeedContractRecord {
   return {
     sourceDefinitionId: response.source_definition_id,
@@ -173,6 +175,7 @@ function mapFeedContractResponse(response: {
     status: response.status,
     createdAt: response.created_at,
     mappingHints: response.mapping_hints ?? null,
+    transformationInstructions: response.transformation_instructions ?? null,
   };
 }
 
@@ -709,4 +712,21 @@ export async function resubmitFeedSlice(
     },
   );
   return mapFeedSliceResponse(response);
+}
+
+export async function saveTransformationInstructions(
+  token: string,
+  projectId: string,
+  sourceDefinitionId: string,
+  instructions: string | null,
+): Promise<FeedContractRecord> {
+  const response = await requestJson<Parameters<typeof mapFeedContractResponse>[0]>(
+    `/projects/${projectId}/sources/${sourceDefinitionId}/transformation-instructions`,
+    {
+      method: "PATCH",
+      token,
+      body: JSON.stringify({ transformation_instructions: instructions }),
+    },
+  );
+  return mapFeedContractResponse(response);
 }

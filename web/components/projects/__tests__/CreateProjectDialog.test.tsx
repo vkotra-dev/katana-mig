@@ -33,6 +33,7 @@ const stubResponse = {
   archived_at: null,
   latest_run_summary: null,
   pm_user_id: null,
+  codegen_instructions: null,
 };
 
 const stub: ProjectRecord = {
@@ -64,6 +65,8 @@ const stub: ProjectRecord = {
   archivedAt: null,
   latestRunSummary: null,
   pmUserId: null,
+  codegenInstructions: null,
+  health: undefined,
 };
 
 afterEach(() => {

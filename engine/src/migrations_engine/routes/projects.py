@@ -9,6 +9,7 @@ from ..api.deps import (
     get_current_user,
     get_db,
     get_admin_user,
+    get_central_team_user,
 )
 from ..api.schemas import (
     MembershipResponse,
@@ -18,6 +19,7 @@ from ..api.schemas import (
     ProjectUpdateRequest,
     ProjectCopyRequest,
     AssignProjectManagerRequest,
+    CodegenInstructionsRequest,
 )
 from ..db.models import User
 from ..management.access import require_project_access
@@ -126,3 +128,19 @@ def patch_project_manager(
     db: Session = Depends(get_db),
 ) -> ProjectResponse:
     return assign_project_manager(db, actor=actor, project_id=project_id, pm_user_id=body.pm_user_id)
+
+
+@router.patch("/{project_id}/codegen-instructions", response_model=ProjectResponse)
+def patch_codegen_instructions(
+    project_id: str,
+    body: CodegenInstructionsRequest,
+    actor: User = Depends(get_central_team_user),
+    db: Session = Depends(get_db),
+) -> ProjectResponse:
+    require_project_access(db, user=actor, project_id=project_id)
+    return update_project(
+        db,
+        actor=actor,
+        project_id=project_id,
+        body=ProjectUpdateRequest(codegen_instructions=body.codegen_instructions),
+    )

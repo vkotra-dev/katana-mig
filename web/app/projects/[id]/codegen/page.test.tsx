@@ -11,6 +11,7 @@ const {
   downloadCodegenDeliveryBundleMock,
   triggerSchemaAnalysisMock,
   routerPushMock,
+  getProjectMock,
 } = vi.hoisted(() => ({
   loadUiSessionMock: vi.fn(),
   listFeedContractsMock: vi.fn(),
@@ -20,6 +21,7 @@ const {
   downloadCodegenDeliveryBundleMock: vi.fn(),
   triggerSchemaAnalysisMock: vi.fn(),
   routerPushMock: vi.fn(),
+  getProjectMock: vi.fn(),
 }));
 
 vi.mock("../../../../components/Topbar", () => ({
@@ -28,6 +30,10 @@ vi.mock("../../../../components/Topbar", () => ({
 
 vi.mock("../../../../lib/session", () => ({
   loadUiSession: loadUiSessionMock,
+}));
+
+vi.mock("../../../../lib/projects-api", () => ({
+  getProject: getProjectMock,
 }));
 
 vi.mock("../../../../lib/feeds-api", () => ({
@@ -55,6 +61,27 @@ describe("CodegenPage", () => {
       role: "central_team",
       sessionVersion: 1,
       userId: "user-1",
+    });
+    getProjectMock.mockResolvedValue({
+      projectId: "project-1",
+      name: "Project 1",
+      goal: "Goal 1",
+      repos: [],
+      workspace: null,
+      projectResources: null,
+      executionEnvironments: [],
+      modelPolicy: null,
+      canonicalTerms: [],
+      constraints: [],
+      unresolvedQuestions: [],
+      assumptions: [],
+      domainConfig: null,
+      lexiconScope: null,
+      status: "active",
+      createdAt: "2026-06-30T00:00:00Z",
+      updatedAt: "2026-06-30T00:00:00Z",
+      archivedAt: null,
+      codegenInstructions: "Date rules",
     });
     listFeedContractsMock.mockResolvedValue([
       {

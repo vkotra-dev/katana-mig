@@ -109,7 +109,11 @@ def generate_codegen_artifact(
     ).all())
 
     generated_sql = adapter.call(
-        system=_build_system_prompt(project_config=project_config, destination_object_name=destination_object_name),
+        system=_build_system_prompt(
+            project_config=project_config,
+            destination_object_name=destination_object_name,
+            codegen_instructions=project_definition.codegen_instructions,
+        ),
         user=_build_user_prompt(
             source_definition=source_definition,
             source_slice=source_slice,
@@ -384,13 +388,24 @@ def _assemble_sql_bundle(generated_sql: GeneratedSQL) -> str:
     return "\n\n".join(bundle_parts).strip()
 
 
-def _build_system_prompt(*, project_config: MigrationProjectConfig, destination_object_name: str) -> str:
-    return (
-        "You generate SQL bundles for migration delivery.\n"
-        f"Destination object: {destination_object_name}\n"
-        f"Target DB engine: {project_config.target_db_engine or 'unknown'}\n"
-        f"Staging schema: {project_config.staging_schema or 'unknown'}"
-    )
+def _build_system_prompt(
+    *,
+    project_config: MigrationProjectConfig,
+    destination_object_name: str,
+    codegen_instructions: str | None = None,
+) -> str:
+    lines = [
+        "You generate SQL bundles for migration delivery.",
+        f"Destination object: {destination_object_name}",
+        f"Target DB engine: {project_config.target_db_engine or 'unknown'}",
+        f"Staging schema: {project_config.staging_schema or 'unknown'}",
+        f"Destination schema: {project_config.destination_schema or 'unknown'}",
+    ]
+    if codegen_instructions and codegen_instructions.strip():
+        lines.append("")
+        lines.append("GLOBAL CODING STANDARDS")
+        lines.append(codegen_instructions.strip())
+    return "\n".join(lines)
 
 
 _MAX_COMMENT_CHARS = 400
@@ -461,6 +476,12 @@ def _build_user_prompt(
             f"- {binding.get('source_field')} -> {binding.get('destination_field')} "
             f"(lookup: {binding.get('lookup_name') or 'none'})"
         )
+
+    ti = getattr(source_definition, "transformation_instructions", None)
+    if ti and ti.strip():
+        lines.append("")
+        lines.append("FEED-SPECIFIC TRANSFORMATION INSTRUCTIONS")
+        lines.append(ti.strip())
 
     discussion = _format_discussion(comments)
     if discussion:

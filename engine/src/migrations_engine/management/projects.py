@@ -208,6 +208,11 @@ def update_project(
             if body.domain_config is not None
             else current_definition.domain_config
         ),
+        codegen_instructions=(
+            body.codegen_instructions
+            if "codegen_instructions" in update_fields
+            else current_definition.codegen_instructions
+        ),
         status="active",
     )
     db.add(new_definition)
@@ -513,6 +518,7 @@ def _project_response(
         latest_run_summary=latest_run_summary,
         health=health,
         pm_user_id=registry.pm_user_id,
+        codegen_instructions=definition.codegen_instructions,
     )
 
 
@@ -553,6 +559,7 @@ def copy_project(
         unresolved_questions=source_definition.unresolved_questions,
         assumptions=source_definition.assumptions,
         domain_config=source_definition.domain_config,
+        codegen_instructions=source_definition.codegen_instructions,
         status="active",
     )
     db.add(new_definition)
@@ -584,6 +591,7 @@ def copy_project(
             source_details=feed.source_details,
             copybook_text=feed.copybook_text,
             mapping_hints=feed.mapping_hints,
+            transformation_instructions=feed.transformation_instructions,
             status="active",
         ))
 

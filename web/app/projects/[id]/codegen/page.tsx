@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState, Fragment } from "react";
 import { Topbar } from "../../../../components/Topbar";
 import { ProjectNavigationTabs } from "../../../../components/projects/ProjectNavigationTabs";
 import {
@@ -12,7 +12,8 @@ import {
   type CodegenArtifactRecord,
   type SchemaAnalysisRecord,
 } from "../../../../lib/codegen-api";
-import { listFeedContracts, type FeedContractRecord } from "../../../../lib/feeds-api";
+import { listFeedContracts, saveTransformationInstructions, type FeedContractRecord } from "../../../../lib/feeds-api";
+import { getProject, saveCodegenInstructions, type ProjectRecord } from "../../../../lib/projects-api";
 import { loadUiSession, type SessionRole, type UiSession } from "../../../../lib/session";
 
 function formatDate(value: string): string {
@@ -43,6 +44,7 @@ function sourceDestinationLabel(source: FeedContractRecord): string {
 export default function CodegenPage({ params }: { params: Promise<{ id: string }> }) {
   const [routeParams, setRouteParams] = useState<{ id: string } | null>(null);
   const [session, setSession] = useState<UiSession | null>(null);
+  const [project, setProject] = useState<ProjectRecord | null>(null);
   const [sources, setSources] = useState<FeedContractRecord[]>([]);
   const [artifacts, setArtifacts] = useState<CodegenArtifactRecord[]>([]);
   const [schemaAnalysis, setSchemaAnalysis] = useState<SchemaAnalysisRecord | null>(null);
@@ -51,6 +53,11 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [analysisActionLoading, setAnalysisActionLoading] = useState(false);
+  const [globalInstructions, setGlobalInstructions] = useState("");
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [expandedFeed, setExpandedFeed] = useState<string | null>(null);
+  const [feedInstructions, setFeedInstructions] = useState<Record<string, string>>({});
+  const [feedSaveLoading, setFeedSaveLoading] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setSession(loadUiSession());
@@ -83,14 +90,17 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
       listFeedContracts(session.accessToken, routeParams.id),
       listCodegenArtifacts(session.accessToken, routeParams.id),
       getSchemaAnalysis(session.accessToken, routeParams.id),
+      getProject(session.accessToken, routeParams.id),
     ])
-      .then(([sourceResponse, artifactResponse, analysisResponse]) => {
+      .then(([sourceResponse, artifactResponse, analysisResponse, projectResponse]) => {
         if (!active) {
           return;
         }
         setSources(sourceResponse);
         setArtifacts(artifactResponse);
         setSchemaAnalysis(analysisResponse);
+        setProject(projectResponse);
+        setGlobalInstructions(projectResponse.codegenInstructions ?? "");
       })
       .catch((error: unknown) => {
         if (active) {
@@ -183,6 +193,73 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
     }
   };
 
+  const handleSaveGlobalInstructions = async (): Promise<void> => {
+    if (!session || !routeParams) return;
+    setSaveLoading(true);
+    setPageError(null);
+    setStatusMessage(null);
+    try {
+      const updated = await saveCodegenInstructions(
+        session.accessToken,
+        routeParams.id,
+        globalInstructions.trim() || null
+      );
+      setProject(updated);
+      setGlobalInstructions(updated.codegenInstructions ?? "");
+      setStatusMessage("Coding standards and global instructions saved.");
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : "Unable to save coding standards.");
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
+  const toggleExpandFeed = (feedId: string) => {
+    if (expandedFeed === feedId) {
+      setExpandedFeed(null);
+    } else {
+      setExpandedFeed(feedId);
+      const source = sources.find((s) => s.sourceDefinitionId === feedId);
+      if (source && feedInstructions[feedId] === undefined) {
+        setFeedInstructions((prev) => ({
+          ...prev,
+          [feedId]: source.transformationInstructions ?? "",
+        }));
+      }
+    }
+  };
+
+  const handleFeedInstructionsChange = (feedId: string, val: string) => {
+    setFeedInstructions((prev) => ({
+      ...prev,
+      [feedId]: val,
+    }));
+  };
+
+  const handleSaveFeedInstructions = async (feedId: string): Promise<void> => {
+    if (!session || !routeParams) return;
+    setFeedSaveLoading((prev) => ({ ...prev, [feedId]: true }));
+    setPageError(null);
+    setStatusMessage(null);
+    try {
+      const val = feedInstructions[feedId] ?? "";
+      const updated = await saveTransformationInstructions(
+        session.accessToken,
+        routeParams.id,
+        feedId,
+        val.trim() || null
+      );
+      setSources((prev) =>
+        prev.map((s) => (s.sourceDefinitionId === feedId ? updated : s))
+      );
+      setStatusMessage("Feed-specific transformation instructions saved.");
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : "Unable to save transformation instructions.");
+    } finally {
+      setFeedSaveLoading((prev) => ({ ...prev, [feedId]: false }));
+    }
+  };
+
   return (
     <main className="flex min-h-screen flex-col bg-surface text-slate-800">
       <Topbar role={role} />
@@ -216,6 +293,34 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
 
             <section className="space-y-4 rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm">
               <div>
+                <h2 className="text-xl font-semibold text-slate-900">Coding Standards & Global Instructions</h2>
+                <p className="text-sm text-slate-600">Applied to all feeds in this project during SQL generation.</p>
+              </div>
+              <div className="space-y-2">
+                <textarea
+                  className="w-full rounded-lg border border-outline-variant bg-surface p-3 text-sm focus:border-primary focus:outline-none disabled:bg-slate-100 disabled:text-slate-500 font-sans"
+                  rows={4}
+                  placeholder="e.g. All date columns must use DATE type, never DATETIME. No default timestamps."
+                  value={globalInstructions}
+                  onChange={(e) => setGlobalInstructions(e.target.value)}
+                  disabled={role !== "central_team" && role !== "admin"}
+                />
+                {(role === "central_team" || role === "admin") && (
+                  <div className="flex justify-end">
+                    <button
+                      className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:bg-slate-200 disabled:text-slate-400"
+                      onClick={handleSaveGlobalInstructions}
+                      disabled={saveLoading}
+                    >
+                      {saveLoading ? "Saving..." : "Save"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="space-y-4 rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm">
+              <div>
                 <h2 className="text-xl font-semibold text-slate-900">Sources</h2>
                 <p className="text-sm text-slate-600">Generate SQL from each source contract.</p>
               </div>
@@ -238,29 +343,83 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
                     </thead>
                     <tbody>
                       {sources.map((source) => (
-                        <tr key={source.sourceDefinitionId} className="border-t border-outline-variant">
-                          <td className="px-4 py-3">
-                            <div className="text-sm font-semibold text-slate-900">{source.label}</div>
-                            <div className="mono-id mt-1">{source.sourceDefinitionId}</div>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-slate-700">{sourceDestinationLabel(source)}</td>
-                          <td className="px-4 py-3 text-sm text-slate-700">{source.encoding}</td>
-                          <td className="px-4 py-3 text-sm text-slate-700">{source.status}</td>
-                          <td className="px-4 py-3">
-                            {role === "central_team" ? (
-                              <button
-                                className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                                disabled={actionLoading === source.sourceDefinitionId}
-                                onClick={() => void handleGenerate(source.sourceDefinitionId)}
-                                type="button"
-                              >
-                                Generate SQL
-                              </button>
-                            ) : (
-                              <span className="text-sm text-slate-500">No action</span>
-                            )}
-                          </td>
-                        </tr>
+                        <Fragment key={source.sourceDefinitionId}>
+                          <tr className="border-t border-outline-variant hover:bg-slate-50/50">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  className="p-1 text-slate-500 hover:text-slate-900 focus:outline-none"
+                                  onClick={() => toggleExpandFeed(source.sourceDefinitionId)}
+                                >
+                                  <span
+                                    className="inline-block transition-transform duration-200"
+                                    style={{
+                                      transform:
+                                        expandedFeed === source.sourceDefinitionId
+                                          ? "rotate(90deg)"
+                                          : "rotate(0deg)",
+                                    }}
+                                  >
+                                    ▶
+                                  </span>
+                                </button>
+                                <div>
+                                  <div className="text-sm font-semibold text-slate-900">{source.label}</div>
+                                  <div className="mono-id mt-1">{source.sourceDefinitionId}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-slate-700">{sourceDestinationLabel(source)}</td>
+                            <td className="px-4 py-3 text-sm text-slate-700">{source.encoding}</td>
+                            <td className="px-4 py-3 text-sm text-slate-700">{source.status}</td>
+                            <td className="px-4 py-3">
+                              {role === "central_team" ? (
+                                <button
+                                  className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                                  disabled={actionLoading === source.sourceDefinitionId}
+                                  onClick={() => void handleGenerate(source.sourceDefinitionId)}
+                                  type="button"
+                                >
+                                  Generate SQL
+                                </button>
+                              ) : (
+                                <span className="text-sm text-slate-500">No action</span>
+                              )}
+                            </td>
+                          </tr>
+                          {expandedFeed === source.sourceDefinitionId && (
+                            <tr className="bg-slate-50 border-t border-outline-variant">
+                              <td colSpan={5} className="px-8 py-4">
+                                <div className="space-y-2">
+                                  <h4 className="text-sm font-semibold text-slate-900">
+                                    Feed-specific transformation instructions
+                                  </h4>
+                                  <textarea
+                                    className="w-full rounded-lg border border-outline-variant bg-white p-3 text-sm focus:border-primary focus:outline-none disabled:bg-slate-100 disabled:text-slate-500 font-sans"
+                                    rows={3}
+                                    placeholder="e.g. Map claim_no -> external_claim_number; prepend 'OC' to form a 15-char claim ID."
+                                    value={feedInstructions[source.sourceDefinitionId] ?? ""}
+                                    onChange={(e) => handleFeedInstructionsChange(source.sourceDefinitionId, e.target.value)}
+                                    disabled={role !== "central_team" && role !== "admin"}
+                                  />
+                                  {(role === "central_team" || role === "admin") && (
+                                    <div className="flex justify-end">
+                                      <button
+                                        type="button"
+                                        className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-hover disabled:bg-slate-200 disabled:text-slate-400"
+                                        onClick={() => void handleSaveFeedInstructions(source.sourceDefinitionId)}
+                                        disabled={feedSaveLoading[source.sourceDefinitionId]}
+                                      >
+                                        {feedSaveLoading[source.sourceDefinitionId] ? "Saving..." : "Save"}
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
                       ))}
                     </tbody>
                   </table>

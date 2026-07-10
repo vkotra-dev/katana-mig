@@ -95,6 +95,7 @@ export interface ProjectRecord {
   latestRunSummary?: LatestRunSummary | null;
   health?: ProjectHealthSummary;
   pmUserId?: string | null;
+  codegenInstructions?: string | null;
 }
 
 export interface ProjectCreateInput {
@@ -359,6 +360,7 @@ function mapProjectRecord(record: {
     lookup_status: string;
   } | null;
   pm_user_id: string | null;
+  codegen_instructions?: string | null;
 }): ProjectRecord {
   return {
     projectId: record.project_id,
@@ -395,6 +397,7 @@ function mapProjectRecord(record: {
         }
       : undefined,
     pmUserId: record.pm_user_id ?? null,
+    codegenInstructions: record.codegen_instructions ?? null,
   };
 }
 
@@ -530,6 +533,22 @@ export async function assignProjectManager(
       method: "PATCH",
       token,
       body: JSON.stringify({ pm_user_id: pmUserId }),
+    },
+  );
+  return mapProjectRecord(data);
+}
+
+export async function saveCodegenInstructions(
+  token: string,
+  projectId: string,
+  instructions: string | null,
+): Promise<ProjectRecord> {
+  const data = await requestJson<Parameters<typeof mapProjectRecord>[0]>(
+    `/projects/${projectId}/codegen-instructions`,
+    {
+      method: "PATCH",
+      token,
+      body: JSON.stringify({ codegen_instructions: instructions }),
     },
   );
   return mapProjectRecord(data);

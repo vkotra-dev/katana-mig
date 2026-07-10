@@ -206,6 +206,7 @@ class ProjectResponse(BaseModel):
     latest_run_summary: LatestRunSummary | None = None
     health: ProjectHealthSummary | None = None
     pm_user_id: str | None = None
+    codegen_instructions: str | None = None
 
 
 class ProjectCreateRequest(BaseModel):
@@ -243,6 +244,7 @@ class ProjectUpdateRequest(BaseModel):
     assumptions: list[str] | None = None
     domain_config: MigrationProjectConfig | None = None
     lexicon_scope: str | None = None
+    codegen_instructions: str | None = None
 
 
 class AssignProjectManagerRequest(BaseModel):
@@ -267,10 +269,19 @@ class FeedResponse(BaseModel):
     status: str
     created_at: datetime
     mapping_hints: str | None = None
+    transformation_instructions: str | None = None
 
 
 class FeedMappingHintsRequest(BaseModel):
     mapping_hints: str | None = None
+
+
+class CodegenInstructionsRequest(BaseModel):
+    codegen_instructions: str | None = None
+
+
+class TransformationInstructionsRequest(BaseModel):
+    transformation_instructions: str | None = None
 
 
 class FeedSliceResponse(BaseModel):

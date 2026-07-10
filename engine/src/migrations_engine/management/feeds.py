@@ -383,6 +383,7 @@ def _source_contract_response(source_definition: Feed) -> FeedResponse:
         status=source_definition.status,
         created_at=source_definition.created_at,
         mapping_hints=source_definition.mapping_hints,
+        transformation_instructions=source_definition.transformation_instructions,
     )
 
 

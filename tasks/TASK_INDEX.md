@@ -11,6 +11,7 @@
 
 | Task | Summary |
 |---|---|
+| [001cn-codegen-instructions](./completed/001cn-codegen-instructions.md) | Project-wide coding standards + per-feed transformation instructions injected into AI codegen prompt |
 | [001ck-copybook-unmasked-storage-approval-toggle](./completed/001ck-copybook-unmasked-storage-approval-toggle.md) | Store copybook `row_csv` unmasked; display-time masking + admin/PM toggle |
 | [001cj-remove-feed-id-display](./completed/001cj-remove-feed-id-display.md) | [plan](../plans/2026-07-08-001cj-remove-feed-id-display.md) |
 | [001ci-remove-project-id-display](./completed/001ci-remove-project-id-display.md) | [plan](../plans/2026-07-08-001ci-remove-project-id-display.md) |
