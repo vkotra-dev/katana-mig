@@ -122,9 +122,25 @@ async function requestJson<T>(
 
 async function parseApiError(response: Response): Promise<FeedApiError> {
   try {
-    const body = (await response.json()) as { error?: { code?: string; message?: string } };
-    const code = body.error?.code ?? "api_error";
-    const message = body.error?.message ?? code;
+    const body = (await response.json()) as {
+      error?: { code?: string; message?: string };
+      detail?: string | { code?: string; message?: string };
+    };
+    let code = "api_error";
+    let message = "api_error";
+
+    if (body.error) {
+      code = body.error.code ?? "api_error";
+      message = body.error.message ?? code;
+    } else if (body.detail) {
+      if (typeof body.detail === "string") {
+        message = body.detail;
+      } else {
+        code = body.detail.code ?? "api_error";
+        message = body.detail.message ?? code;
+      }
+    }
+
     return new FeedApiError(code, message, response.status);
   } catch {
     const message = await response.text();
