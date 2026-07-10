@@ -14,6 +14,13 @@ vi.mock("../../../lib/session", () => ({
   loadUiSession: loadUiSessionMock,
 }));
 
+const pushMock = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: pushMock,
+  }),
+}));
+
 vi.mock("../../../lib/notifications-api", () => ({
   listNotifications: listNotificationsMock,
   getUnreadNotificationCount: getUnreadCountMock,
@@ -23,6 +30,7 @@ vi.mock("../../../lib/notifications-api", () => ({
 
 beforeEach(() => {
   vi.useRealTimers();
+  pushMock.mockReset();
   listNotificationsMock.mockReset();
   getUnreadCountMock.mockReset();
   markNotificationReadMock.mockReset();
@@ -108,5 +116,45 @@ describe("NotificationBell", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Mark all read" }));
     await waitFor(() => expect(markAllReadMock).toHaveBeenCalledWith("token-1"));
+  });
+
+  it("marks notification as read and navigates when clicking the link", async () => {
+    loadUiSessionMock.mockReturnValue({
+      accessToken: "token-1",
+      expiresAt: "2026-07-03T00:00:00Z",
+      role: "central_team",
+      sessionVersion: 1,
+      userId: "user-1",
+    });
+    getUnreadCountMock.mockResolvedValue(1);
+    listNotificationsMock.mockResolvedValue([
+      {
+        notificationId: "notification-1",
+        userId: "user-1",
+        projectId: "project-1",
+        eventType: "gate_1_waiting",
+        deepLink: "/projects/project-1/runs/run-1",
+        read: false,
+        payload: { run_id: "run-1" },
+        readAt: null,
+        createdAt: "2026-07-03T00:00:00Z",
+      },
+    ]);
+    markNotificationReadMock.mockResolvedValue({
+      notificationId: "notification-1",
+      read: true,
+      createdAt: "2026-07-03T00:00:00Z",
+    });
+
+    render(<NotificationBell />);
+    await screen.findByTestId("notification-badge");
+
+    fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
+    
+    const link = await screen.findByRole("link", { name: /gate 1/i });
+    fireEvent.click(link);
+
+    expect(markNotificationReadMock).toHaveBeenCalledWith("token-1", "notification-1");
+    expect(pushMock).toHaveBeenCalledWith("/projects/project-1/runs/run-1");
   });
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   getUnreadNotificationCount,
   listNotifications,
@@ -32,6 +33,7 @@ function getNotificationMessage(notification: NotificationRecord): string {
 }
 
 export function NotificationBell() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState<number | null>(null);
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
@@ -132,6 +134,15 @@ export function NotificationBell() {
       });
   };
 
+  const handleNotificationClick = (e: React.MouseEvent, notification: NotificationRecord) => {
+    e.preventDefault();
+    if (!notification.read) {
+      handleMarkRead(notification.notificationId);
+    }
+    router.push(notification.deepLink);
+    setOpen(false);
+  };
+
   const handleMarkAllRead = () => {
     if (!session) {
       return;
@@ -211,7 +222,11 @@ export function NotificationBell() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <a className="font-semibold text-slate-900 hover:underline" href={notification.deepLink}>
+                      <a
+                        className="font-semibold text-slate-900 hover:underline"
+                        href={notification.deepLink}
+                        onClick={(e) => handleNotificationClick(e, notification)}
+                      >
                         {getNotificationMessage(notification)}
                       </a>
                       <div className="mt-1 text-xs text-slate-500">{formatTimestamp(notification.createdAt)}</div>
