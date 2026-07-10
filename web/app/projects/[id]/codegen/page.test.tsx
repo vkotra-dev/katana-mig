@@ -291,6 +291,7 @@ describe("CodegenPage", () => {
       expect(textarea.value).toContain("insurance_plan_lkp");
       expect(textarea.value).toContain("Gold Plan");
       expect(textarea.value).toContain("source as first column and destination columns as other fields");
+      expect(textarea.value).toContain('find the id values from "insurance_plan_lkp" for insert');
     });
   });
 });
