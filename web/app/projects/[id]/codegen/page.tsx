@@ -152,7 +152,7 @@ ${lookupSection}
 ${mappingSection}
 ### 3. Execution Strategy
 - Recommended strategy: **${strategy}**
-- For any lookup-type destination fields, use the lookup tables populated under look_bind_column_code_gen to map input codes with ensure you look for lookup tables with same name in ${stagingSchema}.`;
+- For any lookup-type destination fields, use the lookup tables populated under look_bind_column_code_gen to map input codes with find lookup table in the ${stagingSchema}.`;
 };
 
 export default function CodegenPage({ params }: { params: Promise<{ id: string }> }) {
