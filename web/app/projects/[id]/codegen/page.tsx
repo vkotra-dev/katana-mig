@@ -614,7 +614,7 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
               )}
             </section>
 
-            <section className="grid gap-6 lg:grid-cols-[1.35fr_0.85fr]">
+            <section className="grid gap-6 lg:grid-cols-2">
               <div className="space-y-4 rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
@@ -695,7 +695,8 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
                 )}
               </div>
 
-              <div className="space-y-4 rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm">
+              <div className="space-y-6 flex flex-col">
+                <div className="space-y-4 rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm">
                 <div>
                   <h2 className="text-xl font-semibold text-slate-900">Delivery bundle</h2>
                   <p className="text-sm text-slate-600">
@@ -767,7 +768,8 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
                   </div>
                 )}
               </div>
-            </section>
+            </div>
+          </section>
 
             <section className="space-y-4 rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm">
               <div>
