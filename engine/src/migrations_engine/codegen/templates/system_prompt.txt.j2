@@ -20,31 +20,31 @@ PROJECT GOAL
 PROJECT RESOURCES
 {{ project_definition.project_resources.strip() }}
 {% endif %}
-{%- if project_definition.canonical_terms %}
+{% if project_definition.canonical_terms %}
 CANONICAL TERMS
-{%- for term in project_definition.canonical_terms %}
+{% for term in project_definition.canonical_terms %}
 - {{ term }}
-{%- endfor %}
+{% endfor %}
 {% endif %}
-{%- if project_definition.constraints %}
+{% if project_definition.constraints %}
 PROJECT CONSTRAINTS
-{%- for constraint in project_definition.constraints %}
+{% for constraint in project_definition.constraints %}
 - {{ constraint }}
-{%- endfor %}
+{% endfor %}
 {% endif %}
-{%- if project_definition.unresolved_questions %}
+{% if project_definition.unresolved_questions %}
 UNRESOLVED QUESTIONS
-{%- for question in project_definition.unresolved_questions %}
+{% for question in project_definition.unresolved_questions %}
 - {{ question }}
-{%- endfor %}
+{% endfor %}
 {% endif %}
-{%- if project_definition.assumptions %}
+{% if project_definition.assumptions %}
 ASSUMPTIONS
-{%- for assumption in project_definition.assumptions %}
+{% for assumption in project_definition.assumptions %}
 - {{ assumption }}
-{%- endfor %}
+{% endfor %}
 {% endif %}
-{%- if project_definition.codegen_instructions %}
+{% if project_definition.codegen_instructions %}
 GLOBAL CODING STANDARDS
 {{ project_definition.codegen_instructions.strip() }}
 {% endif %}
