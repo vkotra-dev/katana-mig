@@ -112,7 +112,7 @@ def generate_codegen_artifact(
         system=_build_system_prompt(
             project_config=project_config,
             destination_object_name=destination_object_name,
-            codegen_instructions=project_definition.codegen_instructions,
+            project_definition=project_definition,
         ),
         user=_build_user_prompt(
             source_definition=source_definition,
@@ -392,7 +392,7 @@ def _build_system_prompt(
     *,
     project_config: MigrationProjectConfig,
     destination_object_name: str,
-    codegen_instructions: str | None = None,
+    project_definition: ProjectDefinition,
 ) -> str:
     lines = [
         "You generate SQL bundles for migration delivery.",
@@ -401,10 +401,47 @@ def _build_system_prompt(
         f"Staging schema: {project_config.staging_schema or 'unknown'}",
         f"Destination schema: {project_config.destination_schema or 'unknown'}",
     ]
+
+    if project_definition.goal:
+        lines.append("")
+        lines.append("PROJECT GOAL")
+        lines.append(project_definition.goal.strip())
+
+    if project_definition.project_resources:
+        lines.append("")
+        lines.append("PROJECT RESOURCES")
+        lines.append(project_definition.project_resources.strip())
+
+    if project_definition.canonical_terms:
+        lines.append("")
+        lines.append("CANONICAL TERMS")
+        for term in project_definition.canonical_terms:
+            lines.append(f"- {term}")
+
+    if project_definition.constraints:
+        lines.append("")
+        lines.append("PROJECT CONSTRAINTS")
+        for constraint in project_definition.constraints:
+            lines.append(f"- {constraint}")
+
+    if project_definition.unresolved_questions:
+        lines.append("")
+        lines.append("UNRESOLVED QUESTIONS")
+        for question in project_definition.unresolved_questions:
+            lines.append(f"- {question}")
+
+    if project_definition.assumptions:
+        lines.append("")
+        lines.append("ASSUMPTIONS")
+        for assumption in project_definition.assumptions:
+            lines.append(f"- {assumption}")
+
+    codegen_instructions = getattr(project_definition, "codegen_instructions", None)
     if codegen_instructions and codegen_instructions.strip():
         lines.append("")
         lines.append("GLOBAL CODING STANDARDS")
         lines.append(codegen_instructions.strip())
+
     return "\n".join(lines)
 
 
