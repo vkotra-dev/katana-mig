@@ -127,7 +127,7 @@ const generateTransformationInstructionsTemplate = (
     mappingSection = "\n### 2. Table Mappings & Stored Procedures\n- No table mapping fibers identified for this feed.\n";
   }
 
-  let strategy = "Direct Insert/Upsert script (Small volume)";
+  let strategy = "Insert always has to be row by row only and follow the logging strategy";
   if (rowCount > 100000) {
     strategy = "Chunked / Batch Upsert stored procedure (High volume > 100k rows)";
   } else if (rowCount > 10000) {
