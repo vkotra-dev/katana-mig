@@ -14,6 +14,7 @@ const {
   getProjectMock,
   listFeedFibersMock,
   listFeedSlicesMock,
+  getAllApprovedMappingSnapshotsMock,
 } = vi.hoisted(() => ({
   loadUiSessionMock: vi.fn(),
   listFeedContractsMock: vi.fn(),
@@ -26,6 +27,7 @@ const {
   getProjectMock: vi.fn(),
   listFeedFibersMock: vi.fn(),
   listFeedSlicesMock: vi.fn(),
+  getAllApprovedMappingSnapshotsMock: vi.fn(),
 }));
 
 vi.mock("../../../../components/Topbar", () => ({
@@ -38,6 +40,10 @@ vi.mock("../../../../lib/session", () => ({
 
 vi.mock("../../../../lib/projects-api", () => ({
   getProject: getProjectMock,
+}));
+
+vi.mock("../../../../lib/mapping-api", () => ({
+  getAllApprovedMappingSnapshots: getAllApprovedMappingSnapshotsMock,
 }));
 
 vi.mock("../../../../lib/feeds-api", () => ({
@@ -190,6 +196,28 @@ describe("CodegenPage", () => {
         sourceSliceVersion: "v1",
         rowCount: 12000,
         status: "approved",
+      },
+    ]);
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([
+      {
+        mappingSnapshotId: "snap-1",
+        projectId: "project-1",
+        destinationObjectName: "customer",
+        mappingSnapshotVersion: "v1",
+        fieldBindings: [
+          {
+            sourceField: "cust_id",
+            destinationField: "customer_id",
+            lookupName: null,
+          },
+        ],
+        status: "approved",
+        approvedAt: "2026-06-30T00:00:00Z",
+        approvedByUserId: "user-1",
+        createdAt: "2026-06-30T00:00:00Z",
+        lookupTableReferences: [],
+        destinationFields: ["customer_id"],
+        aiTrace: null,
       },
     ]);
   });

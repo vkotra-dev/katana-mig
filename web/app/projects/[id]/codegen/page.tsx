@@ -14,6 +14,7 @@ import {
 } from "../../../../lib/codegen-api";
 import { listFeedContracts, saveTransformationInstructions, listFeedFibers, listFeedSlices, type FeedContractRecord, type FiberRecord } from "../../../../lib/feeds-api";
 import { getProject, saveCodegenInstructions, type ProjectRecord } from "../../../../lib/projects-api";
+import { getAllApprovedMappingSnapshots, type MappingSnapshotRecord } from "../../../../lib/mapping-api";
 import { loadUiSession, type SessionRole, type UiSession } from "../../../../lib/session";
 
 function formatDate(value: string): string {
@@ -90,7 +91,8 @@ const generateTransformationInstructionsTemplate = (
   feedLabel: string,
   rowCount: number,
   fibers: FiberRecord[],
-  stagingSchema: string
+  stagingSchema: string,
+  snapshots: MappingSnapshotRecord[]
 ): string => {
   const approvedFibers = fibers.filter(f =>
     f.status === "business_approved" ||
@@ -126,7 +128,8 @@ const generateTransformationInstructionsTemplate = (
     mappingSection += `Look for a table in the source schema with the same name as the feed ("${feedLabel}") and upsert the mapped source fields into the target destination table(s) using the stakeholder-approved field mappings described below:\n\n`;
     domainFibers.forEach(f => {
       mappingSection += `- **Table Mapping Fiber: "${f.fiberKey}" (Source: "${feedLabel}" -> Destination: "${f.fiberKey}")**\n`;
-      const bindings = f.fieldBindings ?? [];
+      const snap = snapshots.find(s => s.destinationObjectName === f.fiberKey);
+      const bindings = snap ? snap.fieldBindings : (f.fieldBindings ?? []);
       bindings.forEach(b => {
         const lkpText = b.lookupName ? ` (Lookup: ${b.lookupName})` : "";
         mappingSection += `    * Source field "${b.sourceField}" -> Destination column "${b.destinationField}"${lkpText}\n`;
@@ -400,16 +403,17 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
     setPageError(null);
     setStatusMessage(null);
     try {
-      const [fibers, slices] = await Promise.all([
+      const [fibers, slices, snapshots] = await Promise.all([
         listFeedFibers(session.accessToken, routeParams.id, feedId),
         listFeedSlices(session.accessToken, routeParams.id, feedId),
+        getAllApprovedMappingSnapshots(session.accessToken, routeParams.id, feedId, true),
       ]);
 
       const activeSlice = slices.find((s) => s.status === "approved" || s.status === "active") || slices[0];
       const rowCount = activeSlice ? activeSlice.rowCount : 0;
 
       const staging = project?.domainConfig?.stagingSchema || "staging";
-      const template = generateTransformationInstructionsTemplate(feedLabel, rowCount, fibers, staging);
+      const template = generateTransformationInstructionsTemplate(feedLabel, rowCount, fibers, staging, snapshots);
       setFeedInstructions((prev) => ({
         ...prev,
         [feedId]: template.trim(),
