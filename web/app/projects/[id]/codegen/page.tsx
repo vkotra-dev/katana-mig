@@ -116,12 +116,13 @@ const generateTransformationInstructionsTemplate = (
   let mappingSection = "";
   if (domainFibers.length > 0) {
     mappingSection = "\n### 2. Table Mappings & Stored Procedures\n";
+    mappingSection += `Look for a table in the source schema with the same name as the feed ("${feedLabel}") and upsert the mapped source fields into the target destination table(s) using the field mappings described below:\n\n`;
     domainFibers.forEach(f => {
-      mappingSection += `- Look for a table with the same name as "${feedLabel}" in the source schema and upsert rows into target table "${f.fiberKey}" using these field mappings:\n`;
+      mappingSection += `- **Target Table: "${f.fiberKey}"**\n  Field mappings:\n`;
       const bindings = f.fieldBindings ?? [];
       bindings.forEach(b => {
         const lkpText = b.lookupName ? ` (Lookup: ${b.lookupName})` : "";
-        mappingSection += `    * ${b.sourceField} -> ${b.destinationField}${lkpText}\n`;
+        mappingSection += `    * Source field "${b.sourceField}" -> Destination column "${b.destinationField}"${lkpText}\n`;
       });
     });
   } else {

@@ -165,6 +165,23 @@ describe("CodegenPage", () => {
         fieldBindings: [],
         outputSql: null,
       },
+      {
+        fiberId: "fiber-2",
+        feedId: "source-1",
+        projectId: "project-1",
+        fiberType: "domain_object",
+        fiberKey: "customer",
+        status: "active",
+        proposedMappings: [],
+        fieldBindings: [
+          {
+            sourceField: "cust_id",
+            destinationField: "customer_id",
+            lookupName: null,
+          },
+        ],
+        outputSql: null,
+      },
     ]);
     listFeedSlicesMock.mockResolvedValue([
       {
@@ -293,6 +310,9 @@ describe("CodegenPage", () => {
       expect(textarea.value).toContain("source as first column and destination columns as other fields");
       expect(textarea.value).toContain('find the id values from "insurance_plan_lkp" for insert');
       expect(textarea.value).toContain("map input codes with ensure you look for lookup tables with same name in staging");
+      expect(textarea.value).toContain('Look for a table in the source schema with the same name as the feed ("Customer extract") and upsert');
+      expect(textarea.value).toContain('Target Table: "customer"');
+      expect(textarea.value).toContain('Source field "cust_id" -> Destination column "customer_id"');
     });
   });
 });
