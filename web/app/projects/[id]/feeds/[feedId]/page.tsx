@@ -927,6 +927,19 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                           >
                             <span className="text-sm font-bold text-slate-800">{lName}</span>
                             <div className="flex items-center gap-2">
+                              {fiber?.status && (
+                                <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-mono uppercase font-semibold ${
+                                  fiber.status === "operator_triggered" || fiber.status === "codegen_complete"
+                                    ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700"
+                                    : fiber.status === "business_approved"
+                                    ? "border-blue-500/20 bg-blue-500/10 text-blue-700"
+                                    : fiber.status === "operator_assigned"
+                                    ? "border-amber-500/20 bg-amber-500/10 text-amber-700"
+                                    : "border-slate-200 bg-slate-50 text-slate-600"
+                                }`}>
+                                  {fiber.status.replace(/_/g, " ")}
+                                </span>
+                              )}
                               <span className="text-[10px] bg-amber-500/10 text-amber-700 px-1.5 py-0.5 rounded font-mono">
                                 ref: {refTable}
                               </span>

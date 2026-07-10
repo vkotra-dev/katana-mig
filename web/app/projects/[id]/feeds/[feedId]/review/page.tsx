@@ -292,13 +292,10 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
   const lookupGroups: LookupValueGroup[] = [];
   const seenLookups = new Set<string>();
   for (const snapshot of mappingSnapshots) {
-    const refMap = Object.fromEntries(
-      (snapshot.lookupTableReferences ?? []).map((r) => [r.lookupName, r.destinationTableName])
-    );
     for (const binding of snapshot.fieldBindings) {
       if (binding.lookupName && !seenLookups.has(binding.lookupName)) {
         seenLookups.add(binding.lookupName);
-        const refTable = refMap[binding.lookupName] || "unknown_ref";
+        const refTable = binding.referenceTableName || "unknown_ref";
         const latestMap = lookupMaps.find((m) => m.lookupName === binding.lookupName);
         const fiber = fibers.find(f => f.fiberKey === binding.lookupName);
         const pairs = [];
