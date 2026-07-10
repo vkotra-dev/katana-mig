@@ -133,7 +133,7 @@ def list_fibers(db: Session, *, project_id: str, feed_id: str) -> list[FiberResp
     _get_feed(db, project_id=project_id, feed_id=feed_id)
     
     # Auto-heal missing fibers from existing snapshots
-    from ..db.models import MappingSnapshot
+    from ..db.models import MappingSnapshot, LookupValueMap
     snapshots = db.scalars(
         select(MappingSnapshot)
         .where(
@@ -154,13 +154,19 @@ def list_fibers(db: Session, *, project_id: str, feed_id: str) -> list[FiberResp
     for snapshot in snapshots:
         # 1. Ensure domain_object fiber exists for the destination table
         tbl_name = snapshot.destination_object_name
+        expected_status = "mapped"
+        if snapshot.status == "approved":
+            expected_status = "business_approved"
+        elif snapshot.current_ball_role == "project_stakeholder":
+            expected_status = "operator_assigned"
+
         if ("domain_object", tbl_name) not in existing_keys:
             fiber = ProjectFiber(
                 project_id=project_id,
                 feed_id=feed_id,
                 fiber_type="domain_object",
                 fiber_key=tbl_name,
-                status="mapped",
+                status=expected_status,
                 source="auto",
             )
             db.add(fiber)
@@ -182,6 +188,74 @@ def list_fibers(db: Session, *, project_id: str, feed_id: str) -> list[FiberResp
                     )
                     db.add(fiber)
                     existing_keys.add(("lookup", l_name))
+                    healed = True
+
+    # Refresh list of existing fibers after addition to sync status
+    if healed:
+        db.flush()
+        existing_fibers = db.scalars(
+            select(ProjectFiber)
+            .where(ProjectFiber.project_id == project_id)
+            .where(ProjectFiber.feed_id == feed_id)
+        ).all()
+
+    # Auto-sync existing fiber statuses
+    for f in existing_fibers:
+        if f.fiber_type == "domain_object":
+            snap = next((s for s in snapshots if s.destination_object_name == f.fiber_key), None)
+            if snap:
+                expected = f.status
+                if snap.status == "approved":
+                    if f.status not in ("operator_triggered", "codegen_complete"):
+                        expected = "business_approved"
+                elif snap.current_ball_role == "project_stakeholder":
+                    expected = "operator_assigned"
+                else:
+                    expected = "mapped"
+                
+                # Check sign-off status to see if it's already signed by both
+                if expected == "mapped" or expected == "operator_assigned":
+                    from ..management.sign_offs import get_sign_off_status
+                    sig_status = get_sign_off_status(db, project_id=project_id, source_definition_id=feed_id)
+                    table_fields = sig_status.get("bindings", {}).get(f.fiber_key, {})
+                    if table_fields:
+                        all_stakeholder_signed = all(st["project_stakeholder"]["signed"] for st in table_fields.values())
+                        all_operator_signed = all(st["central_team"]["signed"] for st in table_fields.values())
+                        if all_stakeholder_signed and all_operator_signed:
+                            # It is fully approved by business, but overall snapshot approval has not been clicked yet
+                            # However, since both roles signed all columns, it's essentially business_approved / operator_assigned
+                            pass
+                
+                if f.status != expected:
+                    f.status = expected
+                    healed = True
+        elif f.fiber_type == "lookup":
+            val_map = db.scalar(
+                select(LookupValueMap)
+                .where(
+                    LookupValueMap.project_id == project_id,
+                    LookupValueMap.lookup_name == f.fiber_key,
+                )
+                .order_by(LookupValueMap.created_at.desc(), LookupValueMap.lookup_value_map_id.desc())
+            )
+            if val_map:
+                expected = f.status
+                if val_map.status == "approved":
+                    if f.status not in ("operator_triggered", "codegen_complete"):
+                        expected = "business_approved"
+                elif val_map.status == "draft":
+                    from ..management.sign_offs import get_sign_off_status
+                    sig_status = get_sign_off_status(db, project_id=project_id, source_definition_id=feed_id)
+                    lookup_status = sig_status.get("lookups", {}).get(val_map.lookup_value_map_id)
+                    if lookup_status:
+                        if lookup_status["project_stakeholder"]["signed"]:
+                            expected = "business_approved"
+                        elif lookup_status["central_team"]["signed"]:
+                            expected = "operator_assigned"
+                        else:
+                            expected = "deferred"
+                if f.status != expected:
+                    f.status = expected
                     healed = True
                     
     if healed:
