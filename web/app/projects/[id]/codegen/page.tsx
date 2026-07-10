@@ -89,7 +89,8 @@ const generateCodingStandardsTemplate = (
 const generateTransformationInstructionsTemplate = (
   feedLabel: string,
   rowCount: number,
-  fibers: FiberRecord[]
+  fibers: FiberRecord[],
+  stagingSchema: string
 ): string => {
   const lookupFibers = fibers.filter(f => f.fiberType === "lookup");
   const domainFibers = fibers.filter(f => f.fiberType === "domain_object");
@@ -140,7 +141,7 @@ ${lookupSection}
 ${mappingSection}
 ### 3. Execution Strategy
 - Recommended strategy: **${strategy}**
-- For any lookup-type destination fields, use the lookup tables populated under look_bind_column_code_gen to map input codes.`;
+- For any lookup-type destination fields, use the lookup tables populated under look_bind_column_code_gen to map input codes with ensure you look for lookup tables with same name in ${stagingSchema}.`;
 };
 
 export default function CodegenPage({ params }: { params: Promise<{ id: string }> }) {
@@ -399,7 +400,8 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
       const activeSlice = slices.find((s) => s.status === "approved" || s.status === "active") || slices[0];
       const rowCount = activeSlice ? activeSlice.rowCount : 0;
 
-      const template = generateTransformationInstructionsTemplate(feedLabel, rowCount, fibers);
+      const staging = project?.domainConfig?.stagingSchema || "staging";
+      const template = generateTransformationInstructionsTemplate(feedLabel, rowCount, fibers, staging);
       setFeedInstructions((prev) => ({
         ...prev,
         [feedId]: template.trim(),
