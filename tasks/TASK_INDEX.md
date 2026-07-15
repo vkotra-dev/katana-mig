@@ -4,17 +4,17 @@
 
 | Task | Summary |
 |---|---|
-| [001cl-review-page-edit-and-feed-thread](./001cl-review-page-edit-and-feed-thread.md) | Multi-party sign-off per binding/lookup, inbox-gated edit, PM poke, feed thread on review page, codegen context |
-| [001cm-slice-comment-thread](./001cm-slice-comment-thread.md) | FeedSliceComment model + thread on slice approval screen + codegen context injection |
-| [001cn-codegen-instructions](./001cn-codegen-instructions.md) | Project-wide coding standards + per-feed transformation instructions injected into AI codegen prompt |
 | [001co-ai-call-log](./001co-ai-call-log.md) | Single ai_call_log table captures every AI adapter call — system prompt, user prompt, raw response, model ID |
 | [001cp-migration-run-logging](./001cp-migration-run-logging.md) | mig_upsert_log in staging schema — every upsert logged with source row number, dest row ID, and fiber (dest table) |
-| [001cq-generated-sql-schema-split](./001cq-generated-sql-schema-split.md) | Split GeneratedSQL.staging_table_ddl into staging_ddl, lookup_ddl, seed_data, stored_procedures so AI generates complete bundles |
+| [001cr-feed-archive-cascade](./001cr-feed-archive-cascade.md) | Cascade feed discard to mapping snapshots, fibers, and unshared lookups; block re-upload from duplicating approved mappings |
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001cm-slice-comment-thread](./completed/001cm-slice-comment-thread.md) | [summary](./summary/001cm-slice-comment-thread.md) |
+| [001cl-review-page-edit-and-feed-thread](./completed/001cl-review-page-edit-and-feed-thread.md) | [summary](./summary/001cl-review-page-edit-and-feed-thread.md) |
+| [001cq-generated-sql-schema-split](./completed/001cq-generated-sql-schema-split.md) | GeneratedSQL already split into staging_ddl, lookup_ddl, seed_data, stored_procedures — verified shipped |
 | [001cn-codegen-instructions](./completed/001cn-codegen-instructions.md) | Project-wide coding standards + per-feed transformation instructions injected into AI codegen prompt |
 | [001ck-copybook-unmasked-storage-approval-toggle](./completed/001ck-copybook-unmasked-storage-approval-toggle.md) | Store copybook `row_csv` unmasked; display-time masking + admin/PM toggle |
 | [001cj-remove-feed-id-display](./completed/001cj-remove-feed-id-display.md) | [plan](../plans/2026-07-08-001cj-remove-feed-id-display.md) |
