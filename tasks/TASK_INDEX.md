@@ -4,13 +4,13 @@
 
 | Task | Summary |
 |---|---|
-| [001cp-migration-run-logging](./001cp-migration-run-logging.md) | mig_upsert_log in staging schema — every upsert logged with source row number, dest row ID, and fiber (dest table) |
 | [001cr-feed-archive-cascade](./001cr-feed-archive-cascade.md) | Cascade feed discard to mapping snapshots, fibers, and unshared lookups; block re-upload from duplicating approved mappings |
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001cp-migration-run-logging](./completed/001cp-migration-run-logging.md) | [summary](./summary/001cp-migration-run-logging.md) |
 | [001co-ai-call-log](./completed/001co-ai-call-log.md) | [summary](./summary/001co-ai-call-log.md) |
 | [001cm-slice-comment-thread](./completed/001cm-slice-comment-thread.md) | [summary](./summary/001cm-slice-comment-thread.md) |
 | [001cl-review-page-edit-and-feed-thread](./completed/001cl-review-page-edit-and-feed-thread.md) | [summary](./summary/001cl-review-page-edit-and-feed-thread.md) |
