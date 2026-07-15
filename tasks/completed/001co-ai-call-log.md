@@ -13,7 +13,7 @@ Capture every AI call — system prompt, user prompt, raw model response, model 
 
 ## Data Model
 
-New table `ai_call_log` (migration 0032):
+New table `ai_call_log` (migration 0033):
 
 ```
 call_id         UUID PK
@@ -57,7 +57,7 @@ Role: admin | central_team
 
 ## Files Changed
 
-- `engine/migrations/versions/0032_ai_call_log.py` (new)
+- `engine/migrations/versions/0033_ai_call_log.py` (new, down_revision="0032")
 - `engine/src/migrations_engine/db/models.py` — `AICallLog` model
 - `engine/src/migrations_engine/ai/adapter.py` — `AICallResult`, updated protocol
 - `engine/src/migrations_engine/ai/*.py` — concrete adapters return `AICallResult`

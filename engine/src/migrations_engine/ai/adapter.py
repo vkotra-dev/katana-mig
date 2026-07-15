@@ -1,15 +1,24 @@
 from __future__ import annotations
 
-from typing import Protocol, TypeVar
+from dataclasses import dataclass
+from typing import Generic, Protocol, TypeVar
 
 from pydantic import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
 
 
+@dataclass
+class AICallResult(Generic[T]):
+    """Wraps both the parsed Pydantic model and the raw provider response string."""
+
+    parsed: T
+    raw_response: str
+
+
 class AIAdapter(Protocol):
-    def call(self, system: str, user: str, response_model: type[T]) -> T:
-        """Send a prompt and return a validated Pydantic model instance."""
+    def call(self, system: str, user: str, response_model: type[T]) -> AICallResult[T]:
+        """Send a prompt and return parsed model + raw response string."""
 
     @property
     def model_id(self) -> str:

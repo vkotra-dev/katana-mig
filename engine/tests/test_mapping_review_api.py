@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from sqlite_test_support import Base, SessionLocal, TEST_ENGINE
+from migrations_engine.ai.adapter import AICallResult
 from migrations_engine.app import app  # noqa: E402
 from migrations_engine.auth.passwords import hash_password  # noqa: E402
 from migrations_engine.config import get_settings  # noqa: E402
@@ -30,7 +31,7 @@ class FakeAdapter:
     def __init__(self, bindings: list[dict[str, str]], destination_table_name: str = "Customer") -> None:
         self.bindings = bindings
         self.destination_table_name = destination_table_name
-        self.model_id = "claude-sonnet-4-6"
+        self.model_id = "test-model"
         self.calls: list[SimpleNamespace] = []
 
     def call(self, system: str, user: str, response_model: type[object]):
@@ -46,11 +47,12 @@ class FakeAdapter:
             destination_table_name=self.destination_table_name,
             bindings=bindings_objs,
         )
-        return response_model(
+        parsed_result = response_model(
             tables=[table_mapping],
             error_code=None,
             error_message=None,
         )
+        return AICallResult(parsed=parsed_result, raw_response="raw_response")
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -197,6 +199,29 @@ def test_propose_creates_draft_snapshot(monkeypatch: pytest.MonkeyPatch, admin_t
     assert data["destination_fields"] == ["customer_id", "full_name", "email_address"]
     assert len(data["field_bindings"]) == 3
     assert fake.calls[0].user.startswith("Source columns:")
+
+
+def test_propose_persists_destination_data_type(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+    project_id, source_id = _seed_project()
+    fake = FakeAdapter(
+        [
+            {"source_field": "customer_id", "destination_field": "customer_id", "destination_data_type": "INT"},
+            {"source_field": "full_name", "destination_field": "full_name", "destination_data_type": "VARCHAR(200)"},
+            {"source_field": "email_address", "destination_field": "email_address", "destination_data_type": None},
+        ]
+    )
+    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: fake)
+
+    response = client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/propose",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 200, response.text
+    bindings = {b["destination_field"]: b for b in response.json()["field_bindings"]}
+    assert bindings["customer_id"]["destination_data_type"] == "INT"
+    assert bindings["full_name"]["destination_data_type"] == "VARCHAR(200)"
+    assert bindings["email_address"]["destination_data_type"] is None
 
 
 def test_propose_returns_schema_error_when_missing_ddl(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
@@ -454,10 +479,10 @@ def test_propose_creates_multiple_snapshots_and_validates_table_names(monkeypatc
     
     class MultiTableFakeAdapter:
         def __init__(self) -> None:
-            self.model_id = "claude-sonnet-4-6"
+            self.model_id = "test-model"
             
         def call(self, system: str, user: str, response_model: type[object]):
-            return response_model(
+            parsed = response_model(
                 tables=[
                     mapping_review_module._TableMapping(
                         destination_table_name="Customer",
@@ -481,7 +506,8 @@ def test_propose_creates_multiple_snapshots_and_validates_table_names(monkeypatc
                     )
                 ]
             )
-            
+            return AICallResult(parsed=parsed, raw_response="raw")
+
     monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: MultiTableFakeAdapter())
     
     response = client.post(
@@ -510,10 +536,10 @@ def test_propose_creates_multiple_snapshots_and_validates_table_names(monkeypatc
         
     class ValidMultiTableFakeAdapter:
         def __init__(self) -> None:
-            self.model_id = "claude-sonnet-4-6"
+            self.model_id = "test-model"
             
         def call(self, system: str, user: str, response_model: type[object]):
-            return response_model(
+            parsed = response_model(
                 tables=[
                     mapping_review_module._TableMapping(
                         destination_table_name="Customer",
@@ -549,7 +575,8 @@ def test_propose_creates_multiple_snapshots_and_validates_table_names(monkeypatc
                     )
                 ]
             )
-            
+            return AICallResult(parsed=parsed, raw_response="raw")
+
     monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: ValidMultiTableFakeAdapter())
     
     response = client.post(
@@ -613,10 +640,10 @@ def test_bulk_approve_and_reject_multiple_snapshots(monkeypatch: pytest.MonkeyPa
 
     class ValidMultiTableFakeAdapter:
         def __init__(self) -> None:
-            self.model_id = "claude-sonnet-4-6"
+            self.model_id = "test-model"
             
         def call(self, system: str, user: str, response_model: type[object]):
-            return response_model(
+            parsed = response_model(
                 tables=[
                     mapping_review_module._TableMapping(
                         destination_table_name="Customer",
@@ -640,6 +667,7 @@ def test_bulk_approve_and_reject_multiple_snapshots(monkeypatch: pytest.MonkeyPa
                     )
                 ]
             )
+            return AICallResult(parsed=parsed, raw_response="raw")
 
     monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: ValidMultiTableFakeAdapter())
     

@@ -7,6 +7,7 @@ from .anthropic_adapter import AnthropicAdapter
 from .config import get_ai_config, resolve_model
 from .gemini_adapter import GeminiAdapter
 from .mock_adapter import MockAdapter
+from .ollama_adapter import OllamaAdapter
 from ..api.schemas import ModelPolicy
 from .openai_adapter import OpenAIAdapter
 
@@ -47,6 +48,8 @@ def get_adapter(task: str, model_policy: ModelPolicy | dict[str, Any] | None = N
         return OpenAIAdapter(model_id=model_id, api_key_env=config.providers.openai_api_key_env)
     if model_id.startswith("gemini-") or model_id.startswith("models/gemini-"):
         return GeminiAdapter(model_id=model_id, api_key_env=config.providers.gemini_api_key_env)
+    if model_id.startswith("ollama/"):
+        return OllamaAdapter(model_id=model_id)
     if model_id == "mock":
         return MockAdapter()
     raise ConfigurationError(f"Unrecognised model prefix for task {task}: {model_id}")

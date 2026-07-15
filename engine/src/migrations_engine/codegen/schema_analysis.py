@@ -39,8 +39,33 @@ def run_schema_analysis(db: Session, *, project_id: str) -> ProjectSchemaAnalysi
         adapter = get_adapter("schema_dependency", project_definition.model_policy)
     except TypeError:
         adapter = get_adapter("schema_dependency")
-    result = adapter.call(SYSTEM_PROMPT, ddl, DDLAnalysisResult)
-    sequence = _topological_sort(result.objects)
+    from ..ai.logging import log_ai_call, backfill_artifact_id
+
+    try:
+        result = adapter.call(SYSTEM_PROMPT, ddl, DDLAnalysisResult)
+        call_log = log_ai_call(
+            db,
+            project_id=project_id,
+            call_type="schema_analysis",
+            model_id=adapter.model_id,
+            system=SYSTEM_PROMPT,
+            user=ddl,
+            raw_response=result.raw_response,
+        )
+        ai_result = result.parsed
+    except Exception as exc:
+        log_ai_call(
+            db,
+            project_id=project_id,
+            call_type="schema_analysis",
+            model_id=adapter.model_id,
+            system=SYSTEM_PROMPT,
+            user=ddl,
+            raw_response=None,
+            error_detail=str(exc),
+        )
+        raise
+    sequence = _topological_sort(ai_result.objects)
 
     record = db.scalar(select(ProjectSchemaAnalysis).where(ProjectSchemaAnalysis.project_id == project_id))
     analyzed_at = datetime.now(UTC)
@@ -58,6 +83,7 @@ def run_schema_analysis(db: Session, *, project_id: str) -> ProjectSchemaAnalysi
         record.analyzed_at = analyzed_at
     db.flush()
     db.commit()
+    backfill_artifact_id(db, call_log.call_id, record.analysis_id)
     db.refresh(record)
     return _to_response(db, record)
 

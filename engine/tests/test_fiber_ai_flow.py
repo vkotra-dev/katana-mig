@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from sqlite_test_support import Base, SessionLocal, TEST_ENGINE
 from migrations_engine.api.deps import AuthApiError
+from migrations_engine.ai.adapter import AICallResult
 from migrations_engine.app import app
 from migrations_engine.auth.passwords import hash_password
 from migrations_engine.db.models import Feed, FeedSlice, ProjectDefinition, ProjectRegistry, User
@@ -27,20 +28,22 @@ class FakeFeedAnalysisAdapter:
     def __init__(self, result: Any) -> None:
         self.result = result
         self.calls: list[SimpleNamespace] = []
+        self.model_id = "test-model"
 
     def call(self, system: str, user: str, response_model: type) -> Any:
         self.calls.append(SimpleNamespace(system=system, user=user, response_model=response_model))
-        return self.result
+        return AICallResult(parsed=self.result, raw_response="raw_response")
 
 
 class FakeFieldMappingAdapter:
     def __init__(self, result: Any) -> None:
         self.result = result
         self.calls: list[SimpleNamespace] = []
+        self.model_id = "test-model"
 
     def call(self, system: str, user: str, response_model: type) -> Any:
         self.calls.append(SimpleNamespace(system=system, user=user, response_model=response_model))
-        return self.result
+        return AICallResult(parsed=self.result, raw_response="raw_response")
 
 
 @pytest.fixture(scope="module", autouse=True)

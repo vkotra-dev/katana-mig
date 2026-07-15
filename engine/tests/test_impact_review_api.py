@@ -39,6 +39,7 @@ from migrations_engine.db.base import Base  # noqa: E402
 from migrations_engine.db.models import MappingSnapshot, ProjectDefinition, ProjectMembership, ProjectRegistry, RunRecord, User  # noqa: E402
 from migrations_engine.db.session import SessionLocal  # noqa: E402
 from migrations_engine.roles import CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE  # noqa: E402
+from migrations_engine.ai.adapter import AICallResult  # noqa: E402
 
 client = TestClient(app)
 
@@ -183,7 +184,7 @@ def test_get_impact_returns_report() -> None:
         suggested_fix = "1. Open account_type lookup fiber and add RETD. 2. Remove LEGACY_CODE binding."
         minimal_replay_scope = ["customers"]
 
-    mock_ai_model.call.return_value = _FakeAIResponse()
+    mock_ai_model.call.return_value = AICallResult(parsed=_FakeAIResponse(), raw_response="raw")
 
     with patch("migrations_engine.management.impact.get_adapter", return_value=mock_ai_model):
         response = client.get(f"/projects/{project_id}/runs/{run_id}/impact")
@@ -205,7 +206,7 @@ def test_get_impact_can_work_without_mapping_snapshot() -> None:
         suggested_fix = "Re-run mapping."
         minimal_replay_scope: list[str] = []
 
-    mock_ai_model.call.return_value = _FakeAIResponse()
+    mock_ai_model.call.return_value = AICallResult(parsed=_FakeAIResponse(), raw_response="raw")
 
     with patch("migrations_engine.management.impact.get_adapter", return_value=mock_ai_model):
         response = client.get(f"/projects/{project_id}/runs/{run_id}/impact")
@@ -223,7 +224,7 @@ def test_get_impact_requires_project_access() -> None:
         suggested_fix = "x"
         minimal_replay_scope: list[str] = []
 
-    mock_ai_model.call.return_value = _FakeAIResponse()
+    mock_ai_model.call.return_value = AICallResult(parsed=_FakeAIResponse(), raw_response="raw")
 
     app.dependency_overrides[get_current_user] = lambda: _STAKEHOLDER_USER
     try:

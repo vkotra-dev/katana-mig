@@ -90,7 +90,36 @@ def analyze_source_slice(
         adapter = get_adapter("field_mapping", project_definition.model_policy)
     except TypeError:
         adapter = get_adapter("field_mapping")
-    analysis_result = adapter.call(system_prompt, sample_text, AnalysisResult)
+    from ..ai.logging import log_ai_call, backfill_artifact_id
+
+    try:
+        result = adapter.call(
+            system_prompt,
+            sample_text,
+            AnalysisResult,
+        )
+        call_log = log_ai_call(
+            db,
+            project_id=project_id,
+            call_type="source_analysis",
+            model_id=adapter.model_id,
+            system=system_prompt,
+            user=sample_text,
+            raw_response=result.raw_response,
+        )
+        analysis_result = result.parsed
+    except Exception as exc:
+        log_ai_call(
+            db,
+            project_id=project_id,
+            call_type="source_analysis",
+            model_id=adapter.model_id,
+            system=system_prompt,
+            user=sample_text,
+            raw_response=None,
+            error_detail=str(exc),
+        )
+        raise
 
     schema_artifact = SourceSchemaArtifact(
         source_definition_id=source_definition_id,
@@ -119,6 +148,7 @@ def analyze_source_slice(
         },
     )
     db.commit()
+    backfill_artifact_id(db, call_log.call_id, schema_artifact.schema_artifact_id)
     db.refresh(schema_artifact)
 
     return SourceAnalysisResponse(schema_artifact_id=schema_artifact.schema_artifact_id)

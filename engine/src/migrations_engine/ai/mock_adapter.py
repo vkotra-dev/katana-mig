@@ -7,7 +7,7 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 
-from .adapter import AICallError, ConfigurationError
+from .adapter import AICallError, AICallResult, ConfigurationError
 from ..api.schemas import ModelPolicy
 
 T = TypeVar("T", bound=BaseModel)
@@ -43,7 +43,7 @@ class MockAdapter:
         *,
         task: str | None = None,
         model_policy: ModelPolicy | None = None,
-    ) -> T:
+    ) -> AICallResult[T]:
         class_name = response_model.__name__
         fixture_path = _FIXTURE_DIR / f"{class_name}.json"
         logger.info("MockAdapter: loading fixture %s", fixture_path)
@@ -52,6 +52,8 @@ class MockAdapter:
                 f"No mock fixture found for {class_name}. "
                 f"Create {fixture_path} with a valid JSON response."
             )
-        raw = json.loads(fixture_path.read_text(encoding="utf-8"))
+        raw_text = fixture_path.read_text(encoding="utf-8")
+        raw = json.loads(raw_text)
         logger.info("MockAdapter: returning fixture for %s", class_name)
-        return response_model.model_validate(raw)
+        parsed = response_model.model_validate(raw)
+        return AICallResult(parsed=parsed, raw_response=raw_text)

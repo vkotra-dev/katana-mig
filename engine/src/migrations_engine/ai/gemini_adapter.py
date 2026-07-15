@@ -8,7 +8,7 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
-from .adapter import AICallError, ConfigurationError
+from .adapter import AICallError, AICallResult, ConfigurationError
 from .config import get_ai_config, resolve_model
 from ..api.schemas import ModelPolicy
 
@@ -59,7 +59,7 @@ class GeminiAdapter:
         *,
         task: str | None = None,
         model_policy: ModelPolicy | None = None,
-    ) -> T:
+    ) -> AICallResult[T]:
         schema = response_model.model_json_schema()
         system_prompt = f"{system}\n\nReturn valid JSON matching this schema:\n{schema}"
         model_id = self._resolve_model(task=task, model_policy=model_policy)
@@ -83,7 +83,8 @@ class GeminiAdapter:
         if not isinstance(text, str) or not text:
             raise AICallError("Gemini response did not contain text content.")
         logger.info("Gemini Response:\n%s", text)
-        return response_model.model_validate_json(text)
+        parsed = response_model.model_validate_json(text)
+        return AICallResult(parsed=parsed, raw_response=text)
 
     def _resolve_model(self, *, task: str | None, model_policy: ModelPolicy | None) -> str:
         if task is None:

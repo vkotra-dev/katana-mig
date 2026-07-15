@@ -721,4 +721,20 @@ class LookupSignOff(Base):
     )
 
 
+class AICallLog(Base):
+    __tablename__ = "ai_call_log"
 
+    call_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("project_registry.project_id"), nullable=False, index=True
+    )
+    call_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    artifact_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    model_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    system_prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    user_prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    raw_response: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    called_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )

@@ -26,7 +26,11 @@
       "Bash(curl -s -X POST \"http://localhost:8000/projects/test/sources/test/analyze\" -H \"Authorization: Bearer test\" -w \"\\\\nHTTP %{http_code}\")",
       "Bash(.venv/bin/pip show *)",
       "Bash(.venv/bin/pip install *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(ollama list *)",
+      "Bash(python -m pytest tests/test_mapping_review_api.py::test_propose_persists_destination_data_type -v)",
+      "Bash(python *)",
+      "Bash(curl *)"
     ]
   }
 }

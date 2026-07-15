@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from sqlite_test_support import Base, SessionLocal, TEST_ENGINE
+from migrations_engine.ai.adapter import AICallResult
 from migrations_engine.app import app
 from migrations_engine.auth.passwords import hash_password
 from migrations_engine.config import get_settings
@@ -23,18 +24,20 @@ client = TestClient(app)
 class FakeLookupAdapter:
     def __init__(self) -> None:
         self.calls: list[SimpleNamespace] = []
+        self.model_id = "test-model"
 
     def call(self, system: str, user: str, response_model: type[Any]) -> Any:
         self.calls.append(SimpleNamespace(system=system, user=user, response_model=response_model))
         payload = json.loads(user)
         destination_rows = payload["destination_rows"]
         dest_entry_id = destination_rows[0]["entry_id"] if destination_rows else "missing-entry"
-        return response_model(
+        parsed_result = response_model(
             proposals=[
                 {"source_value": value, "dest_entry_id": dest_entry_id, "confidence_score": 0.9}
                 for value in payload["source_values"]
             ]
         )
+        return AICallResult(parsed=parsed_result, raw_response="raw_response")
 
 
 @pytest.fixture(scope="module", autouse=True)

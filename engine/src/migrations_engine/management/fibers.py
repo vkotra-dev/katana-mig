@@ -12,6 +12,7 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from ..ai.factory import get_adapter
+from ..ai.logging import log_ai_call, backfill_artifact_id
 from ..api.deps import AuthApiError
 from ..api.schemas import (
     FiberActionRequest,
@@ -576,17 +577,41 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
         feed_analysis_adapter = get_adapter("feed_analysis", project_definition.model_policy)
     except TypeError:
         feed_analysis_adapter = get_adapter("feed_analysis")
-    feed_analysis_result = feed_analysis_adapter.call(
-        _FEED_ANALYSIS_SYSTEM,
-        json.dumps(
-            {
-                "source_headers": source_headers,
-                "destination_schema_ddl": destination_schema_ddl,
-            },
-            ensure_ascii=False,
-        ),
-        _FeedAnalysisResult,
+    user_prompt = json.dumps(
+        {
+            "source_headers": source_headers,
+            "destination_schema_ddl": destination_schema_ddl,
+        },
+        ensure_ascii=False,
     )
+    try:
+        result = feed_analysis_adapter.call(
+            _FEED_ANALYSIS_SYSTEM,
+            user_prompt,
+            _FeedAnalysisResult,
+        )
+        call_log1 = log_ai_call(
+            db,
+            project_id=project_id,
+            call_type="feed_analysis",
+            model_id=feed_analysis_adapter.model_id,
+            system=_FEED_ANALYSIS_SYSTEM,
+            user=user_prompt,
+            raw_response=result.raw_response,
+        )
+        feed_analysis_result = result.parsed
+    except Exception as exc:
+        log_ai_call(
+            db,
+            project_id=project_id,
+            call_type="feed_analysis",
+            model_id=feed_analysis_adapter.model_id,
+            system=_FEED_ANALYSIS_SYSTEM,
+            user=user_prompt,
+            raw_response=None,
+            error_detail=str(exc),
+        )
+        raise
 
     all_fibers: list[ProjectFiber] = []
 
@@ -623,18 +648,43 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
             field_mapping_adapter = get_adapter("field_mapping", project_definition.model_policy)
         except TypeError:
             field_mapping_adapter = get_adapter("field_mapping")
-        field_mapping_result = field_mapping_adapter.call(
-            _FIELD_MAPPING_SYSTEM,
-            json.dumps(
-                {
-                    "source_columns": source_headers,
-                    "destination_table": fiber.fiber_key,
-                    "destination_schema_ddl": destination_schema_ddl,
-                },
-                ensure_ascii=False,
-            ),
-            _FieldMappingResult,
+        user_prompt2 = json.dumps(
+            {
+                "source_columns": source_headers,
+                "destination_table": fiber.fiber_key,
+                "destination_schema_ddl": destination_schema_ddl,
+            },
+            ensure_ascii=False,
         )
+        try:
+            result2 = field_mapping_adapter.call(
+                _FIELD_MAPPING_SYSTEM,
+                user_prompt2,
+                _FieldMappingResult,
+            )
+            call_log2 = log_ai_call(
+                db,
+                project_id=project_id,
+                call_type="feed_analysis",
+                model_id=field_mapping_adapter.model_id,
+                system=_FIELD_MAPPING_SYSTEM,
+                user=user_prompt2,
+                raw_response=result2.raw_response,
+            )
+            field_mapping_result = result2.parsed
+            backfill_artifact_id(db, call_log2.call_id, fiber.fiber_id)
+        except Exception as exc:
+            log_ai_call(
+                db,
+                project_id=project_id,
+                call_type="feed_analysis",
+                model_id=field_mapping_adapter.model_id,
+                system=_FIELD_MAPPING_SYSTEM,
+                user=user_prompt2,
+                raw_response=None,
+                error_detail=str(exc),
+            )
+            raise
         fiber.field_bindings = [binding.model_dump(mode="python") for binding in field_mapping_result.field_bindings]
         fiber.status = "mapped"
 
@@ -733,18 +783,43 @@ def submit_lookup_inputs(
         adapter = get_adapter("lookup_mapping", model_policy)
     except TypeError:
         adapter = get_adapter("lookup_mapping")
-    ai_result = adapter.call(
-        _LOOKUP_MAPPING_SYSTEM_PROMPT,
-        json.dumps(
-            {
-                "source_values": [entry.source_value for entry in source_entries],
-                "destination_rows": [
-                    {"entry_id": entry.entry_id, "row_data": entry.row_data} for entry in dest_entries
-                ],
-            }
-        ),
-        _LookupMappingResult,
+    user_prompt3 = json.dumps(
+        {
+            "source_values": [entry.source_value for entry in source_entries],
+            "destination_rows": [
+                {"entry_id": entry.entry_id, "row_data": entry.row_data} for entry in dest_entries
+            ],
+        }
     )
+    try:
+        result3 = adapter.call(
+            _LOOKUP_MAPPING_SYSTEM_PROMPT,
+            user_prompt3,
+            _LookupMappingResult,
+        )
+        call_log3 = log_ai_call(
+            db,
+            project_id=project_id,
+            call_type="lookup_mapping",
+            model_id=adapter.model_id,
+            system=_LOOKUP_MAPPING_SYSTEM_PROMPT,
+            user=user_prompt3,
+            raw_response=result3.raw_response,
+        )
+        ai_result = result3.parsed
+        backfill_artifact_id(db, call_log3.call_id, fiber_id)
+    except Exception as exc:
+        log_ai_call(
+            db,
+            project_id=project_id,
+            call_type="lookup_mapping",
+            model_id=adapter.model_id,
+            system=_LOOKUP_MAPPING_SYSTEM_PROMPT,
+            user=user_prompt3,
+            raw_response=None,
+            error_detail=str(exc),
+        )
+        raise
 
     source_entry_by_value = {entry.source_value: entry for entry in source_entries}
     dest_entry_by_id = {entry.entry_id: entry for entry in dest_entries}

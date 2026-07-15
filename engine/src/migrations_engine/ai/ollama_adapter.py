@@ -16,10 +16,11 @@ T = TypeVar("T", bound=BaseModel)
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_BASE_URL = "http://localhost:11434/v1"
 
-try:  # pragma: no cover - exercised indirectly through adapter tests
+try:  # pragma: no cover
     import openai
-except ImportError:  # pragma: no cover - environment shim for test isolation
+except ImportError:  # pragma: no cover - shim for test isolation
     openai = ModuleType("openai")
 
     class _OpenAIError(Exception):
@@ -42,14 +43,11 @@ except ImportError:  # pragma: no cover - environment shim for test isolation
     sys.modules.setdefault("openai", openai)
 
 
-class OpenAIAdapter:
-    def __init__(self, *, model_id: str, api_key_env: str) -> None:
-        self._model_id = model_id
-        self._api_key_env = api_key_env
-        api_key = os.environ.get(self._api_key_env)
-        if not api_key:
-            raise ConfigurationError(self._api_key_env)
-        self._client = openai.OpenAI(api_key=api_key)
+class OllamaAdapter:
+    def __init__(self, *, model_id: str) -> None:
+        self._model_id = model_id.removeprefix("ollama/")
+        base_url = os.environ.get("OLLAMA_BASE_URL", _DEFAULT_BASE_URL)
+        self._client = openai.OpenAI(base_url=base_url, api_key="ollama")
 
     @property
     def model_id(self) -> str:
@@ -67,7 +65,7 @@ class OpenAIAdapter:
         schema = response_model.model_json_schema()
         prompt = f"{system}\n\nReturn valid JSON matching this schema:\n{schema}"
         model_id = self._resolve_model(task=task, model_policy=model_policy)
-        logger.info("OpenAI AI Call - Model: %s", model_id)
+        logger.info("Ollama AI Call - Model: %s", model_id)
         logger.info("System Prompt:\n%s", prompt)
         logger.info("User Prompt:\n%s", user)
         try:
@@ -79,19 +77,19 @@ class OpenAIAdapter:
                 ],
                 response_format={"type": "json_object"},
             )
-        except openai.OpenAIError as exc:  # pragma: no cover - exercised via adapter test doubles
-            logger.error("OpenAI AI Call Failed - Model: %s, Error: %s", model_id, exc)
+        except openai.OpenAIError as exc:  # pragma: no cover
+            logger.error("Ollama AI Call Failed - Model: %s, Error: %s", model_id, exc)
             raise AICallError(str(exc)) from exc
 
         content = response.choices[0].message.content
         if not isinstance(content, str):
-            logger.error("OpenAI response did not contain text content.")
-            raise AICallError("OpenAI response did not contain text content.")
-        logger.info("OpenAI Response:\n%s", content)
+            raise AICallError("Ollama response did not contain text content.")
+        logger.info("Ollama Response:\n%s", content)
         parsed = response_model.model_validate_json(content)
         return AICallResult(parsed=parsed, raw_response=content)
 
     def _resolve_model(self, *, task: str | None, model_policy: ModelPolicy | None) -> str:
         if task is None:
             return self._model_id
-        return resolve_model(task, model_policy, get_ai_config())
+        resolved = resolve_model(task, model_policy, get_ai_config())
+        return resolved.removeprefix("ollama/")

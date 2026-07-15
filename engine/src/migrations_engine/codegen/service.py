@@ -131,11 +131,36 @@ def generate_codegen_artifact(
         slice_comments=slice_comments,
     )
 
-    generated_sql = adapter.call(
-        system=system_prompt,
-        user=user_prompt,
-        response_model=GeneratedSQL,
-    )
+    from ..ai.logging import log_ai_call, backfill_artifact_id
+
+    try:
+        result = adapter.call(
+            system=system_prompt,
+            user=user_prompt,
+            response_model=GeneratedSQL,
+        )
+        call_log = log_ai_call(
+            db,
+            project_id=project_id,
+            call_type="codegen",
+            model_id=adapter.model_id,
+            system=system_prompt,
+            user=user_prompt,
+            raw_response=result.raw_response,
+        )
+        generated_sql = result.parsed
+    except Exception as exc:
+        log_ai_call(
+            db,
+            project_id=project_id,
+            call_type="codegen",
+            model_id=adapter.model_id,
+            system=system_prompt,
+            user=user_prompt,
+            raw_response=None,
+            error_detail=str(exc),
+        )
+        raise
 
     sql_bundle = _assemble_sql_bundle(generated_sql, staging_schema=project_config.staging_schema)
     _supersede_previous_artifacts(
@@ -175,6 +200,7 @@ def generate_codegen_artifact(
         },
     )
     db.commit()
+    backfill_artifact_id(db, call_log.call_id, artifact.codegen_artifact_id)
     db.refresh(artifact)
     return _trigger_response(artifact)
 

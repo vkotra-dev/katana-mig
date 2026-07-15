@@ -568,6 +568,7 @@ class MappingFieldBindingResponse(BaseModel):
     binding_type: str | None = None
     reference_table_name: str | None = None
     destination_table_name: str | None = None
+    destination_data_type: str | None = None
 
 
 class LookupTableReferenceResponse(BaseModel):
@@ -876,3 +877,15 @@ class UnsignBindingRequest(BaseModel):
 
 class PokeRequest(BaseModel):
     target_role: Literal["central_team", "project_stakeholder"]
+
+
+class AICallLogResponse(BaseModel):
+    call_id: str
+    call_type: str
+    artifact_id: str | None
+    model_id: str
+    system_prompt: str
+    user_prompt: str
+    raw_response: str | None
+    error_detail: str | None
+    called_at: datetime

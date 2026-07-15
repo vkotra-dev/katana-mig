@@ -113,7 +113,7 @@ def _call_impact_ai(
             for binding in field_bindings
         )
     )
-    return adapter.call(system, user, _ImpactAnalysisAIResponse)
+    return adapter.call(system, user, _ImpactAnalysisAIResponse).parsed
 
 
 def _run_to_response(run: RunRecord) -> RunResponse:

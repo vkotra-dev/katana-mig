@@ -96,7 +96,8 @@ def test_anthropic_adapter_calls_sdk_and_parses_response(monkeypatch: pytest.Mon
     adapter = get_adapter("planning")
     result = adapter.call("system prompt", "user prompt", DemoResponse)
 
-    assert result.value == "ok"
+    assert result.parsed.value == "ok"
+    assert result.raw_response == '{"value":"ok"}'
     assert calls["api_key"] == "anthropic-secret"
     assert calls["model"] == "claude-opus-4-8"
     assert calls["max_tokens"] >= 4096
@@ -132,7 +133,8 @@ def test_openai_adapter_calls_sdk_and_parses_response(monkeypatch: pytest.Monkey
     adapter = get_adapter("script_generation")
     result = adapter.call("system prompt", "user prompt", DemoResponse)
 
-    assert result.value == "ok"
+    assert result.parsed.value == "ok"
+    assert result.raw_response == '{"value":"ok"}'
     assert calls["api_key"] == "openai-secret"
     assert calls["model"] == "gpt-4o-mini"
     assert calls["messages"][0]["role"] == "system"

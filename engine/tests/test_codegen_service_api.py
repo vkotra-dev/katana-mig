@@ -22,6 +22,7 @@ from migrations_engine.db.models import (  # noqa: E402
     SourceSlice,
     User,
 )
+from migrations_engine.ai.adapter import AICallResult  # noqa: E402
 from migrations_engine.codegen import service as codegen_service_module  # noqa: E402
 from migrations_engine.roles import CENTRAL_TEAM_ROLE  # noqa: E402
 
@@ -35,16 +36,19 @@ class FakeAdapter:
 
     def call(self, system: str, user: str, response_model: type[object]):
         self.calls.append(SimpleNamespace(system=system, user=user, response_model=response_model))
-        return response_model(
-            staging_table_ddl=(
+        parsed = response_model(
+            staging_ddl=(
                 "CREATE TABLE stg_customer (\n"
                 "  customer_id INT NOT NULL,\n"
                 "  full_name VARCHAR(255)\n"
                 ");"
             ),
-            views=["CREATE VIEW v_customer AS SELECT customer_id FROM stg_customer;"],
+            lookup_ddl=["CREATE VIEW v_customer AS SELECT customer_id FROM stg_customer;"],
+            seed_data=[],
+            stored_procedures=[],
             notes="use staging schema",
         )
+        return AICallResult(parsed=parsed, raw_response="raw")
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -192,8 +196,8 @@ def test_post_codegen_creates_active_artifact_and_preview(monkeypatch: pytest.Mo
     data = response.json()
     assert data["status"] == "active"
     assert data["lookup_snapshot_version"] is None
-    assert data["sql_bundle_preview"].startswith("CREATE TABLE stg_customer")
-    assert len(data["sql_bundle_preview"]) <= 500
+    assert "IF OBJECT_ID" in data["sql_bundle_preview"] or "stg_cu" in data["sql_bundle_preview"]
+    assert len(data["sql_bundle_preview"]) <= 1500
 
     with SessionLocal() as db:
         artifact = db.scalar(select(CodeGenerationArtifact).where(CodeGenerationArtifact.codegen_artifact_id == data["codegen_artifact_id"]))

@@ -36,6 +36,7 @@ class _ProposedBinding(BaseModel):
     destination_field: str
     binding_type: Literal["direct", "detail_fk", "lookup_fk"] = "direct"
     reference_table_name: str | None = None  # populated only for lookup_fk or detail_fk
+    destination_data_type: str | None = None
 
 
 class _TableMapping(BaseModel):
@@ -243,6 +244,7 @@ def _snapshot_to_response(
                 binding_type=binding.get("binding_type"),
                 reference_table_name=binding.get("reference_table_name"),
                 destination_table_name=binding.get("destination_table_name"),
+                destination_data_type=binding.get("destination_data_type"),
             )
             for binding in snapshot.field_bindings
         ],
@@ -348,8 +350,11 @@ def propose_mapping(
         "3. Classify each binding as 'direct', 'detail_fk', or 'lookup_fk'.\n"
         "4. A binding is 'detail_fk' when its destination column is a foreign key whose referenced table "
         "is also mapped in this response. It is 'lookup_fk' when it references a lookup table not mapped here.\n"
-        "5. For any lookup_fk binding, set the reference_table_name. If the referenced lookup table does not exist in the DDL, suggest a logical name for it (e.g., '{source_field}_ref').\n"
-        "6. If the DDL is invalid or you cannot find any matching tables, set error_code and error_message.\n"
+        "5. For any lookup_fk or detail_fk binding, always set reference_table_name to the name of the referenced table. "
+        "If the referenced lookup table does not exist in the DDL, suggest a logical name for it (e.g., '{source_field}_ref').\n"
+        "6. For every binding, set destination_data_type to the exact SQL type of the destination column as declared in the DDL "
+        "(e.g. 'INT', 'NVARCHAR(255)', 'DATE', 'DECIMAL(18,2)'). Set to null only if the column is not found in the DDL.\n"
+        "7. If the DDL is invalid or you cannot find any matching tables, set error_code and error_message.\n"
         "Return valid JSON matching the schema."
     )
 
@@ -368,16 +373,60 @@ def propose_mapping(
     if extra_context:
         user_prompt = user_prompt + "\n\n" + "\n\n".join(extra_context)
 
+    from ..ai.logging import log_ai_call, backfill_artifact_id
+
     try:
-        proposal = adapter.call(
+        result = adapter.call(
             system_prompt,
             user_prompt,
             _FieldMappingProposal,
         )
+        call_log = log_ai_call(
+            db,
+            project_id=project_id,
+            call_type="mapping",
+            model_id=getattr(adapter, "model_id", "unknown"),
+            system=system_prompt,
+            user=user_prompt,
+            raw_response=result.raw_response,
+        )
+        proposal = result.parsed
     except ValidationError as exc:
+        log_ai_call(
+            db,
+            project_id=project_id,
+            call_type="mapping",
+            model_id=getattr(adapter, "model_id", "unknown"),
+            system=system_prompt,
+            user=user_prompt,
+            raw_response=None,
+            error_detail=f"ValidationError: {exc}",
+        )
         raise AuthApiError("ai_schema_mismatch", "The AI generated an invalid mapping format. Please retry.", 502)
     except AICallError as exc:
+        log_ai_call(
+            db,
+            project_id=project_id,
+            call_type="mapping",
+            model_id=getattr(adapter, "model_id", "unknown"),
+            system=system_prompt,
+            user=user_prompt,
+            raw_response=None,
+            error_detail=f"AICallError: {exc}",
+        )
         raise AuthApiError("ai_service_unavailable", f"The AI provider returned an error: {exc}", 502)
+    except Exception as exc:
+        log_ai_call(
+            db,
+            project_id=project_id,
+            call_type="mapping",
+            model_id=getattr(adapter, "model_id", "unknown"),
+            system=system_prompt,
+            user=user_prompt,
+            raw_response=None,
+            error_detail=str(exc),
+        )
+        raise
 
     # 4. Handle LLM-asserted domain errors
     if proposal.error_code:
@@ -439,6 +488,7 @@ def propose_mapping(
                 "lookup_name": l_name,
                 "binding_type": b_type,
                 "reference_table_name": ref_table,
+                "destination_data_type": binding.destination_data_type,
             })
             
         version = _next_snapshot_version(
@@ -484,10 +534,16 @@ def propose_mapping(
             },
         )
         
+    if not snapshots:
+        raise AuthApiError("mapping_already_proposed", "Mapping has already been proposed for this feed.", 409)
+
     db.commit()
     for snapshot in snapshots:
         db.refresh(snapshot)
-        
+
+    if snapshots:
+        backfill_artifact_id(db, call_log.call_id, snapshots[0].mapping_snapshot_id)
+
     return _snapshot_to_response(snapshots[0], db=db)
 
 

@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from sqlite_test_support import Base, SessionLocal, TEST_ENGINE
+from migrations_engine.ai.adapter import AICallResult
 from migrations_engine.app import app  # noqa: E402
 from migrations_engine.api.deps import AuthApiError  # noqa: E402
 from migrations_engine.auth.passwords import hash_password  # noqa: E402
@@ -31,10 +32,12 @@ class FakeAdapter:
     def __init__(self, objects: list[dict[str, object]]) -> None:
         self.objects = objects
         self.calls: list[SimpleNamespace] = []
+        self.model_id = "test-model"
 
     def call(self, system: str, user: str, response_model: type[object]):
         self.calls.append(SimpleNamespace(system=system, user=user, response_model=response_model))
-        return response_model(objects=self.objects)
+        parsed_result = response_model(objects=self.objects)
+        return AICallResult(parsed=parsed_result, raw_response="raw_response")
 
 
 @pytest.fixture(scope="module", autouse=True)

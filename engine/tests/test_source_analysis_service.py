@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy import select
 
 from sqlite_test_support import Base, SessionLocal, TEST_ENGINE
+from migrations_engine.ai.adapter import AICallResult
 from migrations_engine.db.models import (  # noqa: E402
     ProjectDefinition,
     ProjectRegistry,
@@ -30,11 +31,11 @@ class FakeAdapter:
     def __init__(self, *, analysis_result: AnalysisResult) -> None:
         self.analysis_result = analysis_result
         self.calls: list[SimpleNamespace] = []
-        self.model_id = "claude-haiku-4-5-20251001"
+        self.model_id = "test-model"
 
-    def call(self, system: str, user: str, response_model: type[AnalysisResult]) -> AnalysisResult:
+    def call(self, system: str, user: str, response_model: type[AnalysisResult]):
         self.calls.append(SimpleNamespace(system=system, user=user, response_model=response_model))
-        return self.analysis_result
+        return AICallResult(parsed=self.analysis_result, raw_response="raw_response")
 
 
 def _seed_approved_slice(

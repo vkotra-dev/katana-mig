@@ -36,6 +36,7 @@ from .routes.feed_slice_approval import router as feed_slice_approval_router
 from .routes.notifications import router as notifications_router
 from .routes.users import router as users_router
 from .routes.sign_offs import router as sign_offs_router
+from .routes.ai_calls import router as ai_calls_router
 
 
 def _validate_runtime_settings(settings: object) -> None:
@@ -81,6 +82,7 @@ app.include_router(feed_comments_router)
 app.include_router(feed_slice_approval_router)
 app.include_router(notifications_router)
 app.include_router(sign_offs_router)
+app.include_router(ai_calls_router)
 
 
 def _cors_response(request: Request, status_code: int, content: dict) -> JSONResponse:

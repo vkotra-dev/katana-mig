@@ -179,7 +179,7 @@ def test_openai_adapter_uses_project_override_for_task_model(monkeypatch: pytest
         model_policy=ModelPolicy(script_generation="project-script-generation"),
     )
 
-    assert result.value == "ok"
+    assert result.parsed.value == "ok"
     assert calls["api_key"] == "openai-secret"
     assert calls["model"] == "project-script-generation"
 
@@ -211,7 +211,7 @@ def test_anthropic_adapter_falls_back_to_global_model_for_task(monkeypatch: pyte
         model_policy=None,
     )
 
-    assert result.value == "ok"
+    assert result.parsed.value == "ok"
     assert calls["api_key"] == "anthropic-secret"
     assert calls["model"] == "global-field-mapping"
 
