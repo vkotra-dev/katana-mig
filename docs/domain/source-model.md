@@ -384,6 +384,7 @@ feed slice and the downstream snapshots derived from it.
 After source analysis:
 
 - field mapping produces the object-level field map (one `MappingSnapshot` per destination table)
+- mapping proposals are AI-driven (replaced the earlier regex DDL parser)
 - lookup mapping produces approved lookup value snapshots
 - code generation consumes the latest approved mapping and lookup snapshots
   available when the codegen stage starts
@@ -403,12 +404,33 @@ One AI call per feed receives the full destination schema DDL and the feed's sou
 For every `lookup_fk` binding the AI returns the `reference_table_name` (the referenced lookup table in the DDL).
 
 The backend creates one `MappingSnapshot` per identified destination table in a single transaction. Each snapshot stores:
-- `source_definition_id`
+- `source_definition_id` — feed-scoped FK
 - `destination_object_name` (the AI-returned table name, validated against the DDL)
-- `destination_fields` (column list for that table, derived from DDL at proposal time)
+- `destination_fields` — JSON column storing the column list for that table, derived from DDL at proposal time
 - `field_bindings` (bindings for that table, including `binding_type` and `reference_table_name`)
 
+The unique index on `MappingSnapshot` is feed-scoped: `(project_id, source_definition_id, destination_object_name, version)`.
+
 The propose API response also returns `lookup_table_references` — one entry per `lookup_fk` binding across all tables — so the UI knows which reference table backs each lookup field without re-parsing the DDL.
+
+#### Mapping hints
+
+`Feed.mapping_hints` — an operator-supplied TEXT field containing mapping intent and guidance. Operators use this to describe expected field relationships, naming conventions, or domain context that the AI should consider. Mapping hints are included in the AI user prompt when proposing mappings.
+
+#### AI trace
+
+`MappingSnapshot.ai_trace` — a JSON column storing the full AI interaction that produced the snapshot:
+
+```
+{
+  "system_prompt": string,
+  "user_prompt": string,
+  "raw_response": string,
+  "model_id": string
+}
+```
+
+This enables post-hoc debugging and audit of AI mapping decisions.
 
 ### Lookup mapping
 
@@ -427,6 +449,12 @@ Rules:
 - AI re-runs are allowed any number of times before the first production approval; after first approval, delta additions only
 - unmapped source values are directly queryable; they do not block the call but will surface as gaps in the review grid
 - runtime lookup delta handling (values discovered during execution) follows the same additive path
+
+#### LookupValueMap — project-scoped
+
+`LookupValueMap` is promoted from feed-scoped `(source_definition_id, lookup_name)` to project-scoped `(project_id, lookup_name)`. This means a single lookup value mapping is shared across all feeds in the project that reference the same lookup name.
+
+On fiber approval, all confirmed `LookupMapping` rows are auto-written to `LookupValueMap`, making them available project-wide for codegen and other feeds.
 
 ### Source/run snapshot policy
 
@@ -449,6 +477,42 @@ The system must not silently mix incompatible versions. Every downstream
 execution must be able to explain exactly which approved feed slice, mapping
 snapshot, lookup snapshot, and code-generation input it consumed.
 
+### Multi-party sign-off
+
+Mapping and lookup approvals follow a multi-party sign-off model.
+
+`MappingBindingSignOff` — tracks per-binding sign-offs by operator and stakeholder:
+
+- `sign_off_id`
+- `mapping_snapshot_id`
+- `binding_index`
+- `signer_role` — `"operator"` or `"stakeholder"`
+- `signer_id`
+- `status` — `"pending"` | `"approved"` | `"rejected"`
+- `created_at`
+- `updated_at`
+
+`LookupSignOff` — tracks lookup sign-offs:
+
+- `sign_off_id`
+- `fiber_id`
+- `lookup_name`
+- `signer_role`
+- `signer_id`
+- `status`
+- `created_at`
+- `updated_at`
+
+Approval chain (3 steps):
+
+1. **Operator assigns** — operator marks bindings or lookups as ready for review
+2. **Stakeholder approves** — stakeholder reviews and signs off on individual bindings or lookup mappings
+3. **Operator triggers** — once all stakeholder sign-offs are collected, operator triggers the downstream stage (codegen)
+
+PM can "poke" for outstanding sign-offs — this sends a notification to assignees with pending sign-off items.
+
+Editing is gated by inbox status: a binding or lookup mapping cannot be modified while its sign-off is in `pending` or `approved` state. The operator must reset the sign-off before editing.
+
 ## Code generation artifact
 
 Code generation produces a versioned `CodeGenerationArtifact` per destination object. It is not
@@ -458,12 +522,32 @@ stored on `SourceDefinition` — it lives in its own table, linked to the run th
 
 One artifact covers one destination object and contains the complete SQL bundle:
 
-- staging table DDL: `CREATE TABLE stg_{object}` for the destination object
+- staging table DDL: `CREATE TABLE stg_{object}` for the destination object; staging tables
+  include `_row_num BIGINT IDENTITY(1,1)` as the first column
 - lookup table DDL + data: `CREATE TABLE lookup_{field}` + `INSERT` rows from the approved
   `LookupValueMap`
 - views: any `CREATE VIEW` statements needed for the transformation
 - stored procedures: `CREATE PROCEDURE proc_load_{object}` that reads from the staging table,
   applies lookup translations, and writes to the destination table
+
+#### Codegen instructions
+
+`ProjectDefinition.codegen_instructions` — project-wide coding standards (TEXT). Injected as
+`GLOBAL CODING STANDARDS` in the AI system prompt for every codegen call in the project.
+
+`Feed.transformation_instructions` — per-feed transformation rules (TEXT). Injected into the
+AI user prompt for codegen calls scoped to that feed.
+
+Both fields are editable via their respective PATCH endpoints.
+
+#### Migration run logging
+
+Every SQL bundle is prepended with a `CREATE TABLE IF NOT EXISTS mig_upsert_log` DDL statement.
+The AI system prompt instructs codegen to emit `MERGE` + `OUTPUT INTO mig_upsert_log` for every
+upsert operation, producing a row-level audit trail.
+
+The `run_ref` literal is baked into the SQL as `'{project_id}_{source_definition_id}'`, uniquely
+identifying the migration run context.
 
 ### Model fields
 
@@ -501,6 +585,71 @@ The run record for the code generation stage carries `codegen_artifact_id` point
 The complete delivery bundle is assembled by collecting all `status = "active"`
 `CodeGenerationArtifact` records for a project, ordered by destination object name. There is no
 `destination_ddl` column on `SourceDefinition`.
+
+## AI observability
+
+### AI call logging
+
+Every AI adapter call is logged via the `log_ai_call()` helper into the `AICallLog` table.
+
+`AICallLog`:
+
+```
+call_id           UUID — primary key
+project_id        FK → project_registry
+call_type         string — e.g. "mapping_proposal", "lookup_mapping", "codegen"
+model_id          string — AI model identifier used for the call
+system_prompt     Text — full system prompt sent
+user_prompt       Text — full user prompt sent
+raw_response      Text — raw AI response
+error_detail      Text | null — error message if the call failed
+artifact_id       UUID | null — FK to the artifact produced by this call
+created_at        timestamp
+```
+
+After artifact creation, `backfill_artifact_id()` is called to link the log entry to the
+produced artifact. This enables tracing from any artifact back to the exact AI call that
+generated it.
+
+## Feed and slice comments
+
+`FeedComment` — threaded commenting on feeds:
+
+- `comment_id`
+- `source_definition_id` — FK to source_definitions
+- `author_id`
+- `body` — comment text
+- `parent_comment_id` — nullable FK for threading
+- `created_at`
+- `updated_at`
+
+`FeedSliceComment` — slice-level commenting:
+
+- `comment_id`
+- `source_slice_id` — FK to feed_slices
+- `author_id`
+- `body`
+- `parent_comment_id`
+- `created_at`
+- `updated_at`
+
+Comments trigger cross-role notifications (operator ↔ stakeholder ↔ PM).
+
+Both `FeedComment` and `FeedSliceComment` content is injected into the AI codegen prompt as
+additional context, giving the AI visibility into operator/stakeholder discussion and intent.
+
+## Feed slice workflow changes
+
+- Feed slices are immutable post-creation — the upload card is removed after initial
+  upload; no re-upload of data into an existing slice
+- Rejection triggers a replacement upload flow — operator must create a new slice rather
+  than editing the rejected one
+- The approval gate overlay is removed; replaced with a slice preview card and an
+  'Analyze with AI' button that initiates source analysis
+- Dedicated data profile review card for stakeholders with PII scan results;
+  stakeholders see field-level PII classification and can flag concerns
+- Copybook `row_csv` is stored unmasked; display-time masking is applied with an
+  admin/PM toggle to reveal raw values when needed
 
 ## Patch runs and multi-object derivation
 
@@ -572,8 +721,6 @@ replace source analysis.
 
 - [ ] Source definitions are structured and source-type aware.
 - [ ] Source contracts are declared rather than inferred from connection strings.
-- [ ] Source definitions are structured and source-type aware.
-- [ ] Source contracts are declared rather than inferred from connection strings.
 - [ ] Parse success automatically sets slice status to `pending_approval`.
 - [ ] The approved feed slice is immutable and versioned.
 - [ ] Approval, rejection, and resubmit each emit an `AuditEvent`.
@@ -588,6 +735,7 @@ replace source analysis.
 
 ## Changelog
 
+- 2026-07 — AI-driven multi-table mapping extraction with binding type classification; multi-party sign-off model; LookupValueMap promoted to project scope; feed/slice comments with codegen injection; mapping hints and AI trace; codegen instructions (project-wide + per-feed); migration run logging (mig_upsert_log); AI call logging; feed slice immutability and workflow overhaul
 - 2026-07-04: Replaced global approvals inbox UI entry point with per-feed workspace entry point; documented multi-table AI mapping (binding types, MappingSnapshot per table, lookup_table_references); documented LookupSourceEntry discovery_type="operator" and additive submit_lookup_inputs rule.
 - 2026-06-29: Added feed slice approval flow — status state machine, model fields, approval/reject/resubmit API pattern, UI entry points, failure modes, and acceptance criteria.
 - 2026-06-29: Expanded CodeGenerationArtifact into a full model spec with fields, status values, supersession rule, and delivery bundle assembly.

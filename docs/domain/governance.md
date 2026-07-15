@@ -295,6 +295,9 @@ The invariants are repo-wide guardrails. Do not weaken them.
 - **I14** Stages communicate only by passing frozen batons.
 - **I15** Project isolation; identity is `(project_id, cr_id)`.
 - **I16** Lifecycle gates are mechanical-first.
+- **I19** User management (create, deactivate, role assignment) requires `admin`.
+- **I20** Project creation requires the `pm` role.
+- **I21** `central_team` requires project membership for project-level access.
 
 ### Migration domain
 
@@ -347,7 +350,7 @@ When a change touches a task or plan:
 - [ ] Repo operating rules are readable in one place.
 - [ ] Task workflow and traceability are explicit.
 - [ ] Build order is clear and bottom-up.
-- [ ] I1–I17 are visible as repo-wide guardrails.
+- [ ] I1–I18 are visible as repo-wide guardrails.
 - [ ] Typing and testing expectations are easy to find.
 - [ ] The page is derived from the existing repo rules, not invented.
 
@@ -357,3 +360,6 @@ When a change touches a task or plan:
   structure change must ship with a hand-written Alembic migration in the same commit.
 - 2026-06-29: Added governance bundle page to consolidate repo operating rules,
   task workflow, build order, safety invariants, and typing/testing conventions.
+- 2026-07 — Updated invariants for 5-role model (admin, pm, central_team,
+  project_stakeholder, read_only_auditor); fixed I17→I18 acceptance criteria
+  reference.

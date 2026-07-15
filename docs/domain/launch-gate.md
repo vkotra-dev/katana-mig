@@ -35,6 +35,10 @@ Status legend:
 | Harness | Define observability requirements | x |  |  | Structured logs, metrics, traces, and failure alerts |
 | Governance | Define rollout and rollback expectations | x |  |  | Versioned rollout by environment; rollback restores prior known-good versions |
 | Governance | Resolve remaining open questions in the bundle | x |  |  | Harness questions moved to future considerations |
+| AI | AI call logging — `AICallLog` captures every adapter call | x |  |  | Done |
+| Security | 5-role model — admin, pm, central_team, project_stakeholder, read_only_auditor | x |  |  | Done |
+| Governance | Multi-party sign-offs — per-binding operator + stakeholder sign-off chain | x |  |  | Done |
+| Governance | Domain docs current — docs/domain reflects shipped features |  | x |  | Pending |
 
 ## Done Enough Today
 
@@ -58,3 +62,4 @@ The system is not launch-ready until every `Pending` item above has either:
 ## Changelog
 
 - 2026-06-29: Added a production-readiness gate for the current domain bundle.
+- 2026-07 — Added AI logging, role model, sign-off, and docs currency items.

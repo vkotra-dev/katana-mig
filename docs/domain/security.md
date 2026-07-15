@@ -65,12 +65,18 @@ Security consequence:
 ### Project boundary
 
 Every project, run, baton, lease, and audit event belongs to exactly one
-project. A request for one project must not read or mutate another project’s
+project. A request for one project must not read or mutate another project's
 state.
+
+`central_team` and `project_stakeholder` users are subject to project boundary
+enforcement via membership. `admin` and `pm` operate outside per-project
+membership but are still bound by explicit routing. `read_only_auditor` has
+read access across projects but cannot mutate state.
 
 Security consequence:
 
 - cross-project access is rejected
+- `central_team` users without membership on a project are rejected
 - ambiguous routing is escalated rather than guessed
 - project scope is an explicit input to every sensitive operation
 
@@ -130,8 +136,14 @@ The main risks the system must control are:
 - Soft-deleted and disabled users cannot act.
 - Service accounts must be explicit and scoped.
 - Human sessions use short-lived JWTs with explicit revocation support.
-- A `central_team` user cannot delete their own account or downgrade their own
+- An `admin` user cannot delete their own account or downgrade their own
   role. Platform operators must always retain at least one recovery path.
+- User management (create, edit, soft-delete, role assignment) is restricted to
+  the `admin` role (route guard: `get_admin_user`).
+- Project membership management is restricted to the `pm` role for owned
+  projects (route guard: `get_pm_user`).
+- `central_team` users cannot manage users or memberships and require explicit
+  project membership for project access.
 
 ### Project isolation
 
@@ -182,7 +194,7 @@ The main risks the system must control are:
 - Audit records are retained for at least 365 days unless a longer contractual
   or legal hold applies.
 - Audit access is read-only and project-scoped.
-- Central team operators and read-only auditors may read audit history; writes
+- Admin operators and read-only auditors may read audit history; writes
   remain system-only.
 
 ## Failure modes
@@ -215,3 +227,6 @@ The main risks the system must control are:
   threat model, controls, failure modes, and acceptance criteria.
 - 2026-06-29: Added short-lived JWT revocation, explicit session invalidation
   triggers, and audit retention/access policy.
+- 2026-07-16: Updated for 5-role model (`admin`, `pm` added); `central_team`
+  now subject to project boundary enforcement via membership; user
+  administration authority moved from `central_team` to `admin`.

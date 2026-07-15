@@ -40,6 +40,8 @@ Human platform roles (`PlatformRole`):
 | Value | Meaning |
 |---|---|
 | `central_team` | Administrative operator |
+| `admin` | User management only |
+| `pm` | Project lifecycle and member management |
 | `project_stakeholder` | Project-scoped stakeholder |
 | `read_only_auditor` | View-only operator |
 
@@ -280,9 +282,8 @@ configuration.
 | Password-reset request | `POST /auth/password-reset/request` |
 | Password-reset confirm | `POST /auth/password-reset/confirm` |
 
-## Out of scope for this slice
+## Out of scope
 
-- Project, run, and migration endpoints
 - Service-account authentication headers
 
 ## Management endpoints
@@ -638,24 +639,14 @@ Get one slice with header and row preview. Any authenticated user.
 
 Response `200`: `FeedSliceResponse`
 
-### `GET /approvals`
+### `GET /approvals` *(removed)*
 
-List pending feed-slice approvals visible to the caller. Any authenticated
-user. `project_stakeholder` callers only see member projects.
+> Removed in 001bg. Global approvals inbox has been replaced by
+> project-scoped notification and sign-off workflows.
 
-Response `200`: array of `FeedSliceApprovalItemResponse`
+### `GET /approvals/count` *(removed)*
 
-### `GET /approvals/count`
-
-Return the visible pending-approval count for the caller.
-
-Response `200`:
-
-```json
-{
-  "pending_count": 4
-}
-```
+> Removed in 001bg. Use `GET /notifications/count` instead.
 
 ### `POST /projects/{project_id}/sources/{contract_id}/slices/{slice_id}/approve`
 
@@ -720,6 +711,31 @@ Request:
 ```
 
 Response `201`: `FeedCommentResponse`
+
+## Slice comment endpoints
+
+Slice comments are scoped to an individual data slice within a source feed.
+
+### `GET /projects/{project_id}/sources/{feed_id}/slices/{slice_id}/comments`
+
+List comments for one slice. Any authenticated user with access to the project.
+
+Response `200`: array of `SliceCommentResponse`
+
+### `POST /projects/{project_id}/sources/{feed_id}/slices/{slice_id}/comments`
+
+Create a comment on one slice. Requires an authenticated non-auditor user with
+project access.
+
+Request:
+
+```json
+{
+  "body": "Row 42 has a truncated SURNAME value."
+}
+```
+
+Response `201`: `SliceCommentResponse`
 
 ## Fiber endpoints
 
@@ -886,21 +902,19 @@ Response `200`: `LookupMappingResponse`
 
 ## Lookup mapping endpoints
 
-Lookup drafts remain source-scoped because they are created from a specific
-source contract. Lookup snapshot approval is project-scoped because the
-resulting snapshot is consumed project-wide.
+Lookup value maps are project-scoped. Lookup snapshot approval is also
+project-scoped because the resulting snapshot is consumed project-wide.
 
-### `POST /projects/{project_id}/sources/{contract_id}/lookup-maps`
+### `POST /projects/{project_id}/lookup-maps`
 
-Create or update a lookup draft for one source contract. Requires
-`central_team`.
+Create or update a lookup draft for the project. Requires `central_team`.
 
 Response `201`: `LookupValueMapResponse`
 
-### `GET /projects/{project_id}/sources/{contract_id}/lookup-maps`
+### `GET /projects/{project_id}/lookup-maps`
 
-List lookup drafts for one source contract. Any authenticated user with access
-to the project.
+List lookup drafts for the project. Any authenticated user with access to the
+project.
 
 Response `200`: array of `LookupValueMapResponse`
 
@@ -1050,6 +1064,38 @@ Response `200`: `ChangeRequestResolveResponse`
 }
 ```
 
+## Sign-off endpoints
+
+Sign-off routes allow stakeholders to sign individual mapping bindings and
+PMs to track overall sign-off status on a mapping snapshot.
+
+### `POST /projects/{project_id}/sources/{feed_id}/mapping-snapshots/{snapshot_id}/bindings/{binding_index}/sign`
+
+Sign a binding. Requires an authenticated non-auditor user with project access.
+
+Response `200`: `BindingSignResponse`
+
+### `DELETE /projects/{project_id}/sources/{feed_id}/mapping-snapshots/{snapshot_id}/bindings/{binding_index}/sign`
+
+Unsign a previously signed binding. Requires the original signer or
+`central_team`.
+
+Response `204`: no content.
+
+### `GET /projects/{project_id}/sources/{feed_id}/mapping-snapshots/{snapshot_id}/sign-off-status`
+
+Get the sign-off status for a mapping snapshot. Any authenticated user with
+project access.
+
+Response `200`: `SignOffStatusResponse`
+
+### `POST /projects/{project_id}/sources/{feed_id}/mapping-snapshots/{snapshot_id}/poke`
+
+PM poke for sign-off. Sends a reminder notification to unsigned stakeholders.
+Requires `pm` or `central_team`.
+
+Response `202`: `{ "poked_count": 3 }`
+
 ## Code generation endpoints
 
 Code generation is source-triggered but project-scoped in persistence. The
@@ -1087,6 +1133,34 @@ FK dependency sequence and each SQL block is prefixed with `-- [01] table_name`,
 with plain `-- table_name` headings.
 
 Response `200`: `text/plain` attachment named `delivery-bundle.sql`
+
+### `PATCH /projects/{project_id}/codegen-instructions`
+
+Save project-wide codegen instructions. Requires `central_team`.
+
+Request:
+
+```json
+{
+  "codegen_instructions": "Use MERGE instead of INSERT for all upsert targets."
+}
+```
+
+Response `200`: `ProjectResponse`
+
+### `PATCH /projects/{project_id}/sources/{source_id}/transformation-instructions`
+
+Save per-feed transformation instructions. Requires `central_team`.
+
+Request:
+
+```json
+{
+  "transformation_instructions": "Convert dates from YYYYMMDD to ISO-8601."
+}
+```
+
+Response `200`: `SourceContractResponse`
 
 ### `GET /projects/{project_id}/knowledge-freezes`
 
@@ -1148,6 +1222,69 @@ Response `200`: `ProjectSchemaAnalysisResponse | null`
 `identified_count` — total destination objects found in the DDL.
 `processed_count` — of those, how many currently have an active codegen artifact.
 `destination_object_sequence` — FK-ordered list; items not in the sequence sort to the end of the bundle.
+
+## AI call log endpoints
+
+### `GET /projects/{project_id}/ai-calls`
+
+List AI call logs for a project. Requires `admin` or `central_team`.
+
+Query parameters:
+
+| Parameter | Type | Notes |
+|---|---|---|
+| `call_type` | string | Optional; filter by call type |
+| `artifact_id` | string | Optional; filter by related artifact |
+
+Response `200`: array of `AiCallLogResponse`
+
+## Project copy endpoints
+
+### `POST /projects/{project_id}/copy`
+
+Copy a project with config carry-forward. Requires `central_team`.
+
+Response `201`: `ProjectResponse` (the newly created copy).
+
+## PM assignment endpoints
+
+### `PATCH /projects/{project_id}/manager`
+
+Reassign the PM for a project. Requires `admin`.
+
+Request:
+
+```json
+{
+  "pm_user_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+Response `200`: `ProjectResponse`
+
+## Mapping hints endpoints
+
+### `PATCH /projects/{project_id}/sources/{feed_id}/hints`
+
+Save mapping hints on a feed. Requires `central_team`.
+
+Response `200`: `SourceContractResponse`
+
+## Copybook masking endpoints
+
+### `GET /projects/{project_id}/sources/{feed_id}/slices/{slice_id}/rows`
+
+Return rows for a slice with display-time masking. Any authenticated user with
+project access. PII columns are masked unless the caller has the `central_team`
+or `admin` role.
+
+Query parameters:
+
+| Parameter | Type | Default | Notes |
+|---|---|---|---|
+| `masked` | boolean | `true` | `false` returns unmasked values (role-gated) |
+
+Response `200`: array of row objects.
 
 ### `SourceContractResponse`
 
@@ -1250,3 +1387,7 @@ feeds (e.g. `["Customer", "Address"]`). Generated SQL artifacts are tracked sepa
 - 2026-07-01: Added fiber endpoints and the fiber entity response model family.
 - 2026-06-30: Added lookup mapping endpoints and documented the project-scoped
   lookup snapshot approval route.
+- 2026-07 — Added 15+ endpoints (comments, sign-offs, codegen instructions, AI
+  calls, project copy, PM assignment, mapping hints, copybook masking); removed
+  global approvals endpoints; updated lookup-maps to project scope; expanded
+  PlatformRole enum with admin and pm.

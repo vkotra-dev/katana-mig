@@ -221,9 +221,17 @@ session-scoped and must never rely on caller-asserted strings.
 
 Current roles surfaced elsewhere in the platform include:
 
-- `central_team`
-- `project_stakeholder`
-- `read_only_auditor`
+- `admin` — user management (create, edit, delete users; assign roles). Route
+  guard: `get_admin_user`.
+- `pm` — project lifecycle (create, copy, edit projects; assign project
+  members; owns projects via `pm_user_id` on `ProjectRegistry`). Route guard:
+  `get_pm_user`.
+- `central_team` — in-project operators. Requires explicit project membership;
+  no longer has global project access. Can perform in-project work (mapping,
+  codegen, review, approval) only on projects they are a member of.
+- `project_stakeholder` — business stakeholders with project membership.
+  View and approve within assigned projects.
+- `read_only_auditor` — view-only across all projects.
 
 `service_account` is not a human role. It is a non-human authentication
 principal used by integrations such as API and bulk approval channels. It may
@@ -288,3 +296,6 @@ The system must not continue to honor a token simply because it was once valid.
   sessions.
 - 2026-06-29: Added explicit login, logout, password-reset, and session API
   contracts.
+- 2026-07-16: Role model expanded from 3 to 5 roles (`admin`, `pm` added);
+  `central_team` scoped to explicit project membership; route guards
+  documented per role.

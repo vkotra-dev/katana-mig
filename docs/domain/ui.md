@@ -32,18 +32,22 @@ Provide the operator-facing contract for:
 
 ## Audience and roles
 
-Three roles use the same application with role-determined views.
+Five roles use the same application with role-determined views.
 
-Role is session-scoped, and `project_stakeholder` access is membership-scoped.
+Role is session-scoped. `central_team` and `project_stakeholder` access is
+membership-scoped (requires project membership).
 
 | Role | Can do | Cannot do |
 |------|--------|-----------|
-| `central_team` | All projects, feed slice approval (per-feed), Gate 1 approval, impact review, dry-run review, initiate projects, raise CRs, manage users and membership | — |
-| `project_stakeholder` | Member projects only, Gate 2 approval, lookup-delta review, mapping/lookup review grid (approve or request revision per feed), initiate projects and CRs on member projects | See other projects, Gate 1 or feed slice approval actions |
-| `read_only_auditor` | View all artifacts, lineage, reconciliation, download evidence | Approve, create, raise CRs, manage users or membership |
+| `admin` | User management, PM assignment (`/admin/assign-pm`), all `pm` capabilities | In-project operations without project membership |
+| `pm` | Project create/edit/copy, member management, project oversight, assign stakeholders | Gate approvals, mapping edits (unless also `central_team` on project) |
+| `central_team` | In-project operations: mapping, codegen, review, approval, feed slice approval (per-feed), Gate 1 approval, impact review, dry-run review, raise CRs — requires project membership | User management, PM assignment, see non-member projects |
+| `project_stakeholder` | View and approve within assigned projects: Gate 2 approval, lookup-delta review, mapping/lookup review grid (approve or request revision per feed), raise CRs on member projects | See other projects, Gate 1 or feed slice approval actions, user management |
+| `read_only_auditor` | View all artifacts, lineage, reconciliation, download artifact views | Approve, create, raise CRs, manage users or membership, download raw staging data |
 
 ## Entry points
 
+- `admin` and `pm` land on the portfolio dashboard.
 - `central_team` lands on the portfolio dashboard.
 - `project_stakeholder` lands on their project home or filtered project view.
 - `read_only_auditor` lands on a read-only selector or portfolio view.
@@ -52,12 +56,14 @@ Role is session-scoped, and `project_stakeholder` access is membership-scoped.
 
 | Term | Meaning |
 |---|---|
-| **Feed** | A single CSV file or one XLSX sheet — the raw data unit provided for migration |
+| **Feed** | A single CSV file or one XLSX sheet — the raw data unit provided for migration. Formerly called "Source"; renamed in tasks 001bf/001aj. |
 | **FeedSlice** | A windowed, PII-masked sample of a Feed; the working unit AI analyzes |
 | **Lookup Fiber** | A unit of work mapping unique source values for one lookup column to destination reference rows |
 | **Mapping Fiber** | A unit of work mapping source columns to destination table columns for one domain object |
 
-`SourceDefinition` and `FeedSlice` in the codebase correspond to Feed and FeedSlice respectively. The rename is tracked in task 001aj.
+The per-feed workspace lives at `/feeds/[feedId]` (within the project scope). Sections: slice status, field mapping (multi-table), lookup fibers, reviews.
+
+Role-gated routing: `central_team` → full workspace; `project_stakeholder` → grid view.
 
 ## Screens
 
@@ -76,6 +82,10 @@ the authoritative auth contract from `auth.md`.
 
 ### Portfolio dashboard
 
+**SummaryStrip** — 5-card strip at the top of the dashboard showing aggregate counts (e.g. total projects, feeds pending, mappings in review, lookups outstanding, approvals waiting).
+
+**`ProjectHealthSummary`** — health rollup widget per project with feed/mapping/lookup status indicators.
+
 One row per project:
 
 - project name
@@ -85,6 +95,9 @@ One row per project:
 - days in current stage
 - blocked indicator with reason if blocked
 - action required badge if a gate is waiting
+- health chip columns (feed health, mapping health, lookup health)
+
+Project IDs and feed IDs are no longer displayed in the portfolio table (tasks 001ci, 001cj).
 
 This is the high-level operational surface for cross-project monitoring.
 
@@ -111,10 +124,15 @@ This is the project-local drilldown view.
 Route: `/projects/[id]/edit`
 
 The edit screen uses the same project metadata layout as the detail screen for
-non-editable fields, but keeps the model policy section collapsed by default.
+non-editable fields. The AI model policy section is displayed in a collapsed
+accordion by default; detail and edit layouts are aligned (task 001bb).
 Each model override input shows the current global default model name directly
 below the input so operators can see what will be used if they leave the field
 blank.
+
+**Global Coding Standards** — a textarea on the project edit page where the
+operator enters project-wide coding standards. These instructions are injected
+into every codegen prompt for the project (task 001cn).
 
 ### SQL bundle delivery
 
@@ -204,28 +222,40 @@ actions for the approval chain:
 
 ### Per-feed workspace
 
-Route: `/projects/[id]/feeds/[feedId]`
+Route: `/feeds/[feedId]` (within project scope, i.e. `/projects/[id]/feeds/[feedId]`)
 
-Audience: role-gated. `central_team` sees the full Feed Detail workspace. `project_stakeholder` (business user) is routed directly to the review grid at `/projects/[id]/feeds/[feedId]/review`.
+Audience: role-gated. `central_team` sees the full Feed Detail workspace. `project_stakeholder` (business user) is routed directly to the grid view at `/projects/[id]/feeds/[feedId]/review`.
 
-**Feed list** (project detail → Feeds tab) — one row per feed. Row click routes by role: `central_team` → Feed Detail; `project_stakeholder` → review grid.
+**Feed list** (project detail → Feeds tab) — one row per feed. Row click routes by role: `central_team` → Feed Detail; `project_stakeholder` → grid view.
 
 **Feed Detail** (`central_team` workspace) — vertical sections:
 
-1. **Slice status panel** — current slice status chip (`pending_approval` / `approved` / `rejected`). Hard gate: sections below are locked with a banner until the slice is approved. Approve / Reject actions for `central_team`; Resubmit on rejected slices.
-2. **Field mapping section** — AI-identified destination tables displayed as expandable cards (one per table). Each card shows field bindings with binding type badges:
+1. **Slice status panel** — current slice status chip (`pending_approval` / `approved` / `rejected`). Feed slices are immutable post-creation — the upload card is removed once a slice exists (task 001bj). The former slice approval gate overlay is replaced with a slice preview and an 'Analyze with AI' button (task 001bl). Rejection triggers a replacement upload flow with status banners: amber = pending, red = rejected (task 001bu).
+2. **Data profile review card** — dedicated card for stakeholders showing a stats strip (row count, column count, null percentages), client-side PII scan results, and an unmasked sample table (task 001cc).
+3. **Copybook display-time masking** — copybook values are masked at display time. `admin` and `pm` roles see a 'Show original' toggle to reveal unmasked values (task 001ck).
+4. **Field mapping section (multi-table)** — AI-identified destination tables displayed as expandable cards (one per table). Each card shows field bindings with binding type badges:
    - `direct` — source field maps directly to destination column
    - `detail_fk` — FK whose referenced table is also produced by this feed
    - `lookup_fk` — FK into a reference/lookup table (amber badge); reference table name shown
-3. **Lookup fibers section** — one card per `lookup_fk` binding. Each card: source field name, reference table chip, in-place editable source value list (`discovery_type="operator"`), "Run AI mapping" button.
-4. **Reviews section** — the shared ReviewGrid component (see below).
+5. **Lookup fibers section** — one card per `lookup_fk` binding. Each card: source field name, reference table chip, in-place editable source value list (`discovery_type="operator"`), "Run AI mapping" button.
+6. **Transformation Instructions** — a textarea where the operator enters per-feed transformation instructions injected into the codegen prompt for this feed (task 001cn).
+7. **AI reasoning panel** — displays the AI reasoning trace including system prompt, user prompt, and raw response from `MappingSnapshot.ai_trace` (task 001br).
+8. **Reviews section** — the shared ReviewGrid component (see below).
 
 **Review grid** (`/projects/[id]/feeds/[feedId]/review`) — accessible to all roles; default landing for `project_stakeholder`.
 
 Sections:
-- **Table mapping grid** — read-only expandable accordion per destination table. Columns: Source field | Destination field | Binding type badge.
+- **Multi-table display** — review shows multiple destination tables per feed (task 001bo). Read-only expandable accordion per destination table. Columns: Source field | Destination field | Binding type badge.
+- **Feed slice sample data** — feed slice sample values displayed alongside binding rows so reviewers can see real data in context (task 001bs).
+- **Unmapped source fields warning** — amber warning panel listing source columns that have no binding to any destination field (task 001bv).
+- **Operator mapping edit** — `central_team` operators can edit the destination field selector per binding, then 'Save mapping' and 'Submit for review' (task 001bq).
 - **Lookup value mapping grids** — one section per lookup field. Columns: Source value | Destination row | Confidence | Status.
+- **Per-binding sign-off** — operator and stakeholder each sign off per binding; PM can poke either party via a nudge mechanism (task 001cl).
+- **Bulk approve/reject** — single action to approve or reject all draft snapshots for a feed (task 001bp).
 - **Approval strip** — Approve and Request revision controls, visible to `project_stakeholder` only. Request revision requires a comment.
+- **`FeedCommentThread`** — comment thread component on the review page for operator ↔ stakeholder discussion (task 001cl).
+
+Approval workflows live inside per-feed workspaces. There is no global `/approvals` page.
 
 ### Mapping review
 
@@ -261,6 +291,19 @@ Fields:
 - stakeholder email
 - central team assignee
 - lawful basis for processing
+
+### Project copy
+
+Audience: `pm`, `admin`.
+
+Route: project list page → 'Copy from…' button opens a modal.
+
+Two-step flow:
+1. Select source project from a searchable list.
+2. Edit the new project name and assign stakeholders.
+
+The copied project inherits feeds, mapping configuration, and coding standards
+from the source but starts with a fresh lifecycle (task 001bt).
 
 Submit flow:
 
@@ -422,12 +465,22 @@ The view should show:
 
 ## Navigation and access
 
-- Portfolio view is global for `central_team` and read-only auditors.
+- Portfolio view is global for `admin`, `pm`, `central_team`, and read-only auditors.
 - Project-stakeholder views are filtered to member projects.
 - Project-level deep links must always include `project_id`.
 - Artifact deep links should preserve `artifact_id` and version.
 
+**Admin nav dropdown** — `admin` role sees a dropdown in the top nav with two items:
+- **Manage Users** — links to the user management page.
+- **Assign PM to Project** — links to `/admin/assign-pm`, a standalone page with dual-autocomplete pickers (one for PM, one for project) (task 001cf).
+
 ## Notifications
+
+**`NotificationBell`** — bell icon in the top nav bar. Polls `GET /notifications/count` for unread count. Clicking opens a dropdown listing recent notifications with deep links (task 001at).
+
+Actions:
+- **Mark read** — per notification item
+- **Mark all read** — bulk action in the dropdown header
 
 UI surfaces receive notification events for:
 
@@ -444,7 +497,7 @@ UI surfaces receive notification events for:
 | `feed_comment_added` | the other party (operator comments → stakeholders; stakeholder comments → operator) |
 
 **Delivery:**
-- **In-app bell** — unread count badge polled via `GET /notifications/count`; list view with deep links; mark-as-read per item or bulk
+- **In-app bell** — `NotificationBell` component with unread count badge polled via `GET /notifications/count`; dropdown list with deep links; mark-as-read per item or bulk mark-all-read
 - **Email** — sent at event creation time using SMTP config and `User.email`; plain-text template with event description and deep link
 
 Notifications deep-link to the relevant project or artifact view.
@@ -481,11 +534,12 @@ Polling is used for in-app; WebSockets are not required.
 ## Open questions
 
 - Which pages should remain in the UI spec versus the derived domain bundle?
-- Should auditors be allowed to download raw staging data or artifact views only?
+- ~~Should auditors be allowed to download raw staging data or artifact views only?~~ — **Resolved:** Auditors get artifact views only. Display-time masking (task 001ck) ensures raw staging data is not exposed.
 - Should project initiation be split into a wizard or a single form?
 
 ## Changelog
 
+- 2026-07 — Feeds rename; 5-role capabilities; removed global approvals; admin dropdown nav; feed slice immutability and workflow overhaul; multi-table review with sign-offs; bulk approve/reject; operator edit; sample data; unmapped fields warning; dashboard health view; notifications; project copy UI; AI reasoning panel; codegen instructions panels
 - 2026-07-04: Removed global Approvals nav item and inbox; added per-feed workspace and role-gated review grid; updated mapping review to reflect AI-driven binding type detection (direct/detail_fk/lookup_fk) and reference table names; updated role table and SQL bundle delivery to use Feeds terminology.
 - 2026-07-03: Clarified notification email delivery as SMTP-backed instead of a logging stub.
 - 2026-07-01: Added Feed/FeedSlice/Fiber vocabulary; Feed intake screen; Fiber

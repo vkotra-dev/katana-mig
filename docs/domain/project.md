@@ -74,6 +74,7 @@ Relevant fields:
 - `unresolved_questions`
 - `assumptions`
 - `domain_config`
+- `codegen_instructions`
 - `status`
 
 `model_policy` stores the per-project AI model override set used by the engine
@@ -130,6 +131,11 @@ MigrationProjectConfig:
                           one environment by name.
 ```
 
+`codegen_instructions` is optional free-form TEXT. When present, the content is
+injected into the AI codegen system prompt as a `GLOBAL CODING STANDARDS` block.
+Project-wide coding standards, naming conventions, and style rules belong here
+so that every generated artifact in the project follows a consistent contract.
+
 `target_db_engine`, `staging_schema`, and `destination_schema` are required
 before any code generation run can start. They must be set on the project
 definition before the baton reaches the code generation stage.
@@ -153,11 +159,16 @@ Relevant fields:
 - `name`
 - `definition_id`
 - `lexicon_scope`
+- `pm_user_id`
 - `status`
 - `created_at`
 - `updated_at`
 - `archived_at`
 - `soft_deleted_at`
+
+`pm_user_id` is a nullable FK → `users.user_id`. It identifies the PM who owns
+this project. Auto-populated on create and copy. Can be reassigned by an admin
+via `PATCH /projects/{id}/manager`.
 
 The registry record does not replace the frozen project definition. It points to
 it.
@@ -268,6 +279,13 @@ The system must not silently mix incompatible versions. A run must be able to
 explain exactly which approved feed slice, mapping snapshot, lookup snapshot,
 and code-generation input it consumed.
 
+## Ownership
+
+PM access is driven by `pm_user_id` on `ProjectRegistry`, not by project
+membership. The PM can edit project config, manage members, and oversee the
+project lifecycle. An admin can reassign the PM via the dedicated
+`PATCH /projects/{id}/manager` endpoint.
+
 ## Lifecycle
 
 Project lifecycle and definition lifecycle are related but not identical.
@@ -285,6 +303,14 @@ mutating the old one.
 
 This is what keeps the lineage reconstructable: the system can explain which
 project world existed at the time a run began.
+
+### Project copy
+
+Projects can be copied via `POST /projects/{id}/copy`. The copy carries forward:
+`MigrationProjectConfig`, `model_policy`, `destination_schema_ddl`,
+`codegen_instructions`, `constraints`, `canonical_terms`, `assumptions`,
+`unresolved_questions`, `project_resources`, and `goal`. The new project gets a
+fresh name, a new PM assignment, and starts with no members or feeds.
 
 ## Failure modes
 
@@ -325,3 +351,5 @@ project world existed at the time a run began.
   definition.
 - 2026-06-29: Clarified the end-to-end snapshot selection contract used by the
   project, source, and run pages.
+- 2026-07 — PM ownership via pm_user_id on ProjectRegistry; codegen_instructions
+  on ProjectDefinition; project copy with config carry-forward.

@@ -23,13 +23,13 @@ and at what level.
 
 ## Responsibilities
 
-- Allow `central_team` to manage users.
-- Allow `central_team` to assign and remove project memberships.
+- Allow `admin` to manage users (create, edit, soft-delete, assign roles).
+- Allow `pm` to assign and remove project memberships for their projects.
 - Allow users to change their own password.
 - Reject user-management actions from insufficient roles.
 - Keep role assignment authoritative and auditable.
 - Support first-time bootstrap creation of an administrative user.
-- Support project membership for `project_stakeholder` users.
+- Support project membership for `central_team` and `project_stakeholder` users.
 
 ## Out of scope
 
@@ -52,6 +52,8 @@ and at what level.
 
 Current platform roles:
 
+- `admin`
+- `pm`
 - `central_team`
 - `project_stakeholder`
 - `read_only_auditor`
@@ -62,8 +64,16 @@ by the user- and membership-management flows here.
 
 Role meaning:
 
-- `central_team` is the administrative role. It can manage users and project
-  membership and has cross-project operational authority.
+- `admin` is the user-management role. It can create, edit, soft-delete users
+  and assign roles. It can also reassign the PM on any project. Route guard:
+  `get_admin_user`.
+- `pm` is the project-lifecycle role. It can create, copy, and edit projects,
+  assign project members, and owns projects via `pm_user_id` on
+  `ProjectRegistry`. Route guard: `get_pm_user`.
+- `central_team` is the in-project operator role. It requires explicit project
+  membership and can perform in-project work (mapping, codegen, review,
+  approval) only on assigned projects. It no longer has global project access
+  or user-management authority.
 - `project_stakeholder` is project-scoped. It can act only on projects it is
   assigned to.
 - `read_only_auditor` is view-only. It cannot manage users or membership.
@@ -88,7 +98,8 @@ Relevant fields:
 
 ### Project membership
 
-Project membership binds a `project_stakeholder` user to a project.
+Project membership binds a `central_team` or `project_stakeholder` user to a
+project.
 
 Relevant fields:
 
@@ -96,42 +107,45 @@ Relevant fields:
 - `user_id`
 - `created_at`
 
-Membership rows exist only for project-scoped stakeholders. `central_team` and
-`read_only_auditor` do not need membership rows.
+Membership rows are required for `central_team` and `project_stakeholder`
+users. `admin`, `pm`, and `read_only_auditor` do not use membership rows.
+Member autocomplete filters to only `central_team` and `project_stakeholder`
+roles (excludes `admin` and `pm`).
 
 ## Administrative flows
 
 ### Create user
 
-`central_team` can create a new user.
+`admin` can create a new user.
 
 The create flow must:
 
-- require an authenticated `central_team` caller
-- validate the requested role
+- require an authenticated `admin` caller (route guard: `get_admin_user`)
+- validate the requested role against the five canonical roles
 - hash the password before persistence
 - reject duplicate email addresses
 - emit audit evidence
 
 ### Update user
 
-`central_team` can update a user’s profile and role.
+`admin` can update a user's profile and role.
 
 The update flow must:
 
-- require an authenticated `central_team` caller
+- require an authenticated `admin` caller (route guard: `get_admin_user`)
 - allow role edits directly in the user update flow
-- preserve role validity
+- preserve role validity across all five canonical roles
 - keep historical auditability of the change
 - reject updates to nonexistent users
 - treat the role change as an explicit administrative action in audit records
 
 ### Soft-delete user
 
-`central_team` can soft-delete a user.
+`admin` can soft-delete a user.
 
 The delete flow must:
 
+- require an authenticated `admin` caller (route guard: `get_admin_user`)
 - mark the user inactive rather than hard-delete
 - prevent future login and request use
 - keep prior audit and history intact
@@ -149,20 +163,36 @@ The flow must:
 
 ### Assign project membership
 
-`central_team` can add or remove `project_stakeholder` users from a project.
+`pm` can add or remove `central_team` and `project_stakeholder` users from
+projects they own.
 
 The flow must:
 
-- require an authenticated `central_team` caller
-- reject membership for non-stakeholder roles
+- require an authenticated `pm` caller (route guard: `get_pm_user`)
+- reject membership for roles other than `central_team` and
+  `project_stakeholder`
 - treat duplicate membership as an idempotent no-op with a warning that the
   user is already part of the project
 - preserve project isolation
+- trigger a notification to the affected user when membership is added or
+  removed
+
+### Reassign project manager
+
+`admin` can reassign the PM on any project via
+`PATCH /projects/{id}/manager`.
+
+The flow must:
+
+- require an authenticated `admin` caller (route guard: `get_admin_user`)
+- update `pm_user_id` on the `ProjectRegistry` record
+- reject assignment to a user who does not hold the `pm` role
+- emit audit evidence
 
 ### Bootstrap admin
 
-The system must support creation of the first `central_team` user when the user
-table is empty.
+The system must support creation of the first `admin` user when the user table
+is empty.
 
 Bootstrap may occur via:
 
@@ -174,29 +204,34 @@ duplicates.
 
 ## User and membership rules
 
-- A user’s role is a platform-level attribute.
+- A user's role is a platform-level attribute.
 - Project membership is separate from role.
 - `project_stakeholder` role alone is not enough for project access; membership
   is also required.
-- `central_team` does not require per-project membership.
+- `central_team` requires per-project membership; it no longer has global
+  project access.
+- `admin` and `pm` do not require per-project membership.
 - `read_only_auditor` reads broadly without administrative power.
 
 ## Enforcement rules
 
 ### User management
 
-- `POST /users` requires `central_team`.
-- `GET /users` requires `central_team`.
-- `GET /users/{user_id}` requires `central_team` or self.
-- `PATCH /users/{user_id}` requires `central_team`.
-- `DELETE /users/{user_id}` requires `central_team`.
+- `POST /users` requires `admin`.
+- `GET /users` requires `admin`.
+- `GET /users/{user_id}` requires `admin` or self.
+- `PATCH /users/{user_id}` requires `admin`.
+- `DELETE /users/{user_id}` requires `admin`.
 
 ### Membership management
 
-- `GET /projects/{project_id}/members` requires `central_team`.
-- `POST /projects/{project_id}/members` requires `central_team`.
-- `DELETE /projects/{project_id}/members/{user_id}` requires `central_team`.
-- A stakeholder creating a project should be auto-added as a member.
+- `GET /projects/{project_id}/members` requires `pm` (project owner) or
+  `admin`.
+- `POST /projects/{project_id}/members` requires `pm` (project owner).
+- `DELETE /projects/{project_id}/members/{user_id}` requires `pm` (project
+  owner).
+- `PATCH /projects/{id}/manager` requires `admin` (reassign PM).
+- A `pm` creating a project is auto-recorded as the project's `pm_user_id`.
 
 ### Role and request-body authority
 
@@ -212,7 +247,7 @@ duplicates.
 | Non-admin attempts user creation | Reject |
 | Non-admin attempts role change | Reject |
 | Duplicate email on user create | Reject |
-| Membership assigned to non-stakeholder role | Reject |
+| Membership assigned to role other than `central_team` or `project_stakeholder` | Reject |
 | Duplicate project membership | No-op with warning |
 | Soft-deleted user attempts login or action | Reject |
 | Bootstrap invoked when users already exist | No duplicate creation |
@@ -220,18 +255,22 @@ duplicates.
 
 ## Acceptance criteria
 
-- [ ] `central_team` can create, update, and soft-delete users.
-- [ ] `central_team` can assign and remove project memberships.
+- [ ] `admin` can create, update, and soft-delete users.
+- [ ] `pm` can assign and remove project memberships for owned projects.
+- [ ] `central_team` cannot manage users or memberships.
 - [ ] `project_stakeholder` cannot manage users or memberships.
 - [ ] `read_only_auditor` cannot manage users or memberships.
-- [ ] A stakeholder’s project access depends on membership, not role alone.
+- [ ] `central_team` project access depends on membership, not role alone.
+- [ ] A stakeholder's project access depends on membership, not role alone.
 - [ ] The first admin user can be bootstrapped idempotently.
 - [ ] Administrative actions are auditable.
 - [ ] Password changes do not allow role escalation.
+- [ ] PM reassignment is admin-only and audited.
 
 ## Open questions
 
-- Should project membership assignment trigger notifications?
+- ~Should project membership assignment trigger notifications?~ — **Resolved:**
+  yes, implemented in task 001at.
 - Should bootstrap admin be startup-only, CLI-only, or both in production?
 
 ## Changelog
@@ -242,3 +281,7 @@ duplicates.
   flow and are audited as explicit administrative actions.
 - 2026-06-29: Clarified that duplicate project membership is an idempotent
   no-op with a warning.
+- 2026-07-16: Roles expanded from 3 to 5 (`admin`, `pm` added);
+  `central_team` scoped to project membership; user CRUD gated by `admin`;
+  membership managed by `pm`; PM reassignment flow added; open question on
+  membership notifications resolved.
