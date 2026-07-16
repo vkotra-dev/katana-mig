@@ -1,7 +1,7 @@
 ---
 type: Rulebook
 title: Repository Governance
-description: Repository-wide operating rules covering task workflow, build order, safety invariants (I1-I21), typing conventions, and the 5-role access model.
+description: Repository-wide operating rules covering task workflow, build order, safety invariants (I1-I22), typing conventions, and the 5-role access model.
 tags:
   - governance
   - rules
@@ -168,8 +168,9 @@ Required lifecycle:
 2. create task file(s)
 3. create plan per task
 4. execute
-5. write summary
-6. move task to `tasks/completed/`
+5. update `docs/domain/` if the task changed models, APIs, roles, workflows, or UI
+6. write summary
+7. move task to `tasks/completed/`
 
 Required markers in each plan:
 
@@ -318,6 +319,9 @@ The invariants are repo-wide guardrails. Do not weaken them.
   artifact versions; execution results never mutate knowledge artifacts directly.
 - **I18** Every DDL change ships with a hand-written Alembic migration in the
   same commit; a model edit without a migration is a broken commit.
+- **I22** Every task that adds or changes a DB model, API endpoint, role gate,
+  UI screen, or business workflow must update the relevant `docs/domain/` page
+  and bump its OKF `timestamp` field before the task is marked complete.
 
 ## Typing and code conventions
 
