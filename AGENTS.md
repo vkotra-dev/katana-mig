@@ -1,3 +1,13 @@
+---
+type: Pointer
+title: Repository Entry Point
+description: Legacy pointer directing readers to the canonical governance rulebook in docs/domain/governance.md.
+tags:
+  - entry-point
+  - governance
+timestamp: 2026-07-16
+---
+
 # AGENTS.md
 
 Legacy pointer only.

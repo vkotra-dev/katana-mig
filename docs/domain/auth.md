@@ -1,3 +1,16 @@
+---
+type: Domain Spec
+title: Authentication
+description: Defines identity, authentication, and role derivation — password-based login, stateless JWT sessions, the 5-role model (admin, pm, central_team, project_stakeholder, read_only_auditor), and session authority rules.
+tags:
+  - auth
+  - identity
+  - jwt
+  - roles
+  - session
+timestamp: 2026-07-16
+---
+
 # Auth
 
 This page defines identity, authentication, and role derivation for the

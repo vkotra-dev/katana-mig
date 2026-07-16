@@ -1,3 +1,14 @@
+---
+type: Index
+title: Domain Knowledge Bundle Index
+description: Manifest and reading guide for the Katana migration platform domain documentation bundle.
+tags:
+  - index
+  - manifest
+  - reading-order
+timestamp: 2026-07-16
+---
+
 # Domain Index
 
 This folder is the active working set for the project.

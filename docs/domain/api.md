@@ -1,3 +1,15 @@
+---
+type: API Contract
+title: HTTP API
+description: The complete HTTP contract for the Katana migration platform — request/response shapes, status codes, error envelopes, and endpoint specifications for auth, management, projects, feeds, fibers, mapping, codegen, notifications, and AI observability.
+tags:
+  - api
+  - http
+  - endpoints
+  - contract
+timestamp: 2026-07-16
+---
+
 # API
 
 This page is the machine-facing HTTP contract for the migration platform API.

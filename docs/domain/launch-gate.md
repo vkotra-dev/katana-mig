@@ -1,3 +1,14 @@
+---
+type: Checklist
+title: Launch Gate
+description: Production-readiness checklist covering auth, project, runs, source model, security, harness, governance, AI logging, role model, and sign-off requirements.
+tags:
+  - launch
+  - checklist
+  - readiness
+timestamp: 2026-07-16
+---
+
 # Launch Gate
 
 This page is the production-readiness checkpoint for the current bundle.

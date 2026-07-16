@@ -1,3 +1,16 @@
+---
+type: Domain Spec
+title: Management
+description: Administrative management of users, roles, and project membership — admin-gated user CRUD, PM-gated member assignment, and the 5-role enforcement model.
+tags:
+  - management
+  - users
+  - roles
+  - membership
+  - admin
+timestamp: 2026-07-16
+---
+
 # Management
 
 This page defines administrative management of users, roles, and project

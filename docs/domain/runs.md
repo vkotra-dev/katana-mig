@@ -1,3 +1,15 @@
+---
+type: Domain Spec
+title: Runs
+description: Defines the migration-domain run — an auditable, restart-safe unit of work for one destination object in one project, with checkpoint/resume, reconciliation, and lineage.
+tags:
+  - run
+  - execution
+  - reconciliation
+  - lineage
+timestamp: 2026-07-16
+---
+
 # Runs
 
 This page defines the migration-domain run as an auditable, restart-safe unit of

@@ -1,3 +1,16 @@
+---
+type: Domain Spec
+title: Security
+description: Cross-cutting security policy — identity boundaries, project isolation, PII classification and masking, audit retention, fail-closed guarantees, and the membership-enforced access model.
+tags:
+  - security
+  - pii
+  - audit
+  - isolation
+  - boundaries
+timestamp: 2026-07-16
+---
+
 # Security
 
 This page defines the security boundaries the migration platform must preserve.

@@ -1,3 +1,16 @@
+---
+type: Domain Spec
+title: User Interface
+description: The derived human-interface contract — operator screens, role-gated views, per-feed workspaces, multi-party sign-off review, dashboard health, notifications, and approval flows for all 5 platform roles.
+tags:
+  - ui
+  - screens
+  - workflow
+  - review
+  - dashboard
+timestamp: 2026-07-16
+---
+
 # UI
 
 This page is the derived human-interface bundle for the migration platform.

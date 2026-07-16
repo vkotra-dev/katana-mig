@@ -1,3 +1,16 @@
+---
+type: Rulebook
+title: Repository Governance
+description: Repository-wide operating rules covering task workflow, build order, safety invariants (I1-I21), typing conventions, and the 5-role access model.
+tags:
+  - governance
+  - rules
+  - invariants
+  - workflow
+  - conventions
+timestamp: 2026-07-16
+---
+
 # Governance
 
 This page consolidates the repository operating rules that apply across the

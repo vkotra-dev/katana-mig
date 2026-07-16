@@ -1,3 +1,15 @@
+---
+type: Domain Spec
+title: Project
+description: Defines the project as the top-level governed container for a migration effort — ownership, scope, source contracts, destination schema, PM assignment, and snapshot policy.
+tags:
+  - project
+  - ownership
+  - configuration
+  - pm
+timestamp: 2026-07-16
+---
+
 # Project
 
 This page defines the project as the top-level governed container for a

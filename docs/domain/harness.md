@@ -1,3 +1,15 @@
+---
+type: Domain Spec
+title: Harness
+description: The derived operational contract for the harness execution engine and platform orchestration layer — run loop, disposition handling, sandbox boundary, and lifecycle stages.
+tags:
+  - harness
+  - execution
+  - orchestration
+  - sandbox
+timestamp: 2026-07-16
+---
+
 # Harness
 
 This page is the derived bundle for the harness and harness-adjacent platform

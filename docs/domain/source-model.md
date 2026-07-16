@@ -1,3 +1,18 @@
+---
+type: Domain Spec
+title: Source Model
+description: Defines how source data is declared, analyzed, sliced, approved, and consumed — including feeds, fibers, AI mapping extraction, multi-party sign-offs, lookup value maps, codegen instructions, and AI observability.
+tags:
+  - source
+  - feed
+  - fiber
+  - mapping
+  - lookup
+  - codegen
+  - ai
+timestamp: 2026-07-16
+---
+
 # Source Model
 
 This page defines how source data is declared, analyzed, sliced, approved, and
