@@ -545,7 +545,6 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
                                 </button>
                                 <div>
                                   <div className="text-sm font-semibold text-slate-900">{source.label}</div>
-                                  <div className="mono-id mt-1">{source.sourceDefinitionId}</div>
                                 </div>
                               </div>
                             </td>

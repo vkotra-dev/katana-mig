@@ -425,7 +425,6 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
 
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-bold text-slate-900">{feed?.label || "Feed details"}</h1>
-            <span className="text-xs text-slate-500 font-mono">({feedId})</span>
             {feed?.status === "discarded" && (
               <span className="inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-500 ring-1 ring-inset ring-slate-200">
                 discarded

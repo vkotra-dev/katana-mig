@@ -155,18 +155,14 @@ export default function FiberDetailPage() {
                 </span>
               </div>
 
-              <dl className="mt-6 grid gap-4 sm:grid-cols-3">
+              <dl className="mt-6 grid gap-4 sm:grid-cols-2">
                 <div className="rounded-2xl bg-slate-50 p-4">
                   <dt className="font-mono text-xs uppercase tracking-[0.2em] text-slate-500">Source</dt>
                   <dd className="mt-2 text-sm text-slate-900">{fiber.source}</dd>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-4">
-                  <dt className="font-mono text-xs uppercase tracking-[0.2em] text-slate-500">Feed</dt>
-                  <dd className="mt-2 text-sm text-slate-900">{fiber.feedId}</dd>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <dt className="font-mono text-xs uppercase tracking-[0.2em] text-slate-500">Project</dt>
-                  <dd className="mt-2 text-sm text-slate-900">{fiber.projectId}</dd>
+                  <dt className="font-mono text-xs uppercase tracking-[0.2em] text-slate-500">Type</dt>
+                  <dd className="mt-2 text-sm text-slate-900">{fiber.fiberType}</dd>
                 </div>
               </dl>
 

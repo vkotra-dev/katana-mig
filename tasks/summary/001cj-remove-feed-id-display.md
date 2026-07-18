@@ -9,11 +9,16 @@ On the project details view (e.g. `/projects/00000000-0000-4000-8000-00000000000
 
 ## Solution
 
-Remove the `sourceDefinitionId` GUID rendering from `web/components/projects/SourceList.tsx`.
+1. Removed the `sourceDefinitionId` GUID rendering from `web/components/projects/SourceList.tsx`
+2. Updated the task status and summary file
+3. Removed feedId from `web/app/projects/[id]/feeds/[feedId]/page.tsx` 
+4. Removed feedId and projectId from `web/app/projects/[id]/feeds/[feedId]/fibers/[fiberId]/page.tsx`
 
 ## Files Changed
 
 - `web/components/projects/SourceList.tsx`
+- `web/app/projects/[id]/feeds/[feedId]/page.tsx`
+- `web/app/projects/[id]/feeds/[feedId]/fibers/[fiberId]/page.tsx`
 
 ## Out of Scope
 
