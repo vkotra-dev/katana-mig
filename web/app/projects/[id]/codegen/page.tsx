@@ -60,28 +60,29 @@ const generateCodingStandardsTemplate = (
   } else if (lowerEngine === "mssql" || lowerEngine === "sqlserver") {
     specificStandards = `
      - Use T-SQL coding conventions: UPPERCASE SQL keywords, square brackets for identifiers only when necessary, proper schema qualifiers.
-     - Stored procedures should check for object existence before drop/create, and use standard error handling (TRY...CATCH).
+     - Always use CREATE OR ALTER PROCEDURE, never CREATE PROCEDURE alone. Scripts must be idempotent and runnable multiple times without error.
 
      **Migration SP Requirements:**
        1. SET XACT_ABORT ON immediately after SET NOCOUNT ON
-       2. Validate source table is non-empty before MERGE; THROW if empty
+       2. Validate source table is non-empty before MERGE; THROW if empty. The empty source validation THROW must occur before any MERGE statement executes.
        3. Check for duplicate PKs in source before MERGE; THROW if duplicates found
        4. Use THROW not RAISERROR for all error raising (SQL Server 2012+)
        5. Return a result set after completion with: run_ref, rows_inserted, rows_updated, completed_at
-       6. Use CAST(COALESCE(inserted.[pk], deleted.[pk]) AS NVARCHAR(255)) for future-safe action logging
+       6. Use CAST(COALESCE(inserted.[pk], deleted.[pk]) AS NVARCHAR(255)) for future-safe action logging — the CAST to NVARCHAR(255) is required to match the dest_row_id column type in mig_upsert_log.
        7. NULL values in source columns flow through unchanged unless destination is NOT NULL
        8. Note index requirements on MERGE join key columns in comments
        9. FK lookups must be resolved via JOIN in MERGE source SELECT, not scalar variables. Every row gets its own resolved FK value.
        10. run_ref must be dynamically generated inside the procedure: DECLARE @run_ref NVARCHAR(255) = '<procedure_name>_' + CONVERT(NVARCHAR(20), GETDATE(), 120) + '_' + CAST(NEWID() AS NVARCHAR(36)); Never accept as parameter, never hardcode.
        11. Schemas [cxp] and [oc_stag] are assumed to exist. Never create, drop, or alter schemas in procedures or migration scripts.
        12. Declare only variables that are used. Remove unused declarations.
-       13. Verify bracket and parenthesis balance before outputting SQL.
-       14. created_at, created_by, inserted_at and any column representing original record creation MUST NEVER appear in WHEN MATCHED THEN UPDATE SET. This applies to every MERGE in the procedure without exception.
-       15. THROW syntax must follow the correct T-SQL argument order: THROW error_number, message_string, state; Never swap the message and state arguments.
-       16. Every stored procedure must wrap all DML in TRY...CATCH with explicit transaction management: BEGIN TRY / BEGIN TRANSACTION ... COMMIT / END TRY then BEGIN CATCH / ROLLBACK / THROW / END CATCH.
-       17. Lookup tables created in the same script must be used in the MERGE source SELECT via JOIN to resolve FK values per row. Never create lookup tables and then ignore them in the MERGE.
-       18. Every MERGE statement must include an OUTPUT clause logging to [oc_stag].[mig_upsert_log]. After all MERGEs complete, return a result set with run_ref, rows_inserted, rows_updated, completed_at derived from the log table.
-       19. Duplicate PK check must be performed for every key column used in the MERGE ON clause before executing the MERGE.`;
+       13. Never update the primary key column in WHEN MATCHED THEN UPDATE SET. The ON clause join key must never appear in the UPDATE column list.
+       14. Verify bracket and parenthesis balance before outputting SQL.
+       15. CRITICAL: created_at, created_by, inserted_at and any column representing original record creation MUST NEVER appear in WHEN MATCHED THEN UPDATE SET. This applies to every MERGE in the procedure without exception.
+       16. THROW syntax must follow the correct T-SQL argument order: THROW error_number, message_string, state; Never swap the message and state arguments.
+       17. CRITICAL: Every stored procedure must wrap all DML in TRY...CATCH with explicit transaction management: BEGIN TRY / BEGIN TRANSACTION ... COMMIT / END TRY then BEGIN CATCH / ROLLBACK / THROW / END CATCH.
+       18. CRITICAL: Lookup tables created in the same script must be used in the MERGE source SELECT via JOIN to resolve FK values per row. Never create lookup tables and then ignore them in the MERGE.
+       19. Every MERGE statement must include an OUTPUT clause logging to [oc_stag].[mig_upsert_log]. After all MERGEs complete, return a result set with run_ref, rows_inserted, rows_updated, completed_at derived from the log table.
+       20. Duplicate PK check must be performed for every key column used in the MERGE ON clause before executing the MERGE.`;
   } else if (lowerEngine === "oracle") {
     specificStandards = `
      - Use PL/SQL coding conventions: UPPERCASE keywords/types, clear EXCEPTION blocks, schema-qualified table references.
