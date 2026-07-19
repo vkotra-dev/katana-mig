@@ -75,7 +75,8 @@ const generateCodingStandardsTemplate = (
        10. run_ref must be dynamically generated inside the procedure: DECLARE @run_ref NVARCHAR(255) = '<procedure_name>_' + CONVERT(NVARCHAR(20), GETDATE(), 120) + '_' + CAST(NEWID() AS NVARCHAR(36)); Never accept as parameter, never hardcode.
        11. Schemas [cxp] and [oc_stag] are assumed to exist. Never create, drop, or alter schemas in procedures or migration scripts.
        12. Declare only variables that are used. Remove unused declarations.
-       13. Verify bracket and parenthesis balance before outputting SQL.`;
+       13. Verify bracket and parenthesis balance before outputting SQL.
+       14. created_at, created_by, and similar audit creation columns must never appear in WHEN MATCHED THEN UPDATE SET clause.`;
   } else if (lowerEngine === "oracle") {
     specificStandards = `
      - Use PL/SQL coding conventions: UPPERCASE keywords/types, clear EXCEPTION blocks, schema-qualified table references.
