@@ -779,3 +779,52 @@ def test_feed_hints_and_ai_tracing(monkeypatch: pytest.MonkeyPatch, admin_token:
     assert trace["system_prompt"] is not None
     assert "Mapping hints (operator-supplied):" in trace["user_prompt"]
 
+
+def test_propose_skips_tables_already_approved_project_wide(
+    monkeypatch: pytest.MonkeyPatch, admin_token: str
+) -> None:
+    """Re-uploading a feed must not create a new snapshot for a destination
+    table that already has an approved snapshot from a different feed."""
+    from migrations_engine.db.models import MappingSnapshot, new_id
+    from sqlite_test_support import SessionLocal
+
+    # Seed an approved snapshot for "Customer" under a *different* active feed
+    project_id, source_id = _seed_project()
+
+    with SessionLocal() as db:
+        from migrations_engine.db.models import Feed as FeedModel
+        other_feed = FeedModel(
+            source_definition_id=new_id(),
+            project_id=project_id,
+            source_type="csv",
+            source_contract_version="v1",
+            status="active",
+            source_details={"label": "other"},
+        )
+        db.add(other_feed)
+        db.flush()
+        existing = MappingSnapshot(
+            mapping_snapshot_id=new_id(),
+            project_id=project_id,
+            source_definition_id=other_feed.source_definition_id,
+            destination_object_name="Customer",
+            mapping_snapshot_version="v1",
+            field_bindings=[],
+            status="approved",
+        )
+        db.add(existing)
+        db.commit()
+
+    fake = FakeAdapter([
+        {"source_field": "customer_id", "destination_field": "customer_id"},
+    ])
+    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: fake)
+
+    response = client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/propose",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "mapping_already_proposed"
+

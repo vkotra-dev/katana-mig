@@ -5,6 +5,7 @@
 | Task | Summary |
 |---|---|
 | [001cr-feed-archive-cascade](./001cr-feed-archive-cascade.md) | Cascade feed discard to mapping snapshots, fibers, and unshared lookups; block re-upload from duplicating approved mappings |
+| [001cs-shared-lookup-fibers](./ready/001cs-shared-lookup-fibers.md) | Fix shared lookup fibers missing data on Feed page |
 
 ## Completed
 

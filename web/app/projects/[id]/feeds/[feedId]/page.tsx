@@ -86,10 +86,11 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
 
   const loadAllData = async (token: string) => {
     try {
-      const [feedData, slicesData, fibersData] = await Promise.all([
+      const [feedData, slicesData, fibersData, mapsData] = await Promise.all([
         getFeedContract(token, projectId, feedId),
         listFeedSlices(token, projectId, feedId),
         listFeedFibers(token, projectId, feedId),
+        listLookupValueMaps(token, projectId, feedId),
       ]);
 
       setFeed(feedData);
@@ -105,7 +106,13 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
               getLookupSourceEntries(token, projectId, feedId, fiber.fiberId),
               getLookupDestEntries(token, projectId, feedId, fiber.fiberId),
             ]);
-            const sourceText = sourceEntries.map((e) => e.sourceValue).join("\n");
+            
+            let sourceText = sourceEntries.map((e) => e.sourceValue).join("\n");
+            const sharedMap = mapsData.find((m) => m.lookupName === fiber.fiberKey);
+            
+            if (!sourceText && sharedMap) {
+              sourceText = Object.keys(sharedMap.sourceValueMap).join("\n");
+            }
             
             // Reconstruct CSV for destination entries
             let destText = "";
@@ -118,7 +125,20 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                   if (typeof val === "string") {
                     return val.startsWith("'") && val.endsWith("'") ? val : `'${val}'`;
                   }
-                  return String(val);
+                  return val;
+                }).join(",")
+              );
+              destText = [headerRow, ...dataRows].join("\n");
+            } else if (sharedMap && sharedMap.destinationTable.length > 0) {
+              const columns = Object.keys(sharedMap.destinationTable[0]);
+              const headerRow = columns.join(",");
+              const dataRows = sharedMap.destinationTable.map((row) =>
+                columns.map((col) => {
+                  const val = row[col];
+                  if (typeof val === "string") {
+                    return val.startsWith("'") && val.endsWith("'") ? val : `'${val}'`;
+                  }
+                  return val;
                 }).join(",")
               );
               destText = [headerRow, ...dataRows].join("\n");

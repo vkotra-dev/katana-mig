@@ -300,7 +300,12 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
         const refTable = binding.referenceTableName || "unknown_ref";
         const latestMap = lookupMaps.find((m) => m.lookupName === binding.lookupName);
         const fiber = fibers.find(f => f.fiberKey === binding.lookupName);
-        const pairs = [];
+        const pairs: Array<{
+          sourceValue: string;
+          destinationRow: Record<string, unknown> | null;
+          confidenceScore: number;
+          status: "rejected" | "confirmed" | "pending";
+        }> = [];
         if (latestMap) {
           for (const [srcVal, destId] of Object.entries(latestMap.sourceValueMap)) {
             const destRow = latestMap.destinationTable.find(

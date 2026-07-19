@@ -14,7 +14,10 @@ from ..api.schemas import (
     FeedSliceResubmitRequest,
     FeedSliceResponse,
 )
-from ..db.models import ProjectMembership, ProjectRegistry, Feed, FeedSlice, FeedSliceRow, RunRecord, User, new_id
+from ..db.models import (
+    ProjectMembership, ProjectRegistry, Feed, FeedSlice, FeedSliceRow,
+    RunRecord, User, MappingSnapshot, ProjectFiber, LookupValueMap, new_id,
+)
 from ..intake.cobol_parser import parse_copybook
 from ..intake.csv_intake import ingest_csv
 from ..intake.fixed_intake import ingest_fixed
@@ -95,6 +98,44 @@ def discard_feed(
             409,
         )
 
+    # Cascade to mapping snapshots
+    snapshots = db.scalars(
+        select(MappingSnapshot).where(
+            MappingSnapshot.project_id == project_id,
+            MappingSnapshot.source_definition_id == source_definition_id,
+        )
+    ).all()
+    for snap in snapshots:
+        snap.status = "discarded"
+
+    # Cascade to fibers
+    fibers = db.scalars(
+        select(ProjectFiber).where(
+            ProjectFiber.project_id == project_id,
+            ProjectFiber.feed_id == source_definition_id,
+        )
+    ).all()
+    for fiber in fibers:
+        fiber.status = "discarded"
+
+    # Cascade to lookup value maps — only if not shared with another active feed
+    feed_lookup_names = _lookup_names_for_feed(list(snapshots))
+    shared = _shared_lookup_names(
+        db, project_id=project_id,
+        excluding_feed_id=source_definition_id,
+        candidate_names=feed_lookup_names,
+    )
+    exclusive_lookups = feed_lookup_names - shared
+    if exclusive_lookups:
+        lvms = db.scalars(
+            select(LookupValueMap).where(
+                LookupValueMap.project_id == project_id,
+                LookupValueMap.lookup_name.in_(exclusive_lookups),
+            )
+        ).all()
+        for lvm in lvms:
+            lvm.status = "discarded"
+
     feed.status = "discarded"
     record_management_audit(
         db,
@@ -106,6 +147,44 @@ def discard_feed(
     db.commit()
     db.refresh(feed)
     return _source_contract_response(feed)
+
+
+def _lookup_names_for_feed(snapshots: list[MappingSnapshot]) -> set[str]:
+    names: set[str] = set()
+    for snap in snapshots:
+        for b in (snap.field_bindings or []):
+            if b.get("binding_type") == "lookup_fk" and b.get("lookup_name"):
+                names.add(b["lookup_name"])
+    return names
+
+
+def _shared_lookup_names(
+    db: Session,
+    *,
+    project_id: str,
+    excluding_feed_id: str,
+    candidate_names: set[str],
+) -> set[str]:
+    if not candidate_names:
+        return set()
+    other_snapshots = db.scalars(
+        select(MappingSnapshot).where(
+            MappingSnapshot.project_id == project_id,
+            MappingSnapshot.source_definition_id != excluding_feed_id,
+            MappingSnapshot.source_definition_id.isnot(None),
+        )
+    ).all()
+    feed_ids = {s.source_definition_id for s in other_snapshots}
+    if not feed_ids:
+        return set()
+    active_feed_ids = set(db.scalars(
+        select(Feed.source_definition_id).where(
+            Feed.source_definition_id.in_(feed_ids),
+            Feed.status != "discarded",
+        )
+    ).all())
+    active_other = [s for s in other_snapshots if s.source_definition_id in active_feed_ids]
+    return candidate_names & _lookup_names_for_feed(active_other)
 
 
 def get_source_contract(db: Session, *, project_id: str, source_definition_id: str) -> FeedResponse:

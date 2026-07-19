@@ -7,11 +7,11 @@ from typing import Literal
 from sqlalchemy.exc import IntegrityError
 
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
-from ..api.schemas import MappingFieldBindingResponse, MappingReviewResponse, LookupTableReferenceResponse
+from ..api.schemas import MappingFieldBindingResponse, MappingReviewResponse
 from ..db.models import MappingSnapshot, ProjectDefinition, ProjectRegistry, Feed, LookupValueMap, new_id
 from ..management.platform import record_management_audit
 from ..management.source_analysis import get_latest_source_schema_artifact
@@ -322,6 +322,24 @@ def propose_mapping(
             )
         ).all()
     )
+    # Tables with an approved snapshot anywhere in this project (any active feed).
+    # Uses outerjoin so project-scoped snapshots (source_definition_id=NULL) are included,
+    # and discarded-feed snapshots are excluded even for historical data pre-Task-1.
+    project_approved = set(
+        db.scalars(
+            select(MappingSnapshot.destination_object_name)
+            .outerjoin(Feed, Feed.source_definition_id == MappingSnapshot.source_definition_id)
+            .where(
+                MappingSnapshot.project_id == project_id,
+                MappingSnapshot.status == "approved",
+                or_(
+                    MappingSnapshot.source_definition_id.is_(None),
+                    Feed.status != "discarded",
+                ),
+            )
+        ).all()
+    )
+    already_mapped_tables = already_mapped_tables | project_approved
     expected_table_names = set(ddl_tables.keys())
     if already_mapped_tables >= expected_table_names:
         raise AuthApiError("mapping_already_proposed", "Mapping has already been proposed for this feed.", 409)
