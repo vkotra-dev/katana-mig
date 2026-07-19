@@ -62,15 +62,20 @@ const generateCodingStandardsTemplate = (
      - Use T-SQL coding conventions: UPPERCASE SQL keywords, square brackets for identifiers only when necessary, proper schema qualifiers.
      - Stored procedures should check for object existence before drop/create, and use standard error handling (TRY...CATCH).
 
-### Migration SP Requirements
-  1. SET XACT_ABORT ON immediately after SET NOCOUNT ON
-  2. Validate source table is non-empty before MERGE; THROW if empty
-  3. Check for duplicate PKs in source before MERGE; THROW if duplicates found
-  4. Use THROW not RAISERROR for all error raising (SQL Server 2012+)
-  5. Return a result set after completion with: run_ref, rows_inserted, rows_updated, completed_at
-  6. Use CAST(COALESCE(inserted.[pk], deleted.[pk]) AS NVARCHAR(255)) for future-safe action logging
-  7. NULL values in source columns flow through unchanged unless destination is NOT NULL
-  8. Note index requirements on MERGE join key columns in comments`;
+     **Migration SP Requirements:**
+       1. SET XACT_ABORT ON immediately after SET NOCOUNT ON
+       2. Validate source table is non-empty before MERGE; THROW if empty
+       3. Check for duplicate PKs in source before MERGE; THROW if duplicates found
+       4. Use THROW not RAISERROR for all error raising (SQL Server 2012+)
+       5. Return a result set after completion with: run_ref, rows_inserted, rows_updated, completed_at
+       6. Use CAST(COALESCE(inserted.[pk], deleted.[pk]) AS NVARCHAR(255)) for future-safe action logging
+       7. NULL values in source columns flow through unchanged unless destination is NOT NULL
+       8. Note index requirements on MERGE join key columns in comments
+       9. FK lookups must be resolved via JOIN in MERGE source SELECT, not scalar variables. Every row gets its own resolved FK value.
+       10. run_ref must be dynamically generated inside the procedure: DECLARE @run_ref NVARCHAR(255) = '<procedure_name>_' + CONVERT(NVARCHAR(20), GETDATE(), 120) + '_' + CAST(NEWID() AS NVARCHAR(36)); Never accept as parameter, never hardcode.
+       11. Schemas [cxp] and [oc_stag] are assumed to exist. Never create, drop, or alter schemas in procedures or migration scripts.
+       12. Declare only variables that are used. Remove unused declarations.
+       13. Verify bracket and parenthesis balance before outputting SQL.`;
   } else if (lowerEngine === "oracle") {
     specificStandards = `
      - Use PL/SQL coding conventions: UPPERCASE keywords/types, clear EXCEPTION blocks, schema-qualified table references.
