@@ -78,7 +78,23 @@ const generateCodingStandardsTemplate = (
        13. CRITICAL: created_at, created_by, inserted_at and any column representing original record creation MUST NEVER appear in WHEN MATCHED THEN UPDATE SET. This applies to every MERGE in the procedure without exception.
        14. THROW syntax must follow the correct T-SQL argument order: THROW error_number, message_string, state; Never swap the message and state arguments.
        15. CRITICAL: Every stored procedure must wrap all DML in TRY...CATCH with explicit transaction management: BEGIN TRY / BEGIN TRANSACTION ... COMMIT / END TRY then BEGIN CATCH / ROLLBACK / THROW / END CATCH.
-       16. CRITICAL: Lookup tables created in the same script must be used in the MERGE source SELECT via JOIN to resolve FK values per row. Never create lookup tables and then ignore them in the MERGE.
+       16. CRITICAL: Lookup tables created in the same script must be used in the MERGE source SELECT via JOIN to resolve FK values per row. Never create lookup tables and then ignore them in the MERGE. Never alias a source column as an FK id — that is not a JOIN.
+
+       The correct pattern is:
+       USING (
+           SELECT 
+               s.*,
+               lk1.[id] AS resolved_fk1_id,
+               lk2.[id] AS resolved_fk2_id
+           FROM [oc_stag].[source_table] s
+           LEFT JOIN [oc_stag].[lookup_table_1] lk1 
+               ON lk1.[code_column] = s.[source_code_column_1]
+           LEFT JOIN [oc_stag].[lookup_table_2] lk2 
+               ON lk2.[code_column] = s.[source_code_column_2]
+           WHERE s.[pk_column] IS NOT NULL
+       ) AS source
+
+       Then reference source.resolved_fk1_id and source.resolved_fk2_id in the UPDATE SET and INSERT VALUES clauses instead of the raw source code columns.
        17. Every MERGE statement must include an OUTPUT clause logging to [oc_stag].[mig_upsert_log]. After all MERGEs complete, return a result set with run_ref, rows_inserted, rows_updated, completed_at derived from the log table.
        18. Duplicate PK check must be performed for every key column used in the MERGE ON clause before executing the MERGE.`;
   } else if (lowerEngine === "oracle") {
