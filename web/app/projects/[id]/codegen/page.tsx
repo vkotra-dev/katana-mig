@@ -67,7 +67,7 @@ const generateCodingStandardsTemplate = (
        1. SET XACT_ABORT ON immediately after SET NOCOUNT ON
        2. Validate source table is non-empty before MERGE; THROW if empty. The empty source validation THROW must occur before any MERGE statement executes.
        3. Use THROW not RAISERROR for all error raising (SQL Server 2012+)
-       4. Use CAST(COALESCE(inserted.[pk], deleted.[pk]) AS NVARCHAR(255)) for future-safe action logging — the CAST to NVARCHAR(255) is required to match the dest_row_id column type in mig_upsert_log. Only 'inserted' and 'deleted' pseudo-table aliases are valid inside the OUTPUT clause. Never use source, target, dest, or src aliases in OUTPUT. OUTPUT INTO [oc_stag].[mig_upsert_log] must specify the explicit destination column list: ([run_ref], [dest_table], [source_row_num], [dest_row_id], [action]).
+       4. Use CAST(COALESCE(inserted.[pk], deleted.[pk]) AS NVARCHAR(255)) for future-safe action logging. The CAST to NVARCHAR(255) is required to match the dest_row_id column type in mig_upsert_log. Use inserted and deleted pseudo-table aliases when logging destination-table column values in the OUTPUT clause. The MERGE source alias may be referenced only for source metadata such as source_row_num. Never use the target alias to retrieve the affected destination row identifier. OUTPUT INTO [oc_stag].[mig_upsert_log] must specify the explicit destination column list: ([run_ref], [dest_table], [source_row_num], [dest_row_id], [action]).
        5. NULL values in source columns flow through unchanged unless destination is NOT NULL
        6. Note index requirements on MERGE join key columns in comments
        7. FK lookups must be resolved via JOIN in MERGE source SELECT, not scalar variables. Every row gets its own resolved FK value.
@@ -80,17 +80,20 @@ const generateCodingStandardsTemplate = (
        10. Declare only variables that are used. Remove unused declarations.
        11. Never update the primary key column in WHEN MATCHED THEN UPDATE SET. The ON clause join key must never appear in the UPDATE column list.
        12. Verify bracket and parenthesis balance before outputting SQL.
-       13. CRITICAL: Row-level audit timestamps that track when a record was created or modified in THIS database (created_by, inserted_at, inserted_by, updated_at, updated_by) MUST NEVER appear in WHEN MATCHED THEN UPDATE SET. System-managed audit and technical columns such as created_at, created_by, inserted_at, inserted_by, updated_at, updated_by, rowversion, and timestamp must not be copied from the source or included in WHEN MATCHED THEN UPDATE SET unless explicitly identified as source-system business data.
+       13. CRITICAL: System-managed row-level audit and technical columns that track creation or modification in THIS database — such as created_at, created_by, inserted_at, inserted_by, updated_at, updated_by, rowversion, and timestamp — must not be copied from the source or included in WHEN MATCHED THEN UPDATE SET unless the column is explicitly identified as source-system business data.
 
            Business date fields from the source system that represent original business event dates are legitimate update columns and should be included.
 
-           If unsure whether a column is an audit timestamp or a business date, check the source DDL — audit timestamps are typically auto-generated (DEFAULT GETDATE(), IDENTITY) and must not be overwritten on update.
+           If unsure whether a column is an audit timestamp or a business date, check the source DDL. Audit timestamps are typically auto-generated using DEFAULT GETDATE(), DEFAULT SYSUTCDATETIME(), rowversion, timestamp, or similar database-managed behavior and must not be overwritten on update.
 
+           rowversion and SQL Server timestamp columns must not be explicitly inserted or updated.
+
+           WRONG:  target.created_at = source.created_at
            WRONG:  target.inserted_by = source.inserted_by
-           CORRECT: Omit inserted_by and similar system audit columns entirely from the UPDATE SET column list.
+           CORRECT: Omit created_at, inserted_by, and similar system-managed columns entirely from the UPDATE SET column list.
        14. THROW syntax must follow the correct T-SQL argument order: THROW error_number, message_string, state; Never swap the message and state arguments.
        15. CRITICAL: Every stored procedure must wrap all DML in TRY...CATCH with explicit transaction management: BEGIN TRY / BEGIN TRANSACTION ... COMMIT / END TRY then BEGIN CATCH / IF @@TRANCOUNT > 0 ROLLBACK / THROW / END CATCH.
-       16. CRITICAL: ALL lookup tables created in the same script must be used in the MERGE source SELECT via JOIN to resolve FK values per row — not just some of them. Never create lookup tables and then ignore them in the MERGE. Never alias a source column as an FK id — that is not a JOIN.
+       16. CRITICAL: ALL lookup tables created in the same script must be used by at least one relevant MERGE source SELECT via JOIN to resolve FK values per row — not just some of them. Never create lookup tables and then ignore them in the MERGE. Never alias a source column as an FK id — that is not a JOIN.
 
        The correct pattern is:
        USING (
@@ -111,7 +114,7 @@ const generateCodingStandardsTemplate = (
        18. Duplicate source-key checks must be performed for every key or composite key used in the MERGE ON clause before executing MERGE. If duplicate source keys exist, THROW before MERGE. Also validate that required MERGE key columns are not NULL.
        19. Lookup seed data must be idempotent. Never emit unconditional INSERT statements for lookup rows. Use IF NOT EXISTS or INSERT ... WHERE NOT EXISTS so rerunning the script cannot create duplicate lookup values.
        20. For lookup tables created by the script, every business code column used for FK resolution must have a UNIQUE constraint or UNIQUE index.
-       21. Before MERGE, validate that every required FK lookup resolved successfully. If a required resolved FK value is NULL, THROW before executing MERGE.`;
+       21. Before MERGE, validate that every required FK lookup resolved successfully. If a non-NULL source lookup code cannot be resolved to a required destination FK, THROW before executing MERGE. Preserve NULL only when the source value and destination FK are legitimately nullable.`;
   } else if (lowerEngine === "oracle") {
     specificStandards = `
      - Use PL/SQL coding conventions: UPPERCASE keywords/types, clear EXCEPTION blocks, schema-qualified table references.
@@ -134,9 +137,9 @@ const generateCodingStandardsTemplate = (
    - Write all DDL and stored procedures complying with the standard coding conventions pertinent to ${engineName}.${specificStandards}
 
 3. **General Best Practices**:
-   - Ensure all scripts are repeatable and idempotent (check for existence before creation, Use SQL Server-compatible idempotent patterns. Use CREATE OR ALTER for stored procedures and IF OBJECT_ID(...) IS NULL for tables. Do not drop and recreate persistent tables merely to make a script repeatable.).
+   - Ensure all scripts are repeatable and idempotent. Use SQL Server-compatible idempotent patterns: CREATE OR ALTER for stored procedures and IF OBJECT_ID(...) IS NULL for tables. Do not drop and recreate persistent tables merely to make a script repeatable.
    - Use explicit column lists in all INSERT statements.
-   - No default timestamps or hardcoded environment configurations.`;
+   - Do not hardcode environment-specific values. Do not create arbitrary default timestamps for business data columns. Database-managed audit columns, such as migration-log timestamps, may use an appropriate default when explicitly required by the schema.`;
 };
 
 const generateTransformationInstructionsTemplate = (
