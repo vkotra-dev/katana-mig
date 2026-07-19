@@ -66,19 +66,25 @@ const generateCodingStandardsTemplate = (
        1. SET XACT_ABORT ON immediately after SET NOCOUNT ON
        2. Validate source table is non-empty before MERGE; THROW if empty. The empty source validation THROW must occur before any MERGE statement executes.
        3. Use THROW not RAISERROR for all error raising (SQL Server 2012+)
-       4. Use CAST(COALESCE(inserted.[pk], deleted.[pk]) AS NVARCHAR(255)) for future-safe action logging — the CAST to NVARCHAR(255) is required to match the dest_row_id column type in mig_upsert_log.
+       4. Use CAST(COALESCE(inserted.[pk], deleted.[pk]) AS NVARCHAR(255)) for future-safe action logging — the CAST to NVARCHAR(255) is required to match the dest_row_id column type in mig_upsert_log. Only 'inserted' and 'deleted' pseudo-table aliases are valid inside the OUTPUT clause. Never use source, target, dest, or src aliases in OUTPUT.
        5. NULL values in source columns flow through unchanged unless destination is NOT NULL
        6. Note index requirements on MERGE join key columns in comments
        7. FK lookups must be resolved via JOIN in MERGE source SELECT, not scalar variables. Every row gets its own resolved FK value.
        8. run_ref must be dynamically generated inside the procedure using OBJECT_NAME(@@PROCID) as the procedure name prefix combined with GETDATE() and NEWID(). Never accept as parameter, never hardcode.
+          WRONG:  DECLARE @run_ref = '00000000-0000-4000-8000-...'
+          CORRECT: DECLARE @run_ref NVARCHAR(255) = OBJECT_NAME(@@PROCID) + '_' + 
+                   CONVERT(NVARCHAR(20), GETDATE(), 120) + '_' + 
+                   CAST(NEWID() AS NVARCHAR(36));
        9. Schemas [cxp] and [oc_stag] are assumed to exist. Never create, drop, or alter schemas in procedures or migration scripts.
        10. Declare only variables that are used. Remove unused declarations.
        11. Never update the primary key column in WHEN MATCHED THEN UPDATE SET. The ON clause join key must never appear in the UPDATE column list.
        12. Verify bracket and parenthesis balance before outputting SQL.
        13. CRITICAL: created_at, created_by, inserted_at and any column representing original record creation MUST NEVER appear in WHEN MATCHED THEN UPDATE SET. This applies to every MERGE in the procedure without exception.
+           WRONG:  target.created_at = source.created_at
+           CORRECT: Omit created_at entirely from the UPDATE SET column list.
        14. THROW syntax must follow the correct T-SQL argument order: THROW error_number, message_string, state; Never swap the message and state arguments.
-       15. CRITICAL: Every stored procedure must wrap all DML in TRY...CATCH with explicit transaction management: BEGIN TRY / BEGIN TRANSACTION ... COMMIT / END TRY then BEGIN CATCH / ROLLBACK / THROW / END CATCH.
-       16. CRITICAL: Lookup tables created in the same script must be used in the MERGE source SELECT via JOIN to resolve FK values per row. Never create lookup tables and then ignore them in the MERGE. Never alias a source column as an FK id — that is not a JOIN.
+       15. CRITICAL: Every stored procedure must wrap all DML in TRY...CATCH with explicit transaction management: BEGIN TRY / BEGIN TRANSACTION ... COMMIT / END TRY then BEGIN CATCH / IF @@TRANCOUNT > 0 ROLLBACK / THROW / END CATCH.
+       16. CRITICAL: ALL lookup tables created in the same script must be used in the MERGE source SELECT via JOIN to resolve FK values per row — not just some of them. Never create lookup tables and then ignore them in the MERGE. Never alias a source column as an FK id — that is not a JOIN.
 
        The correct pattern is:
        USING (
@@ -110,7 +116,8 @@ const generateCodingStandardsTemplate = (
   return `### Coding Standards and Guidelines
 
 1. **Schemas and Scoping**:
-   - All stored procedures and destination tables must be created under the "${dest}" schema.
+   - Migration and utility stored procedures must be created under the staging schema, not the destination schema.
+   - All destination tables must be created under the "${dest}" schema.
    - All staging and source tables must be read from the "${stg}" schema.
    - All DDL for lookup tables must be created in the "${stg}" schema.
 
