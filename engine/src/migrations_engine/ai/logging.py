@@ -42,4 +42,4 @@ def backfill_artifact_id(db: Session, call_id: str, artifact_id: str) -> None:
     entry = db.get(AICallLog, call_id)
     if entry is not None:
         entry.artifact_id = artifact_id
-        db.flush()
+        db.commit()
