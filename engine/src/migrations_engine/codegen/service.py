@@ -13,7 +13,12 @@ from sqlalchemy import case, or_, select, update
 from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
-from ..api.schemas import MigrationProjectConfig
+from ..api.schemas import (
+    MigrationProjectConfig,
+    CodegenArtifactResponse,
+    CodegenTriggerResponse,
+    DeliveryBundleResponse,
+)
 from ..db.models import (
     CodeGenerationArtifact,
     MappingSnapshot,
@@ -39,37 +44,6 @@ class GeneratedSQL(BaseModel):
     stored_procedures: list[str] = Field(default_factory=list)
     notes: str | None = None
 
-
-class CodegenTriggerResponse(BaseModel):
-    codegen_artifact_id: str
-    project_id: str
-    destination_object_name: str
-    status: Literal["active", "superseded"]
-    sql_bundle_preview: str
-    source_slice_version: str | None
-    mapping_snapshot_version: str | None
-    lookup_snapshot_version: str | None
-    created_at: datetime
-
-
-class CodegenArtifactResponse(BaseModel):
-    codegen_artifact_id: str
-    project_id: str
-    destination_object_name: str
-    run_id: str | None
-    source_slice_version: str | None
-    mapping_snapshot_version: str | None
-    lookup_snapshot_version: str | None
-    sql_bundle: str | None
-    status: Literal["active", "superseded"]
-    created_at: datetime
-    superseded_at: datetime | None
-
-
-class DeliveryBundleResponse(BaseModel):
-    filename: str = "delivery-bundle.sql"
-    sql_bundle: str
-    artifact_count: int
 
 
 def generate_codegen_artifact(
