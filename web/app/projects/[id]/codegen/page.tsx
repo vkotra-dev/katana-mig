@@ -79,9 +79,14 @@ const generateCodingStandardsTemplate = (
        10. Declare only variables that are used. Remove unused declarations.
        11. Never update the primary key column in WHEN MATCHED THEN UPDATE SET. The ON clause join key must never appear in the UPDATE column list.
        12. Verify bracket and parenthesis balance before outputting SQL.
-       13. CRITICAL: created_at, created_by, inserted_at and any column representing original record creation MUST NEVER appear in WHEN MATCHED THEN UPDATE SET. This applies to every MERGE in the procedure without exception.
-           WRONG:  target.created_at = source.created_at
-           CORRECT: Omit created_at entirely from the UPDATE SET column list.
+       13. CRITICAL: Row-level audit timestamps that track when a record was created or modified in THIS database (created_by, inserted_at, inserted_by, updated_at, updated_by) MUST NEVER appear in WHEN MATCHED THEN UPDATE SET.
+
+           Business date fields from the source system that represent original business event dates are legitimate update columns and should be included.
+
+           If unsure whether a column is an audit timestamp or a business date, check the source DDL — audit timestamps are typically auto-generated (DEFAULT GETDATE(), IDENTITY) and must not be overwritten on update.
+
+           WRONG:  target.inserted_by = source.inserted_by
+           CORRECT: Omit inserted_by and similar system audit columns entirely from the UPDATE SET column list.
        14. THROW syntax must follow the correct T-SQL argument order: THROW error_number, message_string, state; Never swap the message and state arguments.
        15. CRITICAL: Every stored procedure must wrap all DML in TRY...CATCH with explicit transaction management: BEGIN TRY / BEGIN TRANSACTION ... COMMIT / END TRY then BEGIN CATCH / IF @@TRANCOUNT > 0 ROLLBACK / THROW / END CATCH.
        16. CRITICAL: ALL lookup tables created in the same script must be used in the MERGE source SELECT via JOIN to resolve FK values per row — not just some of them. Never create lookup tables and then ignore them in the MERGE. Never alias a source column as an FK id — that is not a JOIN.
