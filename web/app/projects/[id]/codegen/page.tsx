@@ -76,7 +76,12 @@ const generateCodingStandardsTemplate = (
        11. Schemas [cxp] and [oc_stag] are assumed to exist. Never create, drop, or alter schemas in procedures or migration scripts.
        12. Declare only variables that are used. Remove unused declarations.
        13. Verify bracket and parenthesis balance before outputting SQL.
-       14. created_at, created_by, and similar audit creation columns must never appear in WHEN MATCHED THEN UPDATE SET clause.`;
+       14. created_at, created_by, inserted_at and any column representing original record creation MUST NEVER appear in WHEN MATCHED THEN UPDATE SET. This applies to every MERGE in the procedure without exception.
+       15. THROW syntax must follow the correct T-SQL argument order: THROW error_number, message_string, state; Never swap the message and state arguments.
+       16. Every stored procedure must wrap all DML in TRY...CATCH with explicit transaction management: BEGIN TRY / BEGIN TRANSACTION ... COMMIT / END TRY then BEGIN CATCH / ROLLBACK / THROW / END CATCH.
+       17. Lookup tables created in the same script must be used in the MERGE source SELECT via JOIN to resolve FK values per row. Never create lookup tables and then ignore them in the MERGE.
+       18. Every MERGE statement must include an OUTPUT clause logging to [oc_stag].[mig_upsert_log]. After all MERGEs complete, return a result set with run_ref, rows_inserted, rows_updated, completed_at derived from the log table.
+       19. Duplicate PK check must be performed for every key column used in the MERGE ON clause before executing the MERGE.`;
   } else if (lowerEngine === "oracle") {
     specificStandards = `
      - Use PL/SQL coding conventions: UPPERCASE keywords/types, clear EXCEPTION blocks, schema-qualified table references.
