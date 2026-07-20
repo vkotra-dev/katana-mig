@@ -47,16 +47,46 @@ from ..mapping.snapshots import select_latest_approved_lookup_snapshot
 from ..management.access import require_project_access
 from .lookup_mapping import _extract_destination_id
 from ..roles import PROJECT_STAKEHOLDER_ROLE
+from ..management.source_analysis import (
+    _build_sample_text,
+    _load_slice_rows,
+    _parse_csv_row,
+)
 
 
 logger = logging.getLogger(__name__)
 
 
-_LOOKUP_MAPPING_SYSTEM_PROMPT = (
-    "You are a lookup value mapper. Given a list of source values and "
-    "destination reference rows, propose the best match for each source value. "
-    "Return a JSON array."
-)
+from typing import Literal
+
+class _LookupIdentified(BaseModel):
+    column_name: str
+    lookup_name: str
+    sample_values: list[str] = []
+
+
+class _DomainObject(BaseModel):
+    destination_table: str
+
+
+class _FeedAnalysisResult(BaseModel):
+    lookups: list[_LookupIdentified]
+    domain_objects: list[_DomainObject]
+    unmatched_columns: list[str] = []
+
+
+class _FieldBinding(BaseModel):
+    source_field: str | None
+    destination_field: str
+    lookup_name: str | None
+    binding_type: Literal["direct", "lookup_fk", "detail_fk"] = "direct"
+    reference_table_name: str | None = None
+    destination_data_type: str | None = None
+
+
+class _FieldMappingResult(BaseModel):
+    field_bindings: list[_FieldBinding]
+    unmatched_source_fields: list[str] = []
 
 
 class _LookupProposal(BaseModel):
@@ -67,46 +97,48 @@ class _LookupProposal(BaseModel):
 
 class _LookupMappingResult(BaseModel):
     proposals: list[_LookupProposal]
-
+    unmatched_source_values: list[str] = []
 
 _FEED_ANALYSIS_SYSTEM = (
-    "You are a data migration analyst. "
-    "Given CSV column headers and a destination schema DDL, "
-    "identify all lookup columns and domain objects. Return JSON."
+    "You are a data migration analyst. Given CSV sample data and a destination schema DDL, "
+    "identify which destination tables this feed populates and which source columns are lookup "
+    "references.\n\n"
+    "Rules:\n"
+    "- Only include a destination table if at least two source columns map directly to its "
+    "non-FK columns. Do not include tables that would only receive FK values resolved at runtime.\n"
+    "- A source column is a lookup if it has low cardinality (few distinct values visible in "
+    "the sample) and its values reference a reference/code table rather than being free-form data. "
+    "Set sample_values to the distinct values you observe in the sample.\n"
+    "- List source columns that do not belong to any identified table in unmatched_columns.\n"
+    "- Return valid JSON matching the schema."
 )
 
 _FIELD_MAPPING_SYSTEM = (
-    "You are a field mapper. "
-    "Given source columns and destination DDL, propose field bindings. Return JSON. "
-    "For each binding set destination_data_type to the exact SQL type of the destination column "
-    "as declared in the destination_schema_ddl (e.g. 'INT', 'NVARCHAR(255)', 'DATE', 'DECIMAL(18,2)'). "
-    "Set destination_data_type to null if the column is not found in the DDL."
+    "You are a data migration specialist. Given CSV sample data, a target destination table, "
+    "and the full destination schema DDL, map each source column to its destination column.\n\n"
+    "Rules:\n"
+    "- Only create a binding where a source column has a clear correspondence to a destination "
+    "column. Do not invent bindings for auto-generated PKs, identity columns, or audit columns "
+    "(created_at, updated_at, modified_by, created_by).\n"
+    "- Classify each binding: 'direct' | 'lookup_fk' | 'detail_fk'.\n"
+    "- For lookup_fk and detail_fk, set reference_table_name to the referenced table name "
+    "(required — never null for these types).\n"
+    "- Set destination_data_type to the exact SQL type from the DDL "
+    "(e.g. 'INT', 'NVARCHAR(255)', 'DATE', 'DECIMAL(18,2)'). Null only if not in DDL.\n"
+    "- List source columns with no mapping in unmatched_source_fields.\n"
+    "- Return valid JSON matching the schema."
 )
 
-
-class _LookupIdentified(BaseModel):
-    column_name: str
-    lookup_name: str
-
-
-class _DomainObject(BaseModel):
-    destination_table: str
-
-
-class _FeedAnalysisResult(BaseModel):
-    lookups: list[_LookupIdentified]
-    domain_objects: list[_DomainObject]
-
-
-class _FieldBinding(BaseModel):
-    source_field: str | None
-    destination_field: str
-    lookup_name: str | None
-    destination_data_type: str | None = None
-
-
-class _FieldMappingResult(BaseModel):
-    field_bindings: list[_FieldBinding]
+_LOOKUP_MAPPING_SYSTEM_PROMPT = (
+    "You are a lookup value mapper. Given a list of source values from a migration feed and "
+    "the candidate destination reference rows, propose the best match for each source value.\n\n"
+    "Rules:\n"
+    "- Match on semantic meaning, not just string equality. Abbreviations, codes, and full "
+    "names that mean the same thing should match (e.g. 'A' -> 'Active', 'M' -> 'Male').\n"
+    "- Set confidence_score between 0.0 and 1.0. Use < 0.5 only when the match is a best guess.\n"
+    "- List source values with no confident match (score < 0.5) in unmatched_source_values.\n"
+    "- Return valid JSON matching the schema."
+)
 
 
 def create_fiber(
@@ -573,16 +605,26 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
         )
 
     source_headers = _parse_header_csv(approved_slice.header_csv)
+
+    _policy = feed.sample_policy or {}
+    _limit = int(_policy.get("max_rows") or 10)
+    raw_rows = _load_slice_rows(db, source_slice_id=approved_slice.source_slice_id, limit=_limit)
+    if approved_slice.header_csv and raw_rows:
+        from ..intake.masking import mask_row
+        _headers = _parse_csv_row(approved_slice.header_csv)
+        raw_rows = [mask_row(_headers, _parse_csv_row(r)) for r in raw_rows]
+    sample_text = _build_sample_text(header_csv=approved_slice.header_csv, rows=raw_rows)
+
     try:
         feed_analysis_adapter = get_adapter("feed_analysis", project_definition.model_policy)
     except TypeError:
         feed_analysis_adapter = get_adapter("feed_analysis")
-    user_prompt = json.dumps(
-        {
-            "source_headers": source_headers,
-            "destination_schema_ddl": destination_schema_ddl,
-        },
-        ensure_ascii=False,
+    n_rows = len(raw_rows)
+    user_prompt = (
+        f"Feed: {feed.source_definition_id}\n"
+        f"Sample data ({n_rows} rows):\n"
+        f"{sample_text}\n\n"
+        f"Destination schema DDL:\n{destination_schema_ddl}"
     )
     try:
         result = feed_analysis_adapter.call(
@@ -599,6 +641,7 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
             user=user_prompt,
             raw_response=result.raw_response,
         )
+        backfill_artifact_id(db, call_log1.call_id, feed.source_definition_id)
         feed_analysis_result = result.parsed
     except Exception as exc:
         log_ai_call(
@@ -648,13 +691,12 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
             field_mapping_adapter = get_adapter("field_mapping", project_definition.model_policy)
         except TypeError:
             field_mapping_adapter = get_adapter("field_mapping")
-        user_prompt2 = json.dumps(
-            {
-                "source_columns": source_headers,
-                "destination_table": fiber.fiber_key,
-                "destination_schema_ddl": destination_schema_ddl,
-            },
-            ensure_ascii=False,
+        user_prompt2 = (
+            f"Feed: {feed.source_definition_id}\n"
+            f"Target table: {fiber.fiber_key}\n"
+            f"Sample data ({n_rows} rows):\n"
+            f"{sample_text}\n\n"
+            f"Destination schema DDL:\n{destination_schema_ddl}"
         )
         try:
             result2 = field_mapping_adapter.call(

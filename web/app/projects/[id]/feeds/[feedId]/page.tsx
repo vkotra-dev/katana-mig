@@ -36,6 +36,7 @@ import { loadUiSession, type SessionRole, type UiSession } from "../../../../../
 import { type MappingTableRecord } from "../../../../../components/projects/ReviewGrid";
 import { splitCsvRow } from "../../../../../lib/csv-utils";
 import { UnifiedCommentThread } from "../../../../../components/feeds/UnifiedCommentThread";
+import { listAiCallLogs, type AICallLogRecord } from "../../../../../lib/ai-calls-api";
 
 export default function FeedDetailPage({ params }: { params: Promise<{ id: string; feedId: string }> }) {
   const router = useRouter();
@@ -61,6 +62,8 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
 
   // Lookup fibers drafts state
   const [lookupDrafts, setLookupDrafts] = useState<Record<string, { sourceText: string; destText: string; analyzing: boolean; error: string | null }>>({});
+  const [fiberAiLogs, setFiberAiLogs] = useState<Record<string, AICallLogRecord[]>>({});
+  const [expandedAiLogs, setExpandedAiLogs] = useState<Set<string>>(new Set());
 
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -226,6 +229,32 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
         if (status !== 409 && !isConflict) throw err;
       }
       await loadAllData(session.accessToken);
+      // Fetch AI call logs for each fiber (central_team/admin only)
+      if (role === "central_team" || role === "admin") {
+        try {
+          const feedLog = await listAiCallLogs(session.accessToken, projectId, {
+            callType: "feed_analysis",
+            artifactId: feedId,
+          });
+          const nextLogs: Record<string, AICallLogRecord[]> = { [feedId]: feedLog };
+          // Per-fiber field-mapping logs
+          const refreshedFibers = await listFeedFibers(session.accessToken, projectId, feedId);
+          await Promise.all(
+            refreshedFibers
+              .filter((f) => f.fiberType === "domain_object")
+              .map(async (f) => {
+                const logs = await listAiCallLogs(session.accessToken, projectId, {
+                  callType: "feed_analysis",
+                  artifactId: f.fiberId,
+                });
+                nextLogs[f.fiberId] = logs;
+              })
+          );
+          setFiberAiLogs((prev) => ({ ...prev, ...nextLogs }));
+        } catch {
+          // AI log fetch is best-effort; don't block the page
+        }
+      }
     } catch (err) {
       setAnalysisError(err instanceof Error ? err.message : "Unable to trigger AI analysis.");
     } finally {
@@ -370,6 +399,18 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
       const mapsData = await listLookupValueMaps(session.accessToken, projectId, feedId);
       setLookupMaps(mapsData);
 
+      if (role === "central_team" || role === "admin") {
+        try {
+          const logs = await listAiCallLogs(session.accessToken, projectId, {
+            callType: "lookup_mapping",
+            artifactId: targetFiberId,
+          });
+          setFiberAiLogs((prev) => ({ ...prev, [targetFiberId]: logs }));
+        } catch {
+          // best-effort
+        }
+      }
+
       setLookupDrafts(current => ({
         ...current,
         [lookupName]: { ...draft, error: null, analyzing: false }
@@ -425,6 +466,14 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
     setExpandedTables((prev) => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  };
+
+  const toggleAiLog = (key: string) => {
+    setExpandedAiLogs((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
   };
@@ -771,7 +820,63 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                     </button>
                   )}
                 </div>
-                
+
+                {/* AI Prompt Logs for feed */}
+                {(role === "central_team" || role === "admin") &&
+                  fiberAiLogs[feedId] &&
+                  fiberAiLogs[feedId].length > 0 && (
+                    <div className="mt-3 border-t border-outline-variant pt-3">
+                      <button
+                        onClick={() => toggleAiLog(feedId)}
+                        className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
+                      >
+                        <svg
+                          className={`w-3 h-3 transition-transform ${expandedAiLogs.has(feedId) ? "rotate-180" : ""}`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                        AI Prompt Log ({fiberAiLogs[feedId].length})
+                      </button>
+                      {expandedAiLogs.has(feedId) && (
+                        <div className="mt-2 space-y-3">
+                          {fiberAiLogs[feedId].map((log) => (
+                            <div key={log.callId} className="rounded border border-outline-variant bg-surface p-2 text-xs">
+                              <div className="mb-1 font-mono text-slate-500">
+                                {log.callType} · {log.modelId} · {new Date(log.calledAt).toLocaleString()}
+                              </div>
+                              {log.errorDetail && (
+                                <div className="mb-1 text-red-600">Error: {log.errorDetail}</div>
+                              )}
+                              <details className="mb-1">
+                                <summary className="cursor-pointer text-slate-600 hover:text-slate-900">System prompt</summary>
+                                <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded bg-surface-container p-2 font-mono text-[10px] text-slate-700">
+                                  {log.systemPrompt}
+                                </pre>
+                              </details>
+                              <details className="mb-1">
+                                <summary className="cursor-pointer text-slate-600 hover:text-slate-900">User prompt</summary>
+                                <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded bg-surface-container p-2 font-mono text-[10px] text-slate-700">
+                                  {log.userPrompt}
+                                </pre>
+                              </details>
+                              {log.rawResponse && (
+                                <details>
+                                  <summary className="cursor-pointer text-slate-600 hover:text-slate-900">Raw response</summary>
+                                  <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded bg-surface-container p-2 font-mono text-[10px] text-slate-700">
+                                    {log.rawResponse}
+                                  </pre>
+                                </details>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                 {mappingTables.length === 0 ? (
                   <div className="text-sm text-slate-500">No mapping proposals generated yet.</div>
                 ) : (
@@ -880,6 +985,61 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                                   </details>
                                 </div>
                               )}
+                              {/* AI Prompt Logs */}
+                              {(role === "central_team" || role === "admin") &&
+                                fiber && fiberAiLogs[fiber.fiberId] &&
+                                fiberAiLogs[fiber.fiberId].length > 0 && (
+                                  <div className="mt-3 border-t border-outline-variant pt-3 px-4 pb-4">
+                                    <button
+                                      onClick={() => toggleAiLog(fiber.fiberId)}
+                                      className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
+                                    >
+                                      <svg
+                                        className={`w-3 h-3 transition-transform ${expandedAiLogs.has(fiber.fiberId) ? "rotate-180" : ""}`}
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                      >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                      </svg>
+                                      AI Prompt Log ({fiberAiLogs[fiber.fiberId].length})
+                                    </button>
+                                    {expandedAiLogs.has(fiber.fiberId) && (
+                                      <div className="mt-2 space-y-3">
+                                        {fiberAiLogs[fiber.fiberId].map((log) => (
+                                          <div key={log.callId} className="rounded border border-outline-variant bg-surface p-2 text-xs">
+                                            <div className="mb-1 font-mono text-slate-500">
+                                              {log.callType} · {log.modelId} · {new Date(log.calledAt).toLocaleString()}
+                                            </div>
+                                            {log.errorDetail && (
+                                              <div className="mb-1 text-red-600">Error: {log.errorDetail}</div>
+                                            )}
+                                            <details className="mb-1">
+                                              <summary className="cursor-pointer text-slate-600 hover:text-slate-900">System prompt</summary>
+                                              <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded bg-surface-container p-2 font-mono text-[10px] text-slate-700">
+                                                {log.systemPrompt}
+                                              </pre>
+                                            </details>
+                                            <details className="mb-1">
+                                              <summary className="cursor-pointer text-slate-600 hover:text-slate-900">User prompt</summary>
+                                              <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded bg-surface-container p-2 font-mono text-[10px] text-slate-700">
+                                                {log.userPrompt}
+                                              </pre>
+                                            </details>
+                                            {log.rawResponse && (
+                                              <details>
+                                                <summary className="cursor-pointer text-slate-600 hover:text-slate-900">Raw response</summary>
+                                                <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded bg-surface-container p-2 font-mono text-[10px] text-slate-700">
+                                                  {log.rawResponse}
+                                                </pre>
+                                              </details>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                             </>
                           )}
                         </div>
@@ -1068,6 +1228,61 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                                   </div>
                                 </div>
                               )}
+                              {/* AI Prompt Logs */}
+                              {(role === "central_team" || role === "admin") &&
+                                fiber && fiberAiLogs[fiber.fiberId] &&
+                                fiberAiLogs[fiber.fiberId].length > 0 && (
+                                  <div className="mt-3 border-t border-outline-variant pt-3 px-4 pb-4">
+                                    <button
+                                      onClick={() => toggleAiLog(fiber.fiberId)}
+                                      className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
+                                    >
+                                      <svg
+                                        className={`w-3 h-3 transition-transform ${expandedAiLogs.has(fiber.fiberId) ? "rotate-180" : ""}`}
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                      >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                      </svg>
+                                      AI Prompt Log ({fiberAiLogs[fiber.fiberId].length})
+                                    </button>
+                                    {expandedAiLogs.has(fiber.fiberId) && (
+                                      <div className="mt-2 space-y-3">
+                                        {fiberAiLogs[fiber.fiberId].map((log) => (
+                                          <div key={log.callId} className="rounded border border-outline-variant bg-surface p-2 text-xs">
+                                            <div className="mb-1 font-mono text-slate-500">
+                                              {log.callType} · {log.modelId} · {new Date(log.calledAt).toLocaleString()}
+                                            </div>
+                                            {log.errorDetail && (
+                                              <div className="mb-1 text-red-600">Error: {log.errorDetail}</div>
+                                            )}
+                                            <details className="mb-1">
+                                              <summary className="cursor-pointer text-slate-600 hover:text-slate-900">System prompt</summary>
+                                              <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded bg-surface-container p-2 font-mono text-[10px] text-slate-700">
+                                                {log.systemPrompt}
+                                              </pre>
+                                            </details>
+                                            <details className="mb-1">
+                                              <summary className="cursor-pointer text-slate-600 hover:text-slate-900">User prompt</summary>
+                                              <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded bg-surface-container p-2 font-mono text-[10px] text-slate-700">
+                                                {log.userPrompt}
+                                              </pre>
+                                            </details>
+                                            {log.rawResponse && (
+                                              <details>
+                                                <summary className="cursor-pointer text-slate-600 hover:text-slate-900">Raw response</summary>
+                                                <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded bg-surface-container p-2 font-mono text-[10px] text-slate-700">
+                                                  {log.rawResponse}
+                                                </pre>
+                                              </details>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                             </div>
                           )}
                         </div>

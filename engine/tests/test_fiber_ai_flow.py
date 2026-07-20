@@ -292,3 +292,86 @@ def test_analyze_feed_api_returns_409_without_approved_slice(
 
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "feed_slice_not_ready"
+
+
+def test_analyze_feed_user_prompt_contains_sample_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """User prompt sent to the feed-analysis adapter must contain sample CSV rows."""
+    from migrations_engine.management.fibers import (
+        _DomainObject,
+        _FeedAnalysisResult,
+        _FieldBinding,
+        _FieldMappingResult,
+        _LookupIdentified,
+        analyze_feed,
+    )
+    from migrations_engine.db.models import FeedSliceRow
+
+    fake_get_adapter, feed_adapter, _ = _make_fake_get_adapter(
+        _FeedAnalysisResult(
+            lookups=[],
+            domain_objects=[_DomainObject(destination_table="customers")],
+        ),
+        _FieldMappingResult(field_bindings=[
+            _FieldBinding(source_field="CUST_ID", destination_field="id", lookup_name=None),
+        ]),
+    )
+    monkeypatch.setattr("migrations_engine.management.fibers.get_adapter", fake_get_adapter)
+
+    project_id, feed_id = _seed_feed_with_slice(header_csv="CUST_ID,ACCT_TYPE")
+
+    # Seed one sample row
+    with SessionLocal() as db:
+        slice_row = db.scalar(
+            select(FeedSlice).where(FeedSlice.source_definition_id == feed_id)
+        )
+        db.add(FeedSliceRow(
+            source_slice_id=slice_row.source_slice_id,
+            row_index=0,
+            row_csv="C001,SAVINGS",
+        ))
+        db.commit()
+
+    with SessionLocal() as db:
+        actor = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
+        analyze_feed(db, feed_id=feed_id, project_id=project_id, actor=actor)
+
+    assert len(feed_adapter.calls) == 1
+    prompt = feed_adapter.calls[0].user
+    assert "C001" in prompt, "Sample row data must appear in the user prompt"
+    assert "CUST_ID" in prompt, "Header must appear in the user prompt"
+
+
+def test_analyze_feed_step1_log_tagged_with_feed_artifact_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The step-1 AI call log must be backfilled with the feed's source_definition_id."""
+    from migrations_engine.management.fibers import (
+        _DomainObject,
+        _FeedAnalysisResult,
+        _FieldBinding,
+        _FieldMappingResult,
+        _LookupIdentified,
+        analyze_feed,
+    )
+    from migrations_engine.db.models import AICallLog
+
+    fake_get_adapter, _, _ = _make_fake_get_adapter(
+        _FeedAnalysisResult(lookups=[], domain_objects=[_DomainObject(destination_table="customers")]),
+        _FieldMappingResult(field_bindings=[
+            _FieldBinding(source_field="CUST_ID", destination_field="id", lookup_name=None),
+        ]),
+    )
+    monkeypatch.setattr("migrations_engine.management.fibers.get_adapter", fake_get_adapter)
+
+    project_id, feed_id = _seed_feed_with_slice()
+
+    with SessionLocal() as db:
+        actor = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
+        analyze_feed(db, feed_id=feed_id, project_id=project_id, actor=actor)
+        feed_analysis_log = db.scalar(
+            select(AICallLog)
+            .where(AICallLog.artifact_id == feed_id, AICallLog.call_type == "feed_analysis")
+        )
+    assert feed_analysis_log is not None, "Step-1 log must be tagged with feed_id as artifact_id"
