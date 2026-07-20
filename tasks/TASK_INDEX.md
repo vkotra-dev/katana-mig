@@ -4,13 +4,13 @@
 
 | Task | Summary |
 |---|---|
-| [001cx-data-driven-feed-analysis-prompts](./ready/001cx-data-driven-feed-analysis-prompts.md) | Sample CSV rows + rewritten prompts in analyze_feed; AI log viewer panel on feed page |
 
 ## Completed
 
 
 | Task | Summary |
 |---|---|
+| [001cx-data-driven-feed-analysis-prompts](./completed/001cx-data-driven-feed-analysis-prompts.md) | [summary](./summary/001cx-data-driven-feed-analysis.md) |
 | [001cw-fix-001cv-review-findings](./completed/001cw-fix-001cv-review-findings.md) | [summary](./summary/001cw-fix-001cv-review-findings.md) |
 | [001cs-shared-lookup-fibers](./completed/001cs-shared-lookup-fibers.md) | Shared lookup fallback already shipped in commit d25e18b — sourceValueMap and destinationTable fallback in place on Feed page |
 | [001ct-codegen-mssql-standards](./completed/001ct-codegen-mssql-standards.md) | MSSQL standards (XACT_ABORT, THROW, MERGE OUTPUT logging, duplicate key checks) already shipped in generateCodingStandardsTemplate — verified |
