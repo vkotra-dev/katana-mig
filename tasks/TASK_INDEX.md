@@ -5,6 +5,7 @@
 | Task | Summary |
 |---|---|
 | [001ct-codegen-mssql-standards](./ready/001ct-codegen-mssql-standards.md) | Add MS SQL Migration SP Requirements to Codegen Standards Template |
+| [001cu-generate-transformation-instructions](./001cu-generate-transformation-instructions.md) | Restrict transformation instructions to data only, no SQL execution logic |
 
 ## Completed
 
