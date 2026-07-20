@@ -11,6 +11,8 @@
 
 | Task | Summary |
 |---|---|
+| [001cw-fix-001cv-review-findings](./completed/001cw-fix-001cv-review-findings.md) | [summary](./summary/001cw-fix-001cv-review-findings.md) |
+| [001cv-revise-transformation-instructions-template](./completed/001cv-revise-transformation-instructions-template.md) | [summary](./summary/001cv-revise-transformation-instructions-template.md) |
 | [001cu-generate-transformation-instructions](./completed/001cu-generate-transformation-instructions.md) | [summary](./summary/001cu-generate-transformation-instructions.md) |
 | [001cp-migration-run-logging](./completed/001cp-migration-run-logging.md) | [summary](./summary/001cp-migration-run-logging.md) |
 | [001co-ai-call-log](./completed/001co-ai-call-log.md) | [summary](./summary/001co-ai-call-log.md) |
