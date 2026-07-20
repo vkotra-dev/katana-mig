@@ -4,15 +4,16 @@
 
 | Task | Summary |
 |---|---|
-| [001cz-ai-call-log-feature-model](./001cz-ai-call-log-feature-model.md) | Add feature taxonomy (feed_mapping/codegen) + pagination to ai_call_log, fix source_analysis's missing artifact_id, add feed_id to CodeGenerationArtifact. First of three. |
-| [001da-ai-log-viewer](./001da-ai-log-viewer.md) | Dedicated AiLogViewer hook+component wired into Feed and Codegen pages, replacing per-page duplicated grids and the legacy ai_trace panel. Depends on 001cz. |
-| [001db-drop-legacy-ai-log-columns](./001db-drop-legacy-ai-log-columns.md) | Drop MappingSnapshot.ai_trace and CodeGenerationArtifact compiled_*/raw_llm_response columns once 001da moves all readers off them. Depends on 001da. |
+| [001ce-project-member-autocomplete](./001ce-project-member-autocomplete.md) | PM Scoping, Admin Project Management, Member Autocomplete |
 
 ## Completed
 
 
 | Task | Summary |
 |---|---|
+| [001db-drop-legacy-ai-log-columns](./completed/001db-drop-legacy-ai-log-columns.md) | [summary](./summary/001db-drop-legacy-ai-log-columns.md) |
+| [001da-ai-log-viewer](./completed/001da-ai-log-viewer.md) | [summary](./summary/001da-ai-log-viewer.md) |
+| [001cz-ai-call-log-feature-model](./completed/001cz-ai-call-log-feature-model.md) | [summary](./summary/001cz-ai-call-log-feature-model.md) |
 | [001cx-data-driven-feed-analysis-prompts](./completed/001cx-data-driven-feed-analysis-prompts.md) | [summary](./summary/001cx-data-driven-feed-analysis.md) |
 | [001cw-fix-001cv-review-findings](./completed/001cw-fix-001cv-review-findings.md) | [summary](./summary/001cw-fix-001cv-review-findings.md) |
 | [001cs-shared-lookup-fibers](./completed/001cs-shared-lookup-fibers.md) | Shared lookup fallback already shipped in commit d25e18b — sourceValueMap and destinationTable fallback in place on Feed page |
