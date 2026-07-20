@@ -1,21 +1,42 @@
-# Task: 001cu-generate-transformation-instructions
-
-## Objective
-Restrict `generateTransformationInstructionsTemplate` in `web/app/projects/[id]/codegen/page.tsx` to generate only feed-specific user-prompt data. It must no longer emit SQL execution strategy or mapping implementation rules (e.g. chunking strategy, "Table Mappings & Stored Procedures", "upsert the mapped source fields"), as those responsibilities belong strictly to the system prompt.
-
-## Description
-The current implementation of `generateTransformationInstructionsTemplate` leaks system-level SQL generation logic into the user prompt. We need to replace the local sections (`lookupSection`, `mappingSection`, `strategy`) to only provide:
-- Approved lookup names
-- Approved lookup source and destination values
-- Source table identity
-- Destination object identities
-- Approved field bindings and their lookup annotations
-- Estimated source row count
-
-The function should serialize the mapping data correctly and return a focused template literal.
-
-## Related Files
-- `web/app/projects/[id]/codegen/page.tsx`
+# Task: 001cu — Generate Transformation Instructions
 
 ## Status
-Ready
+Completed
+
+## Background
+
+`generateTransformationInstructionsTemplate` in `web/app/projects/[id]/codegen/page.tsx` was emitting SQL execution strategy into the user prompt — chunking strategy, upsert rules, "Table Mappings & Stored Procedures" headings — content that belongs exclusively in the system prompt (global coding standards). This created redundancy and confusion in the AI prompt, with user-prompt directives potentially conflicting with or overriding system-prompt standards.
+
+## Goal
+
+Restrict `generateTransformationInstructionsTemplate` to only serialize feed-specific mapping data:
+1. Approved lookup names and their source → destination value mappings.
+2. Approved destination object field bindings (with lookup annotations).
+3. Estimated source row count.
+
+Drop the `strategy` variable and all SQL execution directives entirely.
+
+## Design Decisions
+
+- No changes to `generateCodingStandardsTemplate` — SQL standards stay in the system prompt.
+- No changes to backend templates or system prompt `.j2` files.
+- Function signature unchanged — callers unaffected.
+
+## Changes
+
+- `web/app/projects/[id]/codegen/page.tsx` — replaced `generateTransformationInstructionsTemplate` body; removed `strategy` variable
+
+## Plan
+
+[2026-07-20-001cu-generate-transformation-instructions.md](../plans/2026-07-20-001cu-generate-transformation-instructions.md)
+
+## Summary
+
+[summary/001cu-generate-transformation-instructions.md](../summary/001cu-generate-transformation-instructions.md)
+
+## Verification
+
+1. `strategy` variable absent from `generateTransformationInstructionsTemplate`.
+2. Generated template contains only lookup data, field bindings, and row count — no SQL directives.
+3. `generateCodingStandardsTemplate` has no diff.
+4. TypeScript compilation passes.
