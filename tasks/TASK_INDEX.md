@@ -5,12 +5,13 @@
 | Task | Summary |
 |---|---|
 | [001ct-codegen-mssql-standards](./ready/001ct-codegen-mssql-standards.md) | Add MS SQL Migration SP Requirements to Codegen Standards Template |
-| [001cu-generate-transformation-instructions](./001cu-generate-transformation-instructions.md) | Restrict transformation instructions to data only, no SQL execution logic |
 
 ## Completed
 
+
 | Task | Summary |
 |---|---|
+| [001cu-generate-transformation-instructions](./completed/001cu-generate-transformation-instructions.md) | [summary](./summary/001cu-generate-transformation-instructions.md) |
 | [001cp-migration-run-logging](./completed/001cp-migration-run-logging.md) | [summary](./summary/001cp-migration-run-logging.md) |
 | [001co-ai-call-log](./completed/001co-ai-call-log.md) | [summary](./summary/001co-ai-call-log.md) |
 | [001cm-slice-comment-thread](./completed/001cm-slice-comment-thread.md) | [summary](./summary/001cm-slice-comment-thread.md) |
