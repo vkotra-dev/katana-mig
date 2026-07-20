@@ -149,64 +149,103 @@ const generateTransformationInstructionsTemplate = (
   stagingSchema: string,
   snapshots: MappingSnapshotRecord[]
 ): string => {
-  const approvedFibers = fibers.filter(f =>
-    f.status === "business_approved" ||
-    f.status === "operator_triggered" ||
-    f.status === "codegen_complete" ||
-    f.status === "active" ||
-    f.status === "approved"
+  const approvedFibers = fibers.filter(
+    f =>
+      f.status === "business_approved" ||
+      f.status === "operator_triggered" ||
+      f.status === "codegen_complete" ||
+      f.status === "active" ||
+      f.status === "approved"
   );
-  const lookupFibers = approvedFibers.filter(f => f.fiberType === "lookup");
-  const domainFibers = approvedFibers.filter(f => f.fiberType === "domain_object");
 
-  let lookupSection = "";
-  if (lookupFibers.length > 0) {
-    lookupSection = "\n### 1. Lookup Tables\n";
-    lookupFibers.forEach(f => {
-      lookupSection += `- Create a lookup table "${f.fiberKey}" with source as first column and destination columns as other fields and instruction for the code generation lookup mechanism to find the id values from "${f.fiberKey}" for insert.\n`;
-      const mappings = f.proposedMappings ?? [];
-      if (mappings.length > 0) {
-        lookupSection += "  Seed values:\n";
-        mappings.forEach(m => {
-          const destVal = m.destRow ? JSON.stringify(m.destRow) : (m.destEntryId ?? "NULL");
-          lookupSection += `    * Source value: "${m.sourceValue}" -> Destination: ${destVal}\n`;
-        });
-      }
-    });
+  const lookupFibers = approvedFibers.filter(
+    f => f.fiberType === "lookup"
+  );
+
+  const domainFibers = approvedFibers.filter(
+    f => f.fiberType === "domain_object"
+  );
+
+  let lookupSection = "\n### 1. Approved Lookup Data\n";
+
+  if (lookupFibers.length === 0) {
+    lookupSection +=
+      "- No approved lookup data was identified for this feed.\n";
   } else {
-    lookupSection = "\n### 1. Lookup Tables\n- No lookup fibers identified for this feed.\n";
-  }
+    lookupFibers.forEach(fiber => {
+      lookupSection += `- Approved lookup: "${fiber.fiberKey}"\n`;
 
-  let mappingSection = "";
-  if (domainFibers.length > 0) {
-    mappingSection = "\n### 2. Table Mappings & Stored Procedures\n";
-    mappingSection += `Look for a table in the source schema with the same name as the feed ("${feedLabel}") and upsert the mapped source fields into the target destination table(s) using the stakeholder-approved field mappings described below:\n\n`;
-    domainFibers.forEach(f => {
-      mappingSection += `- **Table Mapping Fiber: "${f.fiberKey}" (Source: "${feedLabel}" -> Destination: "${f.fiberKey}")**\n`;
-      const snap = snapshots.find(s => s.destinationObjectName === f.fiberKey);
-      const bindings = snap ? snap.fieldBindings : (f.fieldBindings ?? []);
-      bindings.forEach(b => {
-        const lkpText = b.lookupName ? ` (Lookup: ${b.lookupName})` : "";
-        mappingSection += `    * Source field "${b.sourceField}" -> Destination column "${b.destinationField}"${lkpText}\n`;
+      const mappings = fiber.proposedMappings ?? [];
+
+      if (mappings.length === 0) {
+        lookupSection += "  Approved mappings: none\n";
+        return;
+      }
+
+      lookupSection += "  Approved mappings:\n";
+
+      mappings.forEach(mapping => {
+        const sourceValue = JSON.stringify(mapping.sourceValue);
+
+        const destinationValue = mapping.destRow
+          ? JSON.stringify(mapping.destRow)
+          : JSON.stringify(mapping.destEntryId ?? null);
+
+        lookupSection +=
+          `    * Source value: ${sourceValue}` +
+          ` -> Destination: ${destinationValue}\n`;
       });
     });
+  }
+
+  let mappingSection = "\n### 2. Approved Destination Mappings\n";
+
+  mappingSection += `- Source table: "${stagingSchema}.${feedLabel}"\n`;
+
+  if (domainFibers.length === 0) {
+    mappingSection +=
+      "- No approved destination mappings were identified for this feed.\n";
   } else {
-    mappingSection = "\n### 2. Table Mappings & Stored Procedures\n- No table mapping fibers identified for this feed.\n";
+    domainFibers.forEach(fiber => {
+      const snapshot = snapshots.find(
+        snapshot =>
+          snapshot.destinationObjectName === fiber.fiberKey
+      );
+
+      const bindings =
+        snapshot?.fieldBindings ?? fiber.fieldBindings ?? [];
+
+      mappingSection +=
+        `\n- Destination object: "${fiber.fiberKey}"\n`;
+
+      if (bindings.length === 0) {
+        mappingSection += "  Field bindings: none\n";
+        return;
+      }
+
+      mappingSection += "  Field bindings:\n";
+
+      bindings.forEach(binding => {
+        const lookupText = binding.lookupName
+          ? ` (Lookup: ${binding.lookupName})`
+          : "";
+
+        mappingSection +=
+          `    * Source field "${binding.sourceField}"` +
+          ` -> Destination column "${binding.destinationField}"` +
+          `${lookupText}\n`;
+      });
+    });
   }
 
-  let strategy = "Insert always has to be row by row only and follow the logging strategy";
-  if (rowCount > 100000) {
-    strategy = "Chunked / Batch Upsert stored procedure (High volume > 100k rows)";
-  } else if (rowCount > 10000) {
-    strategy = "Bulk copy upsert with merge statement (Medium volume > 10k rows)";
-  }
+  const sourceCharacteristicsSection =
+    "\n### 3. Source Characteristics\n" +
+    `- Estimated source row count: ${rowCount}\n`;
 
-  return `### Transformation Instructions for Feed: ${feedLabel}
-
+  return `### Transformation Specification for Feed: ${feedLabel}
 ${lookupSection}
 ${mappingSection}
-### 3. Execution Strategy
-- Recommended strategy: **${strategy}**`;
+${sourceCharacteristicsSection}`;
 };
 
 export default function CodegenPage({ params }: { params: Promise<{ id: string }> }) {
