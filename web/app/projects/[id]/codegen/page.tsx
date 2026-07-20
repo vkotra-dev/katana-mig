@@ -166,6 +166,8 @@ const generateTransformationInstructionsTemplate = (
     f => f.fiberType === "domain_object"
   );
 
+  const schema = stagingSchema || "staging";
+
   let lookupSection = "\n### 1. Approved Lookup Data\n";
 
   if (lookupFibers.length === 0) {
@@ -189,7 +191,7 @@ const generateTransformationInstructionsTemplate = (
 
         const destinationValue = mapping.destRow
           ? JSON.stringify(mapping.destRow)
-          : JSON.stringify(mapping.destEntryId ?? null);
+          : (mapping.destEntryId ?? "null");
 
         lookupSection +=
           `    * Source value: ${sourceValue}` +
@@ -200,7 +202,7 @@ const generateTransformationInstructionsTemplate = (
 
   let mappingSection = "\n### 2. Approved Destination Mappings\n";
 
-  mappingSection += `- Source table: "${stagingSchema}.${feedLabel}"\n`;
+  mappingSection += `- Source table: "${schema}.${feedLabel}"\n`;
 
   if (domainFibers.length === 0) {
     mappingSection +=
@@ -208,8 +210,8 @@ const generateTransformationInstructionsTemplate = (
   } else {
     domainFibers.forEach(fiber => {
       const snapshot = snapshots.find(
-        snapshot =>
-          snapshot.destinationObjectName === fiber.fiberKey
+        snap =>
+          snap.destinationObjectName === fiber.fiberKey
       );
 
       const bindings =
