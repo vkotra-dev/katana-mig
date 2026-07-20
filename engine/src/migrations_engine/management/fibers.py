@@ -635,6 +635,7 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
         call_log1 = log_ai_call(
             db,
             project_id=project_id,
+            feature="feed_mapping",
             call_type="feed_analysis",
             model_id=feed_analysis_adapter.model_id,
             system=_FEED_ANALYSIS_SYSTEM,
@@ -647,6 +648,7 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
         log_ai_call(
             db,
             project_id=project_id,
+            feature="feed_mapping",
             call_type="feed_analysis",
             model_id=feed_analysis_adapter.model_id,
             system=_FEED_ANALYSIS_SYSTEM,
@@ -707,6 +709,7 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
             call_log2 = log_ai_call(
                 db,
                 project_id=project_id,
+                feature="feed_mapping",
                 call_type="feed_analysis",
                 model_id=field_mapping_adapter.model_id,
                 system=_FIELD_MAPPING_SYSTEM,
@@ -719,6 +722,7 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
             log_ai_call(
                 db,
                 project_id=project_id,
+                feature="feed_mapping",
                 call_type="feed_analysis",
                 model_id=field_mapping_adapter.model_id,
                 system=_FIELD_MAPPING_SYSTEM,
@@ -842,6 +846,7 @@ def submit_lookup_inputs(
         call_log3 = log_ai_call(
             db,
             project_id=project_id,
+            feature="feed_mapping",
             call_type="lookup_mapping",
             model_id=adapter.model_id,
             system=_LOOKUP_MAPPING_SYSTEM_PROMPT,
@@ -854,6 +859,7 @@ def submit_lookup_inputs(
         log_ai_call(
             db,
             project_id=project_id,
+            feature="feed_mapping",
             call_type="lookup_mapping",
             model_id=adapter.model_id,
             system=_LOOKUP_MAPPING_SYSTEM_PROMPT,

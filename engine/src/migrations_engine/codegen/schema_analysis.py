@@ -46,6 +46,7 @@ def run_schema_analysis(db: Session, *, project_id: str) -> ProjectSchemaAnalysi
         call_log = log_ai_call(
             db,
             project_id=project_id,
+            feature="codegen",
             call_type="schema_analysis",
             model_id=adapter.model_id,
             system=SYSTEM_PROMPT,
@@ -57,6 +58,7 @@ def run_schema_analysis(db: Session, *, project_id: str) -> ProjectSchemaAnalysi
         log_ai_call(
             db,
             project_id=project_id,
+            feature="codegen",
             call_type="schema_analysis",
             model_id=adapter.model_id,
             system=SYSTEM_PROMPT,

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
 from ..db.models import Feed, FeedSlice, FeedSliceRow, new_id
-from .masking import is_pii_field, mask_row
+from .masking import is_pii_field
 
 
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024

@@ -16,18 +16,30 @@ router = APIRouter(prefix="/projects/{project_id}/ai-calls", tags=["ai-calls"])
 @router.get("", response_model=list[AICallLogResponse])
 def get_ai_calls(
     project_id: str,
+    feature: str | None = None,
     call_type: str | None = None,
     artifact_id: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
     actor: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[AICallLogResponse]:
     if actor.role not in {ADMIN_ROLE, CENTRAL_TEAM_ROLE}:
         raise AuthApiError("forbidden", "Admin or central team access required.", 403)
     require_project_access(db, user=actor, project_id=project_id)
-    rows = list_ai_calls(db, project_id=project_id, call_type=call_type, artifact_id=artifact_id)
+    rows = list_ai_calls(
+        db, 
+        project_id=project_id, 
+        feature=feature,
+        call_type=call_type, 
+        artifact_id=artifact_id,
+        limit=limit,
+        offset=offset,
+    )
     return [
         AICallLogResponse(
             call_id=r.call_id,
+            feature=r.feature,
             call_type=r.call_type,
             artifact_id=r.artifact_id,
             model_id=r.model_id,

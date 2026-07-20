@@ -4,6 +4,9 @@
 
 | Task | Summary |
 |---|---|
+| [001cz-ai-call-log-feature-model](./001cz-ai-call-log-feature-model.md) | Add feature taxonomy (feed_mapping/codegen) + pagination to ai_call_log, fix source_analysis's missing artifact_id, add feed_id to CodeGenerationArtifact. First of three. |
+| [001da-ai-log-viewer](./001da-ai-log-viewer.md) | Dedicated AiLogViewer hook+component wired into Feed and Codegen pages, replacing per-page duplicated grids and the legacy ai_trace panel. Depends on 001cz. |
+| [001db-drop-legacy-ai-log-columns](./001db-drop-legacy-ai-log-columns.md) | Drop MappingSnapshot.ai_trace and CodeGenerationArtifact compiled_*/raw_llm_response columns once 001da moves all readers off them. Depends on 001da. |
 
 ## Completed
 

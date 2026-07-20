@@ -8,7 +8,7 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 
-from .adapter import AICallError, AICallResult, ConfigurationError
+from .adapter import AICallError, AICallResult
 from .config import get_ai_config, resolve_model
 from ..api.schemas import ModelPolicy
 
@@ -52,7 +52,8 @@ class OllamaAdapter:
         if ".local" in base_url:
             try:
                 from urllib.parse import urlparse
-                import subprocess, re
+                import subprocess
+                import re
                 host = urlparse(base_url).hostname
                 if host and host.endswith(".local"):
                     out = subprocess.check_output(["ping", "-c", "1", host], stderr=subprocess.STDOUT, text=True)

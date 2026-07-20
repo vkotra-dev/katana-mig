@@ -483,30 +483,28 @@ class SourceValueSummaryResponse(BaseModel):
 class CodegenTriggerResponse(BaseModel):
     codegen_artifact_id: str
     project_id: str
+    feed_id: str | None = Field(default=None, validation_alias="source_definition_id")
     destination_object_name: str
     status: Literal["active", "superseded"]
     sql_bundle_preview: str
     source_slice_version: str | None
     mapping_snapshot_version: str | None
     lookup_snapshot_version: str | None
-    compiled_system_prompt: str | None = None
-    compiled_user_prompt: str | None = None
-    raw_llm_response: str | None = None
+
     created_at: datetime
 
 
 class CodegenArtifactResponse(BaseModel):
     codegen_artifact_id: str
     project_id: str
+    feed_id: str | None = Field(default=None, validation_alias="source_definition_id")
     destination_object_name: str
     run_id: str | None
     source_slice_version: str | None
     mapping_snapshot_version: str | None
     lookup_snapshot_version: str | None
     sql_bundle: str | None
-    compiled_system_prompt: str | None = None
-    compiled_user_prompt: str | None = None
-    raw_llm_response: str | None = None
+
     status: Literal["active", "superseded"]
     created_at: datetime
     superseded_at: datetime | None
@@ -589,8 +587,6 @@ class MappingSnapshotResponse(BaseModel):
     created_at: datetime
     lookup_table_references: list[LookupTableReferenceResponse] = []
     destination_fields: list[str] = []
-    ai_trace: dict | None = None
-
 
 class MappingPatchRequest(BaseModel):
     field_bindings: list[MappingFieldBindingResponse]
@@ -881,6 +877,7 @@ class PokeRequest(BaseModel):
 
 class AICallLogResponse(BaseModel):
     call_id: str
+    feature: str
     call_type: str
     artifact_id: str | None
     model_id: str

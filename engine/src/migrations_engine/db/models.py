@@ -377,7 +377,6 @@ class MappingSnapshot(Base):
     current_ball_role: Mapped[str | None] = mapped_column(String(50), nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     approved_by_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.user_id"))
-    ai_trace: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -612,6 +611,9 @@ class CodeGenerationArtifact(Base):
     project_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("project_registry.project_id"), nullable=False, index=True
     )
+    source_definition_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("source_definitions.source_definition_id"), nullable=True, index=True
+    )
     destination_object_name: Mapped[str] = mapped_column(String(255), nullable=False)
     run_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("run_records.run_id"), nullable=True, index=True
@@ -620,9 +622,7 @@ class CodeGenerationArtifact(Base):
     mapping_snapshot_version: Mapped[str | None] = mapped_column(String(255))
     lookup_snapshot_version: Mapped[str | None] = mapped_column(String(255))
     sql_bundle: Mapped[str | None] = mapped_column(Text)
-    compiled_system_prompt: Mapped[str | None] = mapped_column(Text)
-    compiled_user_prompt: Mapped[str | None] = mapped_column(Text)
-    raw_llm_response: Mapped[str | None] = mapped_column(Text)
+
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -728,6 +728,7 @@ class AICallLog(Base):
     project_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("project_registry.project_id"), nullable=False, index=True
     )
+    feature: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     call_type: Mapped[str] = mapped_column(String(64), nullable=False)
     artifact_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     model_id: Mapped[str] = mapped_column(String(128), nullable=False)

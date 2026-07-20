@@ -36,7 +36,7 @@ import { loadUiSession, type SessionRole, type UiSession } from "../../../../../
 import { type MappingTableRecord } from "../../../../../components/projects/ReviewGrid";
 import { splitCsvRow } from "../../../../../lib/csv-utils";
 import { UnifiedCommentThread } from "../../../../../components/feeds/UnifiedCommentThread";
-import { listAiCallLogs, type AICallLogRecord } from "../../../../../lib/ai-calls-api";
+import { AiLogViewer } from "../../../../../components/ai-logs/AiLogViewer";
 
 export default function FeedDetailPage({ params }: { params: Promise<{ id: string; feedId: string }> }) {
   const router = useRouter();
@@ -62,8 +62,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
 
   // Lookup fibers drafts state
   const [lookupDrafts, setLookupDrafts] = useState<Record<string, { sourceText: string; destText: string; analyzing: boolean; error: string | null }>>({});
-  const [fiberAiLogs, setFiberAiLogs] = useState<Record<string, AICallLogRecord[]>>({});
-  const [expandedAiLogs, setExpandedAiLogs] = useState<Set<string>>(new Set());
+
 
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -229,32 +228,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
         if (status !== 409 && !isConflict) throw err;
       }
       await loadAllData(session.accessToken);
-      // Fetch AI call logs for each fiber (central_team/admin only)
-      if (role === "central_team" || role === "admin") {
-        try {
-          const feedLog = await listAiCallLogs(session.accessToken, projectId, {
-            callType: "feed_analysis",
-            artifactId: feedId,
-          });
-          const nextLogs: Record<string, AICallLogRecord[]> = { [feedId]: feedLog };
-          // Per-fiber field-mapping logs
-          const refreshedFibers = await listFeedFibers(session.accessToken, projectId, feedId);
-          await Promise.all(
-            refreshedFibers
-              .filter((f) => f.fiberType === "domain_object")
-              .map(async (f) => {
-                const logs = await listAiCallLogs(session.accessToken, projectId, {
-                  callType: "feed_analysis",
-                  artifactId: f.fiberId,
-                });
-                nextLogs[f.fiberId] = logs;
-              })
-          );
-          setFiberAiLogs((prev) => ({ ...prev, ...nextLogs }));
-        } catch {
-          // AI log fetch is best-effort; don't block the page
-        }
-      }
+
     } catch (err) {
       setAnalysisError(err instanceof Error ? err.message : "Unable to trigger AI analysis.");
     } finally {
@@ -399,17 +373,6 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
       const mapsData = await listLookupValueMaps(session.accessToken, projectId, feedId);
       setLookupMaps(mapsData);
 
-      if (role === "central_team" || role === "admin") {
-        try {
-          const logs = await listAiCallLogs(session.accessToken, projectId, {
-            callType: "lookup_mapping",
-            artifactId: targetFiberId,
-          });
-          setFiberAiLogs((prev) => ({ ...prev, [targetFiberId]: logs }));
-        } catch {
-          // best-effort
-        }
-      }
 
       setLookupDrafts(current => ({
         ...current,
@@ -470,13 +433,6 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
     });
   };
 
-  const toggleAiLog = (key: string) => {
-    setExpandedAiLogs((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
-  };
 
   return (
     <main className="flex min-h-screen flex-col bg-surface text-slate-800">
@@ -822,60 +778,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                 </div>
 
                 {/* AI Prompt Logs for feed */}
-                {(role === "central_team" || role === "admin") &&
-                  fiberAiLogs[feedId] &&
-                  fiberAiLogs[feedId].length > 0 && (
-                    <div className="mt-3 border-t border-outline-variant pt-3">
-                      <button
-                        onClick={() => toggleAiLog(feedId)}
-                        className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
-                      >
-                        <svg
-                          className={`w-3 h-3 transition-transform ${expandedAiLogs.has(feedId) ? "rotate-180" : ""}`}
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                        AI Prompt Log ({fiberAiLogs[feedId].length})
-                      </button>
-                      {expandedAiLogs.has(feedId) && (
-                        <div className="mt-2 space-y-3">
-                          {fiberAiLogs[feedId].map((log) => (
-                            <div key={log.callId} className="rounded border border-outline-variant bg-surface p-2 text-xs">
-                              <div className="mb-1 font-mono text-slate-500">
-                                {log.callType} · {log.modelId} · {new Date(log.calledAt).toLocaleString()}
-                              </div>
-                              {log.errorDetail && (
-                                <div className="mb-1 text-red-600">Error: {log.errorDetail}</div>
-                              )}
-                              <details className="mb-1">
-                                <summary className="cursor-pointer text-slate-600 hover:text-slate-900">System prompt</summary>
-                                <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded bg-surface-container p-2 font-mono text-[10px] text-slate-700">
-                                  {log.systemPrompt}
-                                </pre>
-                              </details>
-                              <details className="mb-1">
-                                <summary className="cursor-pointer text-slate-600 hover:text-slate-900">User prompt</summary>
-                                <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded bg-surface-container p-2 font-mono text-[10px] text-slate-700">
-                                  {log.userPrompt}
-                                </pre>
-                              </details>
-                              {log.rawResponse && (
-                                <details>
-                                  <summary className="cursor-pointer text-slate-600 hover:text-slate-900">Raw response</summary>
-                                  <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded bg-surface-container p-2 font-mono text-[10px] text-slate-700">
-                                    {log.rawResponse}
-                                  </pre>
-                                </details>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                <AiLogViewer token={session?.accessToken} projectId={projectId} feature="feed_mapping" callType="source_analysis" artifactId={feedId} canViewLogs={role === "central_team" || role === "admin"} />
 
                 {mappingTables.length === 0 ? (
                   <div className="text-sm text-slate-500">No mapping proposals generated yet.</div>
@@ -943,103 +846,8 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                                   ))}
                                 </tbody>
                               </table>
-                              {snapshot?.aiTrace && (
-                                <div className="border-t border-slate-100 bg-slate-50/50 p-4">
-                                  <details className="text-xs group">
-                                    <summary className="font-semibold text-slate-600 hover:text-slate-900 cursor-pointer list-none flex items-center gap-1.5 focus:outline-none">
-                                      <svg
-                                        className="w-3 h-3 text-slate-400 group-open:rotate-90 transition-transform duration-150"
-                                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}
-                                      >
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                                      </svg>
-                                      AI Trace &amp; Reasoning
-                                    </summary>
-                                    <div className="mt-3 space-y-3 font-mono text-[10px] bg-white border border-slate-200 rounded-lg p-3 max-h-96 overflow-auto">
-                                      {snapshot.aiTrace.model_id && (
-                                        <div>
-                                          <span className="font-bold text-slate-500">Model ID:</span> {snapshot.aiTrace.model_id}
-                                        </div>
-                                      )}
-                                      {snapshot.aiTrace.system_prompt && (
-                                        <div>
-                                          <div className="font-bold text-slate-500 mb-1 border-b border-slate-100 pb-0.5">System Prompt</div>
-                                          <pre className="whitespace-pre-wrap text-slate-600">{snapshot.aiTrace.system_prompt}</pre>
-                                        </div>
-                                      )}
-                                      {snapshot.aiTrace.user_prompt && (
-                                        <div>
-                                          <div className="font-bold text-slate-500 mb-1 border-b border-slate-100 pb-0.5">User Prompt</div>
-                                          <pre className="whitespace-pre-wrap text-slate-600">{snapshot.aiTrace.user_prompt}</pre>
-                                        </div>
-                                      )}
-                                      {snapshot.aiTrace.raw_response && (
-                                        <div>
-                                          <div className="font-bold text-slate-500 mb-1 border-b border-slate-100 pb-0.5">AI Response</div>
-                                          <pre className="whitespace-pre-wrap text-slate-600">
-                                            {JSON.stringify(snapshot.aiTrace.raw_response, null, 2)}
-                                          </pre>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </details>
-                                </div>
-                              )}
-                              {/* AI Prompt Logs */}
-                              {(role === "central_team" || role === "admin") &&
-                                fiber && fiberAiLogs[fiber.fiberId] &&
-                                fiberAiLogs[fiber.fiberId].length > 0 && (
-                                  <div className="mt-3 border-t border-outline-variant pt-3 px-4 pb-4">
-                                    <button
-                                      onClick={() => toggleAiLog(fiber.fiberId)}
-                                      className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
-                                    >
-                                      <svg
-                                        className={`w-3 h-3 transition-transform ${expandedAiLogs.has(fiber.fiberId) ? "rotate-180" : ""}`}
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                      >
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                      </svg>
-                                      AI Prompt Log ({fiberAiLogs[fiber.fiberId].length})
-                                    </button>
-                                    {expandedAiLogs.has(fiber.fiberId) && (
-                                      <div className="mt-2 space-y-3">
-                                        {fiberAiLogs[fiber.fiberId].map((log) => (
-                                          <div key={log.callId} className="rounded border border-outline-variant bg-surface p-2 text-xs">
-                                            <div className="mb-1 font-mono text-slate-500">
-                                              {log.callType} · {log.modelId} · {new Date(log.calledAt).toLocaleString()}
-                                            </div>
-                                            {log.errorDetail && (
-                                              <div className="mb-1 text-red-600">Error: {log.errorDetail}</div>
-                                            )}
-                                            <details className="mb-1">
-                                              <summary className="cursor-pointer text-slate-600 hover:text-slate-900">System prompt</summary>
-                                              <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded bg-surface-container p-2 font-mono text-[10px] text-slate-700">
-                                                {log.systemPrompt}
-                                              </pre>
-                                            </details>
-                                            <details className="mb-1">
-                                              <summary className="cursor-pointer text-slate-600 hover:text-slate-900">User prompt</summary>
-                                              <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded bg-surface-container p-2 font-mono text-[10px] text-slate-700">
-                                                {log.userPrompt}
-                                              </pre>
-                                            </details>
-                                            {log.rawResponse && (
-                                              <details>
-                                                <summary className="cursor-pointer text-slate-600 hover:text-slate-900">Raw response</summary>
-                                                <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded bg-surface-container p-2 font-mono text-[10px] text-slate-700">
-                                                  {log.rawResponse}
-                                                </pre>
-                                              </details>
-                                            )}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
+                              {snapshot && <AiLogViewer token={session?.accessToken} projectId={projectId} feature="feed_mapping" callType="mapping" artifactId={snapshot.mappingSnapshotId} canViewLogs={role === "central_team" || role === "admin"} />}
+                              <AiLogViewer token={session?.accessToken} projectId={projectId} feature="feed_mapping" artifactId={fiber?.fiberId} canViewLogs={role === "central_team" || role === "admin"} />
                             </>
                           )}
                         </div>
@@ -1228,61 +1036,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                                   </div>
                                 </div>
                               )}
-                              {/* AI Prompt Logs */}
-                              {(role === "central_team" || role === "admin") &&
-                                fiber && fiberAiLogs[fiber.fiberId] &&
-                                fiberAiLogs[fiber.fiberId].length > 0 && (
-                                  <div className="mt-3 border-t border-outline-variant pt-3 px-4 pb-4">
-                                    <button
-                                      onClick={() => toggleAiLog(fiber.fiberId)}
-                                      className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
-                                    >
-                                      <svg
-                                        className={`w-3 h-3 transition-transform ${expandedAiLogs.has(fiber.fiberId) ? "rotate-180" : ""}`}
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                      >
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                      </svg>
-                                      AI Prompt Log ({fiberAiLogs[fiber.fiberId].length})
-                                    </button>
-                                    {expandedAiLogs.has(fiber.fiberId) && (
-                                      <div className="mt-2 space-y-3">
-                                        {fiberAiLogs[fiber.fiberId].map((log) => (
-                                          <div key={log.callId} className="rounded border border-outline-variant bg-surface p-2 text-xs">
-                                            <div className="mb-1 font-mono text-slate-500">
-                                              {log.callType} · {log.modelId} · {new Date(log.calledAt).toLocaleString()}
-                                            </div>
-                                            {log.errorDetail && (
-                                              <div className="mb-1 text-red-600">Error: {log.errorDetail}</div>
-                                            )}
-                                            <details className="mb-1">
-                                              <summary className="cursor-pointer text-slate-600 hover:text-slate-900">System prompt</summary>
-                                              <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded bg-surface-container p-2 font-mono text-[10px] text-slate-700">
-                                                {log.systemPrompt}
-                                              </pre>
-                                            </details>
-                                            <details className="mb-1">
-                                              <summary className="cursor-pointer text-slate-600 hover:text-slate-900">User prompt</summary>
-                                              <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded bg-surface-container p-2 font-mono text-[10px] text-slate-700">
-                                                {log.userPrompt}
-                                              </pre>
-                                            </details>
-                                            {log.rawResponse && (
-                                              <details>
-                                                <summary className="cursor-pointer text-slate-600 hover:text-slate-900">Raw response</summary>
-                                                <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded bg-surface-container p-2 font-mono text-[10px] text-slate-700">
-                                                  {log.rawResponse}
-                                                </pre>
-                                              </details>
-                                            )}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
+                              <AiLogViewer token={session?.accessToken} projectId={projectId} feature="feed_mapping" artifactId={fiber?.fiberId} canViewLogs={role === "central_team" || role === "admin"} />
                             </div>
                           )}
                         </div>

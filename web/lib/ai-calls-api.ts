@@ -2,6 +2,7 @@ import { API_BASE_URL } from "./api-base";
 
 export interface AICallLogRecord {
   callId: string;
+  feature: string;
   callType: string;
   artifactId: string | null;
   modelId: string;
@@ -15,11 +16,14 @@ export interface AICallLogRecord {
 export async function listAiCallLogs(
   token: string,
   projectId: string,
-  options?: { callType?: string; artifactId?: string }
+  options?: { feature?: string; callType?: string; artifactId?: string; limit?: number; offset?: number }
 ): Promise<AICallLogRecord[]> {
   const params = new URLSearchParams();
+  if (options?.feature) params.set("feature", options.feature);
   if (options?.callType) params.set("call_type", options.callType);
   if (options?.artifactId) params.set("artifact_id", options.artifactId);
+  if (options?.limit !== undefined) params.set("limit", options.limit.toString());
+  if (options?.offset !== undefined) params.set("offset", options.offset.toString());
   const qs = params.toString();
   const url = `${API_BASE_URL}/projects/${projectId}/ai-calls${qs ? `?${qs}` : ""}`;
   const res = await fetch(url, {
@@ -28,6 +32,7 @@ export async function listAiCallLogs(
   if (!res.ok) throw new Error(`Failed to fetch AI call logs: ${res.status}`);
   const data: Array<{
     call_id: string;
+    feature: string;
     call_type: string;
     artifact_id: string | null;
     model_id: string;
@@ -39,6 +44,7 @@ export async function listAiCallLogs(
   }> = await res.json();
   return data.map((r) => ({
     callId: r.call_id,
+    feature: r.feature,
     callType: r.call_type,
     artifactId: r.artifact_id,
     modelId: r.model_id,

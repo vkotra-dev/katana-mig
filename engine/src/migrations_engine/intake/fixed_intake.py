@@ -8,9 +8,8 @@ from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
 from ..db.models import Feed
-from .cobol_parser import FieldDef, parse_copybook
+from .cobol_parser import parse_copybook
 from .csv_intake import IngestResult, _create_source_slice, _decode_upload, _store_upload_bytes
-from .masking import mask_row
 
 
 def ingest_fixed(

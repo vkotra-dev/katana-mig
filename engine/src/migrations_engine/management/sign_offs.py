@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, UTC
 from typing import Any
-from sqlalchemy import select, delete, desc
+from sqlalchemy import select, delete
 from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
@@ -13,7 +13,6 @@ from ..db.models import (
     LookupValueMap,
     User,
     ProjectMembership,
-    ProjectRegistry,
 )
 from ..roles import ADMIN_ROLE, PM_ROLE, CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE
 from ..management.notifications import create_notification

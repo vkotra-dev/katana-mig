@@ -2,11 +2,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 import os
-from typing import Any, Literal
 from jinja2 import Environment, FileSystemLoader
 
-TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
-jinja_env = Environment(loader=FileSystemLoader(TEMPLATES_DIR), trim_blocks=True, lstrip_blocks=True)
 
 from pydantic import BaseModel, Field
 from sqlalchemy import case, or_, select, update
@@ -35,6 +32,9 @@ from ..ai.factory import get_adapter
 from ..mapping.exceptions import SnapshotNotFoundError
 from ..mapping.snapshots import select_latest_approved_lookup_snapshot
 from .schema_analysis import get_schema_analysis
+
+TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
+jinja_env = Environment(loader=FileSystemLoader(TEMPLATES_DIR), trim_blocks=True, lstrip_blocks=True)
 
 
 class GeneratedSQL(BaseModel):
@@ -117,6 +117,7 @@ def generate_codegen_artifact(
         call_log = log_ai_call(
             db,
             project_id=project_id,
+            feature="codegen",
             call_type="codegen",
             model_id=adapter.model_id,
             system=system_prompt,
@@ -128,6 +129,7 @@ def generate_codegen_artifact(
         log_ai_call(
             db,
             project_id=project_id,
+            feature="codegen",
             call_type="codegen",
             model_id=adapter.model_id,
             system=system_prompt,
@@ -148,15 +150,14 @@ def generate_codegen_artifact(
     artifact = CodeGenerationArtifact(
         codegen_artifact_id=codegen_artifact_id,
         project_id=project_id,
+        source_definition_id=source_definition_id,
         destination_object_name=destination_object_name,
         run_id=None,
         source_slice_version=source_slice.source_slice_version,
         mapping_snapshot_version=mapping_snapshot.mapping_snapshot_version,
         lookup_snapshot_version=lookup_snapshot_version,
         sql_bundle=sql_bundle,
-        compiled_system_prompt=system_prompt,
-        compiled_user_prompt=user_prompt,
-        raw_llm_response=generated_sql.model_dump_json(indent=2),
+
         status="active",
     )
     db.add(artifact)
@@ -253,6 +254,7 @@ def build_delivery_bundle_text(
         if artifact.sql_bundle:
             bundle_parts.append(artifact.sql_bundle.strip())
     return DeliveryBundleResponse(
+        filename=f"{project_id}-bundle.sql",
         sql_bundle="\n\n".join(bundle_parts).strip(),
         artifact_count=len(lookup_artifacts) + len(domain_artifacts),
     )
@@ -263,15 +265,14 @@ def _trigger_response(artifact: CodeGenerationArtifact) -> CodegenTriggerRespons
     return CodegenTriggerResponse(
         codegen_artifact_id=artifact.codegen_artifact_id,
         project_id=artifact.project_id,
+        feed_id=artifact.source_definition_id,
         destination_object_name=artifact.destination_object_name,
-        status=artifact.status,
+        status=artifact.status,  # type: ignore
         sql_bundle_preview=preview,
         source_slice_version=artifact.source_slice_version,
         mapping_snapshot_version=artifact.mapping_snapshot_version,
         lookup_snapshot_version=artifact.lookup_snapshot_version,
-        compiled_system_prompt=artifact.compiled_system_prompt,
-        compiled_user_prompt=artifact.compiled_user_prompt,
-        raw_llm_response=artifact.raw_llm_response,
+
         created_at=artifact.created_at,
     )
 
@@ -280,16 +281,15 @@ def _artifact_response(artifact: CodeGenerationArtifact) -> CodegenArtifactRespo
     return CodegenArtifactResponse(
         codegen_artifact_id=artifact.codegen_artifact_id,
         project_id=artifact.project_id,
+        feed_id=artifact.source_definition_id,
         destination_object_name=artifact.destination_object_name,
         run_id=artifact.run_id,
         source_slice_version=artifact.source_slice_version,
         mapping_snapshot_version=artifact.mapping_snapshot_version,
         lookup_snapshot_version=artifact.lookup_snapshot_version,
         sql_bundle=artifact.sql_bundle,
-        compiled_system_prompt=artifact.compiled_system_prompt,
-        compiled_user_prompt=artifact.compiled_user_prompt,
-        raw_llm_response=artifact.raw_llm_response,
-        status=artifact.status,
+
+        status=artifact.status,  # type: ignore
         created_at=artifact.created_at,
         superseded_at=artifact.superseded_at,
     )

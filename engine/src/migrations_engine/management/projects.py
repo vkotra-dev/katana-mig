@@ -16,7 +16,6 @@ from ..api.schemas import (
     ProjectUpdateRequest,
     ProjectCopyRequest,
     ProjectHealthSummary,
-    HealthStatus,
 )
 from ..db.models import (
     ProjectDefinition,

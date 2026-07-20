@@ -26,7 +26,7 @@ export interface MappingSnapshotRecord {
   createdAt: string;
   lookupTableReferences: LookupTableReference[];
   destinationFields: string[];
-  aiTrace: Record<string, any> | null;
+
 }
 
 export interface MappingReviewRecord extends MappingSnapshotRecord {}
@@ -65,7 +65,7 @@ type MappingSnapshotRaw = {
     destination_table_name: string;
   }>;
   destination_fields?: string[];
-  ai_trace?: Record<string, any> | null;
+
 };
 
 type MappingReviewRaw = MappingSnapshotRaw;
@@ -93,7 +93,7 @@ function mapMappingSnapshotResponse(response: MappingSnapshotRaw): MappingSnapsh
       destinationTableName: ref.destination_table_name,
     })),
     destinationFields: response.destination_fields ?? [],
-    aiTrace: response.ai_trace ?? null,
+
   };
 }
 

@@ -101,6 +101,8 @@ def analyze_source_slice(
         call_log = log_ai_call(
             db,
             project_id=project_id,
+            feature="feed_mapping",
+            artifact_id=source_definition_id,
             call_type="source_analysis",
             model_id=adapter.model_id,
             system=system_prompt,
@@ -112,6 +114,8 @@ def analyze_source_slice(
         log_ai_call(
             db,
             project_id=project_id,
+            feature="feed_mapping",
+            artifact_id=source_definition_id,
             call_type="source_analysis",
             model_id=adapter.model_id,
             system=system_prompt,

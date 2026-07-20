@@ -380,3 +380,5 @@ When a change touches a task or plan:
 - 2026-07 — Updated invariants for 5-role model (admin, pm, central_team,
   project_stakeholder, read_only_auditor); fixed I17→I18 acceptance criteria
   reference.
+- 2026-07-20: Dropped legacy AI prompt/response trace columns from mapping
+  and codegen artifacts in favor of a unified AI Log Viewer powered by `ai_call_log` (I22).

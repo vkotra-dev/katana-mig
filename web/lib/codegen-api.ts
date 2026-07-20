@@ -3,30 +3,28 @@ import { API_BASE_URL } from "./api-base";
 export interface CodegenTriggerRecord {
   codegenArtifactId: string;
   projectId: string;
+  feedId?: string | null;
   destinationObjectName: string;
   status: "active" | "superseded";
   sqlBundlePreview: string;
   sourceSliceVersion: string | null;
   mappingSnapshotVersion: string | null;
   lookupSnapshotVersion: string | null;
-  compiledSystemPrompt?: string | null;
-  compiledUserPrompt?: string | null;
-  rawLlmResponse?: string | null;
+
   createdAt: string;
 }
 
 export interface CodegenArtifactRecord {
   codegenArtifactId: string;
   projectId: string;
+  feedId?: string | null;
   destinationObjectName: string;
   runId: string | null;
   sourceSliceVersion: string | null;
   mappingSnapshotVersion: string | null;
   lookupSnapshotVersion: string | null;
   sqlBundle: string | null;
-  compiledSystemPrompt?: string | null;
-  compiledUserPrompt?: string | null;
-  rawLlmResponse?: string | null;
+
   status: "active" | "superseded";
   createdAt: string;
   supersededAt: string | null;
@@ -128,29 +126,27 @@ async function parseApiError(response: Response): Promise<CodegenApiError> {
 function mapTriggerResponse(response: {
   codegen_artifact_id: string;
   project_id: string;
+  feed_id?: string | null;
   destination_object_name: string;
   status: "active" | "superseded";
   sql_bundle_preview: string;
   source_slice_version: string | null;
   mapping_snapshot_version: string | null;
   lookup_snapshot_version: string | null;
-  compiled_system_prompt?: string | null;
-  compiled_user_prompt?: string | null;
-  raw_llm_response?: string | null;
+
   created_at: string;
 }): CodegenTriggerRecord {
   return {
     codegenArtifactId: response.codegen_artifact_id,
     projectId: response.project_id,
+    feedId: response.feed_id,
     destinationObjectName: response.destination_object_name,
     status: response.status,
     sqlBundlePreview: response.sql_bundle_preview,
     sourceSliceVersion: response.source_slice_version,
     mappingSnapshotVersion: response.mapping_snapshot_version,
     lookupSnapshotVersion: response.lookup_snapshot_version,
-    compiledSystemPrompt: response.compiled_system_prompt,
-    compiledUserPrompt: response.compiled_user_prompt,
-    rawLlmResponse: response.raw_llm_response,
+
     createdAt: response.created_at,
   };
 }
@@ -158,15 +154,14 @@ function mapTriggerResponse(response: {
 function mapArtifactResponse(response: {
   codegen_artifact_id: string;
   project_id: string;
+  feed_id?: string | null;
   destination_object_name: string;
   run_id: string | null;
   source_slice_version: string | null;
   mapping_snapshot_version: string | null;
   lookup_snapshot_version: string | null;
   sql_bundle: string | null;
-  compiled_system_prompt?: string | null;
-  compiled_user_prompt?: string | null;
-  raw_llm_response?: string | null;
+
   status: "active" | "superseded";
   created_at: string;
   superseded_at: string | null;
@@ -174,15 +169,14 @@ function mapArtifactResponse(response: {
   return {
     codegenArtifactId: response.codegen_artifact_id,
     projectId: response.project_id,
+    feedId: response.feed_id,
     destinationObjectName: response.destination_object_name,
     runId: response.run_id,
     sourceSliceVersion: response.source_slice_version,
     mappingSnapshotVersion: response.mapping_snapshot_version,
     lookupSnapshotVersion: response.lookup_snapshot_version,
     sqlBundle: response.sql_bundle,
-    compiledSystemPrompt: response.compiled_system_prompt,
-    compiledUserPrompt: response.compiled_user_prompt,
-    rawLlmResponse: response.raw_llm_response,
+
     status: response.status,
     createdAt: response.created_at,
     supersededAt: response.superseded_at,

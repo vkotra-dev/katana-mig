@@ -8,7 +8,7 @@ tags:
   - workflow
   - review
   - dashboard
-timestamp: 2026-07-16
+timestamp: 2026-07-20
 ---
 
 # UI
@@ -252,7 +252,7 @@ Audience: role-gated. `central_team` sees the full Feed Detail workspace. `proje
    - `lookup_fk` — FK into a reference/lookup table (amber badge); reference table name shown
 5. **Lookup fibers section** — one card per `lookup_fk` binding. Each card: source field name, reference table chip, in-place editable source value list (`discovery_type="operator"`), "Run AI mapping" button.
 6. **Transformation Instructions** — a textarea where the operator enters per-feed transformation instructions injected into the codegen prompt for this feed (task 001cn).
-7. **AI reasoning panel** — displays the AI reasoning trace including system prompt, user prompt, and raw response from `MappingSnapshot.ai_trace` (task 001br).
+7. **AI Prompt Log Viewer** — unified viewer for AI prompts, raw responses, and reasoning across all call types (schema analysis, bindings, lookups, codegen). Replaces legacy in-line panels.
 8. **Reviews section** — the shared ReviewGrid component (see below).
 
 **Review grid** (`/projects/[id]/feeds/[feedId]/review`) — accessible to all roles; default landing for `project_stakeholder`.

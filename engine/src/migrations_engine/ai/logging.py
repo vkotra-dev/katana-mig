@@ -11,6 +11,7 @@ def log_ai_call(
     db: Session,
     *,
     project_id: str,
+    feature: str,
     call_type: str,
     model_id: str,
     system: str,
@@ -23,6 +24,7 @@ def log_ai_call(
     entry = AICallLog(
         call_id=new_id(),
         project_id=project_id,
+        feature=feature,
         call_type=call_type,
         model_id=model_id,
         system_prompt=system,

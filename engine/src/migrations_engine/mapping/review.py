@@ -255,7 +255,6 @@ def _snapshot_to_response(
         created_at=snapshot.created_at,
         destination_fields=fields,
         lookup_table_references=lookup_table_references,
-        ai_trace=snapshot.ai_trace,
     )
 
 
@@ -402,6 +401,7 @@ def propose_mapping(
         call_log = log_ai_call(
             db,
             project_id=project_id,
+            feature="feed_mapping",
             call_type="mapping",
             model_id=getattr(adapter, "model_id", "unknown"),
             system=system_prompt,
@@ -413,6 +413,7 @@ def propose_mapping(
         log_ai_call(
             db,
             project_id=project_id,
+            feature="feed_mapping",
             call_type="mapping",
             model_id=getattr(adapter, "model_id", "unknown"),
             system=system_prompt,
@@ -425,6 +426,7 @@ def propose_mapping(
         log_ai_call(
             db,
             project_id=project_id,
+            feature="feed_mapping",
             call_type="mapping",
             model_id=getattr(adapter, "model_id", "unknown"),
             system=system_prompt,
@@ -437,6 +439,7 @@ def propose_mapping(
         log_ai_call(
             db,
             project_id=project_id,
+            feature="feed_mapping",
             call_type="mapping",
             model_id=getattr(adapter, "model_id", "unknown"),
             system=system_prompt,
@@ -463,12 +466,6 @@ def propose_mapping(
             )
 
     # 5. Create MappingSnapshot records in a single transaction
-    ai_trace = {
-        "system_prompt": system_prompt,
-        "user_prompt": user_prompt,
-        "raw_response": proposal.model_dump(),
-        "model_id": getattr(adapter, "model_id", None),
-    }
 
     snapshots: list[MappingSnapshot] = []
     seen_tables = set()
@@ -528,7 +525,6 @@ def propose_mapping(
             current_ball_role="central_team",
             approved_at=None,
             approved_by_user_id=None,
-            ai_trace=ai_trace,
         )
         db.add(snapshot)
         snapshots.append(snapshot)
