@@ -4,7 +4,7 @@
 
 | Task | Summary |
 |---|---|
-| [001ct-codegen-mssql-standards](./ready/001ct-codegen-mssql-standards.md) | Add MS SQL Migration SP Requirements to Codegen Standards Template |
+| [001cx-data-driven-feed-analysis-prompts](./ready/001cx-data-driven-feed-analysis-prompts.md) | Sample CSV rows + rewritten prompts in analyze_feed; AI log viewer panel on feed page |
 
 ## Completed
 
@@ -12,6 +12,8 @@
 | Task | Summary |
 |---|---|
 | [001cw-fix-001cv-review-findings](./completed/001cw-fix-001cv-review-findings.md) | [summary](./summary/001cw-fix-001cv-review-findings.md) |
+| [001cs-shared-lookup-fibers](./completed/001cs-shared-lookup-fibers.md) | Shared lookup fallback already shipped in commit d25e18b — sourceValueMap and destinationTable fallback in place on Feed page |
+| [001ct-codegen-mssql-standards](./completed/001ct-codegen-mssql-standards.md) | MSSQL standards (XACT_ABORT, THROW, MERGE OUTPUT logging, duplicate key checks) already shipped in generateCodingStandardsTemplate — verified |
 | [001cv-revise-transformation-instructions-template](./completed/001cv-revise-transformation-instructions-template.md) | [summary](./summary/001cv-revise-transformation-instructions-template.md) |
 | [001cu-generate-transformation-instructions](./completed/001cu-generate-transformation-instructions.md) | [summary](./summary/001cu-generate-transformation-instructions.md) |
 | [001cp-migration-run-logging](./completed/001cp-migration-run-logging.md) | [summary](./summary/001cp-migration-run-logging.md) |

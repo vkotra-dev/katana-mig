@@ -1,6 +1,6 @@
 ---
 type: Task
-status: Ready
+status: Completed
 created_at: 2026-07-19
 title: Add MS SQL Migration SP Requirements to Codegen Standards Template
 ---

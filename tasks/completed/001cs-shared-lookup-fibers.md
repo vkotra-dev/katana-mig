@@ -1,6 +1,6 @@
 ---
 type: Task
-status: Ready
+status: Completed
 created_at: 2026-07-19
 title: Fix shared lookup fibers missing data on Feed page
 ---
