@@ -564,7 +564,7 @@ def test_propose_creates_multiple_snapshots_and_validates_table_names(monkeypatc
                             ai_schemas.Binding(
                                 source_field="customer_id",
                                 destination_field="customer_fk",
-                                binding_type="detail_fk",
+                                binding_type="lookup_fk",
                                 reference_table_name="Customer"
                             ),
                             ai_schemas.Binding(
