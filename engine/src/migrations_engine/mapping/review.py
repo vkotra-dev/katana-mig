@@ -341,41 +341,23 @@ def propose_mapping(
     # 3. Call AI with full DDL and validate response structure
     from ..ai.adapter import AICallError, AIResponseValidationError
 
-    system_prompt = (
-        "You are a data migration specialist. Analyze the provided multi-table SQL DDL schema "
-        "and the list of source CSV columns.\n"
-        "1. Identify all destination tables that receive fields from this feed.\n"
-        "2. Map the source fields to each identified table. A single source field MAY be mapped to multiple destination fields if it logically populates both.\n"
-        "3. Classify each binding as 'direct', 'detail_fk', or 'lookup_fk'.\n"
-        "4. A binding is 'detail_fk' when its destination column is a foreign key whose referenced table "
-        "is also mapped in this response. It is 'lookup_fk' when it references a lookup table not mapped here.\n"
-        "5. For any lookup_fk or detail_fk binding, always set reference_table_name to the name of the referenced table. "
-        "If the referenced lookup table does not exist in the DDL, suggest a logical name for it (e.g., '{source_field}_ref').\n"
-        "6. For every binding, set destination_data_type to the exact SQL type of the destination column as declared in the DDL "
-        "(e.g. 'INT', 'NVARCHAR(255)', 'DATE', 'DECIMAL(18,2)'). Set to null only if the column is not found in the DDL.\n"
-        "7. For every binding, set nullable to true if the destination column allows nulls, or false if it is explicitly NOT NULL.\n"
-        "8. If the DDL is invalid or you cannot find any matching tables, set error_code and error_message.\n\n"
-        "OUTPUT CONTRACT:\n"
-        "Return strictly valid JSON with no markdown fences, no invented keys, and exact adherence to the schema.\n"
-        "- Top-level keys: 'tables' (list), 'error_code' (string|null), 'error_message' (string|null)\n"
-        "- Table keys: 'destination_table_name' (string), 'bindings' (list)\n"
-        "- Binding keys: 'source_field' (string), 'destination_field' (string), 'binding_type' (string: 'direct', 'detail_fk', 'lookup_fk'), 'reference_table_name' (string|null), 'destination_data_type' (string|null), 'nullable' (boolean|null)"
-    )
-
     feed = _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
-    user_prompt = f"Source columns:\n{source_columns!r}\n\nDestination DDL:\n{ddl}"
+    project_constraints = project_definition.constraints or []
 
+    from ..ai.prompt import Prompt
     extra_context = []
     if feed.mapping_hints:
         extra_context.append(f"Mapping hints (operator-supplied):\n{feed.mapping_hints}")
-
-    project_constraints = project_definition.constraints or []
     if project_constraints:
-        bullet_list = "\n".join(f"- {c}" for c in project_constraints)
-        extra_context.append(f"Project constraints:\n{bullet_list}")
+        extra_context.append("Project constraints:\n" + "\n".join(f"- {c}" for c in project_constraints))
 
-    if extra_context:
-        user_prompt = user_prompt + "\n\n" + "\n\n".join(extra_context)
+    prompt = Prompt("mapping")
+    prompt.set(
+        source_columns=repr(source_columns),
+        ddl=ddl,
+        extra_context="\n\n" + "\n\n".join(extra_context) if extra_context else ""
+    )
+    system_prompt, user_prompt = prompt.get_prompt()
 
     from ..ai.logging import log_ai_call, backfill_artifact_id
 

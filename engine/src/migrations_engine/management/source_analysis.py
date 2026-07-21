@@ -41,22 +41,6 @@ from .analysis_schemas import (
     validate_against_header,
 )
 
-SYSTEM_PROMPT = (
-    "You are a data analyst. Given CSV or fixed-length record samples, "
-    "infer column schemas.\n"
-    "CRITICAL RULES:\n"
-    "1. Column Order & Names: You MUST preserve the exact column order. "
-    "If a header is provided, copy every column name VERBATIM, character-for-character. "
-    "Do NOT change casing or fix typos in column names.\n"
-    "2. Type Inference: Infer types (text, integer, decimal, date, boolean, uuid) based on sample rows. "
-    "Ignore masked or redacted values (e.g. 'MASKED', '****') when inferring types.\n"
-    "3. Nullability: Set 'nullable' to true if any sample row has an empty/null value for the column.\n"
-    "4. Max Length: For text columns, provide 'max_length' as the maximum character count found. "
-    "For other types, set max_length to null.\n"
-    "Return a JSON object exactly matching the provided schema, with NO extra keys."
-)
-
-
 def analyze_source_slice(
     db: Session,
     *,
@@ -95,7 +79,19 @@ def analyze_source_slice(
             masked_rows.append(mask_row(headers, values))
         sample_rows = masked_rows
     sample_text = _build_sample_text(header_csv=source_slice.header_csv, rows=sample_rows)
-    system_prompt = _build_system_prompt(source_definition)
+    layout_information = json.dumps(source_definition.layout_information or [], ensure_ascii=False)
+    if source_definition.source_type == "fixed_length_file":
+        source_type_section = f"Source type: fixed_length_file\nLayout information: {layout_information}"
+    else:
+        source_type_section = f"Source type: {source_definition.source_type}"
+
+    from ..ai.prompt import Prompt
+    prompt = Prompt("source_analysis")
+    prompt.set(
+        source_type_section=source_type_section,
+        sample_text=sample_text,
+    )
+    system_prompt, user_prompt = prompt.get_prompt()
 
     if get_adapter is None:
         raise AuthApiError("ai_adapter_unavailable", "AI adapter dependency is unavailable.", 503)
@@ -109,7 +105,7 @@ def analyze_source_slice(
     try:
         result = adapter.call(
             system_prompt,
-            sample_text,
+            user_prompt,
             AnalysisResult,
         )
     except AIResponseValidationError as exc:
@@ -121,7 +117,7 @@ def analyze_source_slice(
             call_type="source_analysis",
             model_id=adapter.model_id,
             system=system_prompt,
-            user=sample_text,
+            user=user_prompt,
             raw_response=exc.raw_response,
             error_detail=f"ValidationError: {exc.original}",
         )
@@ -136,7 +132,7 @@ def analyze_source_slice(
             call_type="source_analysis",
             model_id=adapter.model_id,
             system=system_prompt,
-            user=sample_text,
+            user=user_prompt,
             raw_response=None,
             error_detail=str(exc),
         )
@@ -151,7 +147,7 @@ def analyze_source_slice(
         call_type="source_analysis",
         model_id=adapter.model_id,
         system=system_prompt,
-        user=sample_text,
+        user=user_prompt,
         raw_response=result.raw_response,
     )
     analysis_result = result.parsed
@@ -290,13 +286,6 @@ def _build_sample_text(*, header_csv: str | None, rows: list[str]) -> str:
         parts.append(header_csv)
     parts.extend(rows)
     return "\n".join(parts)
-
-
-def _build_system_prompt(source_definition: Feed) -> str:
-    layout_information = json.dumps(source_definition.layout_information or [], ensure_ascii=False)
-    if source_definition.source_type == "fixed_length_file":
-        return f"{SYSTEM_PROMPT}\nSource type: fixed_length_file\nLayout information: {layout_information}"
-    return f"{SYSTEM_PROMPT}\nSource type: {source_definition.source_type}"
 
 
 def _build_value_summaries(db: Session, *, source_slice: FeedSlice) -> list[SourceValueSummary]:

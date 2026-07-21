@@ -100,47 +100,6 @@ class _LookupMappingResult(BaseModel):
     proposals: list[_LookupProposal]
     unmatched_source_values: list[str] = []
 
-_FEED_ANALYSIS_SYSTEM = (
-    "You are a data migration analyst. Given CSV sample data and a destination schema DDL, "
-    "identify which destination tables this feed populates and which source columns are lookup "
-    "references.\n\n"
-    "Rules:\n"
-    "- Only include a destination table if at least two source columns map directly to its "
-    "non-FK columns. Do not include tables that would only receive FK values resolved at runtime.\n"
-    "- A source column is a lookup if it has low cardinality (few distinct values visible in "
-    "the sample) and its values reference a reference/code table rather than being free-form data. "
-    "Set sample_values to the distinct values you observe in the sample.\n"
-    "- List source columns that do not belong to any identified table in unmatched_columns.\n"
-    "- Return valid JSON matching the schema."
-)
-
-_FIELD_MAPPING_SYSTEM = (
-    "You are a data migration specialist. Given CSV sample data, a target destination table, "
-    "and the full destination schema DDL, map each source column to its destination column.\n\n"
-    "Rules:\n"
-    "- Only create a binding where a source column has a clear correspondence to a destination "
-    "column. Do not invent bindings for auto-generated PKs, identity columns, or audit columns "
-    "(created_at, updated_at, modified_by, created_by).\n"
-    "- Classify each binding: 'direct' | 'lookup_fk' | 'detail_fk'.\n"
-    "- For lookup_fk and detail_fk, set reference_table_name to the referenced table name "
-    "(required — never null for these types).\n"
-    "- Set destination_data_type to the exact SQL type from the DDL "
-    "(e.g. 'INT', 'NVARCHAR(255)', 'DATE', 'DECIMAL(18,2)'). Null only if not in DDL.\n"
-    "- List source columns with no mapping in unmatched_source_fields.\n"
-    "- Return valid JSON matching the schema."
-)
-
-_LOOKUP_MAPPING_SYSTEM_PROMPT = (
-    "You are a lookup value mapper. Given a list of source values from a migration feed and "
-    "the candidate destination reference rows, propose the best match for each source value.\n\n"
-    "Rules:\n"
-    "- Match on semantic meaning, not just string equality. Abbreviations, codes, and full "
-    "names that mean the same thing should match (e.g. 'A' -> 'Active', 'M' -> 'Male').\n"
-    "- Set confidence_score between 0.0 and 1.0. Use < 0.5 only when the match is a best guess.\n"
-    "- List source values with no confident match (score < 0.5) in unmatched_source_values.\n"
-    "- Return valid JSON matching the schema."
-)
-
 
 def create_fiber(
     db: Session,
@@ -629,15 +588,18 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
     except TypeError:
         feed_analysis_adapter = get_adapter("feed_analysis")
     n_rows = len(raw_rows)
-    user_prompt = (
-        f"Feed: {feed.source_definition_id}\n"
-        f"Sample data ({n_rows} rows):\n"
-        f"{sample_text}\n\n"
-        f"Destination schema DDL:\n{destination_schema_ddl}"
+    from ..ai.prompt import Prompt
+    prompt1 = Prompt("feed_domain_object_analysis")
+    prompt1.set(
+        feed_id=feed.source_definition_id,
+        n_rows=str(n_rows),
+        sample_text=sample_text,
+        destination_schema_ddl=destination_schema_ddl,
     )
+    system_prompt, user_prompt = prompt1.get_prompt()
     try:
         result = feed_analysis_adapter.call(
-            _FEED_ANALYSIS_SYSTEM,
+            system_prompt,
             user_prompt,
             _FeedAnalysisResult,
         )
@@ -647,7 +609,7 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
             feature="feed_mapping",
             call_type="feed_analysis",
             model_id=feed_analysis_adapter.model_id,
-            system=_FEED_ANALYSIS_SYSTEM,
+            system=system_prompt,
             user=user_prompt,
             raw_response=result.raw_response,
         )
@@ -660,7 +622,7 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
             feature="feed_mapping",
             call_type="feed_analysis",
             model_id=feed_analysis_adapter.model_id,
-            system=_FEED_ANALYSIS_SYSTEM,
+            system=system_prompt,
             user=user_prompt,
             raw_response=exc.raw_response,
             error_detail=f"ValidationError: {exc.original}",
@@ -674,7 +636,7 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
             feature="feed_mapping",
             call_type="feed_analysis",
             model_id=feed_analysis_adapter.model_id,
-            system=_FEED_ANALYSIS_SYSTEM,
+            system=system_prompt,
             user=user_prompt,
             raw_response=None,
             error_detail=str(exc),
@@ -717,16 +679,18 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
             field_mapping_adapter = get_adapter("field_mapping", project_definition.model_policy)
         except TypeError:
             field_mapping_adapter = get_adapter("field_mapping")
-        user_prompt2 = (
-            f"Feed: {feed.source_definition_id}\n"
-            f"Target table: {fiber.fiber_key}\n"
-            f"Sample data ({n_rows} rows):\n"
-            f"{sample_text}\n\n"
-            f"Destination schema DDL:\n{destination_schema_ddl}"
+        prompt2 = Prompt("feed_field_mapping")
+        prompt2.set(
+            feed_id=feed.source_definition_id,
+            fiber_key=fiber.fiber_key,
+            n_rows=str(n_rows),
+            sample_text=sample_text,
+            destination_schema_ddl=destination_schema_ddl,
         )
+        system_prompt2, user_prompt2 = prompt2.get_prompt()
         try:
             result2 = field_mapping_adapter.call(
-                _FIELD_MAPPING_SYSTEM,
+                system_prompt2,
                 user_prompt2,
                 _FieldMappingResult,
             )
@@ -736,7 +700,7 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
                 feature="feed_mapping",
                 call_type="feed_analysis",
                 model_id=field_mapping_adapter.model_id,
-                system=_FIELD_MAPPING_SYSTEM,
+                system=system_prompt2,
                 user=user_prompt2,
                 raw_response=result2.raw_response,
             )
@@ -749,7 +713,7 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
                 feature="feed_mapping",
                 call_type="feed_analysis",
                 model_id=field_mapping_adapter.model_id,
-                system=_FIELD_MAPPING_SYSTEM,
+                system=system_prompt2,
                 user=user_prompt2,
                 raw_response=exc.raw_response,
                 error_detail=f"ValidationError: {exc.original}",
@@ -763,7 +727,7 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
                 feature="feed_mapping",
                 call_type="feed_analysis",
                 model_id=field_mapping_adapter.model_id,
-                system=_FIELD_MAPPING_SYSTEM,
+                system=system_prompt2,
                 user=user_prompt2,
                 raw_response=None,
                 error_detail=str(exc),
@@ -877,7 +841,7 @@ def submit_lookup_inputs(
         adapter = get_adapter("lookup_mapping", model_policy)
     except TypeError:
         adapter = get_adapter("lookup_mapping")
-    user_prompt3 = json.dumps(
+    payload = json.dumps(
         {
             "source_values": [entry.source_value for entry in source_entries],
             "destination_rows": [
@@ -885,9 +849,13 @@ def submit_lookup_inputs(
             ],
         }
     )
+    from ..ai.prompt import Prompt
+    prompt3 = Prompt("lookup_mapping")
+    prompt3.set(payload=payload)
+    system_prompt3, user_prompt3 = prompt3.get_prompt()
     try:
         result3 = adapter.call(
-            _LOOKUP_MAPPING_SYSTEM_PROMPT,
+            system_prompt3,
             user_prompt3,
             _LookupMappingResult,
         )
@@ -897,7 +865,7 @@ def submit_lookup_inputs(
             feature="feed_mapping",
             call_type="lookup_mapping",
             model_id=adapter.model_id,
-            system=_LOOKUP_MAPPING_SYSTEM_PROMPT,
+            system=system_prompt3,
             user=user_prompt3,
             raw_response=result3.raw_response,
         )
@@ -910,7 +878,7 @@ def submit_lookup_inputs(
             feature="feed_mapping",
             call_type="lookup_mapping",
             model_id=adapter.model_id,
-            system=_LOOKUP_MAPPING_SYSTEM_PROMPT,
+            system=system_prompt3,
             user=user_prompt3,
             raw_response=exc.raw_response,
             error_detail=f"ValidationError: {exc.original}",
@@ -924,7 +892,7 @@ def submit_lookup_inputs(
             feature="feed_mapping",
             call_type="lookup_mapping",
             model_id=adapter.model_id,
-            system=_LOOKUP_MAPPING_SYSTEM_PROMPT,
+            system=system_prompt3,
             user=user_prompt3,
             raw_response=None,
             error_detail=str(exc),
