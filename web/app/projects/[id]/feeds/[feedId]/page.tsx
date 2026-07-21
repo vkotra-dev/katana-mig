@@ -777,20 +777,6 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                   )}
                 </div>
 
-                {/* AI Prompt Logs for feed */}
-                {(role === "central_team" || role === "admin") && (
-                  <details className="mt-4 rounded-xl border border-outline-variant bg-surface group">
-                    <summary className="cursor-pointer select-none p-4 font-semibold text-slate-900 group-open:border-b border-outline-variant flex items-center justify-between">
-                      AI Trace & Reasoning (Feed Analysis)
-                      <svg className="w-5 h-5 text-slate-500 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </summary>
-                    <div className="p-4">
-                      <AiLogViewer token={session?.accessToken} projectId={projectId} feature="feed_mapping" callType="source_analysis" artifactId={feedId} canViewLogs={true} />
-                    </div>
-                  </details>
-                )}
 
                 {mappingTables.length === 0 ? (
                   <div className="text-sm text-slate-500">No mapping proposals generated yet.</div>
@@ -858,20 +844,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                                   ))}
                                 </tbody>
                               </table>
-                              {(role === "central_team" || role === "admin") && (
-                                <details className="border-t border-outline-variant bg-surface group">
-                                  <summary className="cursor-pointer select-none p-4 font-semibold text-slate-900 flex items-center justify-between">
-                                    AI Trace & Reasoning (Mapping)
-                                    <svg className="w-5 h-5 text-slate-500 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                  </summary>
-                                  <div className="p-4 border-t border-outline-variant">
-                                    {snapshot && <div className="mb-4"><div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mapping Snapshot</div><AiLogViewer token={session?.accessToken} projectId={projectId} feature="feed_mapping" callType="mapping" artifactId={snapshot.mappingSnapshotId} canViewLogs={true} /></div>}
-                                    {fiber && <div><div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Fiber</div><AiLogViewer token={session?.accessToken} projectId={projectId} feature="feed_mapping" artifactId={fiber.fiberId} canViewLogs={true} /></div>}
-                                  </div>
-                                </details>
-                              )}
+
                             </>
                           )}
                         </div>
@@ -1060,19 +1033,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                                   </div>
                                 </div>
                               )}
-                              {(role === "central_team" || role === "admin") && (
-                                <details className="border-t border-outline-variant bg-surface group">
-                                  <summary className="cursor-pointer select-none p-4 font-semibold text-slate-900 flex items-center justify-between">
-                                    AI Trace & Reasoning (Lookup)
-                                    <svg className="w-5 h-5 text-slate-500 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                  </summary>
-                                  <div className="p-4 border-t border-outline-variant">
-                                    <AiLogViewer token={session?.accessToken} projectId={projectId} feature="feed_mapping" artifactId={fiber?.fiberId} canViewLogs={true} />
-                                  </div>
-                                </details>
-                              )}
+
                             </div>
                           )}
                         </div>
@@ -1082,6 +1043,21 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                 )}
               </div>
 
+              {/* Consolidated AI Logs for the entire Feed */}
+              {(role === "central_team" || role === "admin") && (
+                <div className="mt-8 space-y-4">
+                  <h2 className="text-lg font-bold text-slate-800 border-b border-outline-variant pb-2">
+                    Project AI Trace & Reasoning
+                  </h2>
+                  <AiLogViewer
+                    token={session?.accessToken}
+                    projectId={projectId}
+                    feature="feed_mapping"
+                    artifactId={feedId}
+                    canViewLogs={true}
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}

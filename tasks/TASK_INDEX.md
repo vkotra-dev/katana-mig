@@ -1,7 +1,6 @@
 # Task Index
 
 ## Ready
-| [001dd-consolidate-feed-ai-logs-ui](./001dd-consolidate-feed-ai-logs-ui.md) | Consolidated UI AI log viewer for feeds |
 
 
 
@@ -10,6 +9,8 @@
 
 
 ## Completed
+| [001dd-consolidate-feed-ai-logs-ui](./completed/001dd-consolidate-feed-ai-logs-ui.md) | [summary](./summary/001dd-consolidate-feed-ai-logs-ui.md) |
+
 | [001dc-fix-source-analysis-ai-log-artifact-id](./completed/001dc-fix-source-analysis-ai-log-artifact-id.md) | [summary](./summary/001dc-fix-source-analysis-ai-log-artifact-id.md) |
 
 
