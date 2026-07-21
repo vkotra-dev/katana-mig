@@ -764,36 +764,41 @@ def submit_lookup_inputs(
         )
         .order_by(LookupValueMap.created_at.desc(), LookupValueMap.lookup_value_map_id.desc())
     )
+    # 1. Fetch approved source values to preserve their sign-offs
+    approved_source_values = set()
     if value_map is not None:
-        has_sign_off = db.scalar(
-            select(LookupSignOff)
-            .where(LookupSignOff.lookup_value_map_id == value_map.lookup_value_map_id)
-            .limit(1)
-        ) is not None
-        if has_sign_off:
-            raise AuthApiError(
-                "lookup_already_approved",
-                f"Cannot re-analyze lookup '{fiber.fiber_key}' because it has already been signed off by a reviewer.",
-                409,
-            )
+        approved_source_values = set(
+            db.scalars(
+                select(LookupMapping.source_value)
+                .join(LookupSignOff, LookupSignOff.lookup_value_map_id == LookupMapping.mapping_id)
+                .where(LookupMapping.fiber_id == fiber.fiber_id, LookupMapping.status == "approved")
+            ).all()
+        )
 
-    # Clean up any existing lookup mapping/entries for this fiber to allow re-analysis
-    db.execute(delete(LookupMapping).where(LookupMapping.fiber_id == fiber.fiber_id))
-    db.execute(delete(LookupSourceEntry).where(LookupSourceEntry.fiber_id == fiber.fiber_id))
-    existing_dest_feed = db.scalar(select(LookupDestFeed).where(LookupDestFeed.fiber_id == fiber.fiber_id))
-    if existing_dest_feed is not None:
-        db.execute(delete(LookupDestEntry).where(LookupDestEntry.dest_feed_id == existing_dest_feed.dest_feed_id))
-        db.delete(existing_dest_feed)
+    # 2. Clean up only unapproved lookup mapping/entries for this fiber to allow re-analysis
+    db.execute(delete(LookupMapping).where(LookupMapping.fiber_id == fiber.fiber_id, LookupMapping.status != "approved"))
+    db.execute(
+        delete(LookupSourceEntry).where(
+            LookupSourceEntry.fiber_id == fiber.fiber_id,
+            LookupSourceEntry.source_value.notin_(approved_source_values) if approved_source_values else True
+        )
+    )
     db.flush()
 
     columns, dest_rows = _parse_destination_csv(body.destination_lookup_csv)
-    dest_feed = LookupDestFeed(
-        fiber_id=fiber.fiber_id,
-        lookup_name=fiber.fiber_key,
-        columns=columns,
-    )
-    db.add(dest_feed)
-    db.flush()
+    
+    # Use existing dest feed if it exists, otherwise create a new one
+    existing_dest_feed = db.scalar(select(LookupDestFeed).where(LookupDestFeed.fiber_id == fiber.fiber_id))
+    if existing_dest_feed is None:
+        dest_feed = LookupDestFeed(
+            fiber_id=fiber.fiber_id,
+            lookup_name=fiber.fiber_key,
+            columns=columns,
+        )
+        db.add(dest_feed)
+        db.flush()
+    else:
+        dest_feed = existing_dest_feed
 
     dest_entries: list[LookupDestEntry] = []
     for row in dest_rows:
@@ -804,6 +809,10 @@ def submit_lookup_inputs(
 
     source_entries: list[LookupSourceEntry] = []
     for source_value in body.source_values:
+        # 3. Skip re-inserting source values that are already approved
+        if source_value in approved_source_values:
+            continue
+            
         entry = LookupSourceEntry(
             fiber_id=fiber.fiber_id,
             lookup_name=fiber.fiber_key,

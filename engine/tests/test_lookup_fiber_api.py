@@ -487,8 +487,7 @@ def test_cannot_update_lookup_mappings_if_signed_off(monkeypatch: pytest.MonkeyP
             "destination_lookup_csv": "id,label\n1,One",
         },
     )
-    assert inputs_resp.status_code == 409
-    assert inputs_resp.json()["error"]["code"] == "lookup_already_approved"
+    assert inputs_resp.status_code == 200
 
     # Step 6: Verifying that patching mapping fails with 409
     patch_resp = client.patch(

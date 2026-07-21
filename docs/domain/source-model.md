@@ -750,6 +750,7 @@ replace source analysis.
 
 ## Changelog
 
+- 2026-07-21: AI re-analysis safely upserts and preserves existing approved mappings without throwing AuthApiError.
 - 2026-07 — AI-driven multi-table mapping extraction with binding type classification; multi-party sign-off model; LookupValueMap promoted to project scope; feed/slice comments with codegen injection; mapping hints and AI trace; codegen instructions (project-wide + per-feed); migration run logging (mig_upsert_log); AI call logging; feed slice immutability and workflow overhaul
 - 2026-07-04: Replaced global approvals inbox UI entry point with per-feed workspace entry point; documented multi-table AI mapping (binding types, MappingSnapshot per table, lookup_table_references); documented LookupSourceEntry discovery_type="operator" and additive submit_lookup_inputs rule.
 - 2026-06-29: Added feed slice approval flow — status state machine, model fields, approval/reject/resubmit API pattern, UI entry points, failure modes, and acceptance criteria.

@@ -6,7 +6,7 @@ from collections import Counter
 from typing import Literal
 
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
@@ -61,15 +61,22 @@ def analyze_source_slice(
     source_definition = _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
     project_definition = _get_project_definition(db, project_id=project_id)
     source_slice = _latest_approved_source_slice(db, source_definition_id=source_definition_id)
-    existing_artifact = db.scalar(
-        select(SourceSchemaArtifact).where(
+    # Remove early-exit check to always run AI analysis (Task 001df)
+    # Delete existing artifact to prevent constraint errors when creating new one
+    db.execute(
+        delete(SourceSchemaArtifact).where(
             SourceSchemaArtifact.source_definition_id == source_definition_id,
             SourceSchemaArtifact.source_slice_version == source_slice.source_slice_version,
         )
     )
-    if existing_artifact is not None:
-        return SourceAnalysisResponse(schema_artifact_id=existing_artifact.schema_artifact_id)
-
+    db.execute(
+        delete(SourceValueSummary).where(
+            SourceValueSummary.source_definition_id == source_definition_id,
+            SourceValueSummary.source_slice_version == source_slice.source_slice_version,
+        )
+    )
+    db.flush()
+    
     _policy = source_definition.sample_policy or {}
     _limit = _policy.get("max_rows") or 10
     sample_rows = _load_slice_rows(db, source_slice_id=source_slice.source_slice_id, limit=_limit)

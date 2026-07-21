@@ -318,6 +318,7 @@ def propose_mapping(
             select(MappingSnapshot.destination_object_name).where(
                 MappingSnapshot.project_id == project_id,
                 MappingSnapshot.source_definition_id == source_definition_id,
+                MappingSnapshot.status == "approved",
             )
         ).all()
     )
@@ -340,8 +341,6 @@ def propose_mapping(
     )
     already_mapped_tables = already_mapped_tables | project_approved
     expected_table_names = set(ddl_tables.keys())
-    if already_mapped_tables >= expected_table_names:
-        raise AuthApiError("mapping_already_proposed", "Mapping has already been proposed for this feed.", 409)
 
     source_columns = _latest_source_columns(
         db,

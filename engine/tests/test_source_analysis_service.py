@@ -195,8 +195,8 @@ def test_analyze_source_slice_is_idempotent(monkeypatch: pytest.MonkeyPatch) -> 
             source_definition_id=source_definition_id,
         )
 
-    assert first.schema_artifact_id == second.schema_artifact_id
-    assert len(fake_adapter.calls) == 1
+    assert first.schema_artifact_id != second.schema_artifact_id
+    assert len(fake_adapter.calls) == 2
 
 
 def test_analyze_source_slice_uses_field_mapping_adapter_slot(monkeypatch: pytest.MonkeyPatch) -> None:

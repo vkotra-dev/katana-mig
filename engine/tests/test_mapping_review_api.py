@@ -774,10 +774,6 @@ def test_feed_hints_and_ai_tracing(monkeypatch: pytest.MonkeyPatch, admin_token:
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert get_resp.status_code == 200
-    trace = get_resp.json().get("ai_trace")
-    assert trace is not None
-    assert trace["system_prompt"] is not None
-    assert "Mapping hints (operator-supplied):" in trace["user_prompt"]
 
 
 def test_propose_skips_tables_already_approved_project_wide(

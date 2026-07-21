@@ -2,21 +2,17 @@
 
 ## Ready
 
-
-
 | Task | Summary |
 |---|---|
 
 
 ## Completed
-| [001dd-consolidate-feed-ai-logs-ui](./completed/001dd-consolidate-feed-ai-logs-ui.md) | [summary](./summary/001dd-consolidate-feed-ai-logs-ui.md) |
-
-| [001dc-fix-source-analysis-ai-log-artifact-id](./completed/001dc-fix-source-analysis-ai-log-artifact-id.md) | [summary](./summary/001dc-fix-source-analysis-ai-log-artifact-id.md) |
-
-
 
 | Task | Summary |
 |---|---|
+| [001df-ai-reanalysis-preservation](./completed/001df-ai-reanalysis-preservation.md) | [summary](./summary/001df-ai-reanalysis-preservation.md) |
+| [001dd-consolidate-feed-ai-logs-ui](./completed/001dd-consolidate-feed-ai-logs-ui.md) | [summary](./summary/001dd-consolidate-feed-ai-logs-ui.md) |
+| [001dc-fix-source-analysis-ai-log-artifact-id](./completed/001dc-fix-source-analysis-ai-log-artifact-id.md) | [summary](./summary/001dc-fix-source-analysis-ai-log-artifact-id.md) |
 | [001db-drop-legacy-ai-log-columns](./completed/001db-drop-legacy-ai-log-columns.md) | [summary](./summary/001db-drop-legacy-ai-log-columns.md) |
 | [001da-ai-log-viewer](./completed/001da-ai-log-viewer.md) | [summary](./summary/001da-ai-log-viewer.md) |
 | [001cz-ai-call-log-feature-model](./completed/001cz-ai-call-log-feature-model.md) | [summary](./summary/001cz-ai-call-log-feature-model.md) |
