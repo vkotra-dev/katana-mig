@@ -398,6 +398,8 @@ def test_analyze_feed_logs_raw_response_on_validation_error(monkeypatch: pytest.
             actor = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
             analyze_feed(db, feed_id=feed_id, project_id=project_id, actor=actor)
             
+        db.rollback()
+            
         from migrations_engine.db.models import AICallLog
         logs = db.query(AICallLog).filter_by(project_id=project_id, call_type="feed_analysis").all()
         assert len(logs) == 1

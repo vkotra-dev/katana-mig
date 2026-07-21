@@ -287,6 +287,7 @@ def test_analyze_source_slice_logs_raw_response_on_validation_error(monkeypatch:
             analyze_source_slice(db, actor=user, project_id=project_id, source_definition_id=source_id)
             
         assert exc_info.value.status_code == 502
+        db.rollback()
 
         from migrations_engine.db.models import AICallLog
         logs = db.query(AICallLog).filter_by(project_id=project_id, call_type="source_analysis").all()

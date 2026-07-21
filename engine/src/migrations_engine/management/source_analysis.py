@@ -140,6 +140,7 @@ def analyze_source_slice(
             raw_response=None,
             error_detail=str(exc),
         )
+        db.commit()
         raise
 
     call_log = log_ai_call(
