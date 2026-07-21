@@ -4,18 +4,23 @@
 
 | Task | Summary |
 |---|---|
-| [001dy-one-to-many-field-mapping](./001dy-one-to-many-field-mapping.md) | Support 1-to-N Source-to-Destination Field Mappings |
-| [001dz-unmapped-destination-fields-tracking](./001dz-unmapped-destination-fields-tracking.md) | Track and Display Unmapped Destination Fields |
-| [001ea-mapping-ai-schema-hardening](./001ea-mapping-ai-schema-hardening.md) | New mapping AI system prompt (adds nullable) + strict Pydantic response schema; also fixes patch_mapping dropping destination_data_type on edit |
-| [001eb-source-analysis-schema-hardening](./001eb-source-analysis-schema-hardening.md) | New source-analysis AI system prompt + strict Pydantic schema; wires in header-verbatim guard that catches column-name corruption (e.g. claim_type -> claim_claim) at its origin |
-| [001ec-preserve-raw-response-on-validation-failure](./001ec-preserve-raw-response-on-validation-failure.md) | Adapters currently discard the raw AI response text on schema-validation failure; new AIResponseValidationError carries it through to ai_call_log for mapping, source-analysis, feed-analysis, and lookup-mapping calls |
-| [001ed-shared-prompt-template-class](./001ed-shared-prompt-template-class.md) | Generic Prompt class backed by YAML files with $-syntax merge fields (warn-and-drop on missing), replacing the 5 hardcoded system/user prompt strings in review.py, source_analysis.py, and fibers.py |
+| [001ee-extract-ddl-parser](./001ee-extract-ddl-parser.md) | Part 1/3 of splitting review.py: extract parse_all_ddl_tables/parse_ddl into mapping/ddl.py. Zero external blast radius, no dependencies. |
+| [001ef-extract-snapshot-repository](./001ef-extract-snapshot-repository.md) | Part 2/3: extract the 8 DB-query/response-shaping helpers into mapping/snapshots.py; repoints routes/mapping_snapshots.py. Depends on 001ee. |
+| [001eg-extract-proposal-module](./001eg-extract-proposal-module.md) | Part 3/3: extract propose_mapping into mapping/proposal.py; splits routes/mapping.py's import and repoints all 16 get_adapter monkeypatches in test_mapping_review_api.py. Depends on 001ee, 001ef. review.py ends at ~400 lines, 5 functions. |
 
 
 ## Completed
 
+| [001ee-extract-ddl-parser](./completed/001ee-extract-ddl-parser.md) | Extracted DDL parser into mapping/ddl.py |
+
 | Task | Summary |
 |---|---|
+| [001ed-shared-prompt-template-class](./completed/001ed-shared-prompt-template-class.md) | [summary](./summary/001ed-shared-prompt-template-class.md) |
+| [001ec-preserve-raw-response-on-validation-failure](./completed/001ec-preserve-raw-response-on-validation-failure.md) | [summary](./summary/001ec-preserve-raw-response-on-validation-failure.md) |
+| [001eb-source-analysis-schema-hardening](./completed/001eb-source-analysis-schema-hardening.md) | [summary](./summary/001eb-source-analysis-schema-hardening.md) |
+| [001ea-mapping-ai-schema-hardening](./completed/001ea-mapping-ai-schema-hardening.md) | [summary](./summary/001ea-mapping-ai-schema-hardening.md) |
+| [001dz-unmapped-destination-fields-tracking](./completed/001dz-unmapped-destination-fields-tracking.md) | [summary](./summary/001dz-unmapped-destination-fields-tracking.md) |
+| [001dy-one-to-many-field-mapping](./completed/001dy-one-to-many-field-mapping.md) | [summary](./summary/001dy-one-to-many-field-mapping.md) |
 | [001df-ai-reanalysis-preservation](./completed/001df-ai-reanalysis-preservation.md) | [summary](./summary/001df-ai-reanalysis-preservation.md) |
 | [001dd-consolidate-feed-ai-logs-ui](./completed/001dd-consolidate-feed-ai-logs-ui.md) | [summary](./summary/001dd-consolidate-feed-ai-logs-ui.md) |
 | [001dc-fix-source-analysis-ai-log-artifact-id](./completed/001dc-fix-source-analysis-ai-log-artifact-id.md) | [summary](./summary/001dc-fix-source-analysis-ai-log-artifact-id.md) |
