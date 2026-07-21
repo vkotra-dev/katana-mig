@@ -201,8 +201,32 @@ def propose_mapping(
                 422,
             )
 
-    # 5. Create MappingSnapshot records in a single transaction
+    # 5. Create or Patch MappingSnapshot records in a single transaction
+    
+    existing_drafts = {
+        s.destination_object_name: s
+        for s in db.scalars(
+            select(MappingSnapshot).where(
+                MappingSnapshot.project_id == project_id,
+                MappingSnapshot.source_definition_id == source_definition_id,
+                MappingSnapshot.status == "draft",
+            )
+        ).all()
+    }
+    
+    draft_ids = [s.mapping_snapshot_id for s in existing_drafts.values()]
+    signed_off_pairs = set()
+    if draft_ids:
+        from ..db.models import MappingBindingSignOff
+        sign_offs = db.scalars(
+            select(MappingBindingSignOff).where(
+                MappingBindingSignOff.mapping_snapshot_id.in_(draft_ids)
+            )
+        ).all()
+        for so in sign_offs:
+            signed_off_pairs.add((so.mapping_snapshot_id, so.source_field, so.destination_field))
 
+    from sqlalchemy.orm.attributes import flag_modified
     snapshots: list[MappingSnapshot] = []
     seen_tables = set()
     mapped_table_names = {t.destination_table_name for t in proposal.tables}
@@ -217,7 +241,7 @@ def propose_mapping(
         
         destination_fields = ddl_tables[tbl_name]
         
-        field_bindings = []
+        fresh_bindings = []
         for binding in table_mapping.bindings:
             b_type = binding.binding_type
             ref_table = binding.reference_table_name
@@ -230,7 +254,7 @@ def propose_mapping(
             if b_type == "lookup_fk":
                 l_name = binding.source_field  # default lookup name to source field name
                 
-            field_bindings.append({
+            fresh_bindings.append({
                 "source_field": binding.source_field,
                 "destination_field": binding.destination_field,
                 "lookup_name": l_name,
@@ -240,28 +264,60 @@ def propose_mapping(
                 "nullable": binding.nullable,
             })
             
-        version = next_snapshot_version(
-            db,
-            project_id=project_id,
-            source_definition_id=source_definition_id,
-            destination_object_name=tbl_name,
-        )
-        
-        snapshot = MappingSnapshot(
-            mapping_snapshot_id=new_id(),
-            project_id=project_id,
-            source_definition_id=source_definition_id,
-            destination_object_name=tbl_name,
-            mapping_snapshot_version=version,
-            field_bindings=field_bindings,
-            destination_fields=destination_fields,
-            status="draft",
-            current_ball_role="central_team",
-            approved_at=None,
-            approved_by_user_id=None,
-        )
-        db.add(snapshot)
-        snapshots.append(snapshot)
+        existing_draft = existing_drafts.get(tbl_name)
+        if existing_draft:
+            # Patch existing draft
+            old_bindings_map = {
+                (b["source_field"], b["destination_field"]): b
+                for b in existing_draft.field_bindings
+            }
+            
+            merged_bindings = []
+            for fresh_b in fresh_bindings:
+                pair = (fresh_b["source_field"], fresh_b["destination_field"])
+                is_signed_off = (existing_draft.mapping_snapshot_id, pair[0], pair[1]) in signed_off_pairs
+                if is_signed_off and pair in old_bindings_map:
+                    # Keep old binding for core fields, but overlay new keys for forward compatibility
+                    merged_bindings.append({**fresh_b, **old_bindings_map[pair]})
+                else:
+                    merged_bindings.append(fresh_b)
+            
+            # Keep signed-off bindings that the AI dropped
+            fresh_pairs = {(b["source_field"], b["destination_field"]) for b in fresh_bindings}
+            for pair, old_b in old_bindings_map.items():
+                if pair not in fresh_pairs:
+                    is_signed_off = (existing_draft.mapping_snapshot_id, pair[0], pair[1]) in signed_off_pairs
+                    if is_signed_off:
+                        merged_bindings.append(old_b)
+                        
+            existing_draft.field_bindings = merged_bindings
+            existing_draft.destination_fields = destination_fields
+            flag_modified(existing_draft, "field_bindings")
+            flag_modified(existing_draft, "destination_fields")
+            snapshots.append(existing_draft)
+        else:
+            version = next_snapshot_version(
+                db,
+                project_id=project_id,
+                source_definition_id=source_definition_id,
+                destination_object_name=tbl_name,
+            )
+            
+            snapshot = MappingSnapshot(
+                mapping_snapshot_id=new_id(),
+                project_id=project_id,
+                source_definition_id=source_definition_id,
+                destination_object_name=tbl_name,
+                mapping_snapshot_version=version,
+                field_bindings=fresh_bindings,
+                destination_fields=destination_fields,
+                status="draft",
+                current_ball_role="central_team",
+                approved_at=None,
+                approved_by_user_id=None,
+            )
+            db.add(snapshot)
+            snapshots.append(snapshot)
 
     try:
         db.flush()
