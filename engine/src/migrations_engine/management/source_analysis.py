@@ -152,7 +152,7 @@ def analyze_source_slice(
         },
     )
     db.commit()
-    backfill_artifact_id(db, call_log.call_id, schema_artifact.schema_artifact_id)
+    backfill_artifact_id(db, call_log.call_id, source_definition_id)
     db.refresh(schema_artifact)
 
     return SourceAnalysisResponse(schema_artifact_id=schema_artifact.schema_artifact_id)

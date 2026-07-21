@@ -717,7 +717,7 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
                 raw_response=result2.raw_response,
             )
             field_mapping_result = result2.parsed
-            backfill_artifact_id(db, call_log2.call_id, fiber.fiber_id)
+            backfill_artifact_id(db, call_log2.call_id, fiber.feed_id)
         except Exception as exc:
             log_ai_call(
                 db,
@@ -854,7 +854,7 @@ def submit_lookup_inputs(
             raw_response=result3.raw_response,
         )
         ai_result = result3.parsed
-        backfill_artifact_id(db, call_log3.call_id, fiber_id)
+        backfill_artifact_id(db, call_log3.call_id, fiber.feed_id)
     except Exception as exc:
         log_ai_call(
             db,

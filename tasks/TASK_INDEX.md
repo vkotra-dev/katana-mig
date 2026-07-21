@@ -1,12 +1,17 @@
 # Task Index
 
 ## Ready
+| [001dd-consolidate-feed-ai-logs-ui](./001dd-consolidate-feed-ai-logs-ui.md) | Consolidated UI AI log viewer for feeds |
+
+
 
 | Task | Summary |
 |---|---|
-| [001ce-project-member-autocomplete](./001ce-project-member-autocomplete.md) | PM Scoping, Admin Project Management, Member Autocomplete |
+
 
 ## Completed
+| [001dc-fix-source-analysis-ai-log-artifact-id](./completed/001dc-fix-source-analysis-ai-log-artifact-id.md) | [summary](./summary/001dc-fix-source-analysis-ai-log-artifact-id.md) |
+
 
 
 | Task | Summary |

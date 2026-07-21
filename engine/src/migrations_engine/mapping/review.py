@@ -556,7 +556,7 @@ def propose_mapping(
         db.refresh(snapshot)
 
     if snapshots:
-        backfill_artifact_id(db, call_log.call_id, snapshots[0].mapping_snapshot_id)
+        backfill_artifact_id(db, call_log.call_id, source_definition_id)
 
     return _snapshot_to_response(snapshots[0], db=db)
 
