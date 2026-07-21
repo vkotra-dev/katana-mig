@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import csv
-import io
 import uuid
 
 import pytest
@@ -31,8 +29,6 @@ from migrations_engine.config import get_settings  # noqa: E402
 from migrations_engine.db.base import Base  # noqa: E402
 from migrations_engine.db.models import (  # noqa: E402
     ChangeRequest,
-        LookupSnapshot,
-        MappingSnapshot,
         ProjectDefinition,
         ProjectRegistry,
     RunCheckpoint,

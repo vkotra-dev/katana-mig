@@ -1,4 +1,5 @@
 "use client";
+import { Dialog } from "../Dialog";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
@@ -318,15 +319,12 @@ export function LaunchRunDialog({
     }
   };
 
-  if (!open) {
-    return null;
-  }
+
 
   const selectedObjectSuggestions = selectedContract?.destinationObjectReferences ?? [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-8">
-      <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-2xl">
+    <Dialog open={open} onClose={close} title="Launch run" widthClassName="max-w-4xl">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Launch Run</p>
@@ -622,7 +620,6 @@ export function LaunchRunDialog({
             ) : null}
           </form>
         ) : null}
-      </div>
-    </div>
+    </Dialog>
   );
 }

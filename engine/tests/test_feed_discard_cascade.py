@@ -4,10 +4,7 @@ Test suite for feed discard cascade functionality.
 This tests the cascade behavior when discarding feeds to MappingSnapshots, ProjectFibers, and LookupValueMaps
 """
 
-from datetime import UTC, datetime
-from typing import cast
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from migrations_engine.db.models import (
@@ -18,7 +15,7 @@ from migrations_engine.db.models import (
 )
 from migrations_engine.management.feeds import discard_feed
 
-from sqlite_test_support import Base, SessionLocal, TEST_ENGINE
+from sqlite_test_support import SessionLocal
 from dataclasses import dataclass
 from migrations_engine.db.models import User
 

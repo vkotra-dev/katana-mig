@@ -296,7 +296,6 @@ def test_schema_analysis_route_requires_access() -> None:
 
 from migrations_engine.ai.adapter import AIResponseValidationError
 from migrations_engine.db.models import AICallLog
-from migrations_engine.codegen import schema_analysis as schema_analysis_module
 
 class ValidationFailingAdapter:
     model_id = "test-model"

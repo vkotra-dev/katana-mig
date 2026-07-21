@@ -1,4 +1,5 @@
 "use client";
+import { Dialog } from "../Dialog";
 
 import { useEffect, useState } from "react";
 import { createProject, projectErrorMessage, type ProjectRecord, type TargetDbEngine } from "../../lib/projects-api";
@@ -34,20 +35,11 @@ export function CreateProjectDialog({
     setErrorMessage(null);
   }, [open]);
 
-  if (!open) {
-    return null;
-  }
 
   const canSubmit = name.trim().length > 0 && targetDbEngine !== "" && !loading;
 
   return (
-    <div
-      aria-label="Create Project"
-      aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-8"
-      role="dialog"
-    >
-      <div className="w-full max-w-xl rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-lg">
+    <Dialog open={!!open} onClose={onClose} title="Create Project">
         <div className="mb-5">
           <h2 className="text-2xl font-semibold text-slate-900">Create project</h2>
           <p className="text-sm text-slate-600">
@@ -152,7 +144,6 @@ export function CreateProjectDialog({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Dialog>
   );
 }

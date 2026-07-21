@@ -11,7 +11,7 @@ from migrations_engine.app import app
 from migrations_engine.auth.passwords import hash_password
 from migrations_engine.config import get_settings
 from migrations_engine.db.models import AuditEvent, AuthSession, Notification, ProjectDefinition, ProjectMembership, ProjectRegistry, User, Feed
-from migrations_engine.roles import PROJECT_STAKEHOLDER_ROLE, READ_ONLY_AUDITOR_ROLE, ADMIN_ROLE, PM_ROLE
+from migrations_engine.roles import PROJECT_STAKEHOLDER_ROLE, READ_ONLY_AUDITOR_ROLE, ADMIN_ROLE
 
 client = TestClient(app)
 

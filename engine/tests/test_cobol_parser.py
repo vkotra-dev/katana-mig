@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from migrations_engine.intake.cobol_parser import FieldDef, parse_copybook
+from migrations_engine.intake.cobol_parser import parse_copybook
 
 
 SIMPLE_COPYBOOK = """

@@ -57,10 +57,37 @@ export function useAiCallLogs(
   );
 
   useEffect(() => {
+    let active = true;
     setOffset(0);
     setLoading(true);
-    fetchLogs(0, true);
-  }, [fetchLogs]);
+    
+    // Instead of calling fetchLogs which ignores the active flag,
+    // we just wrap it and ignore the final state updates if !active
+    const doFetch = async () => {
+      if (!token) return;
+      try {
+        const response = await listAiCallLogs(token, projectId, {
+          feature: options.feature,
+          callType: options.callType,
+          artifactId: options.artifactId,
+          limit: LIMIT,
+          offset: 0,
+        });
+        if (active) {
+          setLogs(response);
+          setHasMore(response.length === LIMIT);
+          setError(null);
+        }
+      } catch (err) {
+        if (active) setError(err instanceof Error ? err.message : "Failed to fetch logs");
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    
+    doFetch();
+    return () => { active = false; };
+  }, [token, projectId, options.feature, options.callType, options.artifactId]);
 
   const loadMore = async () => {
     if (loading || !hasMore) return;

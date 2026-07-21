@@ -19,9 +19,9 @@ from migrations_engine.db.models import (  # noqa: E402
     SourceValueSummary,
     User,
 )
+from migrations_engine.management.analysis_schemas import ColumnSchema
 from migrations_engine.management.source_analysis import (  # noqa: E402
     AnalysisResult,
-    ColumnSchema,
     analyze_source_slice,
 )
 from migrations_engine.roles import CENTRAL_TEAM_ROLE  # noqa: E402

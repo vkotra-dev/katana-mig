@@ -67,12 +67,16 @@ describe("ReviewGrid", () => {
       bindings: {
         accounts: {
           src_id: {
-            centralTeam: { signed: true, signedAt: null, userId: null },
-            projectStakeholder: { signed: true, signedAt: null, userId: null },
+            id: {
+              centralTeam: { signed: true, signedAt: null, userId: null },
+              projectStakeholder: { signed: true, signedAt: null, userId: null },
+            }
           },
           src_status: {
-            centralTeam: { signed: true, signedAt: null, userId: null },
-            projectStakeholder: { signed: true, signedAt: null, userId: null },
+            status_id: {
+              centralTeam: { signed: true, signedAt: null, userId: null },
+              projectStakeholder: { signed: true, signedAt: null, userId: null },
+            }
           },
         },
       },
@@ -146,6 +150,6 @@ describe("ReviewGrid", () => {
     expect(option).toBeInTheDocument();
     fireEvent.click(option);
 
-    expect(onDestinationFieldChange).toHaveBeenCalledWith("accounts", "src_id", "status_id");
+    expect(onDestinationFieldChange).toHaveBeenCalledWith("accounts", "src_id", "id", "status_id");
   });
 });

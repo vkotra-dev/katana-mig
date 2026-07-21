@@ -296,14 +296,13 @@ describe("FeedDetailPage", () => {
 
     await renderPage();
 
-    // Expand accordion
-    fireEvent.click(screen.getByRole("button", { name: /users\s+\d+\s+fields$/i }));
-
-    expect(screen.getByText("AI Trace & Reasoning")).toBeInTheDocument();
-    expect(screen.getByText("Model ID:")).toBeInTheDocument();
-    expect(screen.getByText("gemini-2.5")).toBeInTheDocument();
-    expect(screen.getByText("sys-instruction")).toBeInTheDocument();
-    expect(screen.getByText("user-input")).toBeInTheDocument();
+    // Project AI Trace is always rendered for admin/central_team at the bottom
+    expect(screen.getByText("Project AI Trace & Reasoning")).toBeInTheDocument();
+    
+    // Check that the AiLogViewer table headers appear (indicating it rendered)
+    expect(screen.getByText("Call Type")).toBeInTheDocument();
+    expect(screen.getByText("Model ID")).toBeInTheDocument();
+    expect(screen.getByText("Timestamp")).toBeInTheDocument();
   });
 
   it("renders pending approval banner when latest slice is pending_approval", async () => {

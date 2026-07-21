@@ -35,7 +35,12 @@
       "Bash(node *)",
       "Bash(cat .eslintrc*)",
       "Bash(cat eslint.config*)",
-      "Bash(grep *)"
+      "Bash(grep *)",
+      "Bash(.venv/bin/pytest engine/tests/test_cobol_parser.py engine/tests/test_execution_engine.py engine/tests/test_feed_discard_cascade.py engine/tests/test_impact_review_config.py engine/tests/test_project_crud_api.py engine/tests/test_prompt_backward_compatibility.py engine/tests/test_schema_analysis_api.py engine/tests/test_source_analysis_api.py engine/tests/test_source_slice_approval_api.py -q)",
+      "Bash(.venv/bin/pytest engine/tests/test_cobol_parser.py engine/tests/test_execution_engine.py engine/tests/test_feed_discard_cascade.py engine/tests/test_impact_review_config.py engine/tests/test_project_crud_api.py engine/tests/test_prompt_backward_compatibility.py engine/tests/test_schema_analysis_api.py engine/tests/test_source_slice_approval_api.py -q)",
+      "Bash(.venv/bin/pytest engine/tests/test_fiber_ai_flow.py engine/tests/test_source_analysis_api.py -q)",
+      "Bash(.venv/bin/ruff check *)",
+      "Bash(npx vitest *)"
     ]
   }
 }

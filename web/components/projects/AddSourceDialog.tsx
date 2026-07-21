@@ -1,4 +1,5 @@
 "use client";
+import { Dialog } from "../Dialog";
 
 import { useState, type FormEvent } from "react";
 import {
@@ -47,9 +48,7 @@ export function AddSourceDialog({
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  if (!open) {
-    return null;
-  }
+
 
   const reset = () => {
     setStep("declare");
@@ -136,8 +135,7 @@ export function AddSourceDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-8">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-2xl">
+    <Dialog open={open} onClose={close} title="Add source">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold text-slate-900">Add source</h2>
@@ -331,7 +329,6 @@ export function AddSourceDialog({
             </div>
           </form>
         ) : null}
-      </div>
-    </div>
+    </Dialog>
   );
 }

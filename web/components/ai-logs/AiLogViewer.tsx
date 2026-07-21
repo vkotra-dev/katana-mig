@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Dialog } from "../Dialog";
 import { useAiCallLogs } from "../../hooks/useAiCallLogs";
 import { type AICallLogRecord } from "../../lib/ai-calls-api";
 
@@ -38,8 +39,7 @@ const InspectModal = ({ callId, logs, onClose }: InspectModalProps) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="flex h-[80vh] w-full max-w-4xl flex-col rounded-2xl border border-outline bg-surface-container shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <Dialog open={true} onClose={onClose} widthClassName="max-w-4xl" title="AI Call Log Details">
         <div className="flex items-center justify-between border-b border-outline-variant px-6 py-4 bg-surface">
           <div className="flex flex-col">
             <h3 className="text-lg font-semibold text-slate-900">AI Call Log Details</h3>
@@ -99,8 +99,7 @@ const InspectModal = ({ callId, logs, onClose }: InspectModalProps) => {
              JSON.stringify(log, null, 2)}
           </pre>
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 };
 

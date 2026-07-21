@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 
-from migrations_engine.ai.adapter import ConfigurationError
 from migrations_engine.ai.config import get_ai_config
 from migrations_engine.ai.factory import get_adapter, _SLOT_MAP
 

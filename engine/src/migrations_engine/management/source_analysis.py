@@ -3,9 +3,7 @@ from __future__ import annotations
 import csv
 import json
 from collections import Counter
-from typing import Literal
 
-from pydantic import BaseModel
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
@@ -35,7 +33,6 @@ except ModuleNotFoundError:  # pragma: no cover - optional SDK dependency may be
 
 
 from .analysis_schemas import (
-    ColumnSchema,
     AnalysisResult,
     HeaderMismatch,
     validate_against_header,

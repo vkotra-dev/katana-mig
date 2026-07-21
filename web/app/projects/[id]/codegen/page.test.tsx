@@ -368,23 +368,14 @@ describe("CodegenPage", () => {
     const inspectBtn = await screen.findByRole("button", { name: "Inspect AI Logs" });
     fireEvent.click(inspectBtn);
 
-    expect(screen.getByText("Inspect AI Logs for customer")).toBeInTheDocument();
-    expect(screen.getByText("System rules content")).toBeInTheDocument();
-
-    const userTab = screen.getByRole("button", { name: "User Prompt" });
-    fireEvent.click(userTab);
-    expect(screen.getByText("User mapping content")).toBeInTheDocument();
-
-    const rawTab = screen.getByRole("button", { name: "Raw LLM JSON" });
-    fireEvent.click(rawTab);
-    expect(screen.getByText('{"staging_ddl": "sql", "lookup_ddl": [], "seed_data": [], "stored_procedures": []}')).toBeInTheDocument();
-
-    const sqlTab = screen.getByRole("button", { name: "Assembled SQL" });
-    fireEvent.click(sqlTab);
-    expect(screen.getAllByText("CREATE TABLE stg_customer (customer_id INT);")[0]).toBeInTheDocument();
-
-    const closeBtn = screen.getByRole("button", { name: "✕" });
-    fireEvent.click(closeBtn);
-    expect(screen.queryByText("Inspect AI Logs for customer")).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Hide AI Logs" })).toBeInTheDocument();
+    
+    // The AiLogViewer is rendered in a new row, so it should display its loading state or table
+    expect(screen.getByText("Call Type")).toBeInTheDocument();
+    expect(screen.getByText("Model ID")).toBeInTheDocument();
+    
+    const hideBtn = screen.getByRole("button", { name: "Hide AI Logs" });
+    fireEvent.click(hideBtn);
+    expect(screen.queryByText("Call Type")).not.toBeInTheDocument();
   });
 });

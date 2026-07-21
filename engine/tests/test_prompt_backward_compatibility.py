@@ -1,4 +1,3 @@
-import pytest
 from migrations_engine.ai.prompt import Prompt
 
 def test_source_analysis_prompt_parity():
