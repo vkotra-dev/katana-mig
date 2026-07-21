@@ -175,6 +175,7 @@ def test_analyze_source_slice_is_idempotent(monkeypatch: pytest.MonkeyPatch) -> 
         analysis_result=AnalysisResult(
             columns=[
                 ColumnSchema(name="CUST_ID", inferred_type="integer", nullable=False, max_length=8),
+                ColumnSchema(name="SURNAME", inferred_type="text", nullable=True, max_length=40),
             ]
         )
     )
@@ -206,6 +207,7 @@ def test_analyze_source_slice_uses_field_mapping_adapter_slot(monkeypatch: pytes
         analysis_result=AnalysisResult(
             columns=[
                 ColumnSchema(name="CUST_ID", inferred_type="integer", nullable=False, max_length=8),
+                ColumnSchema(name="SURNAME", inferred_type="text", nullable=True, max_length=40),
             ]
         )
     )

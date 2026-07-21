@@ -5,7 +5,7 @@ import json
 from collections import Counter
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
@@ -34,21 +34,27 @@ except ModuleNotFoundError:  # pragma: no cover - optional SDK dependency may be
     get_adapter = None  # type: ignore[assignment]
 
 
-SYSTEM_PROMPT = (
-    "You are a data analyst. Given CSV or fixed-length record samples, "
-    "infer column schemas. Return a JSON object matching the schema below."
+from .analysis_schemas import (
+    ColumnSchema,
+    AnalysisResult,
+    HeaderMismatch,
+    validate_against_header,
 )
 
-
-class ColumnSchema(BaseModel):
-    name: str
-    inferred_type: Literal["text", "integer", "decimal", "date", "boolean", "uuid"]
-    nullable: bool
-    max_length: int | None
-
-
-class AnalysisResult(BaseModel):
-    columns: list[ColumnSchema]
+SYSTEM_PROMPT = (
+    "You are a data analyst. Given CSV or fixed-length record samples, "
+    "infer column schemas.\n"
+    "CRITICAL RULES:\n"
+    "1. Column Order & Names: You MUST preserve the exact column order. "
+    "If a header is provided, copy every column name VERBATIM, character-for-character. "
+    "Do NOT change casing or fix typos in column names.\n"
+    "2. Type Inference: Infer types (text, integer, decimal, date, boolean, uuid) based on sample rows. "
+    "Ignore masked or redacted values (e.g. 'MASKED', '****') when inferring types.\n"
+    "3. Nullability: Set 'nullable' to true if any sample row has an empty/null value for the column.\n"
+    "4. Max Length: For text columns, provide 'max_length' as the maximum character count found. "
+    "For other types, set max_length to null.\n"
+    "Return a JSON object exactly matching the provided schema, with NO extra keys."
+)
 
 
 def analyze_source_slice(
@@ -105,7 +111,8 @@ def analyze_source_slice(
             sample_text,
             AnalysisResult,
         )
-        call_log = log_ai_call(
+    except ValidationError as exc:
+        log_ai_call(
             db,
             project_id=project_id,
             feature="feed_mapping",
@@ -114,9 +121,10 @@ def analyze_source_slice(
             model_id=adapter.model_id,
             system=system_prompt,
             user=sample_text,
-            raw_response=result.raw_response,
+            raw_response=None,
+            error_detail=str(exc),
         )
-        analysis_result = result.parsed
+        raise AuthApiError("ai_schema_mismatch", "AI generated invalid schema", 422) from exc
     except Exception as exc:
         log_ai_call(
             db,
@@ -131,6 +139,26 @@ def analyze_source_slice(
             error_detail=str(exc),
         )
         raise
+
+    call_log = log_ai_call(
+        db,
+        project_id=project_id,
+        feature="feed_mapping",
+        artifact_id=source_definition_id,
+        call_type="source_analysis",
+        model_id=adapter.model_id,
+        system=system_prompt,
+        user=sample_text,
+        raw_response=result.raw_response,
+    )
+    analysis_result = result.parsed
+
+    try:
+        validate_against_header(analysis_result, source_slice.header_csv)
+    except HeaderMismatch as exc:
+        call_log.error_detail = str(exc)
+        db.commit()
+        raise AuthApiError("ai_schema_mismatch", str(exc), 422) from exc
 
     schema_artifact = SourceSchemaArtifact(
         source_definition_id=source_definition_id,
