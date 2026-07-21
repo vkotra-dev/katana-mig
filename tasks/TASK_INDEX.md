@@ -8,6 +8,8 @@
 | [001dz-unmapped-destination-fields-tracking](./001dz-unmapped-destination-fields-tracking.md) | Track and Display Unmapped Destination Fields |
 | [001ea-mapping-ai-schema-hardening](./001ea-mapping-ai-schema-hardening.md) | New mapping AI system prompt (adds nullable) + strict Pydantic response schema; also fixes patch_mapping dropping destination_data_type on edit |
 | [001eb-source-analysis-schema-hardening](./001eb-source-analysis-schema-hardening.md) | New source-analysis AI system prompt + strict Pydantic schema; wires in header-verbatim guard that catches column-name corruption (e.g. claim_type -> claim_claim) at its origin |
+| [001ec-preserve-raw-response-on-validation-failure](./001ec-preserve-raw-response-on-validation-failure.md) | Adapters currently discard the raw AI response text on schema-validation failure; new AIResponseValidationError carries it through to ai_call_log for mapping, source-analysis, feed-analysis, and lookup-mapping calls |
+| [001ed-shared-prompt-template-class](./001ed-shared-prompt-template-class.md) | Generic Prompt class backed by YAML files with $-syntax merge fields (warn-and-drop on missing), replacing the 5 hardcoded system/user prompt strings in review.py, source_analysis.py, and fibers.py |
 
 
 ## Completed
