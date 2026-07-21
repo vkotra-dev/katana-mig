@@ -857,18 +857,20 @@ class BindingSignOffStatus(BaseModel):
 class SignOffStatusResponse(BaseModel):
     complete: bool
     current_ball_role: str | None = None
-    bindings: dict[str, dict[str, BindingSignOffStatus]]
+    bindings: dict[str, dict[str, dict[str, BindingSignOffStatus]]]
     lookups: dict[str, dict[str, BindingSignOffEntry]]
 
 
 class SignBindingRequest(BaseModel):
     destination_object_name: str
     source_field: str
+    destination_field: str
 
 
 class UnsignBindingRequest(BaseModel):
     destination_object_name: str
     source_field: str
+    destination_field: str
 
 
 class PokeRequest(BaseModel):

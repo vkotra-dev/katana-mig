@@ -684,8 +684,9 @@ class MappingBindingSignOff(Base):
     mapping_snapshot_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("mapping_snapshots.mapping_snapshot_id", ondelete="CASCADE"), nullable=False, index=True
     )
-    destination_object_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    source_field: Mapped[str] = mapped_column(String(255), nullable=False)
+    destination_object_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    source_field: Mapped[str] = mapped_column(String(128), nullable=False)
+    destination_field: Mapped[str] = mapped_column(String(128), nullable=False)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     role: Mapped[str] = mapped_column(String(50), nullable=False)
     signed_at: Mapped[datetime] = mapped_column(
@@ -697,6 +698,7 @@ class MappingBindingSignOff(Base):
             "mapping_snapshot_id",
             "destination_object_name",
             "source_field",
+            "destination_field",
             "user_id",
             name="uq_mapping_binding_sign_off",
         ),

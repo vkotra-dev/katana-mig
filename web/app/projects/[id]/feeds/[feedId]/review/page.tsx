@@ -164,20 +164,20 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
     }
   };
 
-  const handleSignBinding = async (tableName: string, sourceField: string) => {
+  const handleSignBinding = async (tableName: string, sourceField: string, destField: string) => {
     if (!session) return;
     try {
-      const updated = await signBinding(session.accessToken, projectId, feedId, tableName, sourceField);
+      const updated = await signBinding(session.accessToken, projectId, feedId, tableName, sourceField, destField);
       setSignOffStatus(updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to sign field binding.");
     }
   };
 
-  const handleUnsignBinding = async (tableName: string, sourceField: string) => {
+  const handleUnsignBinding = async (tableName: string, sourceField: string, destField: string) => {
     if (!session) return;
     try {
-      const updated = await unsignBinding(session.accessToken, projectId, feedId, tableName, sourceField);
+      const updated = await unsignBinding(session.accessToken, projectId, feedId, tableName, sourceField, destField);
       setSignOffStatus(updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to unsign field binding.");
@@ -204,7 +204,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
     }
   };
 
-  const handleDestinationFieldChange = async (tableName: string, sourceField: string, newDest: string) => {
+  const handleDestinationFieldChange = async (tableName: string, sourceField: string, oldDest: string, newDest: string) => {
     setError(null);
     // 1. Instantly update the input field value in local state for zero lag
     setMappingSnapshots((prev) =>
@@ -213,7 +213,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
         return {
           ...snapshot,
           fieldBindings: snapshot.fieldBindings.map((binding) => {
-            if (binding.sourceField !== sourceField) return binding;
+            if (binding.sourceField !== sourceField || binding.destinationField !== oldDest) return binding;
             return { ...binding, destinationField: newDest };
           }),
         };
@@ -227,7 +227,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
       if (!targetSnapshot) return;
 
       const updatedBindings = targetSnapshot.fieldBindings.map((binding) => {
-        if (binding.sourceField === sourceField) {
+        if (binding.sourceField === sourceField && binding.destinationField === oldDest) {
           return { sourceField: binding.sourceField, destinationField: newDest, lookupName: binding.lookupName };
         }
         return { sourceField: binding.sourceField, destinationField: binding.destinationField, lookupName: binding.lookupName };
@@ -484,12 +484,19 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
                 (() => {
                   const boundSet = new Set(mappingSnapshots.flatMap((s) => s.fieldBindings || []).map((b) => b.sourceField.toLowerCase()));
                   const unmappedSourceFields = allSourceColumns.filter((h) => h && h.trim() && !boundSet.has(h.trim().toLowerCase()));
+                  const unmappedDestinationFields = mappingSnapshots.flatMap((s) => {
+                    const destBoundSet = new Set((s.fieldBindings || []).map((b) => b.destinationField?.toLowerCase()));
+                    return (s.destinationFields || [])
+                      .filter((f) => f && f.trim() && !destBoundSet.has(f.trim().toLowerCase()))
+                      .map((f) => ({ tableName: s.destinationObjectName, fieldName: f }));
+                  });
                   return (
                     <ReviewGrid
                       mappingTables={mappingTables}
                       lookupGroups={lookupGroups}
                       sampleValues={sampleValues}
                       unmappedSourceFields={unmappedSourceFields}
+                      unmappedDestinationFields={unmappedDestinationFields}
                       onApprove={showStakeholderActionButtons ? handleApprove : undefined}
                       onRequestRevision={showStakeholderActionButtons ? handleRequestRevision : undefined}
                       signOffStatus={signOffStatus || undefined}

@@ -33,14 +33,15 @@ interface ReviewGridProps {
   lookupGroups: LookupValueGroup[];
   sampleValues?: Record<string, string[]>;
   unmappedSourceFields?: string[];
+  unmappedDestinationFields?: { tableName: string; fieldName: string }[];
   onApprove?: () => void;           // present for business_user only
   onRequestRevision?: (comment: string) => void;
   signOffStatus?: SignOffStatusRecord;
   currentUserRole?: string;
   editingEnabled?: boolean;
-  onSignBinding?: (tableName: string, sourceField: string) => void;
-  onUnsignBinding?: (tableName: string, sourceField: string) => void;
-  onDestinationFieldChange?: (tableName: string, sourceField: string, newDest: string) => void;
+  onSignBinding?: (tableName: string, sourceField: string, destField: string) => void;
+  onUnsignBinding?: (tableName: string, sourceField: string, destField: string) => void;
+  onDestinationFieldChange?: (tableName: string, sourceField: string, oldDest: string, newDest: string) => void;
   onSignLookup?: (lookupValueMapId: string) => void;
   onUnsignLookup?: (lookupValueMapId: string) => void;
 }
@@ -193,6 +194,7 @@ export function ReviewGrid({
   lookupGroups,
   sampleValues = {},
   unmappedSourceFields = [],
+  unmappedDestinationFields = [],
   onApprove,
   onRequestRevision,
   signOffStatus,
@@ -212,8 +214,10 @@ export function ReviewGrid({
     if (!signOffStatus) return false;
     // Check bindings
     for (const table of Object.values(signOffStatus.bindings)) {
-      for (const binding of Object.values(table)) {
-        if (!binding.projectStakeholder.signed) return false;
+      for (const sourceFieldDests of Object.values(table)) {
+        for (const binding of Object.values(sourceFieldDests)) {
+          if (!binding.projectStakeholder.signed) return false;
+        }
       }
     }
     // Check lookups
@@ -223,9 +227,9 @@ export function ReviewGrid({
     return true;
   })();
 
-  const renderSignOffChips = (tableName: string, sourceField: string) => {
+  const renderSignOffChips = (tableName: string, sourceField: string, destField: string) => {
     if (!signOffStatus) return null;
-    const bindingStatus = signOffStatus.bindings[tableName]?.[sourceField];
+    const bindingStatus = signOffStatus.bindings[tableName]?.[sourceField]?.[destField];
     if (!bindingStatus) return null;
 
     const op = bindingStatus.centralTeam;
@@ -234,15 +238,15 @@ export function ReviewGrid({
     const handleSignClick = () => {
       if (currentUserRole === "central_team") {
         if (op.signed) {
-          onUnsignBinding?.(tableName, sourceField);
+          onUnsignBinding?.(tableName, sourceField, destField);
         } else {
-          onSignBinding?.(tableName, sourceField);
+          onSignBinding?.(tableName, sourceField, destField);
         }
       } else if (currentUserRole === "project_stakeholder") {
         if (st.signed) {
-          onUnsignBinding?.(tableName, sourceField);
+          onUnsignBinding?.(tableName, sourceField, destField);
         } else {
-          onSignBinding?.(tableName, sourceField);
+          onSignBinding?.(tableName, sourceField, destField);
         }
       }
     };
@@ -503,14 +507,14 @@ export function ReviewGrid({
                                 </td>
                                 <td className="py-2.5 font-mono text-slate-900 font-medium">
                                   {(() => {
-                                    const bindingStatus = signOffStatus?.bindings[table.destinationTableName]?.[binding.sourceField];
+                                    const bindingStatus = signOffStatus?.bindings[table.destinationTableName]?.[binding.sourceField]?.[binding.destinationField];
                                     const isSignedByEither = !!(bindingStatus && (bindingStatus.centralTeam.signed || bindingStatus.projectStakeholder.signed));
                                     const rowEditable = editingEnabled && !isSignedByEither;
                                     return rowEditable ? (
                                       <AutocompleteInput
                                         value={binding.destinationField}
                                         options={table.destinationFields || []}
-                                        onChange={(newVal) => onDestinationFieldChange?.(table.destinationTableName, binding.sourceField, newVal)}
+                                        onChange={(newVal) => onDestinationFieldChange?.(table.destinationTableName, binding.sourceField, binding.destinationField, newVal)}
                                         className="rounded border border-slate-200 bg-white px-2 py-1 font-mono text-xs w-full focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
                                         placeholder="destination field..."
                                       />
@@ -529,7 +533,7 @@ export function ReviewGrid({
                                 <td className="py-2.5">{getBindingBadge(binding.bindingType)}</td>
                                 {signOffStatus && (
                                   <td className="py-2.5">
-                                    {renderSignOffChips(table.destinationTableName, binding.sourceField)}
+                                    {renderSignOffChips(table.destinationTableName, binding.sourceField, binding.destinationField)}
                                   </td>
                                 )}
                               </tr>
@@ -576,6 +580,26 @@ export function ReviewGrid({
                 </li>
               );
             })}
+          </ul>
+        </div>
+      )}
+
+      {unmappedDestinationFields.length > 0 && (
+        <div className="rounded-xl border border-red-300 bg-red-50/50 p-5 space-y-3 mt-4">
+          <div className="flex items-center gap-2 text-red-800">
+            <span className="text-lg">🚨</span>
+            <p className="text-sm font-semibold">
+              Unmapped destination fields — data in these columns will not be populated. If these fields are required, code generation will fail.
+            </p>
+          </div>
+          <ul className="space-y-2.5 pl-7">
+            {unmappedDestinationFields.map((f, idx) => (
+              <li key={idx} className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <span className="font-mono text-sm font-bold text-red-900 bg-red-100 px-2 py-0.5 rounded">
+                  {f.tableName}.{f.fieldName}
+                </span>
+              </li>
+            ))}
           </ul>
         </div>
       )}

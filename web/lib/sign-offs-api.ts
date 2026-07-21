@@ -14,7 +14,7 @@ export interface BindingSignOffStatus {
 export interface SignOffStatusRecord {
   complete: boolean;
   currentBallRole: "central_team" | "project_stakeholder" | null;
-  bindings: Record<string, Record<string, BindingSignOffStatus>>; // obj_name -> source_field -> status
+  bindings: Record<string, Record<string, Record<string, BindingSignOffStatus>>>; // obj_name -> source_field -> destination_field -> status
   lookups: Record<string, Record<string, BindingSignOffEntry>>;    // lookup_id -> role -> status
 }
 
@@ -69,25 +69,30 @@ async function requestSignOffJson<T>(
 
 // Custom manual mapper to preserve case of dynamic table/field names
 function mapSignOffStatus(raw: any): SignOffStatusRecord {
-  const bindings: Record<string, Record<string, BindingSignOffStatus>> = {};
+  const bindings: Record<string, Record<string, Record<string, BindingSignOffStatus>>> = {};
   if (raw.bindings) {
     for (const [tableName, fields] of Object.entries(raw.bindings)) {
       bindings[tableName] = {};
       if (fields && typeof fields === "object") {
-        for (const [fieldName, status] of Object.entries(fields as any)) {
-          const s = status as any;
-          bindings[tableName][fieldName] = {
-            centralTeam: {
-              signed: s?.central_team?.signed ?? false,
-              signedAt: s?.central_team?.signed_at ?? null,
-              userId: s?.central_team?.user_id ?? null,
-            },
-            projectStakeholder: {
-              signed: s?.project_stakeholder?.signed ?? false,
-              signedAt: s?.project_stakeholder?.signed_at ?? null,
-              userId: s?.project_stakeholder?.user_id ?? null,
-            },
-          };
+        for (const [fieldName, dests] of Object.entries(fields as any)) {
+          bindings[tableName][fieldName] = {};
+          if (dests && typeof dests === "object") {
+            for (const [destField, status] of Object.entries(dests as any)) {
+              const s = status as any;
+              bindings[tableName][fieldName][destField] = {
+                centralTeam: {
+                  signed: s?.central_team?.signed ?? false,
+                  signedAt: s?.central_team?.signed_at ?? null,
+                  userId: s?.central_team?.user_id ?? null,
+                },
+                projectStakeholder: {
+                  signed: s?.project_stakeholder?.signed ?? false,
+                  signedAt: s?.project_stakeholder?.signed_at ?? null,
+                  userId: s?.project_stakeholder?.user_id ?? null,
+                },
+              };
+            }
+          }
         }
       }
     }
@@ -138,6 +143,7 @@ export async function signBinding(
   feedId: string,
   destObj: string,
   sourceField: string,
+  destField: string,
 ): Promise<SignOffStatusRecord> {
   const raw = await requestSignOffJson<any>(
     `/projects/${projectId}/sources/${feedId}/mapping/sign-off`,
@@ -147,6 +153,7 @@ export async function signBinding(
       body: JSON.stringify({
         destination_object_name: destObj,
         source_field: sourceField,
+        destination_field: destField,
       }),
     },
   );
@@ -159,6 +166,7 @@ export async function unsignBinding(
   feedId: string,
   destObj: string,
   sourceField: string,
+  destField: string,
 ): Promise<SignOffStatusRecord> {
   const raw = await requestSignOffJson<any>(
     `/projects/${projectId}/sources/${feedId}/mapping/sign-off`,
@@ -168,6 +176,7 @@ export async function unsignBinding(
       body: JSON.stringify({
         destination_object_name: destObj,
         source_field: sourceField,
+        destination_field: destField,
       }),
     },
   );

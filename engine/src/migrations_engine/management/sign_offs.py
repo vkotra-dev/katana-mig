@@ -26,6 +26,7 @@ def sign_binding(
     source_definition_id: str,
     destination_object_name: str,
     source_field: str,
+    destination_field: str,
 ) -> Any:
     if actor.role not in {CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE}:
         raise AuthApiError("forbidden", "Only central team or project stakeholders can sign off.", 403)
@@ -45,9 +46,9 @@ def sign_binding(
         raise AuthApiError("snapshot_not_found", "No draft mapping snapshot found to sign off.", 404)
 
     # Check if field actually exists in bindings
-    binding_exists = any(b.get("source_field") == source_field for b in snapshot.field_bindings)
+    binding_exists = any(b.get("source_field") == source_field and b.get("destination_field") == destination_field for b in snapshot.field_bindings)
     if not binding_exists:
-        raise AuthApiError("invalid_field", f"Field '{source_field}' is not part of this mapping snapshot.", 400)
+        raise AuthApiError("invalid_field", f"Field '{source_field}' -> '{destination_field}' is not part of this mapping snapshot.", 400)
 
     # Upsert MappingBindingSignOff
     sign_off = db.scalar(
@@ -56,6 +57,7 @@ def sign_binding(
             MappingBindingSignOff.mapping_snapshot_id == snapshot.mapping_snapshot_id,
             MappingBindingSignOff.destination_object_name == destination_object_name,
             MappingBindingSignOff.source_field == source_field,
+            MappingBindingSignOff.destination_field == destination_field,
             MappingBindingSignOff.user_id == actor.user_id,
         )
     )
@@ -64,6 +66,7 @@ def sign_binding(
             mapping_snapshot_id=snapshot.mapping_snapshot_id,
             destination_object_name=destination_object_name,
             source_field=source_field,
+            destination_field=destination_field,
             user_id=actor.user_id,
             role=actor.role,
         )
@@ -83,6 +86,7 @@ def unsign_binding(
     source_definition_id: str,
     destination_object_name: str,
     source_field: str,
+    destination_field: str,
 ) -> Any:
     # Delete caller's sign-off row only
     snapshot = db.scalar(
@@ -101,6 +105,7 @@ def unsign_binding(
                 MappingBindingSignOff.mapping_snapshot_id == snapshot.mapping_snapshot_id,
                 MappingBindingSignOff.destination_object_name == destination_object_name,
                 MappingBindingSignOff.source_field == source_field,
+                MappingBindingSignOff.destination_field == destination_field,
                 MappingBindingSignOff.user_id == actor.user_id,
             )
         )
@@ -231,17 +236,20 @@ def get_sign_off_status(
         )
 
     # Build sign-off maps
-    # snapshot_id -> destination_object_name -> source_field -> role -> entry
-    b_map: dict[str, dict[str, dict[str, Any]]] = {}
+    # snapshot_id -> destination_object_name -> source_field -> destination_field -> role -> entry
+    b_map: dict[str, dict[str, dict[str, dict[str, Any]]]] = {}
     for snapshot in latest_snapshots:
         obj_name = snapshot.destination_object_name
         if obj_name not in b_map:
             b_map[obj_name] = {}
         for binding in snapshot.field_bindings:
             sf = binding.get("source_field")
-            if not sf:
+            df = binding.get("destination_field")
+            if not sf or not df:
                 continue
-            b_map[obj_name][sf] = {
+            if sf not in b_map[obj_name]:
+                b_map[obj_name][sf] = {}
+            b_map[obj_name][sf][df] = {
                 "central_team": {"signed": False, "signed_at": None, "user_id": None},
                 "project_stakeholder": {"signed": False, "signed_at": None, "user_id": None},
             }
@@ -249,8 +257,9 @@ def get_sign_off_status(
     for bso in binding_sign_offs:
         obj_name = bso.destination_object_name
         sf = bso.source_field
-        if obj_name in b_map and sf in b_map[obj_name] and bso.role in b_map[obj_name][sf]:
-            b_map[obj_name][sf][bso.role] = {
+        df = bso.destination_field
+        if obj_name in b_map and sf in b_map[obj_name] and df in b_map[obj_name][sf] and bso.role in b_map[obj_name][sf][df]:
+            b_map[obj_name][sf][df][bso.role] = {
                 "signed": True,
                 "signed_at": bso.signed_at,
                 "user_id": bso.user_id,
@@ -280,9 +289,10 @@ def get_sign_off_status(
         complete = False
 
     for obj_name, fields in b_map.items():
-        for sf, status in fields.items():
-            if not status["central_team"]["signed"] or not status["project_stakeholder"]["signed"]:
-                complete = False
+        for sf, dests in fields.items():
+            for df, status in dests.items():
+                if not status["central_team"]["signed"] or not status["project_stakeholder"]["signed"]:
+                    complete = False
 
     for l_map_id, status in l_map.items():
         if not status["central_team"]["signed"] or not status["project_stakeholder"]["signed"]:
@@ -343,9 +353,10 @@ def push_for_review(
 
     actor_complete = True
     for obj_name, fields in status.get("bindings", {}).items():
-        for sf, status_entry in fields.items():
-            if not status_entry[role_key]["signed"]:
-                actor_complete = False
+        for sf, dests in fields.items():
+            for df, status_entry in dests.items():
+                if not status_entry[role_key]["signed"]:
+                    actor_complete = False
     for lid, status_entry in status.get("lookups", {}).items():
         if not status_entry[role_key]["signed"]:
             actor_complete = False

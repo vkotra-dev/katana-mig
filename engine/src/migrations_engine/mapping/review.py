@@ -362,7 +362,7 @@ def propose_mapping(
         "You are a data migration specialist. Analyze the provided multi-table SQL DDL schema "
         "and the list of source CSV columns.\n"
         "1. Identify all destination tables that receive fields from this feed.\n"
-        "2. Map the source fields to each identified table.\n"
+        "2. Map the source fields to each identified table. A single source field MAY be mapped to multiple destination fields if it logically populates both.\n"
         "3. Classify each binding as 'direct', 'detail_fk', or 'lookup_fk'.\n"
         "4. A binding is 'detail_fk' when its destination column is a foreign key whose referenced table "
         "is also mapped in this response. It is 'lookup_fk' when it references a lookup table not mapped here.\n"
@@ -634,10 +634,10 @@ def patch_mapping(
             422,
         )
 
-    existing_by_src = {b.get("source_field"): b for b in snapshot.field_bindings if b.get("source_field")}
+    existing_by_pair = {(b.get("source_field"), b.get("destination_field")): b for b in snapshot.field_bindings if b.get("source_field") and b.get("destination_field")}
     new_bindings = []
     for binding in field_bindings:
-        existing = existing_by_src.get(binding.source_field) or {}
+        existing = existing_by_pair.get((binding.source_field, binding.destination_field)) or {}
         new_bindings.append({
             "source_field": binding.source_field,
             "destination_field": binding.destination_field,
@@ -647,23 +647,25 @@ def patch_mapping(
         })
 
     # Detect changed fields and delete their sign-off records
-    changed_fields = []
+    changed_pairs = []
+    new_pairs = {(b.source_field, b.destination_field) for b in field_bindings}
+    for old_pair in existing_by_pair.keys():
+        if old_pair not in new_pairs:
+            changed_pairs.append(old_pair)
     for binding in field_bindings:
-        src = binding.source_field
-        dest = binding.destination_field
-        existing = existing_by_src.get(src)
-        if existing is None or existing.get("destination_field") != dest:
-            changed_fields.append(src)
+        pair = (binding.source_field, binding.destination_field)
+        if pair not in existing_by_pair:
+            changed_pairs.append(pair)
 
-    if changed_fields:
+    if changed_pairs:
         from ..db.models import MappingBindingSignOff
-        from sqlalchemy import delete, select
-        # Check if any changed fields are already signed off by either reviewer
+        from sqlalchemy import delete, select, tuple_
+        # Check if any changed pairs are already signed off by either reviewer
         signed_fields = db.scalars(
             select(MappingBindingSignOff.source_field)
             .where(
                 MappingBindingSignOff.mapping_snapshot_id == snapshot.mapping_snapshot_id,
-                MappingBindingSignOff.source_field.in_(changed_fields),
+                tuple_(MappingBindingSignOff.source_field, MappingBindingSignOff.destination_field).in_(changed_pairs),
             )
         ).all()
         if signed_fields:
@@ -676,7 +678,7 @@ def patch_mapping(
         db.execute(
             delete(MappingBindingSignOff).where(
                 MappingBindingSignOff.mapping_snapshot_id == snapshot.mapping_snapshot_id,
-                MappingBindingSignOff.source_field.in_(changed_fields),
+                tuple_(MappingBindingSignOff.source_field, MappingBindingSignOff.destination_field).in_(changed_pairs),
             )
         )
 

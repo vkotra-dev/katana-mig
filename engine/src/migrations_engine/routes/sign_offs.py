@@ -44,6 +44,7 @@ def post_sign_binding(
         source_definition_id=source_definition_id,
         destination_object_name=body.destination_object_name,
         source_field=body.source_field,
+        destination_field=body.destination_field,
     )
 
 
@@ -63,6 +64,7 @@ def delete_unsign_binding(
         source_definition_id=source_definition_id,
         destination_object_name=body.destination_object_name,
         source_field=body.source_field,
+        destination_field=body.destination_field,
     )
 
 

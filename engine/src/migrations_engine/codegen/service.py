@@ -46,6 +46,43 @@ class GeneratedSQL(BaseModel):
 
 
 
+import re
+
+_TABLE_RE = re.compile(
+    r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:[\w$]+\.)?\"?(?P<table>[\w$]+)\"?",
+    re.IGNORECASE,
+)
+_COLUMN_RE = re.compile(r'^\s*["`]?(?P<name>[A-Za-z_][\w$]*)["`]?\s+[A-Za-z]')
+
+def _get_required_destination_columns(ddl: str, target_table: str) -> set[str]:
+    required: set[str] = set()
+    current_table: str | None = None
+    for line in ddl.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("--") or stripped.startswith("/*"):
+            continue
+        
+        table_match = _TABLE_RE.search(stripped)
+        if table_match:
+            current_table = table_match.group("table")
+            continue
+        
+        if current_table == target_table:
+            if stripped.upper().startswith(("CONSTRAINT", "PRIMARY", "UNIQUE", "FOREIGN", "CHECK")):
+                continue
+            if stripped.startswith(")") or stripped.startswith(";"):
+                current_table = None
+                continue
+            
+            column_match = _COLUMN_RE.match(stripped)
+            if column_match:
+                col_name = column_match.group("name")
+                upper_line = stripped.upper()
+                if " NOT NULL" in upper_line and " IDENTITY" not in upper_line and " DEFAULT" not in upper_line:
+                    required.add(col_name)
+    return required
+
+
 def generate_codegen_artifact(
     db: Session,
     *,
@@ -70,6 +107,23 @@ def generate_codegen_artifact(
         project_id=project_id,
         mapping_snapshot=mapping_snapshot,
     )
+
+    ddl = (project_definition.domain_config or {}).get("destination_schema_ddl", "")
+    if ddl:
+        required_dest_fields = _get_required_destination_columns(ddl, destination_object_name)
+        mapped_dest_fields = {
+            binding.get("destination_field")
+            for binding in mapping_snapshot.field_bindings
+            if binding.get("destination_field")
+        }
+        unmapped_required = required_dest_fields - mapped_dest_fields
+        if unmapped_required:
+            missing = ", ".join(sorted(unmapped_required))
+            raise AuthApiError(
+                "unmapped_required_destination_fields",
+                f"Cannot generate code. The following required destination fields are unmapped: {missing}",
+                422,
+            )
 
     try:
         adapter = get_adapter("script_generation", project_definition.model_policy)

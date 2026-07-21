@@ -4,6 +4,8 @@
 
 | Task | Summary |
 |---|---|
+| [001dy-one-to-many-field-mapping](./001dy-one-to-many-field-mapping.md) | Support 1-to-N Source-to-Destination Field Mappings |
+| [001dz-unmapped-destination-fields-tracking](./001dz-unmapped-destination-fields-tracking.md) | Track and Display Unmapped Destination Fields |
 
 
 ## Completed
