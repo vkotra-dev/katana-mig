@@ -11,26 +11,28 @@ const mockLogs = [
   {
     callId: "1",
     callType: "codegen",
-    timestamp: "2026-01-01T00:00:00Z",
-    compiledSystemPrompt: "system prompt 1",
-    compiledUserPrompt: "user prompt 1",
+    calledAt: "2026-01-01T00:00:00Z",
+    systemPrompt: "system prompt 1",
+    userPrompt: "user prompt 1",
     rawLlmResponse: "{}",
   },
   {
     callId: "2",
     callType: "feed_mapping",
-    timestamp: "2026-01-01T00:01:00Z",
-    compiledSystemPrompt: "system prompt 2",
-    compiledUserPrompt: "user prompt 2",
+    calledAt: "2026-01-01T00:01:00Z",
+    systemPrompt: "system prompt 2",
+    userPrompt: "user prompt 2",
     rawLlmResponse: "{}",
   },
 ];
 
 describe("AiLogViewer", () => {
   const props = {
+    token: "mock-token",
     projectId: "test-project",
     feature: "codegen" as const,
     emptyLabel: "No logs",
+    canViewLogs: true,
   };
 
   beforeEach(() => {

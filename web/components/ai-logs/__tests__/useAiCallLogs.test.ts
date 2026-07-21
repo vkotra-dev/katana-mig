@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { renderHook, waitFor, act } from "@testing-library/react";
 import { useAiCallLogs } from "../../../hooks/useAiCallLogs";
 import { listAiCallLogs } from "../../../lib/ai-calls-api";
 import { vi, describe, it, expect, beforeEach } from "vitest";
@@ -21,37 +21,37 @@ describe("useAiCallLogs", () => {
     ];
     (listAiCallLogs as any).mockResolvedValue(mockLogs);
 
-    const { result } = renderHook(() => useAiCallLogs(projectId, options));
+    const { result } = renderHook(() => useAiCallLogs("mock-token", projectId, options));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.logs).toEqual(mockLogs);
-    expect(listAiCallLogs).toHaveBeenCalledWith(projectId, expect.objectContaining({ feature: "codegen", offset: 0, limit: 50 }));
+    expect(listAiCallLogs).toHaveBeenCalledWith("mock-token", projectId, expect.objectContaining({ feature: "codegen", offset: 0, limit: 50 }));
   });
 
   it("handles error state", async () => {
     (listAiCallLogs as any).mockRejectedValue(new Error("API error"));
 
-    const { result } = renderHook(() => useAiCallLogs(projectId, options));
+    const { result } = renderHook(() => useAiCallLogs("mock-token", projectId, options));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.error).toBe("API error");
   });
 
   it("paginates via loadMore", async () => {
-    const firstPage = [{ callId: "1" } as any];
-    const secondPage = [{ callId: "2" } as any];
+    const firstPage = Array.from({ length: 50 }, (_, i) => ({ callId: String(i) } as any));
+    const secondPage = [{ callId: "51" } as any];
     
     (listAiCallLogs as any)
       .mockResolvedValueOnce(firstPage)
       .mockResolvedValueOnce(secondPage);
 
-    const { result } = renderHook(() => useAiCallLogs(projectId, options));
+    const { result } = renderHook(() => useAiCallLogs("mock-token", projectId, options));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     
-    await result.current.loadMore();
+    await act(async () => { await result.current.loadMore(); });
     
     expect(result.current.logs).toEqual([...firstPage, ...secondPage]);
-    expect(listAiCallLogs).toHaveBeenCalledWith(projectId, expect.objectContaining({ offset: 50 }));
+    expect(listAiCallLogs).toHaveBeenCalledWith("mock-token", projectId, expect.objectContaining({ offset: 50 }));
   });
 });
