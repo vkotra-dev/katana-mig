@@ -23,6 +23,9 @@ def test_column_schema_max_length() -> None:
     
     with pytest.raises(ValidationError):
         ColumnSchema(name="foo", inferred_type="text", nullable=False, max_length=-1)
+    
+    with pytest.raises(ValidationError):
+        ColumnSchema(name="foo", inferred_type="text", nullable=False, max_length=True)  # type: ignore
 
 def test_parse_header() -> None:
     assert parse_header("a,b,c") == ["a", "b", "c"]

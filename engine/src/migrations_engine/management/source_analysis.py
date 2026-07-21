@@ -124,7 +124,7 @@ def analyze_source_slice(
             raw_response=None,
             error_detail=str(exc),
         )
-        raise AuthApiError("ai_schema_mismatch", "AI generated invalid schema", 422) from exc
+        raise AuthApiError("ai_schema_validation_failed", "AI generated invalid schema", 502) from exc
     except Exception as exc:
         log_ai_call(
             db,
@@ -158,7 +158,7 @@ def analyze_source_slice(
     except HeaderMismatch as exc:
         call_log.error_detail = str(exc)
         db.commit()
-        raise AuthApiError("ai_schema_mismatch", str(exc), 422) from exc
+        raise AuthApiError("source_analysis_header_mismatch", str(exc), 422) from exc
 
     schema_artifact = SourceSchemaArtifact(
         source_definition_id=source_definition_id,

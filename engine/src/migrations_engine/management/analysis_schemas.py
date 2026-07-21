@@ -19,7 +19,7 @@ class ColumnSchema(BaseModel):
     @field_validator("max_length", mode="before")
     @classmethod
     def _validate_max_length(cls, v: Any) -> int | None:
-        if v is not None and (not isinstance(v, int) or v < 0):
+        if v is not None and (not isinstance(v, int) or isinstance(v, bool) or v < 0):
             raise ValueError("max_length must be a non-negative integer or null")
         return v
 
