@@ -125,6 +125,7 @@ def analyze_source_slice(
             raw_response=exc.raw_response,
             error_detail=f"ValidationError: {exc.original}",
         )
+        db.commit()
         raise AuthApiError("ai_schema_validation_failed", "AI generated invalid schema", 502) from exc
     except Exception as exc:
         log_ai_call(

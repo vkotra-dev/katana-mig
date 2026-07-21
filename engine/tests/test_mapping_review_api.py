@@ -826,3 +826,27 @@ def test_propose_skips_tables_already_approved_project_wide(
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "mapping_already_proposed"
 
+
+def test_propose_logs_raw_response_on_validation_error(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+    project_id, source_id = _seed_project()
+    from migrations_engine.ai.adapter import AIResponseValidationError
+    
+    class FailingAdapter:
+        model_id = "test-fail"
+        def call(self, system: str, user: str, response_model: Any) -> Any:
+            raise AIResponseValidationError(raw_response='{"bad_json": true}', original=Exception("schema err"))
+
+    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task, model_policy=None: FailingAdapter())
+
+    response = client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/propose",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 502
+    
+    with SessionLocal() as db:
+        from migrations_engine.db.models import AICallLog
+        logs = db.query(AICallLog).filter_by(project_id=project_id, call_type="mapping").all()
+        assert len(logs) == 1
+        assert logs[0].raw_response == '{"bad_json": true}'

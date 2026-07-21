@@ -269,3 +269,26 @@ def test_analyze_source_slice_caps_value_summary_distinct_values(monkeypatch: py
 
     assert stored_summary is not None
     assert len(stored_summary.value_counts) == 500
+
+def test_analyze_source_slice_logs_raw_response_on_validation_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    from migrations_engine.ai.adapter import AIResponseValidationError
+    
+    class FailingAdapter:
+        model_id = "test-fail"
+        def call(self, system: str, user: str, response_model: type[object]) -> object:
+            raise AIResponseValidationError(raw_response='{"bad_json": "analysis"}', original=Exception("schema err"))
+
+    monkeypatch.setattr("migrations_engine.management.source_analysis.get_adapter", lambda task: FailingAdapter())
+
+    with SessionLocal() as db:
+        user, project_id, source_id = _seed_approved_slice(db, row_count=2)
+        from migrations_engine.api.deps import AuthApiError
+        with pytest.raises(AuthApiError) as exc_info:
+            analyze_source_slice(db, actor=user, project_id=project_id, source_definition_id=source_id)
+            
+        assert exc_info.value.status_code == 502
+
+        from migrations_engine.db.models import AICallLog
+        logs = db.query(AICallLog).filter_by(project_id=project_id, call_type="source_analysis").all()
+        assert len(logs) == 1
+        assert logs[0].raw_response == '{"bad_json": "analysis"}'

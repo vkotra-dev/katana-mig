@@ -339,7 +339,6 @@ def propose_mapping(
         adapter = get_adapter("field_mapping")
 
     # 3. Call AI with full DDL and validate response structure
-    from pydantic import ValidationError
     from ..ai.adapter import AICallError, AIResponseValidationError
 
     system_prompt = (
@@ -415,6 +414,7 @@ def propose_mapping(
             raw_response=exc.raw_response,
             error_detail=f"ValidationError: {exc.original}",
         )
+        db.commit()
         raise AuthApiError("ai_schema_mismatch", "The AI generated an invalid mapping format. Please retry.", 502)
     except AICallError as exc:
         log_ai_call(
@@ -428,6 +428,7 @@ def propose_mapping(
             raw_response=None,
             error_detail=f"AICallError: {exc}",
         )
+        db.commit()
         raise AuthApiError("ai_service_unavailable", f"The AI provider returned an error: {exc}", 502)
     except Exception as exc:
         log_ai_call(
@@ -441,6 +442,7 @@ def propose_mapping(
             raw_response=None,
             error_detail=str(exc),
         )
+        db.commit()
         raise
 
     # 4. Handle LLM-asserted domain errors

@@ -375,3 +375,30 @@ def test_analyze_feed_step1_log_tagged_with_feed_artifact_id(
             .where(AICallLog.artifact_id == feed_id, AICallLog.call_type == "feed_analysis")
         )
     assert feed_analysis_log is not None, "Step-1 log must be tagged with feed_id as artifact_id"
+
+def test_analyze_feed_logs_raw_response_on_validation_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    from migrations_engine.ai.adapter import AIResponseValidationError
+    
+    class FailingAdapter:
+        model_id = "test-fail"
+        def call(self, system: str, user: str, response_model: type[object]) -> object:
+            raise AIResponseValidationError(raw_response='{"bad_feed_json": "feed"}', original=Exception("schema err"))
+
+    monkeypatch.setattr("migrations_engine.management.fibers.get_adapter", lambda task, model_policy=None: FailingAdapter())
+
+    project_id, feed_id = _seed_feed_with_slice()
+    with SessionLocal() as db:
+        from migrations_engine.management.fibers import analyze_feed
+        from migrations_engine.ai.adapter import AIResponseValidationError
+        
+        with pytest.raises(AIResponseValidationError):
+            from sqlalchemy import select
+            from migrations_engine.db.models import User
+            from migrations_engine.roles import CENTRAL_TEAM_ROLE
+            actor = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
+            analyze_feed(db, feed_id=feed_id, project_id=project_id, actor=actor)
+            
+        from migrations_engine.db.models import AICallLog
+        logs = db.query(AICallLog).filter_by(project_id=project_id, call_type="feed_analysis").all()
+        assert len(logs) == 1
+        assert logs[0].raw_response == '{"bad_feed_json": "feed"}'

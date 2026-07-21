@@ -665,7 +665,8 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
             raw_response=exc.raw_response,
             error_detail=f"ValidationError: {exc.original}",
         )
-        raise AuthApiError("ai_schema_mismatch", "The AI generated an invalid mapping format.", 502)
+        db.commit()
+        raise exc
     except Exception as exc:
         log_ai_call(
             db,
@@ -752,7 +753,8 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
                 raw_response=exc.raw_response,
                 error_detail=f"ValidationError: {exc.original}",
             )
-            raise AuthApiError("ai_schema_mismatch", "The AI generated an invalid mapping format.", 502)
+            db.commit()
+            raise exc
         except Exception as exc:
             log_ai_call(
                 db,
@@ -911,7 +913,8 @@ def submit_lookup_inputs(
             raw_response=exc.raw_response,
             error_detail=f"ValidationError: {exc.original}",
         )
-        raise AuthApiError("ai_schema_mismatch", "The AI generated an invalid lookup mapping format.", 502)
+        db.commit()
+        raise exc
     except Exception as exc:
         log_ai_call(
             db,

@@ -153,3 +153,58 @@ def test_missing_api_key_raises_at_call_time(monkeypatch: pytest.MonkeyPatch) ->
 
     with pytest.raises(ConfigurationError, match="ANTHROPIC_API_KEY"):
         get_adapter("field_mapping")
+
+def test_anthropic_adapter_validation_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_response = SimpleNamespace(content=[SimpleNamespace(text='{"value": 123}')]) # invalid type for value
+    
+    class FakeMessages:
+        def create(self, **kwargs: Any) -> SimpleNamespace:
+            return fake_response
+
+    class FakeAnthropicClient:
+        def __init__(self, *, api_key: str) -> None:
+            self.messages = FakeMessages()
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "anthropic-secret")
+    monkeypatch.setattr("migrations_engine.ai.factory.get_ai_config", lambda: _make_config())
+    monkeypatch.setattr("anthropic.Anthropic", FakeAnthropicClient)
+
+    adapter = get_adapter("planning")
+    from migrations_engine.ai.adapter import AIResponseValidationError
+    
+    with pytest.raises(AIResponseValidationError) as exc_info:
+        adapter.call("system prompt", "user prompt", DemoResponse)
+        
+    assert exc_info.value.raw_response == '{"value": 123}'
+
+def test_ollama_adapter_validation_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    from migrations_engine.ai.ollama_adapter import OllamaAdapter
+    
+    responses = [
+        '{"value": 1}', # Attempt 1
+        '{"value": 2}', # Attempt 2
+        '{"value": 3}', # Attempt 3
+    ]
+    
+    class FakeCompletions:
+        def create(self, **kwargs: Any) -> SimpleNamespace:
+            return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=responses.pop(0)))])
+            
+    class FakeChat:
+        def __init__(self) -> None:
+            self.completions = FakeCompletions()
+            
+    class FakeOpenAIClient:
+        def __init__(self, **kwargs: Any) -> None:
+            self.chat = FakeChat()
+            
+    monkeypatch.setattr("migrations_engine.ai.ollama_adapter.openai.OpenAI", FakeOpenAIClient)
+    
+    adapter = OllamaAdapter(model_id="ollama/llama3")
+    from migrations_engine.ai.adapter import AIResponseValidationError
+    
+    with pytest.raises(AIResponseValidationError) as exc_info:
+        adapter.call("system", "user", DemoResponse)
+        
+    # Should match the third response
+    assert exc_info.value.raw_response == '{"value": 3}'
