@@ -1,20 +1,16 @@
 from __future__ import annotations
 
-import re
 from datetime import UTC, datetime
-from typing import Literal
 
 from sqlalchemy.exc import IntegrityError
 
-from pydantic import BaseModel
 from sqlalchemy import select, or_
 from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
 from ..api.schemas import MappingFieldBindingResponse, MappingReviewResponse
-from ..db.models import MappingSnapshot, ProjectDefinition, ProjectRegistry, Feed, LookupValueMap, new_id
+from ..db.models import MappingSnapshot, Feed, LookupValueMap, new_id
 from ..management.platform import record_management_audit
-from ..management.source_analysis import get_latest_source_schema_artifact
 
 try:
     from ..ai.factory import get_adapter
@@ -22,10 +18,9 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency in tests
     get_adapter = None  # type: ignore[assignment]
 
 
-from .snapshots import get_project_destination_schema, get_source_definition, latest_snapshot, next_snapshot_version, snapshot_to_response, latest_source_columns, get_project_definition
-from .ddl import parse_all_ddl_tables, parse_ddl
-from .snapshots import get_project_destination_schema, get_source_definition, latest_snapshot, next_snapshot_version, snapshot_to_response, latest_source_columns, get_project_definition
-from .ai_schemas import Binding, TableProposal, AIFieldMappingProposal
+from .review_repository import get_project_destination_schema, get_source_definition, latest_snapshot, next_snapshot_version, snapshot_to_response, latest_source_columns, get_project_definition
+from .ddl import parse_all_ddl_tables
+from .ai_schemas import AIFieldMappingProposal
 
 def propose_mapping(
     db: Session,
@@ -83,7 +78,6 @@ def propose_mapping(
         ).all()
     )
     already_mapped_tables = already_mapped_tables | project_approved
-    expected_table_names = set(ddl_tables.keys())
 
     source_columns = latest_source_columns(
         db,

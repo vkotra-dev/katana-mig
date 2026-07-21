@@ -11,7 +11,7 @@ from ..management.access import require_project_access
 from ..management.feeds import get_source_contract
 from ..mapping.snapshots import select_latest_approved_mapping_snapshot, select_all_approved_mapping_snapshots, select_all_feed_mapping_snapshots
 from ..mapping.exceptions import SnapshotNotFoundError
-from ..mapping.snapshots import derive_destination_fields
+from ..mapping.review_repository import derive_destination_fields
 
 router = APIRouter(prefix="/projects/{project_id}/sources/{source_definition_id}", tags=["mapping-snapshots"])
 
