@@ -173,8 +173,16 @@ def approve_mapping(
 
     if destination_object_name:
         # Single-table path (explicit caller)
-        drafts = [latest_snapshot(db, project_id=project_id, source_definition_id=source_definition_id, destination_object_name=destination_object_name)]
-        drafts = [s for s in drafts if s is not None]
+        drafts = db.scalars(
+            select(MappingSnapshot)
+            .where(
+                MappingSnapshot.project_id == project_id,
+                MappingSnapshot.source_definition_id == source_definition_id,
+                MappingSnapshot.destination_object_name == destination_object_name,
+            )
+            .order_by(MappingSnapshot.created_at.desc(), MappingSnapshot.mapping_snapshot_id.desc())
+            .limit(1)
+        ).all()
     else:
         # Bulk path: approve all draft snapshots for the feed
         drafts = db.scalars(
@@ -287,8 +295,16 @@ def reject_mapping(
     get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
 
     if destination_object_name:
-        drafts = [latest_snapshot(db, project_id=project_id, source_definition_id=source_definition_id, destination_object_name=destination_object_name)]
-        drafts = [s for s in drafts if s is not None]
+        drafts = db.scalars(
+            select(MappingSnapshot)
+            .where(
+                MappingSnapshot.project_id == project_id,
+                MappingSnapshot.source_definition_id == source_definition_id,
+                MappingSnapshot.destination_object_name == destination_object_name,
+            )
+            .order_by(MappingSnapshot.created_at.desc(), MappingSnapshot.mapping_snapshot_id.desc())
+            .limit(1)
+        ).all()
     else:
         drafts = db.scalars(
             select(MappingSnapshot)
@@ -350,8 +366,17 @@ def unapprove_mapping(
     source_definition = get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
 
     if destination_object_name:
-        snapshots = [latest_snapshot(db, project_id=project_id, source_definition_id=source_definition_id, destination_object_name=destination_object_name)]
-        snapshots = [s for s in snapshots if s is not None and s.status == "approved"]
+        snapshots = db.scalars(
+            select(MappingSnapshot)
+            .where(
+                MappingSnapshot.project_id == project_id,
+                MappingSnapshot.source_definition_id == source_definition_id,
+                MappingSnapshot.destination_object_name == destination_object_name,
+                MappingSnapshot.status == "approved",
+            )
+            .order_by(MappingSnapshot.created_at.desc(), MappingSnapshot.mapping_snapshot_id.desc())
+            .limit(1)
+        ).all()
     else:
         snapshots = db.scalars(
             select(MappingSnapshot)
