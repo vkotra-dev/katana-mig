@@ -256,8 +256,16 @@ def list_fibers(db: Session, *, project_id: str, feed_id: str) -> list[FiberResp
                     sig_status = get_sign_off_status(db, project_id=project_id, source_definition_id=feed_id)
                     table_fields = sig_status.get("bindings", {}).get(f.fiber_key, {})
                     if table_fields:
-                        all_stakeholder_signed = all(st["project_stakeholder"]["signed"] for st in table_fields.values())
-                        all_operator_signed = all(st["central_team"]["signed"] for st in table_fields.values())
+                        all_stakeholder_signed = all(
+                            dest_st["project_stakeholder"]["signed"] 
+                            for sf_dests in table_fields.values() 
+                            for dest_st in sf_dests.values()
+                        )
+                        all_operator_signed = all(
+                            dest_st["central_team"]["signed"] 
+                            for sf_dests in table_fields.values() 
+                            for dest_st in sf_dests.values()
+                        )
                         if all_stakeholder_signed and all_operator_signed:
                             # It is fully approved by business, but overall snapshot approval has not been clicked yet
                             # However, since both roles signed all columns, it's essentially business_approved / operator_assigned
