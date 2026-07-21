@@ -4,7 +4,6 @@
 
 | Task | Summary |
 |---|---|
-| [001ef-extract-snapshot-repository](./001ef-extract-snapshot-repository.md) | Part 2/3: extract the 8 DB-query/response-shaping helpers into mapping/snapshots.py; repoints routes/mapping_snapshots.py. Depends on 001ee. |
 | [001eg-extract-proposal-module](./001eg-extract-proposal-module.md) | Part 3/3: extract propose_mapping into mapping/proposal.py; splits routes/mapping.py's import and repoints all 16 get_adapter monkeypatches in test_mapping_review_api.py. Depends on 001ee, 001ef. review.py ends at ~400 lines, 5 functions. |
 
 
@@ -12,6 +11,7 @@
 
 | Task | Summary |
 |---|---|
+| [001ef-extract-snapshot-repository](./completed/001ef-extract-snapshot-repository.md) | Extracted snapshot repository functions to snapshots.py |
 | [001ee-extract-ddl-parser](./completed/001ee-extract-ddl-parser.md) | Extracted DDL parser into mapping/ddl.py |
 | [001ed-shared-prompt-template-class](./completed/001ed-shared-prompt-template-class.md) | [summary](./summary/001ed-shared-prompt-template-class.md) |
 | [001ec-preserve-raw-response-on-validation-failure](./completed/001ec-preserve-raw-response-on-validation-failure.md) | [summary](./summary/001ec-preserve-raw-response-on-validation-failure.md) |
