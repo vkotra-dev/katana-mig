@@ -7,7 +7,8 @@ from ..api.deps import get_central_team_user, get_current_user, get_db
 from ..api.schemas import MappingPatchRequest, MappingRejectRequest, MappingReviewResponse
 from ..db.models import User
 from ..management.access import require_project_access, require_project_stakeholder
-from ..mapping.review import approve_mapping, get_mapping, patch_mapping, propose_mapping, reject_mapping, unapprove_mapping
+from ..mapping.review import approve_mapping, get_mapping, patch_mapping, reject_mapping, unapprove_mapping
+from ..mapping.proposal import propose_mapping
 from ..roles import PM_ROLE, ADMIN_ROLE
 from ..api.deps import AuthApiError
 

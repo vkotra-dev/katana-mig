@@ -14,6 +14,7 @@ from migrations_engine.auth.passwords import hash_password  # noqa: E402
 from migrations_engine.config import get_settings  # noqa: E402
 from migrations_engine.db.models import ProjectDefinition, ProjectMembership, ProjectRegistry, SourceDefinition, SourceSchemaArtifact, User  # noqa: E402
 from migrations_engine.mapping import review as mapping_review_module, ai_schemas  # noqa: E402
+from migrations_engine.mapping import proposal as mapping_proposal_module
 from migrations_engine.roles import CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE, PM_ROLE  # noqa: E402
 
 client = TestClient(app)
@@ -187,7 +188,7 @@ def test_propose_creates_draft_snapshot(monkeypatch: pytest.MonkeyPatch, admin_t
             {"source_field": "email_address", "destination_field": "email_address"},
         ]
     )
-    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: fake)
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: fake)
 
     response = client.post(
         f"/projects/{project_id}/sources/{source_id}/mapping/propose",
@@ -212,7 +213,7 @@ def test_propose_persists_destination_data_type(monkeypatch: pytest.MonkeyPatch,
             {"source_field": "email_address", "destination_field": "email_address", "destination_data_type": None},
         ]
     )
-    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: fake)
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: fake)
 
     response = client.post(
         f"/projects/{project_id}/sources/{source_id}/mapping/propose",
@@ -229,7 +230,7 @@ def test_propose_persists_destination_data_type(monkeypatch: pytest.MonkeyPatch,
 def test_propose_returns_schema_error_when_missing_ddl(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
     project_id, source_id = _seed_project(with_ddl=False)
     fake = FakeAdapter([])
-    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: fake)
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: fake)
 
     response = client.post(
         f"/projects/{project_id}/sources/{source_id}/mapping/propose",
@@ -245,7 +246,7 @@ def test_get_returns_latest_snapshot(monkeypatch: pytest.MonkeyPatch, admin_toke
     fake = FakeAdapter([
         {"source_field": "customer_id", "destination_field": "customer_id"},
     ])
-    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: fake)
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: fake)
 
     client.post(
         f"/projects/{project_id}/sources/{source_id}/mapping/propose",
@@ -278,7 +279,7 @@ def test_patch_updates_field_bindings(monkeypatch: pytest.MonkeyPatch, admin_tok
     fake = FakeAdapter([
         {"source_field": "customer_id", "destination_field": "customer_id"},
     ])
-    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: fake)
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: fake)
 
     client.post(
         f"/projects/{project_id}/sources/{source_id}/mapping/propose",
@@ -308,7 +309,7 @@ def test_patch_rejects_invalid_destination_fields(monkeypatch: pytest.MonkeyPatc
     fake = FakeAdapter([
         {"source_field": "customer_id", "destination_field": "customer_id"},
     ])
-    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: fake)
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: fake)
 
     client.post(
         f"/projects/{project_id}/sources/{source_id}/mapping/propose",
@@ -338,7 +339,7 @@ def test_approve_writes_destination_object_references(monkeypatch: pytest.Monkey
     fake = FakeAdapter([
         {"source_field": "customer_id", "destination_field": "customer_id"},
     ])
-    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: fake)
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: fake)
 
     client.post(
         f"/projects/{project_id}/sources/{source_id}/mapping/propose",
@@ -364,7 +365,7 @@ def test_unapprove_mapping_by_pm(monkeypatch: pytest.MonkeyPatch, admin_token: s
     fake = FakeAdapter([
         {"source_field": "customer_id", "destination_field": "customer_id"},
     ])
-    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: fake)
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: fake)
 
     client.post(
         f"/projects/{project_id}/sources/{source_id}/mapping/propose",
@@ -425,7 +426,7 @@ def test_reject_marks_snapshot_rejected(monkeypatch: pytest.MonkeyPatch, admin_t
     fake = FakeAdapter([
         {"source_field": "customer_id", "destination_field": "customer_id"},
     ])
-    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: fake)
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: fake)
 
     client.post(
         f"/projects/{project_id}/sources/{source_id}/mapping/propose",
@@ -447,7 +448,7 @@ def test_patch_422_on_approved_snapshot(monkeypatch: pytest.MonkeyPatch, admin_t
     fake = FakeAdapter([
         {"source_field": "customer_id", "destination_field": "customer_id"},
     ])
-    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: fake)
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: fake)
 
     client.post(
         f"/projects/{project_id}/sources/{source_id}/mapping/propose",
@@ -510,7 +511,7 @@ def test_propose_creates_multiple_snapshots_and_validates_table_names(monkeypatc
             )
             return AICallResult(parsed=parsed, raw_response="raw")
 
-    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: MultiTableFakeAdapter())
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: MultiTableFakeAdapter())
     
     response = client.post(
         f"/projects/{project_id}/sources/{source_id}/mapping/propose",
@@ -579,7 +580,7 @@ def test_propose_creates_multiple_snapshots_and_validates_table_names(monkeypatc
             )
             return AICallResult(parsed=parsed, raw_response="raw")
 
-    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: ValidMultiTableFakeAdapter())
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: ValidMultiTableFakeAdapter())
     
     response = client.post(
         f"/projects/{project_id}/sources/{source_id}/mapping/propose",
@@ -671,7 +672,7 @@ def test_bulk_approve_and_reject_multiple_snapshots(monkeypatch: pytest.MonkeyPa
             )
             return AICallResult(parsed=parsed, raw_response="raw")
 
-    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: ValidMultiTableFakeAdapter())
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: ValidMultiTableFakeAdapter())
     
     # 1. Propose mapping to create draft snapshots
     response = client.post(
@@ -746,7 +747,7 @@ def test_feed_hints_and_ai_tracing(monkeypatch: pytest.MonkeyPatch, admin_token:
     fake = TracingFakeAdapter([
         {"source_field": "customer_id", "destination_field": "customer_id"},
     ])
-    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task, policy=None: fake)
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task, policy=None: fake)
 
     # Inject project constraint
     from migrations_engine.db.models import ProjectDefinition, ProjectRegistry
@@ -816,7 +817,7 @@ def test_propose_skips_tables_already_approved_project_wide(
     fake = FakeAdapter([
         {"source_field": "customer_id", "destination_field": "customer_id"},
     ])
-    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task: fake)
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: fake)
 
     response = client.post(
         f"/projects/{project_id}/sources/{source_id}/mapping/propose",
@@ -836,7 +837,7 @@ def test_propose_logs_raw_response_on_validation_error(monkeypatch: pytest.Monke
         def call(self, system: str, user: str, response_model: Any) -> Any:
             raise AIResponseValidationError(raw_response='{"bad_json": true}', original=Exception("schema err"))
 
-    monkeypatch.setattr(mapping_review_module, "get_adapter", lambda task, model_policy=None: FailingAdapter())
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task, model_policy=None: FailingAdapter())
 
     response = client.post(
         f"/projects/{project_id}/sources/{source_id}/mapping/propose",
