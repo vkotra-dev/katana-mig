@@ -4,11 +4,13 @@
 
 | Task | Summary |
 |---|---|
+| [001ei-fix-mapping-snapshot-optional-typing](./001ei-fix-mapping-snapshot-optional-typing.md) | 36 mypy --strict errors in approve_mapping/reject_mapping/unapprove_mapping, all one root cause (single-table branch produces list[MappingSnapshot \| None], bulk branch produces Sequence[MappingSnapshot]); fix by making both branches query-shaped and consistent, not a type-annotation workaround |
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001eh-codegen-preserve-raw-response](./completed/001eh-codegen-preserve-raw-response.md) | codegen/service.py and codegen/schema_analysis.py still discard raw AI response on validation failure; add AIResponseValidationError handling + db.commit() before raise, matching 001ec's fix everywhere else |
 | [001eg-extract-proposal-module](./completed/001eg-extract-proposal-module.md) | Part 3/3: extract propose_mapping into mapping/proposal.py |
 | [001ef-extract-snapshot-repository](./completed/001ef-extract-snapshot-repository.md) | Extracted snapshot repository functions to snapshots.py |
 | [001ee-extract-ddl-parser](./completed/001ee-extract-ddl-parser.md) | Extracted DDL parser into mapping/ddl.py |

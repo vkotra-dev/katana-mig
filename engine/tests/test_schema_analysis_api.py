@@ -292,3 +292,36 @@ def test_schema_analysis_route_requires_access() -> None:
     project_id = _seed_project(destination_schema_ddl="CREATE TABLE customers (id INT);")
     response = client.post(f"/projects/{project_id}/schema-analysis")
     assert response.status_code == 401
+
+
+from migrations_engine.ai.adapter import AIResponseValidationError
+from migrations_engine.db.models import AICallLog
+from migrations_engine.codegen import schema_analysis as schema_analysis_module
+
+class ValidationFailingAdapter:
+    model_id = "test-model"
+    def call(self, system, user, response_model=None):
+        raise AIResponseValidationError('{"bad": "json"}', ValueError("Failed"))
+
+def test_schema_analysis_preserves_raw_response_on_validation_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    project_id = _seed_project(destination_schema_ddl="CREATE TABLE dummy(id int);")
+    monkeypatch.setattr(schema_analysis_module, "get_adapter", lambda task, policy=None: ValidationFailingAdapter())
+
+    with SessionLocal() as db:
+        with pytest.raises(AIResponseValidationError):
+            schema_analysis_module.run_schema_analysis(db, project_id=project_id)
+            
+        db.rollback()
+        
+        log = db.scalar(
+            select(AICallLog)
+            .where(
+                AICallLog.project_id == project_id,
+                AICallLog.call_type == "schema_analysis",
+            )
+            .order_by(AICallLog.called_at.desc())
+        )
+        assert log is not None, "Log should be persisted via db.commit()"
+        assert log.raw_response == '{"bad": "json"}'
+        assert log.error_detail is not None
+        assert "ValidationError: Failed" in log.error_detail

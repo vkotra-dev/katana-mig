@@ -248,3 +248,40 @@ def test_delivery_bundle_returns_active_artifacts(monkeypatch: pytest.MonkeyPatc
     assert response.headers["content-disposition"] == 'attachment; filename="delivery-bundle.sql"'
     assert response.text.startswith("-- Customer")
     assert "CREATE TABLE stg_customer" in response.text
+
+from migrations_engine.ai.adapter import AIResponseValidationError
+from migrations_engine.db.models import AICallLog
+
+class ValidationFailingAdapter:
+    model_id = "test-model"
+    def call(self, system, user, response_model=None):
+        raise AIResponseValidationError('{"bad": "json"}', ValueError("Failed"))
+
+def test_codegen_preserves_raw_response_on_validation_error(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+    project_id, source_definition_id = _seed_project()
+    monkeypatch.setattr(codegen_service_module, "get_adapter", lambda task: ValidationFailingAdapter())
+
+    with SessionLocal() as db:
+        with pytest.raises(AIResponseValidationError):
+            codegen_service_module.generate_codegen_artifact(
+                db,
+                project_id=project_id,
+                source_definition_id=source_definition_id,
+                actor=db.scalar(select(User).limit(1)),
+            )
+            
+        db.rollback()
+        
+        # Now verify
+        log = db.scalar(
+            select(AICallLog)
+            .where(
+                AICallLog.project_id == project_id,
+                AICallLog.call_type == "codegen",
+            )
+            .order_by(AICallLog.called_at.desc())
+        )
+        assert log is not None, "Log should be persisted via db.commit()"
+        assert log.raw_response == '{"bad": "json"}'
+        assert log.error_detail is not None
+        assert "ValidationError: Failed" in log.error_detail

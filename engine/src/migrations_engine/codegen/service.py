@@ -161,6 +161,7 @@ def generate_codegen_artifact(
     )
 
     from ..ai.logging import log_ai_call, backfill_artifact_id
+    from ..ai.adapter import AIResponseValidationError
 
     try:
         result = adapter.call(
@@ -179,6 +180,20 @@ def generate_codegen_artifact(
             raw_response=result.raw_response,
         )
         generated_sql = result.parsed
+    except AIResponseValidationError as exc:
+        log_ai_call(
+            db,
+            project_id=project_id,
+            feature="codegen",
+            call_type="codegen",
+            model_id=adapter.model_id,
+            system=system_prompt,
+            user=user_prompt,
+            raw_response=exc.raw_response,
+            error_detail=f"ValidationError: {exc.original}",
+        )
+        db.commit()
+        raise
     except Exception as exc:
         log_ai_call(
             db,
@@ -191,6 +206,7 @@ def generate_codegen_artifact(
             raw_response=None,
             error_detail=str(exc),
         )
+        db.commit()
         raise
 
     sql_bundle = _assemble_sql_bundle(generated_sql, staging_schema=project_config.staging_schema)
