@@ -34,7 +34,8 @@
       "Bash(grep -rn \"stagingSchema.*feedLabel\\\\|feedLabel.*stagingSchema\\\\|staging.*\\\\.\\\\|stag.*label\\\\|\\\\`\\\\${.*}\\\\.\\\\${.*}\\\\`\" /Users/vjkotra/projects/katana/web/ --include=\"*.ts\" --include=\"*.tsx\")",
       "Bash(node *)",
       "Bash(cat .eslintrc*)",
-      "Bash(cat eslint.config*)"
+      "Bash(cat eslint.config*)",
+      "Bash(grep *)"
     ]
   }
 }

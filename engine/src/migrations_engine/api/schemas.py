@@ -567,6 +567,7 @@ class MappingFieldBindingResponse(BaseModel):
     reference_table_name: str | None = None
     destination_table_name: str | None = None
     destination_data_type: str | None = None
+    nullable: bool | None = None
 
 
 class LookupTableReferenceResponse(BaseModel):

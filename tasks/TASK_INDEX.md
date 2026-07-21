@@ -6,6 +6,8 @@
 |---|---|
 | [001dy-one-to-many-field-mapping](./001dy-one-to-many-field-mapping.md) | Support 1-to-N Source-to-Destination Field Mappings |
 | [001dz-unmapped-destination-fields-tracking](./001dz-unmapped-destination-fields-tracking.md) | Track and Display Unmapped Destination Fields |
+| [001ea-mapping-ai-schema-hardening](./001ea-mapping-ai-schema-hardening.md) | New mapping AI system prompt (adds nullable) + strict Pydantic response schema; also fixes patch_mapping dropping destination_data_type on edit |
+| [001eb-source-analysis-schema-hardening](./001eb-source-analysis-schema-hardening.md) | New source-analysis AI system prompt + strict Pydantic schema; wires in header-verbatim guard that catches column-name corruption (e.g. claim_type -> claim_claim) at its origin |
 
 
 ## Completed

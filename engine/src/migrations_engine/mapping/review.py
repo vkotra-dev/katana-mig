@@ -30,24 +30,7 @@ _TABLE_RE = re.compile(
 _COLUMN_RE = re.compile(r'^\s*["`]?(?P<name>[A-Za-z_][\w$]*)["`]?\s+[A-Za-z]')
 _CONSTRAINT_PREFIXES = ("CONSTRAINT", "PRIMARY", "UNIQUE", "FOREIGN", "CHECK")
 
-
-class _ProposedBinding(BaseModel):
-    source_field: str
-    destination_field: str
-    binding_type: Literal["direct", "detail_fk", "lookup_fk"] = "direct"
-    reference_table_name: str | None = None  # populated only for lookup_fk or detail_fk
-    destination_data_type: str | None = None
-
-
-class _TableMapping(BaseModel):
-    destination_table_name: str
-    bindings: list[_ProposedBinding] = []
-
-
-class _FieldMappingProposal(BaseModel):
-    tables: list[_TableMapping] = []
-    error_code: str | None = None
-    error_message: str | None = None
+from .ai_schemas import Binding, TableProposal, AIFieldMappingProposal
 
 
 def _parse_all_ddl_tables(ddl: str) -> dict[str, list[str]]:
@@ -245,6 +228,7 @@ def _snapshot_to_response(
                 reference_table_name=binding.get("reference_table_name"),
                 destination_table_name=binding.get("destination_table_name"),
                 destination_data_type=binding.get("destination_data_type"),
+                nullable=binding.get("nullable"),
             )
             for binding in snapshot.field_bindings
         ],
@@ -370,8 +354,13 @@ def propose_mapping(
         "If the referenced lookup table does not exist in the DDL, suggest a logical name for it (e.g., '{source_field}_ref').\n"
         "6. For every binding, set destination_data_type to the exact SQL type of the destination column as declared in the DDL "
         "(e.g. 'INT', 'NVARCHAR(255)', 'DATE', 'DECIMAL(18,2)'). Set to null only if the column is not found in the DDL.\n"
-        "7. If the DDL is invalid or you cannot find any matching tables, set error_code and error_message.\n"
-        "Return valid JSON matching the schema."
+        "7. For every binding, set nullable to true if the destination column allows nulls, or false if it is explicitly NOT NULL.\n"
+        "8. If the DDL is invalid or you cannot find any matching tables, set error_code and error_message.\n\n"
+        "OUTPUT CONTRACT:\n"
+        "Return strictly valid JSON with no markdown fences, no invented keys, and exact adherence to the schema.\n"
+        "- Top-level keys: 'tables' (list), 'error_code' (string|null), 'error_message' (string|null)\n"
+        "- Table keys: 'destination_table_name' (string), 'bindings' (list)\n"
+        "- Binding keys: 'source_field' (string), 'destination_field' (string), 'binding_type' (string: 'direct', 'detail_fk', 'lookup_fk'), 'reference_table_name' (string|null), 'destination_data_type' (string|null), 'nullable' (boolean|null)"
     )
 
     feed = _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
@@ -395,7 +384,7 @@ def propose_mapping(
         result = adapter.call(
             system_prompt,
             user_prompt,
-            _FieldMappingProposal,
+            AIFieldMappingProposal,
         )
         call_log = log_ai_call(
             db,
@@ -408,6 +397,12 @@ def propose_mapping(
             raw_response=result.raw_response,
         )
         proposal = result.parsed
+        unknown_sources = proposal.validate_source_fields(source_columns)
+        if unknown_sources:
+            err_msg = f"AI generated invalid source fields: {', '.join(unknown_sources)}"
+            call_log.error_detail = err_msg
+            db.commit()
+            raise AuthApiError("ai_schema_mismatch", err_msg, 422)
     except ValidationError as exc:
         log_ai_call(
             db,
@@ -492,9 +487,6 @@ def propose_mapping(
             l_name = None
             if b_type == "lookup_fk":
                 l_name = binding.source_field  # default lookup name to source field name
-                if not ref_table:
-                    clean_field = binding.source_field.lower().strip().replace(" ", "_").replace("'", "").replace('"', "")
-                    ref_table = f"{clean_field}_ref"
                 
             field_bindings.append({
                 "source_field": binding.source_field,
@@ -503,6 +495,7 @@ def propose_mapping(
                 "binding_type": b_type,
                 "reference_table_name": ref_table,
                 "destination_data_type": binding.destination_data_type,
+                "nullable": binding.nullable,
             })
             
         version = _next_snapshot_version(
@@ -644,6 +637,8 @@ def patch_mapping(
             "lookup_name": binding.lookup_name,
             "binding_type": existing.get("binding_type", "direct"),
             "reference_table_name": existing.get("reference_table_name"),
+            "destination_data_type": existing.get("destination_data_type"),
+            "nullable": existing.get("nullable"),
         })
 
     # Detect changed fields and delete their sign-off records

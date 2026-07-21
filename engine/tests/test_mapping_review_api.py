@@ -13,7 +13,7 @@ from migrations_engine.app import app  # noqa: E402
 from migrations_engine.auth.passwords import hash_password  # noqa: E402
 from migrations_engine.config import get_settings  # noqa: E402
 from migrations_engine.db.models import ProjectDefinition, ProjectMembership, ProjectRegistry, SourceDefinition, SourceSchemaArtifact, User  # noqa: E402
-from migrations_engine.mapping import review as mapping_review_module  # noqa: E402
+from migrations_engine.mapping import review as mapping_review_module, ai_schemas  # noqa: E402
 from migrations_engine.roles import CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE, PM_ROLE  # noqa: E402
 
 client = TestClient(app)
@@ -41,9 +41,9 @@ class FakeAdapter:
         for binding in self.bindings:
             b_data = {"binding_type": "direct", "reference_table_name": None}
             b_data.update(binding)
-            bindings_objs.append(mapping_review_module._ProposedBinding(**b_data))
+            bindings_objs.append(ai_schemas.Binding(**b_data))
             
-        table_mapping = mapping_review_module._TableMapping(
+        table_mapping = ai_schemas.TableProposal(
             destination_table_name=self.destination_table_name,
             bindings=bindings_objs,
         )
@@ -484,20 +484,20 @@ def test_propose_creates_multiple_snapshots_and_validates_table_names(monkeypatc
         def call(self, system: str, user: str, response_model: type[object]):
             parsed = response_model(
                 tables=[
-                    mapping_review_module._TableMapping(
+                    ai_schemas.TableProposal(
                         destination_table_name="Customer",
                         bindings=[
-                            mapping_review_module._ProposedBinding(
+                            ai_schemas.Binding(
                                 source_field="customer_id",
                                 destination_field="customer_id",
                                 binding_type="direct"
                             )
                         ]
                     ),
-                    mapping_review_module._TableMapping(
+                    ai_schemas.TableProposal(
                         destination_table_name="UnknownTable",
                         bindings=[
-                            mapping_review_module._ProposedBinding(
+                            ai_schemas.Binding(
                                 source_field="email_address",
                                 destination_field="email",
                                 binding_type="direct"
@@ -541,32 +541,32 @@ def test_propose_creates_multiple_snapshots_and_validates_table_names(monkeypatc
         def call(self, system: str, user: str, response_model: type[object]):
             parsed = response_model(
                 tables=[
-                    mapping_review_module._TableMapping(
+                    ai_schemas.TableProposal(
                         destination_table_name="Customer",
                         bindings=[
-                            mapping_review_module._ProposedBinding(
+                            ai_schemas.Binding(
                                 source_field="customer_id",
                                 destination_field="customer_id",
                                 binding_type="direct"
                             )
                         ]
                     ),
-                    mapping_review_module._TableMapping(
+                    ai_schemas.TableProposal(
                         destination_table_name="OrderTable",
                         bindings=[
-                            mapping_review_module._ProposedBinding(
-                                source_field="order_id",
+                            ai_schemas.Binding(
+                                source_field="customer_id",
                                 destination_field="order_id",
                                 binding_type="direct"
                             ),
-                            mapping_review_module._ProposedBinding(
+                            ai_schemas.Binding(
                                 source_field="customer_id",
                                 destination_field="customer_fk",
                                 binding_type="lookup_fk",
                                 reference_table_name="Customer"
                             ),
-                            mapping_review_module._ProposedBinding(
-                                source_field="status_id",
+                            ai_schemas.Binding(
+                                source_field="email_address",
                                 destination_field="status_fk",
                                 binding_type="lookup_fk",
                                 reference_table_name="StatusTable"
@@ -602,7 +602,7 @@ def test_propose_creates_multiple_snapshots_and_validates_table_names(monkeypatc
     data_order = resp_order.json()
     assert data_order["destination_object_name"] == "OrderTable"
     assert len(data_order["lookup_table_references"]) == 1
-    assert data_order["lookup_table_references"][0]["lookup_name"] == "status_id"
+    assert data_order["lookup_table_references"][0]["lookup_name"] == "email_address"
     assert data_order["lookup_table_references"][0]["destination_table_name"] == "StatusTable"
     
     with SessionLocal() as db:
@@ -616,7 +616,7 @@ def test_propose_creates_multiple_snapshots_and_validates_table_names(monkeypatc
         assert snapshot is not None
         bindings = {b["source_field"]: b for b in snapshot.field_bindings}
         assert bindings["customer_id"]["binding_type"] == "detail_fk"
-        assert bindings["status_id"]["binding_type"] == "lookup_fk"
+        assert bindings["email_address"]["binding_type"] == "lookup_fk"
 
 
 def test_bulk_approve_and_reject_multiple_snapshots(monkeypatch: pytest.MonkeyPatch, admin_token: str, stakeholder_token: str) -> None:
@@ -645,21 +645,21 @@ def test_bulk_approve_and_reject_multiple_snapshots(monkeypatch: pytest.MonkeyPa
         def call(self, system: str, user: str, response_model: type[object]):
             parsed = response_model(
                 tables=[
-                    mapping_review_module._TableMapping(
+                    ai_schemas.TableProposal(
                         destination_table_name="Customer",
                         bindings=[
-                            mapping_review_module._ProposedBinding(
+                            ai_schemas.Binding(
                                 source_field="customer_id",
                                 destination_field="customer_id",
                                 binding_type="direct"
                             )
                         ]
                     ),
-                    mapping_review_module._TableMapping(
+                    ai_schemas.TableProposal(
                         destination_table_name="OrderTable",
                         bindings=[
-                            mapping_review_module._ProposedBinding(
-                                source_field="order_id",
+                            ai_schemas.Binding(
+                                source_field="customer_id",
                                 destination_field="order_id",
                                 binding_type="direct"
                             )
