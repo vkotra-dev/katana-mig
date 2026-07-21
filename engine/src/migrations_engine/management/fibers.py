@@ -679,6 +679,7 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
             raw_response=None,
             error_detail=str(exc),
         )
+        db.commit()
         raise
 
     all_fibers: list[ProjectFiber] = []
@@ -767,6 +768,7 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
                 raw_response=None,
                 error_detail=str(exc),
             )
+            db.commit()
             raise
         fiber.field_bindings = [binding.model_dump(mode="python") for binding in field_mapping_result.field_bindings]
         fiber.status = "mapped"
@@ -927,6 +929,7 @@ def submit_lookup_inputs(
             raw_response=None,
             error_detail=str(exc),
         )
+        db.commit()
         raise
 
     source_entry_by_value = {entry.source_value: entry for entry in source_entries}

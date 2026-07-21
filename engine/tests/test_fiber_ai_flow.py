@@ -404,3 +404,28 @@ def test_analyze_feed_logs_raw_response_on_validation_error(monkeypatch: pytest.
         logs = db.query(AICallLog).filter_by(project_id=project_id, call_type="feed_analysis").all()
         assert len(logs) == 1
         assert logs[0].raw_response == '{"bad_feed_json": "feed"}'
+
+def test_analyze_feed_logs_raw_response_on_generic_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FailingAdapter:
+        model_id = "test-fail"
+        def call(self, system: str, user: str, response_model: type[object]) -> object:
+            raise Exception("network failure")
+
+    monkeypatch.setattr("migrations_engine.management.fibers.get_adapter", lambda task, model_policy=None: FailingAdapter())
+
+    project_id, feed_id = _seed_feed_with_slice()
+    with SessionLocal() as db:
+        from migrations_engine.management.fibers import analyze_feed
+        with pytest.raises(Exception):
+            from sqlalchemy import select
+            from migrations_engine.db.models import User
+            from migrations_engine.roles import CENTRAL_TEAM_ROLE
+            actor = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
+            analyze_feed(db, feed_id=feed_id, project_id=project_id, actor=actor)
+            
+        db.rollback()
+            
+        from migrations_engine.db.models import AICallLog
+        logs = db.query(AICallLog).filter_by(project_id=project_id, call_type="feed_analysis").all()
+        assert len(logs) == 1
+        assert logs[0].error_detail == "network failure"
