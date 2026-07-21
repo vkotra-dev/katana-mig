@@ -46,4 +46,4 @@ def test_validate_source_fields():
     )
     unknown = proposal.validate_source_fields(["col1", "col3"])
     assert len(unknown) == 1
-    assert unknown[0].lower() == "col2"
+    assert unknown[0] == "Col2"

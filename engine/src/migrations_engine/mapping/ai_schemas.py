@@ -1,5 +1,5 @@
-from typing import Literal
-from pydantic import BaseModel, ConfigDict, Field, field_validator, ValidationInfo, model_validator
+from typing import Literal, Any
+from pydantic import BaseModel, ConfigDict, model_validator, field_validator
 
 class Binding(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -13,13 +13,13 @@ class Binding(BaseModel):
 
     @field_validator("nullable", mode="before")
     @classmethod
-    def _validate_nullable(cls, v: any) -> bool | None:
+    def _validate_nullable(cls, v: Any) -> bool | None:
         if v is not None and not isinstance(v, bool):
             raise ValueError("nullable must be a JSON boolean or null")
         return v
 
     @model_validator(mode="after")
-    def _require_ref_for_fk(self, info: ValidationInfo) -> "Binding":
+    def _require_ref_for_fk(self) -> "Binding":
         if self.binding_type in ("detail_fk", "lookup_fk"):
             if not self.reference_table_name:
                 raise ValueError(f"reference_table_name is required when binding_type is {self.binding_type}")
@@ -45,9 +45,9 @@ class AIFieldMappingProposal(BaseModel):
 
     def validate_source_fields(self, valid_source_fields: list[str]) -> list[str]:
         unknown = []
-        valid_set = {f.lower() for f in valid_source_fields if f and f.strip()}
+        valid_set = {f for f in valid_source_fields if f and f.strip()}
         for t in self.tables:
             for b in t.bindings:
-                if b.source_field.lower() not in valid_set:
+                if b.source_field not in valid_set:
                     unknown.append(b.source_field)
         return list(set(unknown))

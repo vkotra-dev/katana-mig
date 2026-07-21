@@ -157,6 +157,8 @@ def _seed_project(*, with_ddl: bool = True) -> tuple[str, str]:
                     {"name": "customer_id", "inferred_type": "integer", "nullable": False, "max_length": None},
                     {"name": "full_name", "inferred_type": "text", "nullable": True, "max_length": 200},
                     {"name": "email_address", "inferred_type": "text", "nullable": True, "max_length": 255},
+                    {"name": "order_id", "inferred_type": "integer", "nullable": False, "max_length": None},
+                    {"name": "status_id", "inferred_type": "integer", "nullable": True, "max_length": None},
                 ],
             )
         )
@@ -555,18 +557,18 @@ def test_propose_creates_multiple_snapshots_and_validates_table_names(monkeypatc
                         destination_table_name="OrderTable",
                         bindings=[
                             ai_schemas.Binding(
-                                source_field="customer_id",
+                                source_field="order_id",
                                 destination_field="order_id",
                                 binding_type="direct"
                             ),
                             ai_schemas.Binding(
                                 source_field="customer_id",
                                 destination_field="customer_fk",
-                                binding_type="lookup_fk",
+                                binding_type="detail_fk",
                                 reference_table_name="Customer"
                             ),
                             ai_schemas.Binding(
-                                source_field="email_address",
+                                source_field="status_id",
                                 destination_field="status_fk",
                                 binding_type="lookup_fk",
                                 reference_table_name="StatusTable"
@@ -602,7 +604,7 @@ def test_propose_creates_multiple_snapshots_and_validates_table_names(monkeypatc
     data_order = resp_order.json()
     assert data_order["destination_object_name"] == "OrderTable"
     assert len(data_order["lookup_table_references"]) == 1
-    assert data_order["lookup_table_references"][0]["lookup_name"] == "email_address"
+    assert data_order["lookup_table_references"][0]["lookup_name"] == "status_id"
     assert data_order["lookup_table_references"][0]["destination_table_name"] == "StatusTable"
     
     with SessionLocal() as db:
@@ -616,7 +618,7 @@ def test_propose_creates_multiple_snapshots_and_validates_table_names(monkeypatc
         assert snapshot is not None
         bindings = {b["source_field"]: b for b in snapshot.field_bindings}
         assert bindings["customer_id"]["binding_type"] == "detail_fk"
-        assert bindings["email_address"]["binding_type"] == "lookup_fk"
+        assert bindings["status_id"]["binding_type"] == "lookup_fk"
 
 
 def test_bulk_approve_and_reject_multiple_snapshots(monkeypatch: pytest.MonkeyPatch, admin_token: str, stakeholder_token: str) -> None:
