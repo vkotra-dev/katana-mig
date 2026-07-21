@@ -83,7 +83,12 @@ class GeminiAdapter:
         if not isinstance(text, str) or not text:
             raise AICallError("Gemini response did not contain text content.")
         logger.info("Gemini Response:\n%s", text)
-        parsed = response_model.model_validate_json(text)
+        from pydantic import ValidationError
+        from .adapter import AIResponseValidationError
+        try:
+            parsed = response_model.model_validate_json(text)
+        except ValidationError as exc:
+            raise AIResponseValidationError(raw_response=text, original=exc) from exc
         return AICallResult(parsed=parsed, raw_response=text)
 
     def _resolve_model(self, *, task: str | None, model_policy: ModelPolicy | None) -> str:

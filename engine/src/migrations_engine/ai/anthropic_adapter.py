@@ -80,7 +80,12 @@ class AnthropicAdapter:
         content = getattr(response, "content", None)
         text = _extract_text(content)
         logger.info("Anthropic Response:\n%s", text)
-        parsed = response_model.model_validate_json(text)
+        from pydantic import ValidationError
+        from .adapter import AIResponseValidationError
+        try:
+            parsed = response_model.model_validate_json(text)
+        except ValidationError as exc:
+            raise AIResponseValidationError(raw_response=text, original=exc) from exc
         return AICallResult(parsed=parsed, raw_response=text)
 
     def _resolve_model(self, *, task: str | None, model_policy: ModelPolicy | None) -> str:

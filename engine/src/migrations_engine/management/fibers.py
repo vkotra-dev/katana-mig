@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from ..ai.factory import get_adapter
 from ..ai.logging import log_ai_call, backfill_artifact_id
+from ..ai.adapter import AIResponseValidationError
 from ..api.deps import AuthApiError
 from ..api.schemas import (
     FiberActionRequest,
@@ -652,6 +653,19 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
         )
         backfill_artifact_id(db, call_log1.call_id, feed.source_definition_id)
         feed_analysis_result = result.parsed
+    except AIResponseValidationError as exc:
+        log_ai_call(
+            db,
+            project_id=project_id,
+            feature="feed_mapping",
+            call_type="feed_analysis",
+            model_id=feed_analysis_adapter.model_id,
+            system=_FEED_ANALYSIS_SYSTEM,
+            user=user_prompt,
+            raw_response=exc.raw_response,
+            error_detail=f"ValidationError: {exc.original}",
+        )
+        raise AuthApiError("ai_schema_mismatch", "The AI generated an invalid mapping format.", 502)
     except Exception as exc:
         log_ai_call(
             db,
@@ -726,6 +740,19 @@ def analyze_feed(db: Session, *, feed_id: str, project_id: str, actor: User) -> 
             )
             field_mapping_result = result2.parsed
             backfill_artifact_id(db, call_log2.call_id, fiber.feed_id)
+        except AIResponseValidationError as exc:
+            log_ai_call(
+                db,
+                project_id=project_id,
+                feature="feed_mapping",
+                call_type="feed_analysis",
+                model_id=field_mapping_adapter.model_id,
+                system=_FIELD_MAPPING_SYSTEM,
+                user=user_prompt2,
+                raw_response=exc.raw_response,
+                error_detail=f"ValidationError: {exc.original}",
+            )
+            raise AuthApiError("ai_schema_mismatch", "The AI generated an invalid mapping format.", 502)
         except Exception as exc:
             log_ai_call(
                 db,
@@ -872,6 +899,19 @@ def submit_lookup_inputs(
         )
         ai_result = result3.parsed
         backfill_artifact_id(db, call_log3.call_id, fiber.feed_id)
+    except AIResponseValidationError as exc:
+        log_ai_call(
+            db,
+            project_id=project_id,
+            feature="feed_mapping",
+            call_type="lookup_mapping",
+            model_id=adapter.model_id,
+            system=_LOOKUP_MAPPING_SYSTEM_PROMPT,
+            user=user_prompt3,
+            raw_response=exc.raw_response,
+            error_detail=f"ValidationError: {exc.original}",
+        )
+        raise AuthApiError("ai_schema_mismatch", "The AI generated an invalid lookup mapping format.", 502)
     except Exception as exc:
         log_ai_call(
             db,

@@ -88,7 +88,12 @@ class OpenAIAdapter:
             logger.error("OpenAI response did not contain text content.")
             raise AICallError("OpenAI response did not contain text content.")
         logger.info("OpenAI Response:\n%s", content)
-        parsed = response_model.model_validate_json(content)
+        from pydantic import ValidationError
+        from .adapter import AIResponseValidationError
+        try:
+            parsed = response_model.model_validate_json(content)
+        except ValidationError as exc:
+            raise AIResponseValidationError(raw_response=content, original=exc) from exc
         return AICallResult(parsed=parsed, raw_response=content)
 
     def _resolve_model(self, *, task: str | None, model_policy: ModelPolicy | None) -> str:

@@ -340,7 +340,7 @@ def propose_mapping(
 
     # 3. Call AI with full DDL and validate response structure
     from pydantic import ValidationError
-    from ..ai.adapter import AICallError
+    from ..ai.adapter import AICallError, AIResponseValidationError
 
     system_prompt = (
         "You are a data migration specialist. Analyze the provided multi-table SQL DDL schema "
@@ -403,7 +403,7 @@ def propose_mapping(
             call_log.error_detail = err_msg
             db.commit()
             raise AuthApiError("ai_schema_mismatch", err_msg, 422)
-    except ValidationError as exc:
+    except AIResponseValidationError as exc:
         log_ai_call(
             db,
             project_id=project_id,
@@ -412,8 +412,8 @@ def propose_mapping(
             model_id=getattr(adapter, "model_id", "unknown"),
             system=system_prompt,
             user=user_prompt,
-            raw_response=None,
-            error_detail=f"ValidationError: {exc}",
+            raw_response=exc.raw_response,
+            error_detail=f"ValidationError: {exc.original}",
         )
         raise AuthApiError("ai_schema_mismatch", "The AI generated an invalid mapping format. Please retry.", 502)
     except AICallError as exc:

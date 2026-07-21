@@ -32,3 +32,10 @@ class AICallError(Exception):
 class ConfigurationError(Exception):
     """Raised when a required config value is missing, invalid, or unrecognised."""
 
+class AIResponseValidationError(Exception):
+    """Raised when the AI returns a response that fails schema validation."""
+    def __init__(self, raw_response: str, original: Exception):
+        super().__init__(str(original))
+        self.raw_response = raw_response
+        self.original = original
+

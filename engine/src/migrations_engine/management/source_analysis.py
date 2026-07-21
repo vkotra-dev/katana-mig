@@ -5,7 +5,7 @@ import json
 from collections import Counter
 from typing import Literal
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
@@ -105,13 +105,14 @@ def analyze_source_slice(
         adapter = get_adapter("field_mapping")
     from ..ai.logging import log_ai_call, backfill_artifact_id
 
+    from ..ai.adapter import AIResponseValidationError
     try:
         result = adapter.call(
             system_prompt,
             sample_text,
             AnalysisResult,
         )
-    except ValidationError as exc:
+    except AIResponseValidationError as exc:
         log_ai_call(
             db,
             project_id=project_id,
@@ -121,8 +122,8 @@ def analyze_source_slice(
             model_id=adapter.model_id,
             system=system_prompt,
             user=sample_text,
-            raw_response=None,
-            error_detail=str(exc),
+            raw_response=exc.raw_response,
+            error_detail=f"ValidationError: {exc.original}",
         )
         raise AuthApiError("ai_schema_validation_failed", "AI generated invalid schema", 502) from exc
     except Exception as exc:

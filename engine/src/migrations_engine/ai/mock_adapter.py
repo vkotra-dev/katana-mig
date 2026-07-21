@@ -55,5 +55,10 @@ class MockAdapter:
         raw_text = fixture_path.read_text(encoding="utf-8")
         raw = json.loads(raw_text)
         logger.info("MockAdapter: returning fixture for %s", class_name)
-        parsed = response_model.model_validate(raw)
+        from pydantic import ValidationError
+        from .adapter import AIResponseValidationError
+        try:
+            parsed = response_model.model_validate(raw)
+        except ValidationError as exc:
+            raise AIResponseValidationError(raw_response=raw_text, original=exc) from exc
         return AICallResult(parsed=parsed, raw_response=raw_text)

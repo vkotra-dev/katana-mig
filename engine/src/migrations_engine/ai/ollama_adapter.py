@@ -130,6 +130,9 @@ class OllamaAdapter:
                 prompt = f"{system}\n\nReturn valid JSON matching this schema:\n{schema}\n\nIMPORTANT: Your previous response was INVALID JSON. Fix this error: {exc}"
 
         logger.error("Ollama failed to produce valid JSON after %d attempts", max_retries)
+        from .adapter import AIResponseValidationError
+        if last_exc is not None:
+            raise AIResponseValidationError(raw_response=clean_content, original=last_exc) from last_exc
         raise AICallError(f"Model returned invalid JSON after {max_retries} attempts: {last_exc}") from last_exc
 
     def _resolve_model(self, *, task: str | None, model_policy: ModelPolicy | None) -> str:
