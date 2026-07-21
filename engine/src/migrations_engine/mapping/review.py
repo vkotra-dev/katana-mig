@@ -22,9 +22,10 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency in tests
     get_adapter = None  # type: ignore[assignment]
 
 
-_SNAPSHOT_VERSION_RE = re.compile(r"^v(?P<number>\d+)$")
 from .ddl import parse_all_ddl_tables, parse_ddl
 from .ai_schemas import Binding, TableProposal, AIFieldMappingProposal
+
+_SNAPSHOT_VERSION_RE = re.compile(r"^v(?P<number>\d+)$")
 
 def _get_project_destination_schema(db: Session, *, project_id: str) -> tuple[str, list[str]]:
     registry = db.scalar(select(ProjectRegistry).where(ProjectRegistry.project_id == project_id))
