@@ -13,3 +13,4 @@ katana.db
 !engine/.env.example
 .worktrees/
 mockmigration/
+.claude/settings.local.json
