@@ -256,14 +256,19 @@ Replace with:
 full in `001er`'s plan under "Current State" (98 lines, from `const generateCodingStandardsTemplate
 = (` through its closing `};`). Delete the entire function.
 
-**2d.** Find the call site for this button (search for `onClick={handleSuggestGlobalInstructions}`
-— it's a `<button>` element). The click handler is now async — confirm the JSX doesn't need a
-`void` wrapper by checking how other async handlers in this same file are wired to `onClick` (e.g.
-search for `onClick={() => void handle` in this file — if that pattern is used elsewhere for other
-async handlers, apply the same `onClick={() => void handleSuggestGlobalInstructions()}` wrapping
-here for consistency; if a bare `onClick={handleAsyncFn}` pattern is used elsewhere instead, match
-that pattern instead). Do not guess — grep the file for the exact existing convention before
-editing this line.
+**2d.** Confirmed convention: this file already uses `onClick={() => void handleAsyncFn(...)}` for
+its other async handlers — e.g. `onClick={() => void handleSuggestFeedInstructions(source.sourceDefinitionId, source.label)}`
+(line 793 as of this writing, the per-feed "Generate Instructions" button). Find this exact line:
+
+```tsx
+                    onClick={handleSuggestGlobalInstructions}
+```
+
+Replace with:
+
+```tsx
+                    onClick={() => void handleSuggestGlobalInstructions()}
+```
 
 ### 3. `web/app/projects/[id]/codegen/page.test.tsx`
 
@@ -408,12 +413,44 @@ Replace with (adds the mock's resolved value and switches the post-click asserti
 Note `waitFor` is already imported in this file (`import { fireEvent, render, screen, waitFor }
 from "@testing-library/react";`, quoted above) — no new import needed.
 
-**3d.** Add `getCodegenCodingStandardsTemplateMock.mockResolvedValue(...)` (or at minimum
-`.mockResolvedValue("")`) to the shared `beforeEach` block if this test file has one that sets up
-default mock return values for all tests (check for a `beforeEach(() => { ... })` near the top of
-the `describe` block — if found, add a sensible default there instead of only in the one test
-above, so other tests that happen to trigger this code path incidentally don't get an unhandled
-promise rejection from an un-mocked `vi.fn()` returning `undefined`).
+**3d.** This file has a shared `beforeEach(() => { ... })` block (starts at line 68 as of this
+writing) that sets default mock return values, including:
+
+```tsx
+    getProjectMock.mockResolvedValue({
+      projectId: "project-1",
+      name: "Project 1",
+      goal: "Goal 1",
+      repos: [],
+      workspace: null,
+      projectResources: null,
+      executionEnvironments: [],
+      modelPolicy: null,
+      canonicalTerms: [],
+      constraints: [],
+      unresolvedQuestions: [],
+      assumptions: [],
+      domainConfig: null,
+      lexiconScope: null,
+      status: "active",
+      createdAt: "2026-06-30T00:00:00Z",
+      updatedAt: "2026-06-30T00:00:00Z",
+      archivedAt: null,
+      codegenInstructions: "Date rules",
+    });
+```
+
+Immediately after this `getProjectMock.mockResolvedValue({...});` call (still inside the same
+`beforeEach`), add:
+
+```tsx
+    getCodegenCodingStandardsTemplateMock.mockResolvedValue("");
+```
+
+This gives every test a safe default (empty string) so any test that incidentally triggers this
+code path doesn't hit an unhandled-rejection from an un-mocked `vi.fn()` returning `undefined`. The
+one test that actually exercises the button (step 3c) overrides this default with its own
+`.mockResolvedValue(...)` call before rendering.
 
 ## Tests
 

@@ -209,10 +209,15 @@ class Prompt:
 
 ### 1. New file: `engine/src/migrations_engine/ai/prompts/codegen_coding_standards.yaml`
 
-Create this file with exactly this content (YAML block scalars, `|`, preserve content literally —
-note each section's content starts with a leading `-` list item, no extra blank line at the very
-start of `mssql`/`postgresql`/`mysql`/`oracle` blocks, matching how `specificStandards`'s own
-leading `\n` is what supplies the line break when concatenated in the loader, step 2 below):
+Create this file with exactly this content. **This exact content has already been verified**: it
+was generated programmatically from the original JS template, loaded back with `yaml.safe_load`,
+run through the loader function in step 2 below, and compared byte-for-byte against
+`generateCodingStandardsTemplate`'s actual output for `mssql`, `postgresql`, and the
+no-engine-specified case — all three matched exactly. Copy it verbatim, including the exact number
+of spaces on every line (the `mssql`/`postgresql`/`oracle`/`mysql` sections use the explicit YAML
+block-scalar indentation indicator `|2`, and their content lines have **7 leading spaces** — 2 for
+the indicator plus the original 5-space indentation from the JS template — do not "clean up" or
+reduce this indentation, it is intentional and verified):
 
 ```yaml
 shared_header: |
@@ -233,87 +238,89 @@ shared_footer: |
      - Use explicit column lists in all INSERT statements.
      - Do not hardcode environment-specific values. Do not create arbitrary default timestamps for business data columns. Database-managed audit columns, such as migration-log timestamps, may use an appropriate default when explicitly required by the schema.
 
-postgresql: |
-  - Use standard PostgreSQL coding conventions: lowercase identifiers, snake_case for tables/columns, explicit type casting (e.g. ::date, ::integer).
-  - Stored procedures/functions should be written in PL/pgSQL using dollar-quoting.
+postgresql: |2
+       - Use standard PostgreSQL coding conventions: lowercase identifiers, snake_case for tables/columns, explicit type casting (e.g. ::date, ::integer).
+       - Stored procedures/functions should be written in PL/pgSQL using dollar-quoting.
 
-mssql: |
-  - Use T-SQL coding conventions: UPPERCASE SQL keywords, square brackets for identifiers only when necessary, proper schema qualifiers.
-  - Always use CREATE OR ALTER PROCEDURE, never CREATE PROCEDURE alone. Scripts must be idempotent and runnable multiple times without error.
-  - Every CREATE TABLE statement must be idempotent. Use IF OBJECT_ID(N'[schema].[table]', N'U') IS NULL before CREATE TABLE. Never emit an unconditional CREATE TABLE statement.
+mssql: |2
+       - Use T-SQL coding conventions: UPPERCASE SQL keywords, square brackets for identifiers only when necessary, proper schema qualifiers.
+       - Always use CREATE OR ALTER PROCEDURE, never CREATE PROCEDURE alone. Scripts must be idempotent and runnable multiple times without error.
+       - Every CREATE TABLE statement must be idempotent. Use IF OBJECT_ID(N'[schema].[table]', N'U') IS NULL before CREATE TABLE. Never emit an unconditional CREATE TABLE statement.
 
-  **Migration SP Requirements:**
-    1. SET XACT_ABORT ON immediately after SET NOCOUNT ON
-    2. Validate source table is non-empty before MERGE; THROW if empty. The empty source validation THROW must occur before any MERGE statement executes.
-    3. Use THROW not RAISERROR for all error raising (SQL Server 2012+)
-    4. Use CAST(COALESCE(inserted.[pk], deleted.[pk]) AS NVARCHAR(255)) for future-safe action logging. The CAST to NVARCHAR(255) is required to match the dest_row_id column type in mig_upsert_log. Use inserted and deleted pseudo-table aliases when logging destination-table column values in the OUTPUT clause. The MERGE source alias may be referenced only for source metadata such as source_row_num. Never use the target alias to retrieve the affected destination row identifier. OUTPUT INTO [oc_stag].[mig_upsert_log] must specify the explicit destination column list: ([run_ref], [dest_table], [source_row_num], [dest_row_id], [action]).
-    5. NULL values in source columns flow through unchanged unless destination is NOT NULL
-    6. Note index requirements on MERGE join key columns in comments
-    7. FK lookups must be resolved via JOIN in MERGE source SELECT, not scalar variables. Every row gets its own resolved FK value.
-    8. run_ref must be dynamically generated inside the procedure using OBJECT_NAME(@@PROCID) as the procedure name prefix combined with GETDATE() and NEWID(). Never accept as parameter, never hardcode.
-       WRONG:  DECLARE @run_ref = '00000000-0000-4000-8000-...'
-       CORRECT: DECLARE @run_ref NVARCHAR(255) = OBJECT_NAME(@@PROCID) + '_' + 
-                CONVERT(NVARCHAR(20), GETDATE(), 120) + '_' + 
-                CAST(NEWID() AS NVARCHAR(36));
-    9. Schemas [cxp] and [oc_stag] are assumed to exist. Never create, drop, or alter schemas in procedures or migration scripts.
-    10. Declare only variables that are used. Remove unused declarations.
-    11. Never update the primary key column in WHEN MATCHED THEN UPDATE SET. The ON clause join key must never appear in the UPDATE column list.
-    12. Verify bracket and parenthesis balance before outputting SQL.
-    13. CRITICAL: System-managed row-level audit and technical columns that track creation or modification in THIS database — such as created_at, created_by, inserted_at, inserted_by, updated_at, updated_by, rowversion, and timestamp — must not be copied from the source or included in WHEN MATCHED THEN UPDATE SET unless the column is explicitly identified as source-system business data.
+       **Migration SP Requirements:**
+         1. SET XACT_ABORT ON immediately after SET NOCOUNT ON
+         2. Validate source table is non-empty before MERGE; THROW if empty. The empty source validation THROW must occur before any MERGE statement executes.
+         3. Use THROW not RAISERROR for all error raising (SQL Server 2012+)
+         4. Use CAST(COALESCE(inserted.[pk], deleted.[pk]) AS NVARCHAR(255)) for future-safe action logging. The CAST to NVARCHAR(255) is required to match the dest_row_id column type in mig_upsert_log. Use inserted and deleted pseudo-table aliases when logging destination-table column values in the OUTPUT clause. The MERGE source alias may be referenced only for source metadata such as source_row_num. Never use the target alias to retrieve the affected destination row identifier. OUTPUT INTO [oc_stag].[mig_upsert_log] must specify the explicit destination column list: ([run_ref], [dest_table], [source_row_num], [dest_row_id], [action]).
+         5. NULL values in source columns flow through unchanged unless destination is NOT NULL
+         6. Note index requirements on MERGE join key columns in comments
+         7. FK lookups must be resolved via JOIN in MERGE source SELECT, not scalar variables. Every row gets its own resolved FK value.
+         8. run_ref must be dynamically generated inside the procedure using OBJECT_NAME(@@PROCID) as the procedure name prefix combined with GETDATE() and NEWID(). Never accept as parameter, never hardcode.
+            WRONG:  DECLARE @run_ref = '00000000-0000-4000-8000-...'
+            CORRECT: DECLARE @run_ref NVARCHAR(255) = OBJECT_NAME(@@PROCID) + '_' + 
+                     CONVERT(NVARCHAR(20), GETDATE(), 120) + '_' + 
+                     CAST(NEWID() AS NVARCHAR(36));
+         9. Schemas [cxp] and [oc_stag] are assumed to exist. Never create, drop, or alter schemas in procedures or migration scripts.
+         10. Declare only variables that are used. Remove unused declarations.
+         11. Never update the primary key column in WHEN MATCHED THEN UPDATE SET. The ON clause join key must never appear in the UPDATE column list.
+         12. Verify bracket and parenthesis balance before outputting SQL.
+         13. CRITICAL: System-managed row-level audit and technical columns that track creation or modification in THIS database — such as created_at, created_by, inserted_at, inserted_by, updated_at, updated_by, rowversion, and timestamp — must not be copied from the source or included in WHEN MATCHED THEN UPDATE SET unless the column is explicitly identified as source-system business data.
 
-        Business date fields from the source system that represent original business event dates are legitimate update columns and should be included.
+             Business date fields from the source system that represent original business event dates are legitimate update columns and should be included.
 
-        If unsure whether a column is an audit timestamp or a business date, check the source DDL. Audit timestamps are typically auto-generated using DEFAULT GETDATE(), DEFAULT SYSUTCDATETIME(), rowversion, timestamp, or similar database-managed behavior and must not be overwritten on update.
+             If unsure whether a column is an audit timestamp or a business date, check the source DDL. Audit timestamps are typically auto-generated using DEFAULT GETDATE(), DEFAULT SYSUTCDATETIME(), rowversion, timestamp, or similar database-managed behavior and must not be overwritten on update.
 
-        rowversion and SQL Server timestamp columns must not be explicitly inserted or updated.
+             rowversion and SQL Server timestamp columns must not be explicitly inserted or updated.
 
-        WRONG:  target.created_at = source.created_at
-        WRONG:  target.inserted_by = source.inserted_by
-        CORRECT: Omit created_at, inserted_by, and similar system-managed columns entirely from the UPDATE SET column list.
-    14. THROW syntax must follow the correct T-SQL argument order: THROW error_number, message_string, state; Never swap the message and state arguments.
-    15. CRITICAL: Every stored procedure must wrap all DML in TRY...CATCH with explicit transaction management: BEGIN TRY / BEGIN TRANSACTION ... COMMIT / END TRY then BEGIN CATCH / IF @@TRANCOUNT > 0 ROLLBACK / THROW / END CATCH.
-    16. CRITICAL: ALL lookup tables created in the same script must be used by at least one relevant MERGE source SELECT via JOIN to resolve FK values per row — not just some of them. Never create lookup tables and then ignore them in the MERGE. Never alias a source column as an FK id — that is not a JOIN.
+             WRONG:  target.created_at = source.created_at
+             WRONG:  target.inserted_by = source.inserted_by
+             CORRECT: Omit created_at, inserted_by, and similar system-managed columns entirely from the UPDATE SET column list.
+         14. THROW syntax must follow the correct T-SQL argument order: THROW error_number, message_string, state; Never swap the message and state arguments.
+         15. CRITICAL: Every stored procedure must wrap all DML in TRY...CATCH with explicit transaction management: BEGIN TRY / BEGIN TRANSACTION ... COMMIT / END TRY then BEGIN CATCH / IF @@TRANCOUNT > 0 ROLLBACK / THROW / END CATCH.
+         16. CRITICAL: ALL lookup tables created in the same script must be used by at least one relevant MERGE source SELECT via JOIN to resolve FK values per row — not just some of them. Never create lookup tables and then ignore them in the MERGE. Never alias a source column as an FK id — that is not a JOIN.
 
-    The correct pattern is:
-    USING (
-        SELECT 
-            s.*,
-            lk1.[id] AS resolved_fk1_id,
-            lk2.[id] AS resolved_fk2_id
-        FROM [oc_stag].[source_table] s
-        LEFT JOIN [oc_stag].[lookup_table_1] lk1 
-            ON lk1.[code_column] = s.[source_code_column_1]
-        LEFT JOIN [oc_stag].[lookup_table_2] lk2 
-            ON lk2.[code_column] = s.[source_code_column_2]
-        WHERE s.[pk_column] IS NOT NULL
-    ) AS source
+         The correct pattern is:
+         USING (
+             SELECT 
+                 s.*,
+                 lk1.[id] AS resolved_fk1_id,
+                 lk2.[id] AS resolved_fk2_id
+             FROM [oc_stag].[source_table] s
+             LEFT JOIN [oc_stag].[lookup_table_1] lk1 
+                 ON lk1.[code_column] = s.[source_code_column_1]
+             LEFT JOIN [oc_stag].[lookup_table_2] lk2 
+                 ON lk2.[code_column] = s.[source_code_column_2]
+             WHERE s.[pk_column] IS NOT NULL
+         ) AS source
 
-    Then reference source.resolved_fk1_id and source.resolved_fk2_id in the UPDATE SET and INSERT VALUES clauses instead of the raw source code columns.
-    17. Every MERGE statement must include an OUTPUT clause logging to [oc_stag].[mig_upsert_log]. After all MERGEs complete, return a result set with run_ref, rows_inserted, rows_updated, completed_at derived from the log table.
-    18. Duplicate source-key checks must be performed for every key or composite key used in the MERGE ON clause before executing MERGE. If duplicate source keys exist, THROW before MERGE. Also validate that required MERGE key columns are not NULL.
-    19. Lookup seed data must be idempotent. Never emit unconditional INSERT statements for lookup rows. Use IF NOT EXISTS or INSERT ... WHERE NOT EXISTS so rerunning the script cannot create duplicate lookup values.
-    20. For lookup tables created by the script, every business code column used for FK resolution must have a UNIQUE constraint or UNIQUE index.
-    21. Before MERGE, validate that every required FK lookup resolved successfully. If a non-NULL source lookup code cannot be resolved to a required destination FK, THROW before executing MERGE. Preserve NULL only when the source value and destination FK are legitimately nullable.
+         Then reference source.resolved_fk1_id and source.resolved_fk2_id in the UPDATE SET and INSERT VALUES clauses instead of the raw source code columns.
+         17. Every MERGE statement must include an OUTPUT clause logging to [oc_stag].[mig_upsert_log]. After all MERGEs complete, return a result set with run_ref, rows_inserted, rows_updated, completed_at derived from the log table.
+         18. Duplicate source-key checks must be performed for every key or composite key used in the MERGE ON clause before executing MERGE. If duplicate source keys exist, THROW before MERGE. Also validate that required MERGE key columns are not NULL.
+         19. Lookup seed data must be idempotent. Never emit unconditional INSERT statements for lookup rows. Use IF NOT EXISTS or INSERT ... WHERE NOT EXISTS so rerunning the script cannot create duplicate lookup values.
+         20. For lookup tables created by the script, every business code column used for FK resolution must have a UNIQUE constraint or UNIQUE index.
+         21. Before MERGE, validate that every required FK lookup resolved successfully. If a non-NULL source lookup code cannot be resolved to a required destination FK, THROW before executing MERGE. Preserve NULL only when the source value and destination FK are legitimately nullable.
 
-oracle: |
-  - Use PL/SQL coding conventions: UPPERCASE keywords/types, clear EXCEPTION blocks, schema-qualified table references.
-  - All object names must respect Oracle length limits (max 30 or 128 characters depending on version).
+oracle: |2
+       - Use PL/SQL coding conventions: UPPERCASE keywords/types, clear EXCEPTION blocks, schema-qualified table references.
+       - All object names must respect Oracle length limits (max 30 or 128 characters depending on version).
 
-mysql: |
-  - Use standard MySQL coding conventions: backticks for reserved word identifiers, snake_case table/column names.
-  - Stored procedures should use clear parameter scoping and DELIMITER declarations.
+mysql: |2
+       - Use standard MySQL coding conventions: backticks for reserved word identifiers, snake_case table/column names.
+       - Stored procedures should use clear parameter scoping and DELIMITER declarations.
 ```
 
-**Whitespace warning**: the original JS `specificStandards` blocks use 5-space indentation for
-top-level bullets (`     - Use T-SQL...`) and further nested indentation for numbered items. YAML
-block scalars are whitespace-sensitive relative to their own indentation marker — write this file
-with a text editor / Write tool that preserves exact spacing as shown above (the block content
-itself, after YAML's own 2-space key indentation, should preserve the original 5-space/etc.
-relative indentation from the JS template exactly). After creating the file, verify with
-`.venv/bin/python -c "import yaml; d = yaml.safe_load(open('engine/src/migrations_engine/ai/prompts/codegen_coding_standards.yaml').read()); print(repr(d['mssql'][:50]))"`
-and confirm it starts with `'- Use T-SQL coding conventions'` (no leading whitespace/newline
-inside the loaded string itself — YAML's `|` block scalar strips the block's own indentation
-level).
+After creating the file, verify with:
+```bash
+.venv/bin/python -c "
+import yaml
+d = yaml.safe_load(open('engine/src/migrations_engine/ai/prompts/codegen_coding_standards.yaml').read())
+print(repr(d['postgresql'][:10]))
+print(repr(d['mssql'][:10]))
+"
+```
+Expect both to print `'     - Use'` (5 leading spaces, then `- Use`) — if either prints `'- Use'`
+(0 leading spaces) or fewer/more than 5 spaces, the file's indentation doesn't match what was
+verified and must be fixed before continuing.
 
 ### 2. New file: `engine/src/migrations_engine/codegen/coding_standards.py`
 
@@ -360,9 +367,10 @@ Note precisely how this reproduces the original JS behavior:
 - The JS's `` `...pertinent to ${engineName}.${specificStandards}` `` concatenation (engine block
   appended directly onto the header's last line, with the engine block's own leading `\n`
   supplying the line break) is reproduced by `header + "\n" + specific.rstrip("\n")` — the explicit
-  `"\n"` here does the same job the JS string's implicit leading newline did there, since the YAML
-  section content (unlike the JS string) does NOT start with a leading blank line (it starts
-  directly at `- Use T-SQL...`).
+  `"\n"` here does the same job the JS string's implicit leading newline did there. The YAML
+  section content itself starts directly at `     - Use T-SQL...` (5 leading spaces, preserved via
+  the `|2` indentation indicator, no separate leading blank line needed in the YAML source) — this
+  was verified to reproduce the JS output byte-for-byte, see the note under step 1.
 - When `specific` is empty (unrecognized engine), `header` is used as-is (matching the JS, where
   `specificStandards` being `""` means nothing gets appended after the period).
 
@@ -526,21 +534,34 @@ def test_missing_config_falls_back_to_default_placeholder_names():
     assert "Database Engine Conventions (target database)" in result
 ```
 
-Add to `engine/tests/test_project_crud_api.py` (or find the actual file testing project routes —
-grep for `codegen-instructions` to find the right file if this name is wrong) a new test for the
-endpoint:
+Add to `engine/tests/test_project_crud_api.py` (confirmed the right file — no existing test in
+this codebase currently exercises `/codegen-instructions` or any other `/{project_id}/codegen-*`
+route at all: `grep -rln "codegen-instructions\|codegen_instructions" engine/tests/*.py` returns
+nothing). Use the file's own `_create_project(token, body)` helper (defined at line 95 as of this
+writing: `response = client.post("/projects", ..., json=body); return response.json()`) — it
+returns the created project's JSON, including `project["project_id"]`:
 
 ```python
 def test_get_codegen_coding_standards_template(admin_token: str) -> None:
-    # Reuse whatever project-seeding helper this test file already has; set
-    # domain_config = {"target_db_engine": "postgresql", "staging_schema": "stg", "destination_schema": "cxp"}
-    # on the seeded project, then:
+    project = _create_project(
+        admin_token,
+        {
+            "name": "Codegen Standards Test",
+            "domain_config": {
+                "target_db_engine": "postgresql",
+                "staging_schema": "stg",
+                "destination_schema": "cxp",
+            },
+        },
+    )
+
     response = client.get(
-        f"/projects/{project_id}/codegen-coding-standards-template",
+        f"/projects/{project['project_id']}/codegen-coding-standards-template",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert response.status_code == 200, response.text
     assert "PL/pgSQL using dollar-quoting" in response.json()["template"]
+    assert '"cxp" schema' in response.json()["template"]
 ```
 
 ## Verification
