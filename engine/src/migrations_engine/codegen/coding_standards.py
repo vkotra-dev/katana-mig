@@ -22,13 +22,13 @@ def render_coding_standards_template(
     lower_engine = (db_engine or "").lower()
     engine_key = "mssql" if lower_engine == "sqlserver" else lower_engine
 
-    header = Template(data["shared_header"]).substitute(
-        dest=dest, stg=stg, engineName=engine_name
-    ).rstrip("\n")
+    mapping = {"dest": dest, "stg": stg, "engineName": engine_name}
+    header = Template(data["shared_header"]).substitute(mapping).rstrip("\n")
     footer = data["shared_footer"].rstrip("\n")
-    specific = data.get(engine_key, "")
+    specific_raw = data.get(engine_key, "")
 
-    if specific:
+    if specific_raw:
+        specific = Template(specific_raw).substitute(mapping)
         header = header + "\n" + specific.rstrip("\n")
 
     return f"{header}\n\n{footer}"

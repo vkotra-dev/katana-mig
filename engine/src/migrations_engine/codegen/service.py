@@ -121,7 +121,6 @@ def generate_codegen_artifact(
         project_config=project_config,
         destination_object_name=destination_object_name,
         project_definition=project_definition,
-        run_ref=f"{project_id}_{source_definition_id}",
     )
     user_prompt = _build_user_prompt(
         source_definition=source_definition,
@@ -479,31 +478,13 @@ def _build_system_prompt(
     project_config: MigrationProjectConfig,
     destination_object_name: str,
     project_definition: ProjectDefinition,
-    run_ref: str,
 ) -> str:
     template = jinja_env.get_template("system_prompt.txt.j2")
-    base_prompt = template.render(
+    return template.render(
         project_config=project_config,
         destination_object_name=destination_object_name,
         project_definition=project_definition,
     ).strip()
-    
-    parts = [base_prompt, "", "RUN LOGGING REQUIREMENTS"]
-    parts.append(
-        f"Every staging table must include [_row_num] BIGINT IDENTITY(1,1) NOT NULL as its FIRST column.\n"
-        f"Every data movement stored procedure must use MERGE (not standalone INSERT or UPDATE).\n"
-        f"Every MERGE must include an OUTPUT clause that writes to [{project_config.staging_schema or 'stg'}].[mig_upsert_log]:\n"
-        f"  OUTPUT\n"
-        f"    '{run_ref}',\n"
-        f"    '<dest_table_name>',\n"
-        f"    src.[_row_num],\n"
-        f"    CAST(inserted.<dest_pk_column> AS NVARCHAR(255)),\n"
-        f"    $action\n"
-        f"  INTO [{project_config.staging_schema or 'stg'}].[mig_upsert_log]\n"
-        f"      (run_ref, dest_table, source_row_num, dest_row_id, action);\n"
-        f"Replace <dest_table_name> with the actual destination table name and <dest_pk_column> with its primary key column."
-    )
-    return "\n".join(parts)
 
 _MAX_COMMENT_CHARS = 400
 _MAX_DISCUSSION_CHARS = 3000

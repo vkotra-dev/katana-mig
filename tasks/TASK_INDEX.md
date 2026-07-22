@@ -4,13 +4,15 @@
 
 | Task | Summary |
 |---|---|
-| [001er-extract-codegen-coding-standards-backend](./001er-extract-codegen-coding-standards-backend.md) | Backend: move the ~100-line hardcoded coding-standards template out of page.tsx into ai/prompts/codegen_coding_standards.yaml (one section per DB engine), loaded via a small dedicated function (not the Prompt class), exposed via a new GET endpoint. Prerequisite for 001es. |
 | [001es-wire-suggest-standards-button-to-backend-endpoint](./001es-wire-suggest-standards-button-to-backend-endpoint.md) | Frontend: wire the existing "Suggest Standards" button to the new endpoint instead of the local generateCodingStandardsTemplate function (deleted). No behavior change. Depends on 001er. |
+| [001eu-engine-aware-mig-upsert-log-ddl](./001eu-engine-aware-mig-upsert-log-ddl.md) | `_mig_upsert_log_ddl`/`_assemble_sql_bundle` hardcode MSSQL-only DDL and inject it into every generated bundle regardless of target_db_engine — found while implementing 001et, deliberately deferred. |
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001et-audit-strategy-per-engine-coding-standards](./completed/001et-audit-strategy-per-engine-coding-standards.md) | Fixed hardcoded oc_stag/cxp schema names in mssql coding standards (now $stg/$dest merge fields); added full parallel-depth "Migration SP Requirements" audit-trace content to postgresql/mysql/oracle sections; fixed a real loader bug (engine-specific block was never merge-field-substituted); removed the redundant, MSSQL-only hardcoded "RUN LOGGING REQUIREMENTS" append from codegen/service.py. Verified: 353/353 backend tests pass. |
+| [001er-extract-codegen-coding-standards-backend](./completed/001er-extract-codegen-coding-standards-backend.md) | Exposed the codegen coding-standards template via a new backend YAML file + endpoint. Prerequisite for 001es and 001et. |
 | [001eq-review-page-stacked-destination-cell-with-delete](./completed/001eq-review-page-stacked-destination-cell-with-delete.md) | Review page: group bindings by source field into one row, stack destination fields in one cell with per-entry delete (hidden on first entry) plus a whole-source-field delete. Depended on 001ep. Verified: 311/311 frontend tests pass. |
 | [001eo-autocomplete-lov-show-all-on-open](./completed/001eo-autocomplete-lov-show-all-on-open.md) | Review page: destination-field picker only showed the current value when opened instead of all options, due to pre-filled query immediately substring-filtering. Fixed via `query === value` check. |
 | [001ep-allow-patch-mapping-to-drop-signed-off-bindings](./completed/001ep-allow-patch-mapping-to-drop-signed-off-bindings.md) | Backend: patch_mapping used to 409 when removing a signed-off binding. Removed that block so deletion always succeeds; still deletes the orphaned sign-off row. Verified by executing the plan directly (20/20 tests pass, no ambiguity hit). Prerequisite for 001eq. |

@@ -10,6 +10,8 @@ def test_mssql_standards_include_engine_specific_block():
     assert "Database Engine Conventions (mssql)" in result
     assert "SET XACT_ABORT ON immediately after SET NOCOUNT ON" in result
     assert "General Best Practices" in result
+    assert "oc_stag" not in result
+    assert "[_row_num] BIGINT IDENTITY(1,1) NOT NULL" in result
 
 
 def test_sqlserver_alias_resolves_to_mssql_block():
@@ -58,3 +60,44 @@ def test_missing_config_falls_back_to_default_placeholder_names():
     assert '"destination" schema' in result
     assert '"staging" schema' in result
     assert "Database Engine Conventions (target database)" in result
+
+
+def test_postgresql_standards_include_migration_sp_requirements():
+    result = render_coding_standards_template(
+        db_engine="postgresql", staging_schema="stg", destination_schema="cxp"
+    )
+    assert "Migration SP Requirements" in result
+    assert "gen_random_uuid()" in result
+    assert "stg.mig_upsert_log" in result
+    assert "xmax = 0" in result
+
+
+def test_mysql_standards_include_migration_sp_requirements():
+    result = render_coding_standards_template(
+        db_engine="mysql", staging_schema="stg", destination_schema="cxp"
+    )
+    assert "Migration SP Requirements" in result
+    assert "ROW_COUNT()" in result
+    assert "stg.mig_upsert_log" in result
+    assert "row-by-row" in result
+
+
+def test_oracle_standards_include_migration_sp_requirements():
+    result = render_coding_standards_template(
+        db_engine="oracle", staging_schema="stg", destination_schema="cxp"
+    )
+    assert "Migration SP Requirements" in result
+    assert "BULK COLLECT INTO" in result
+    assert "stg.mig_upsert_log" in result
+    assert "RETURNING" in result
+    assert "does not support RETURNING" in result
+
+
+def test_merge_fields_substitute_inside_engine_specific_section():
+    result = render_coding_standards_template(
+        db_engine="postgresql", staging_schema="my_custom_stg", destination_schema="my_custom_dest"
+    )
+    assert "$stg" not in result
+    assert "$dest" not in result
+    assert "my_custom_stg" in result
+    assert "my_custom_dest" in result
