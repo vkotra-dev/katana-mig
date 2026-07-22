@@ -3,6 +3,8 @@ system: |
 
   Rules:
   - Only create a binding where a source column has a clear correspondence to a destination column. Do not invent bindings for auto-generated PKs, identity columns, or audit columns (created_at, updated_at, modified_by, created_by).
+  - A single source field MAY be mapped to multiple destination fields if it logically populates both (e.g., populating both billing and shipping address from a single ADDRESS source).
+  - Attempt to cover all NOT NULL destination fields present in the DDL — these columns will cause code generation to fail if left unmapped.
   - Classify each binding: 'direct' | 'lookup_fk' | 'detail_fk'.
   - For lookup_fk and detail_fk, set reference_table_name to the referenced table name (required — never null for these types).
   - Set destination_data_type to the exact SQL type from the DDL (e.g. 'INT', 'NVARCHAR(255)', 'DATE', 'DECIMAL(18,2)'). Null only if not in DDL.

@@ -13,7 +13,7 @@ from ..management.platform import record_management_audit
 from .ai_schemas import AIFieldMappingProposal
 from ..ai.prompt import Prompt
 
-from .ddl import parse_all_ddl_tables
+
 from .review_repository import (
     get_project_definition,
     get_source_definition,
@@ -46,15 +46,6 @@ def propose_mapping(
             "destination_schema_missing",
             "Project has no destination schema DDL configured.",
             409,
-        )
-
-    # Parse all table names and their column mappings from DDL
-    ddl_tables = parse_all_ddl_tables(ddl)
-    if not ddl_tables:
-        raise AuthApiError(
-            "destination_schema_invalid",
-            "Destination schema DDL has no parseable table definitions.",
-            422,
         )
 
     already_mapped_tables = set(
@@ -192,15 +183,6 @@ def propose_mapping(
     if not proposal.tables:
         raise AuthApiError("mapping_failed", "The AI was unable to resolve any target tables.", 422)
 
-    # Validate each destination table name exists in the DDL
-    for table_mapping in proposal.tables:
-        if table_mapping.destination_table_name not in ddl_tables:
-            raise AuthApiError(
-                "destination_table_invalid",
-                f"AI proposed mapping to unknown table: {table_mapping.destination_table_name}",
-                422,
-            )
-
     # 5. Create or Patch MappingSnapshot records in a single transaction
     
     existing_drafts = {
@@ -239,7 +221,8 @@ def propose_mapping(
         if tbl_name in already_mapped_tables:
             continue  # snapshot already exists for this table, skip to avoid duplicate key
         
-        destination_fields = ddl_tables[tbl_name]
+        destination_columns = [c.model_dump() for c in table_mapping.all_columns]
+        destination_fields = [c["name"] for c in destination_columns]
         
         fresh_bindings = []
         for binding in table_mapping.bindings:
@@ -292,8 +275,10 @@ def propose_mapping(
                         
             existing_draft.field_bindings = merged_bindings
             existing_draft.destination_fields = destination_fields
+            existing_draft.destination_columns = destination_columns
             flag_modified(existing_draft, "field_bindings")
             flag_modified(existing_draft, "destination_fields")
+            flag_modified(existing_draft, "destination_columns")
             snapshots.append(existing_draft)
         else:
             version = next_snapshot_version(
@@ -311,6 +296,7 @@ def propose_mapping(
                 mapping_snapshot_version=version,
                 field_bindings=fresh_bindings,
                 destination_fields=destination_fields,
+                destination_columns=destination_columns,
                 status="draft",
                 current_ball_role="central_team",
                 approved_at=None,
