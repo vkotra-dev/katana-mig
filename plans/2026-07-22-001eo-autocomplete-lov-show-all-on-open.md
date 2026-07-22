@@ -225,30 +225,95 @@ Leave this function exactly as-is — do not add `setHasTyped` here. Do not touc
 
 ## Tests
 
-Add to `web/components/projects/__tests__/ReviewGrid.test.tsx`. Read the existing test file's
-`props` fixture (top of file) and the existing accordion-expansion test first to match style
-exactly.
+Add to `web/components/projects/__tests__/ReviewGrid.test.tsx`. The existing test
+`"renders AutocompleteInput and calls onDestinationFieldChange when option is selected"` (lines
+113-152 as of this writing) is the exact reference pattern — same `testProps` shape, same
+`screen.getByPlaceholderText("destination field...")` query to find the input, same
+`fireEvent.focus`/`fireEvent.change` sequence. Copy its `testProps` object verbatim for the two new
+tests below (it already has `destinationFields: ["id", "status_id", "name", "created_at"]` — 4
+options, only 1 of which, `"id"`, is bound — sufficient to prove the bug).
 
-1. **New test: `"shows all destination field options when the picker is opened before typing"`.**
-   Render `ReviewGrid` with `editingEnabled: true` and a `mappingTables` entry whose
-   `destinationFields` includes several names beyond the one currently bound (e.g.
-   `destinationFields: ["id", "status_id", "name", "email", "created_at"]`, with one binding
-   `{ sourceField: "src_id", destinationField: "id", bindingType: "direct" }`). Expand the table
-   row (click the table-name toggle button), then find the destination-field input (it renders as
-   a text `<input>` inside the second column — use `screen.getAllByRole("textbox")` or a more
-   specific query matching how the existing tests in this file already locate the
-   `AutocompleteInput`'s `<input>`; check an existing passing test in this file that already
-   interacts with the destination-field picker for the exact query pattern before writing a new
-   one). Fire a `focus` event on it (`fireEvent.focus(input)`), then assert every one of the 5
-   `destinationFields` values appears in the rendered dropdown list (e.g.
-   `expect(screen.getByText("name")).toBeInTheDocument()`, `expect(screen.getByText("email"))...`,
-   etc.) — not just `"id"` (the currently-mapped value).
-2. **New test: `"narrows destination field options once the user types"`.** Same setup. Open the
-   picker (focus), then `fireEvent.change(input, { target: { value: "em" } })`. Assert only options
-   containing `"em"` are shown (e.g. `"email"` present, `"status_id"` and `"created_at"` absent).
-3. Run the full existing test file after these additions and confirm no previously-passing test
-   changed behavior (in particular, any existing test that already selects an option from this
-   dropdown must still pass unchanged — the selection/blur code path was not modified).
+Add these two new `it(...)` blocks in the same `describe("ReviewGrid", ...)` block as the existing
+test above, right after it:
+
+1. **New test:**
+
+```tsx
+  it("shows all destination field options when the picker is opened before typing", () => {
+    const testProps = {
+      ...props,
+      editingEnabled: true,
+      onDestinationFieldChange: vi.fn(),
+      mappingTables: [
+        {
+          destinationTableName: "accounts",
+          destinationFields: ["id", "status_id", "name", "created_at"],
+          bindings: [
+            {
+              sourceField: "src_id",
+              destinationField: "id",
+              bindingType: "direct" as const,
+            },
+          ],
+        },
+      ],
+    };
+
+    render(<ReviewGrid {...testProps} />);
+    fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
+
+    const input = screen.getByPlaceholderText("destination field...") as HTMLInputElement;
+    fireEvent.focus(input);
+
+    // Before this fix, only "id" (the current value) would appear here.
+    expect(screen.getByText("status_id")).toBeInTheDocument();
+    expect(screen.getByText("name")).toBeInTheDocument();
+    expect(screen.getByText("created_at")).toBeInTheDocument();
+  });
+```
+
+2. **New test:**
+
+```tsx
+  it("narrows destination field options once the user types", () => {
+    const testProps = {
+      ...props,
+      editingEnabled: true,
+      onDestinationFieldChange: vi.fn(),
+      mappingTables: [
+        {
+          destinationTableName: "accounts",
+          destinationFields: ["id", "status_id", "name", "created_at"],
+          bindings: [
+            {
+              sourceField: "src_id",
+              destinationField: "id",
+              bindingType: "direct" as const,
+            },
+          ],
+        },
+      ],
+    };
+
+    render(<ReviewGrid {...testProps} />);
+    fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
+
+    const input = screen.getByPlaceholderText("destination field...") as HTMLInputElement;
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "stat" } });
+
+    expect(screen.getByText("status_id")).toBeInTheDocument();
+    expect(screen.queryByText("name")).not.toBeInTheDocument();
+    expect(screen.queryByText("created_at")).not.toBeInTheDocument();
+  });
+```
+
+3. Run the full existing test file after these additions. The pre-existing test
+   `"renders AutocompleteInput and calls onDestinationFieldChange when option is selected"` (lines
+   113-152) must still pass unchanged — it already does `fireEvent.focus` then
+   `fireEvent.change(input, { target: { value: "stat" } })` then selects `"status_id"` from the
+   list, which remains correct under the fix (the `hasTyped` flag becomes `true` the moment
+   `fireEvent.change` fires, narrowing the list to `"status_id"` exactly as that test expects).
 
 ## Verification
 

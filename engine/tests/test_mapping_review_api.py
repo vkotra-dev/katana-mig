@@ -305,6 +305,96 @@ def test_patch_updates_field_bindings(monkeypatch: pytest.MonkeyPatch, admin_tok
     assert response.json()["field_bindings"][0]["destination_field"] == "full_name"
 
 
+def test_patch_succeeds_when_removing_a_signed_off_binding(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+    project_id, source_id = _seed_project()
+    fake = FakeAdapter([
+        {"source_field": "customer_id", "destination_field": "customer_id"},
+    ])
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: fake)
+
+    client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/propose",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    from migrations_engine.db.models import MappingBindingSignOff, MappingSnapshot
+
+    with SessionLocal() as db:
+        snapshot = db.scalar(select(MappingSnapshot).where(MappingSnapshot.project_id == project_id))
+        assert snapshot is not None
+        admin_user = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
+        assert admin_user is not None
+        db.add(
+            MappingBindingSignOff(
+                mapping_snapshot_id=snapshot.mapping_snapshot_id,
+                destination_object_name=snapshot.destination_object_name,
+                source_field="customer_id",
+                destination_field="customer_id",
+                user_id=admin_user.user_id,
+                role=CENTRAL_TEAM_ROLE,
+            )
+        )
+        db.commit()
+
+    response = client.patch(
+        f"/projects/{project_id}/sources/{source_id}/mapping",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"field_bindings": []},
+    )
+
+    assert response.status_code == 200, response.text
+
+
+def test_patch_removing_signed_off_binding_deletes_its_sign_off_row(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+    project_id, source_id = _seed_project()
+    fake = FakeAdapter([
+        {"source_field": "customer_id", "destination_field": "customer_id"},
+    ])
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: fake)
+
+    client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/propose",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    from migrations_engine.db.models import MappingBindingSignOff, MappingSnapshot
+
+    with SessionLocal() as db:
+        snapshot = db.scalar(select(MappingSnapshot).where(MappingSnapshot.project_id == project_id))
+        assert snapshot is not None
+        snapshot_id = snapshot.mapping_snapshot_id
+        admin_user = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
+        assert admin_user is not None
+        db.add(
+            MappingBindingSignOff(
+                mapping_snapshot_id=snapshot_id,
+                destination_object_name=snapshot.destination_object_name,
+                source_field="customer_id",
+                destination_field="customer_id",
+                user_id=admin_user.user_id,
+                role=CENTRAL_TEAM_ROLE,
+            )
+        )
+        db.commit()
+
+    response = client.patch(
+        f"/projects/{project_id}/sources/{source_id}/mapping",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"field_bindings": []},
+    )
+    assert response.status_code == 200, response.text
+
+    with SessionLocal() as db:
+        remaining = db.scalars(
+            select(MappingBindingSignOff).where(
+                MappingBindingSignOff.mapping_snapshot_id == snapshot_id,
+                MappingBindingSignOff.source_field == "customer_id",
+                MappingBindingSignOff.destination_field == "customer_id",
+            )
+        ).all()
+        assert remaining == []
+
+
 def test_patch_rejects_invalid_destination_fields(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
     project_id, source_id = _seed_project()
     fake = FakeAdapter([

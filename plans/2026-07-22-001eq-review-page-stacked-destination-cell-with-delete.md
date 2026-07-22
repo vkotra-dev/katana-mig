@@ -624,38 +624,241 @@ props after `onAddBinding`:
 
 ## Tests
 
-Add to `web/components/projects/__tests__/ReviewGrid.test.tsx`. Read the existing `props` fixture
-and the existing "Map to another destination" tests (from the `describe("handleAddBinding")` block)
-first — match their structure exactly (render, expand via the table-name toggle button, query by
-role/text, fire click events, assert on the mock callback's call args).
+Add to `web/components/projects/__tests__/ReviewGrid.test.tsx`, inside the existing
+`describe("ReviewGrid", ...)` block. All 5 new tests below share one fixture — define it once near
+the top of the new tests (or inline per test, matching this file's existing style of inlining
+`testProps` per test rather than sharing via a variable across `it` blocks — check the existing
+`describe("handleAddBinding")` tests, which each define their own `testProps`, and follow that same
+per-test inlining, not a shared `beforeEach`):
 
-1. **`"renders one row per source field, with destination fields stacked"`.** Use a
-   `mappingTables` fixture where one table has 2 bindings sharing `sourceField: "src_id"` (two
-   different `destinationField`s) and 1 binding with a different `sourceField`. Expand the table.
-   Assert there are exactly 2 `<tr>` rows in the table body (not 3) — e.g. via
-   `within(tbody).getAllByRole("row")` or counting `screen.getAllByText("src_id")` equals 1 (the
-   source field name should render once, not twice).
-2. **`"shows a delete icon on all but the first stacked destination entry"`.** Same 2-binding group
-   as above, `editingEnabled: true`. Assert exactly 1 delete button renders for the destination
-   stack (not 2) — query by the `title="Remove this destination mapping"` attribute
-   (`screen.getAllByTitle("Remove this destination mapping")`) and assert `.length === 1`.
-3. **`"calls onRemoveBinding with the correct source and destination field"`.** Same setup. Click
-   the one delete button found above. Assert `onRemoveBinding` was called with
-   `(table.destinationTableName, "src_id", <the second binding's destinationField>)` — not the
-   first one's.
-4. **`"shows a source-field delete icon even for a single-destination source field"`.** Use a
-   fixture with one source field mapped to exactly one destination, `editingEnabled: true`. Assert
-   a delete button with `title="Drop this source field from migration"` renders. Click it and
-   assert `onRemoveSourceField` was called with `(table.destinationTableName, <that sourceField>)`.
-5. **`"does not show either delete icon when editingEnabled is false"`.** Same fixtures as above
-   with `editingEnabled: false`. Assert `screen.queryByTitle("Remove this destination mapping")`
-   and `screen.queryByTitle("Drop this source field from migration")` are both `null`.
-6. **`"Add button still works for a grouped row"`.** Reuse (or adapt) the existing
-   `"should allow adding a new binding..."` test from the `describe("handleAddBinding")` block —
-   confirm it still passes unmodified against the new grouped rendering (it should, since the
-   button's behavior/callback signature is unchanged, only its position in the DOM moved). If it
-   needs any query adjustment because of the DOM restructuring, make the minimal change needed and
-   note why in a comment.
+```tsx
+const testProps = {
+  ...props,
+  editingEnabled: true,
+  onRemoveBinding: vi.fn(),
+  onRemoveSourceField: vi.fn(),
+  onAddBinding: vi.fn(),
+  onDestinationFieldChange: vi.fn(),
+  mappingTables: [
+    {
+      destinationTableName: "accounts",
+      destinationFields: ["id", "status_id", "name", "email", "created_at"],
+      bindings: [
+        { sourceField: "src_id", destinationField: "id", bindingType: "direct" as const },
+        { sourceField: "src_id", destinationField: "name", bindingType: "direct" as const },
+        { sourceField: "src_status", destinationField: "status_id", bindingType: "lookup_fk" as const },
+      ],
+    },
+  ],
+};
+```
+
+This has one group (`"src_id"`) with 2 stacked bindings and one group (`"src_status"`) with 1 —
+covering both the multi-entry and single-entry cases in one fixture.
+
+1.
+
+```tsx
+  it("renders one row per source field, with destination fields stacked", () => {
+    const testProps = { /* fixture above */ };
+    render(<ReviewGrid {...testProps} />);
+    fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
+
+    // "src_id" appears once (one row for the group), not twice (one per binding)
+    expect(screen.getAllByText("src_id")).toHaveLength(1);
+    expect(screen.getAllByText("src_status")).toHaveLength(1);
+  });
+```
+
+2.
+
+```tsx
+  it("shows a delete icon on all but the first stacked destination entry", () => {
+    const testProps = { /* fixture above */ };
+    render(<ReviewGrid {...testProps} />);
+    fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
+
+    // Only the group with 2 bindings ("src_id") has an entry past index 0
+    expect(screen.getAllByTitle("Remove this destination mapping")).toHaveLength(1);
+  });
+```
+
+3.
+
+```tsx
+  it("calls onRemoveBinding with the correct source and destination field", () => {
+    const onRemoveBinding = vi.fn();
+    const testProps = { /* fixture above, with onRemoveBinding */ };
+    render(<ReviewGrid {...testProps} />);
+    fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
+
+    fireEvent.click(screen.getByTitle("Remove this destination mapping"));
+
+    expect(onRemoveBinding).toHaveBeenCalledWith("accounts", "src_id", "name");
+  });
+```
+
+4.
+
+```tsx
+  it("shows a source-field delete icon even for a single-destination source field", () => {
+    const onRemoveSourceField = vi.fn();
+    const testProps = { /* fixture above, with onRemoveSourceField */ };
+    render(<ReviewGrid {...testProps} />);
+    fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
+
+    const deleteButtons = screen.getAllByTitle("Drop this source field from migration");
+    expect(deleteButtons).toHaveLength(2); // one per group, including the single-entry "src_status" group
+    fireEvent.click(deleteButtons[1]); // "src_status" is the second group in bindings order
+
+    expect(onRemoveSourceField).toHaveBeenCalledWith("accounts", "src_status");
+  });
+```
+
+5.
+
+```tsx
+  it("does not show either delete icon when editingEnabled is false", () => {
+    const testProps = { /* fixture above, with editingEnabled: false */ };
+    render(<ReviewGrid {...testProps} />);
+    fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
+
+    expect(screen.queryByTitle("Remove this destination mapping")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Drop this source field from migration")).not.toBeInTheDocument();
+  });
+```
+
+6. **No new test needed for the Add button.** The existing test
+   `"should allow adding a new binding when a row has available alternative destinations"`
+   (`ReviewGrid.test.tsx` lines 228-264 as of this writing) uses a fixture with exactly one source
+   field and one binding — under the new grouped rendering this is still exactly one group, so the
+   "+" button still renders once and `screen.getAllByText(/Map to another destination/)` still
+   finds it. This test requires **no changes** — run it as part of Verification to confirm it still
+   passes unmodified; do not edit it.
+
+In `web/app/projects/[id]/feeds/[feedId]/review/page.test.tsx`, inside the existing
+`describe("ReviewPage", ...)` block. Both new tests below mirror the exact structure of the
+existing test `"includes the new binding in the PATCH payload when adding a binding"` (lines
+364-422 as of this writing) — same `loadUiSessionMock`/`getAllApprovedMappingSnapshotsMock`/
+`getSignOffStatusMock` setup shape, same `callArgs[3]` extraction for the PATCH payload.
+
+7.
+
+```tsx
+  it("removes a binding and sends the reduced field list to patchMappingSnapshot", async () => {
+    loadUiSessionMock.mockReturnValue(BUSINESS_SESSION);
+
+    const multiFieldSnapshot = {
+      ...SNAPSHOT,
+      destinationObjectName: "users",
+      destinationFields: ["status_id", "name", "email"],
+      fieldBindings: [
+        {
+          sourceField: "src_status",
+          destinationField: "status_id",
+          lookupName: "status_map",
+          bindingType: "lookup_fk",
+          referenceTableName: "status_ref",
+        },
+        {
+          sourceField: "src_status",
+          destinationField: "name",
+          lookupName: null,
+          bindingType: "direct",
+        },
+      ],
+    };
+
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([multiFieldSnapshot]);
+    getSignOffStatusMock.mockResolvedValue({
+      complete: false,
+      currentBallRole: "project_stakeholder",
+      bindings: {
+        users: {
+          src_status: {
+            status_id: {
+              centralTeam: { signed: false, signedAt: null, userId: null },
+              projectStakeholder: { signed: false, signedAt: null, userId: null },
+            },
+            name: {
+              centralTeam: { signed: false, signedAt: null, userId: null },
+              projectStakeholder: { signed: false, signedAt: null, userId: null },
+            },
+          },
+        },
+      },
+      lookups: {},
+    });
+
+    await renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /users/ }));
+
+    fireEvent.click(screen.getByTitle("Remove this destination mapping"));
+
+    await waitFor(() => {
+      expect(patchMappingSnapshotMock).toHaveBeenCalled();
+    });
+
+    const callArgs = patchMappingSnapshotMock.mock.calls[0];
+    const bindings = callArgs[3];
+
+    expect(bindings).toContainEqual(expect.objectContaining({ sourceField: "src_status", destinationField: "status_id" }));
+    expect(bindings).not.toContainEqual(expect.objectContaining({ sourceField: "src_status", destinationField: "name" }));
+  });
+```
+
+8.
+
+```tsx
+  it("removing a source field entirely sends a payload with no bindings for it", async () => {
+    loadUiSessionMock.mockReturnValue(BUSINESS_SESSION);
+
+    const multiFieldSnapshot = {
+      ...SNAPSHOT,
+      destinationObjectName: "users",
+      destinationFields: ["status_id", "name", "email"],
+      fieldBindings: [
+        {
+          sourceField: "src_status",
+          destinationField: "status_id",
+          lookupName: "status_map",
+          bindingType: "lookup_fk",
+          referenceTableName: "status_ref",
+        },
+        {
+          sourceField: "src_email",
+          destinationField: "email",
+          lookupName: null,
+          bindingType: "direct",
+        },
+      ],
+    };
+
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([multiFieldSnapshot]);
+    getSignOffStatusMock.mockResolvedValue({
+      complete: false,
+      currentBallRole: "project_stakeholder",
+      bindings: {},
+      lookups: {},
+    });
+
+    await renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /users/ }));
+
+    const deleteButtons = screen.getAllByTitle("Drop this source field from migration");
+    fireEvent.click(deleteButtons[0]); // "src_status" is the first group
+
+    await waitFor(() => {
+      expect(patchMappingSnapshotMock).toHaveBeenCalled();
+    });
+
+    const callArgs = patchMappingSnapshotMock.mock.calls[0];
+    const bindings = callArgs[3];
+
+    expect(bindings).not.toContainEqual(expect.objectContaining({ sourceField: "src_status" }));
+    expect(bindings).toContainEqual(expect.objectContaining({ sourceField: "src_email", destinationField: "email" }));
+  });
+```
 
 In `web/app/projects/[id]/feeds/[feedId]/review/page.test.tsx`:
 

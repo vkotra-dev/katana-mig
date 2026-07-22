@@ -5,13 +5,13 @@
 | Task | Summary |
 |---|---|
 | [001eo-autocomplete-lov-show-all-on-open](./001eo-autocomplete-lov-show-all-on-open.md) | Review page: destination-field picker only shows the current value when opened instead of all options, due to pre-filled query immediately substring-filtering. Independent fix. |
-| [001ep-allow-patch-mapping-to-drop-signed-off-bindings](./001ep-allow-patch-mapping-to-drop-signed-off-bindings.md) | Backend: patch_mapping currently 409s when removing a signed-off binding. Remove that block so deletion always succeeds; still deletes the orphaned sign-off row. Prerequisite for 001eq. |
 | [001eq-review-page-stacked-destination-cell-with-delete](./001eq-review-page-stacked-destination-cell-with-delete.md) | Review page: group bindings by source field into one row, stack destination fields in one cell with per-entry delete (hidden on first entry) plus a whole-source-field delete. Depends on 001ep. |
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001ep-allow-patch-mapping-to-drop-signed-off-bindings](./completed/001ep-allow-patch-mapping-to-drop-signed-off-bindings.md) | Backend: patch_mapping used to 409 when removing a signed-off binding. Removed that block so deletion always succeeds; still deletes the orphaned sign-off row. Verified by executing the plan directly (20/20 tests pass, no ambiguity hit). Prerequisite for 001eq. |
 | [001em-expose-destination-columns-codegen-guard](./completed/001em-expose-destination-columns-codegen-guard.md) | Exposed MappingSnapshot.destination_columns in the API (MappingDestinationColumnResponse model), populated in all 3 response builders via proper model construction; replaced silent-skip in codegen with loud destination_metadata_missing error; added 3 regression tests. Prerequisite for 001en. |
 | [001en-feed-scoped-banner-unmapped-required-fields](./completed/001en-feed-scoped-banner-unmapped-required-fields.md) | Feed-scoped amber warning banner on codegen page for unmapped required destination fields; extends generateTransformationInstructionsTemplate with section 4; banner auto-appears on feed row expand; only counts approved MappingSnapshots. |
 | [001ek-eliminate-python-ddl-parsing](./completed/001ek-eliminate-python-ddl-parsing.md) | Removed both regex-based DDL parsers (mapping/ddl.py and codegen/service.py's private copy); AI now reports each table's full column list (all_columns) directly, stored in new MappingSnapshot.destination_columns column. |

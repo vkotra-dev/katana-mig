@@ -107,7 +107,13 @@ def patch_mapping(
             "nullable": existing.get("nullable"),
         })
 
-    # Detect changed fields and delete their sign-off records
+    # Detect changed fields and delete their sign-off records. A pair can be "changed" either by
+    # being dropped entirely (deletion, or the old half of a rename) or by being newly added (a
+    # fresh binding, or the new half of a rename) - either way its sign-off state no longer
+    # applies and must be cleared. Deliberately does NOT block on a dropped pair having been
+    # signed off: the frontend already prevents renaming a signed-off pair (its destination-field
+    # input is locked whenever the binding is signed by either role), so this only ever fires for
+    # genuine deletions, which must be allowed to succeed.
     changed_pairs = []
     new_pairs = {(b.source_field, b.destination_field) for b in field_bindings}
     for old_pair in existing_by_pair.keys():
@@ -120,22 +126,7 @@ def patch_mapping(
 
     if changed_pairs:
         from ..db.models import MappingBindingSignOff
-        from sqlalchemy import delete, select, tuple_
-        # Check if any changed pairs are already signed off by either reviewer
-        signed_fields = db.scalars(
-            select(MappingBindingSignOff.source_field)
-            .where(
-                MappingBindingSignOff.mapping_snapshot_id == snapshot.mapping_snapshot_id,
-                tuple_(MappingBindingSignOff.source_field, MappingBindingSignOff.destination_field).in_(changed_pairs),
-            )
-        ).all()
-        if signed_fields:
-            raise AuthApiError(
-                "mapping_already_approved",
-                f"Cannot update mapping for field(s) {', '.join(sorted(set(signed_fields)))} because they have already been signed off by a reviewer.",
-                409,
-            )
-
+        from sqlalchemy import delete, tuple_
         db.execute(
             delete(MappingBindingSignOff).where(
                 MappingBindingSignOff.mapping_snapshot_id == snapshot.mapping_snapshot_id,
