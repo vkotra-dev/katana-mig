@@ -16,6 +16,12 @@ export interface LookupTableReference {
   destinationTableName: string;
 }
 
+export interface MappingDestinationColumnRecord {
+  name: string;
+  destinationDataType: string | null;
+  nullable: boolean | null;
+}
+
 export interface MappingSnapshotRecord {
   mappingSnapshotId: string;
   projectId: string;
@@ -28,7 +34,7 @@ export interface MappingSnapshotRecord {
   createdAt: string;
   lookupTableReferences: LookupTableReference[];
   destinationFields: string[];
-
+  destinationColumns?: MappingDestinationColumnRecord[] | null;
 }
 
 export interface MappingReviewRecord extends MappingSnapshotRecord {}
@@ -69,6 +75,11 @@ type MappingSnapshotRaw = {
     destination_table_name: string;
   }>;
   destination_fields?: string[];
+  destination_columns?: Array<{
+    name: string;
+    destination_data_type: string | null;
+    nullable: boolean | null;
+  }>;
 
 };
 
@@ -99,7 +110,11 @@ function mapMappingSnapshotResponse(response: MappingSnapshotRaw): MappingSnapsh
       destinationTableName: ref.destination_table_name,
     })),
     destinationFields: response.destination_fields ?? [],
-
+    destinationColumns: response.destination_columns?.map((c) => ({
+      name: c.name,
+      destinationDataType: c.destination_data_type ?? null,
+      nullable: c.nullable ?? null,
+    })) ?? null,
   };
 }
 

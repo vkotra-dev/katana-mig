@@ -1,7 +1,7 @@
 ---
 type: Task Plan
 title: Feed-Scoped Banner for Unmapped Required Destination Fields on the Codegen Page
-status: ready
+status: completed
 ---
 
 # Task: 001en-unmapped-required-fields-codegen-banner

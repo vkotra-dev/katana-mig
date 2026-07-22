@@ -18,6 +18,48 @@ import { getAllApprovedMappingSnapshots, type MappingSnapshotRecord } from "../.
 import { loadUiSession, type SessionRole, type UiSession } from "../../../../lib/session";
 import { AiLogViewer } from "../../../../components/ai-logs/AiLogViewer";
 
+interface UnmappedRequiredField {
+  objectName: string;
+  fields: string[];
+}
+
+function computeUnmappedRequiredFields(
+  fibers: FiberRecord[],
+  snapshots: MappingSnapshotRecord[],
+): UnmappedRequiredField[] {
+  const domainObjects = new Set(
+    fibers
+      .filter(f => f.fiberType === "domain_object")
+      .map(f => f.fiberKey)
+  );
+
+  const result: UnmappedRequiredField[] = [];
+
+  for (const snap of snapshots) {
+    if (snap.status !== "approved") continue;
+    if (!domainObjects.has(snap.destinationObjectName)) continue;
+
+    const destColumns = snap.destinationColumns;
+    if (!destColumns || destColumns.length === 0) continue;
+
+    const mappedDestFields = new Set(
+      snap.fieldBindings
+        .filter(b => b.destinationField)
+        .map(b => b.destinationField)
+    );
+
+    const unmapped = destColumns
+      .filter(c => c.nullable === false && !mappedDestFields.has(c.name))
+      .map(c => c.name);
+
+    if (unmapped.length > 0) {
+      result.push({ objectName: snap.destinationObjectName, fields: unmapped });
+    }
+  }
+
+  return result;
+}
+
 function formatDate(value: string): string {
   return value.slice(0, 16).replace("T", " ");
 }
@@ -148,7 +190,8 @@ const generateTransformationInstructionsTemplate = (
   rowCount: number,
   fibers: FiberRecord[],
   stagingSchema: string,
-  snapshots: MappingSnapshotRecord[]
+  snapshots: MappingSnapshotRecord[],
+  unmappedFields: UnmappedRequiredField[]
 ): string => {
   const approvedFibers = fibers.filter(
     f =>
@@ -241,13 +284,27 @@ const generateTransformationInstructionsTemplate = (
     });
   }
 
+  let unmappedSection = "\n### 4. Unmapped Required Destination Fields\n";
+
+  if (unmappedFields.length === 0) {
+    unmappedSection += "- No unmapped required fields detected.\n";
+  } else {
+    for (const { objectName, fields } of unmappedFields) {
+      unmappedSection += `\n- **${objectName}**: ${fields.length} required field(s) not yet mapped:\n`;
+      for (const fieldName of fields) {
+        unmappedSection += `  - \`${fieldName}\` — add a source binding or type a default value\n`;
+      }
+    }
+  }
+
   const sourceCharacteristicsSection =
-    "\n### 3. Source Characteristics\n" +
+    "\n### 5. Source Characteristics\n" +
     `- Estimated source row count: ${rowCount}\n`;
 
   return `### Transformation Specification for Feed: ${feedLabel}
 ${lookupSection}
 ${mappingSection}
+${unmappedSection}
 ${sourceCharacteristicsSection}`;
 };
 
@@ -272,6 +329,7 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
 
   const [expandedArtifactId, setExpandedArtifactId] = useState<string | null>(null);
   const [selectedFeedId, setSelectedFeedId] = useState<string>("all");
+  const [feedUnmappedFields, setFeedUnmappedFields] = useState<Record<string, UnmappedRequiredField[]>>({});
 
   useEffect(() => {
     setSession(loadUiSession());
@@ -470,6 +528,22 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
           [feedId]: source.transformationInstructions ?? "",
         }));
       }
+      // Load unmapped fields data when expanding
+      if (session && routeParams) {
+        Promise.all([
+          listFeedFibers(session.accessToken, routeParams.id, feedId),
+          getAllApprovedMappingSnapshots(session.accessToken, routeParams.id, feedId, true),
+        ])
+          .then(([fibers, snapshots]) => {
+            const unmapped = computeUnmappedRequiredFields(fibers, snapshots);
+            if (unmapped.length > 0) {
+              setFeedUnmappedFields((prev) => ({ ...prev, [feedId]: unmapped }));
+            }
+          })
+          .catch(() => {
+            // Silently fail — banner just won't show data
+          });
+      }
     }
   };
 
@@ -526,7 +600,8 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
       const rowCount = activeSlice ? activeSlice.rowCount : 0;
 
       const staging = project?.domainConfig?.stagingSchema || "staging";
-      const template = generateTransformationInstructionsTemplate(feedLabel, rowCount, fibers, staging, snapshots);
+      const unmappedFields = computeUnmappedRequiredFields(fibers, snapshots);
+      const template = generateTransformationInstructionsTemplate(feedLabel, rowCount, fibers, staging, snapshots, unmappedFields);
       setFeedInstructions((prev) => ({
         ...prev,
         [feedId]: template.trim(),
@@ -681,6 +756,26 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
                             <tr className="bg-slate-50 border-t border-outline-variant">
                               <td colSpan={5} className="px-8 py-4">
                                 <div className="space-y-2">
+                                  {(() => {
+                                    const unmapped = feedUnmappedFields[source.sourceDefinitionId];
+                                    if (!unmapped || unmapped.length === 0) return null;
+                                    return (
+                                      <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 mb-4">
+                                        <p className="font-semibold mb-1">Unmapped Required Destination Fields</p>
+                                        <ul className="list-disc list-inside space-y-0.5">
+                                          {unmapped.map(({ objectName, fields }) => (
+                                            <li key={objectName}>
+                                              <strong>{objectName}</strong>: {fields.length} required field(s) not mapped —{" "}
+                                              {fields.join(", ")}
+                                            </li>
+                                          ))}
+                                        </ul>
+                                        <p className="text-xs text-amber-700 mt-1">
+                                          These fields will cause code generation to fail. Map them or add default values in the instructions below.
+                                        </p>
+                                      </div>
+                                    );
+                                  })()}
                                   <h4 className="text-sm font-semibold text-slate-900">
                                     Feed-specific transformation instructions
                                   </h4>
