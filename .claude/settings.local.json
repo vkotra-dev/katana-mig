@@ -40,7 +40,15 @@
       "Bash(.venv/bin/pytest engine/tests/test_cobol_parser.py engine/tests/test_execution_engine.py engine/tests/test_feed_discard_cascade.py engine/tests/test_impact_review_config.py engine/tests/test_project_crud_api.py engine/tests/test_prompt_backward_compatibility.py engine/tests/test_schema_analysis_api.py engine/tests/test_source_slice_approval_api.py -q)",
       "Bash(.venv/bin/pytest engine/tests/test_fiber_ai_flow.py engine/tests/test_source_analysis_api.py -q)",
       "Bash(.venv/bin/ruff check *)",
-      "Bash(npx vitest *)"
+      "Bash(npx vitest *)",
+      "Bash(npm test *)",
+      "Bash(.venv/bin/pytest engine/tests -q)",
+      "Bash(echo \"--- exit: $? ---\")",
+      "Bash(echo \"exit: $?\")",
+      "Bash(echo \"ls-files: $?\")",
+      "Bash(.venv/bin/pytest engine/tests/test_codegen_service_api.py engine/tests/test_mapping_review_api.py -q)",
+      "Bash(PYTHONPATH=. python -c ' *)",
+      "Bash(.venv/bin/pytest engine/tests/test_mapping_review_api.py::test_destination_columns_in_api_response engine/tests/test_codegen_service_api.py -q)"
     ]
   }
 }
