@@ -5,9 +5,12 @@
 | Task | Summary |
 |---|---|
 | [001es-wire-suggest-standards-button-to-backend-endpoint](./001es-wire-suggest-standards-button-to-backend-endpoint.md) | Frontend: wire the existing "Suggest Standards" button to the new endpoint instead of the local generateCodingStandardsTemplate function (deleted). No behavior change. Depends on 001er. |
-| [001eu-engine-aware-mig-upsert-log-ddl](./001eu-engine-aware-mig-upsert-log-ddl.md) | `_mig_upsert_log_ddl`/`_assemble_sql_bundle` hardcode MSSQL-only DDL and inject it into every generated bundle regardless of target_db_engine — found while implementing 001et, deliberately deferred. |
 
 ## Completed
+
+| Task | Summary |
+|---|---|
+| [001eu-engine-aware-mig-upsert-log-ddl](./completed/001eu-engine-aware-mig-upsert-log-ddl.md) | `_mig_upsert_log_ddl`/`_assemble_sql_bundle` used to hardcode MSSQL-only DDL and inject it into every generated bundle regardless of target_db_engine. Now engine-aware (mssql/postgresql/mysql/oracle), defaults to mssql when unset for backward compat. Verified: 358/358 backend tests pass. |
 
 | Task | Summary |
 |---|---|

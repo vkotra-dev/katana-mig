@@ -182,7 +182,9 @@ def generate_codegen_artifact(
         db.commit()
         raise
 
-    sql_bundle = _assemble_sql_bundle(generated_sql, staging_schema=project_config.staging_schema)
+    sql_bundle = _assemble_sql_bundle(
+        generated_sql, staging_schema=project_config.staging_schema, db_engine=project_config.target_db_engine
+    )
     _supersede_previous_artifacts(
         db,
         project_id=project_id,
@@ -446,7 +448,53 @@ def _select_lookup_snapshot_version(
     return None
 
 
-def _mig_upsert_log_ddl(staging_schema: str) -> str:
+def _mig_upsert_log_ddl(staging_schema: str, db_engine: str | None = None) -> str:
+    lower_engine = (db_engine or "").lower()
+    engine_key = "mssql" if lower_engine == "sqlserver" else lower_engine
+
+    if engine_key == "postgresql":
+        return (
+            f"CREATE TABLE IF NOT EXISTS {staging_schema}.mig_upsert_log (\n"
+            f"    log_id         BIGSERIAL PRIMARY KEY,\n"
+            f"    run_ref        VARCHAR(255) NOT NULL,\n"
+            f"    dest_table     VARCHAR(255) NOT NULL,\n"
+            f"    source_row_num BIGINT,\n"
+            f"    dest_row_id    VARCHAR(255),\n"
+            f"    action         VARCHAR(10) NOT NULL,\n"
+            f"    logged_at      TIMESTAMP NOT NULL DEFAULT clock_timestamp()\n"
+            f");"
+        )
+    if engine_key == "mysql":
+        return (
+            f"CREATE TABLE IF NOT EXISTS {staging_schema}.mig_upsert_log (\n"
+            f"    log_id         BIGINT AUTO_INCREMENT PRIMARY KEY,\n"
+            f"    run_ref        VARCHAR(255) NOT NULL,\n"
+            f"    dest_table     VARCHAR(255) NOT NULL,\n"
+            f"    source_row_num BIGINT,\n"
+            f"    dest_row_id    VARCHAR(255),\n"
+            f"    action         VARCHAR(10) NOT NULL,\n"
+            f"    logged_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP\n"
+            f");"
+        )
+    if engine_key == "oracle":
+        return (
+            f"BEGIN\n"
+            f"    EXECUTE IMMEDIATE 'CREATE TABLE {staging_schema}.mig_upsert_log (\n"
+            f"        log_id         NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,\n"
+            f"        run_ref        VARCHAR2(255) NOT NULL,\n"
+            f"        dest_table     VARCHAR2(255) NOT NULL,\n"
+            f"        source_row_num NUMBER,\n"
+            f"        dest_row_id    VARCHAR2(255),\n"
+            f"        action         VARCHAR2(10) NOT NULL,\n"
+            f"        logged_at      TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL\n"
+            f"    )';\n"
+            f"EXCEPTION\n"
+            f"    WHEN OTHERS THEN\n"
+            f"        IF SQLCODE != -955 THEN RAISE; END IF; -- ORA-00955: name already used by an existing object\n"
+            f"END;"
+        )
+    # mssql, and the default for None/unrecognized engines (preserves this function's original,
+    # only-ever-MSSQL behavior for any project that hasn't set target_db_engine yet).
     return (
         f"IF OBJECT_ID(N'[{staging_schema}].[mig_upsert_log]', N'U') IS NULL\n"
         f"BEGIN\n"
@@ -463,10 +511,12 @@ def _mig_upsert_log_ddl(staging_schema: str) -> str:
     )
 
 
-def _assemble_sql_bundle(generated_sql: GeneratedSQL, *, staging_schema: str | None = None) -> str:
+def _assemble_sql_bundle(
+    generated_sql: GeneratedSQL, *, staging_schema: str | None = None, db_engine: str | None = None
+) -> str:
     parts: list[str] = []
     if staging_schema:
-        parts.append(_mig_upsert_log_ddl(staging_schema))
+        parts.append(_mig_upsert_log_ddl(staging_schema, db_engine))
     parts.append(generated_sql.staging_ddl.strip())
     parts.extend(s.strip() for s in generated_sql.lookup_ddl if s.strip())
     parts.extend(s.strip() for s in generated_sql.seed_data if s.strip())
