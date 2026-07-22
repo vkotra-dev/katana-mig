@@ -339,8 +339,8 @@ describe("CodegenPage", () => {
       expect(textarea.value).toContain("### 2. Approved Destination Mappings");
       expect(textarea.value).toContain('- Destination object: "customer"');
       expect(textarea.value).toContain('Source field "cust_id" -> Destination column "customer_id"');
-      expect(textarea.value).toContain("### 3. Unmapped Required Destination Fields");
-      expect(textarea.value).toContain("### 4. Source Characteristics");
+      expect(textarea.value).toContain("### 4. Unmapped Required Destination Fields");
+      expect(textarea.value).toContain("### 5. Source Characteristics");
     });
   });
 

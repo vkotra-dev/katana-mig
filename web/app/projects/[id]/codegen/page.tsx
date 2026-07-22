@@ -24,20 +24,13 @@ interface UnmappedRequiredField {
 }
 
 function computeUnmappedRequiredFields(
-  fibers: FiberRecord[],
+  _fibers: FiberRecord[],
   snapshots: MappingSnapshotRecord[],
 ): UnmappedRequiredField[] {
-  const domainObjects = new Set(
-    fibers
-      .filter(f => f.fiberType === "domain_object")
-      .map(f => f.fiberKey)
-  );
-
   const result: UnmappedRequiredField[] = [];
 
   for (const snap of snapshots) {
     if (snap.status !== "approved") continue;
-    if (!domainObjects.has(snap.destinationObjectName)) continue;
 
     const destColumns = snap.destinationColumns;
     if (!destColumns || destColumns.length === 0) continue;
@@ -530,6 +523,8 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
       }
       // Load unmapped fields data when expanding
       if (session && routeParams) {
+        // Skip re-fetch if already loaded for this feed
+        if (feedUnmappedFields[feedId]) return;
         Promise.all([
           listFeedFibers(session.accessToken, routeParams.id, feedId),
           getAllApprovedMappingSnapshots(session.accessToken, routeParams.id, feedId, true),
@@ -540,8 +535,8 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
               setFeedUnmappedFields((prev) => ({ ...prev, [feedId]: unmapped }));
             }
           })
-          .catch(() => {
-            // Silently fail — banner just won't show data
+          .catch((error) => {
+            console.error("Failed to load unmapped fields data:", error);
           });
       }
     }
