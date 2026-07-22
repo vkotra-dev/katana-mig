@@ -9,6 +9,7 @@
 
 | Task | Summary |
 |---|---|
+| [001ek-eliminate-python-ddl-parsing](./completed/001ek-eliminate-python-ddl-parsing.md) | Removed both regex-based DDL parsers (mapping/ddl.py and codegen/service.py's private copy); AI now reports each table's full column list (all_columns) directly, stored in new MappingSnapshot.destination_columns column. |
 | [001el-preserve-signed-off-bindings-on-reanalyze](./completed/001el-preserve-signed-off-bindings-on-reanalyze.md) | Patched draft field mappings in place on re-analyze, preventing orphaned sign-offs. Re-supersedes 001df's mapping scope. |
 | [001ej-shared-dialog-primitive](./completed/001ej-shared-dialog-primitive.md) | Extracted shared Dialog primitive and wired to UI components |
 | [001ei-fix-mapping-snapshot-optional-typing](./completed/001ei-fix-mapping-snapshot-optional-typing.md) | 36 mypy --strict errors in approve_mapping/reject_mapping/unapprove_mapping, all one root cause (single-table branch produces list[MappingSnapshot \\| None], bulk branch produces Sequence[MappingSnapshot]); fix by making both branches query-shaped and consistent, not a type-annotation workaround |
