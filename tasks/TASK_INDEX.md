@@ -4,6 +4,9 @@
 
 | Task | Summary |
 |---|---|
+| [001eo-autocomplete-lov-show-all-on-open](./001eo-autocomplete-lov-show-all-on-open.md) | Review page: destination-field picker only shows the current value when opened instead of all options, due to pre-filled query immediately substring-filtering. Independent fix. |
+| [001ep-allow-patch-mapping-to-drop-signed-off-bindings](./001ep-allow-patch-mapping-to-drop-signed-off-bindings.md) | Backend: patch_mapping currently 409s when removing a signed-off binding. Remove that block so deletion always succeeds; still deletes the orphaned sign-off row. Prerequisite for 001eq. |
+| [001eq-review-page-stacked-destination-cell-with-delete](./001eq-review-page-stacked-destination-cell-with-delete.md) | Review page: group bindings by source field into one row, stack destination fields in one cell with per-entry delete (hidden on first entry) plus a whole-source-field delete. Depends on 001ep. |
 
 ## Completed
 
