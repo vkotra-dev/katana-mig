@@ -322,6 +322,8 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
 
   const [expandedArtifactId, setExpandedArtifactId] = useState<string | null>(null);
   const [selectedFeedId, setSelectedFeedId] = useState<string>("all");
+  // Maps feedId -> the last fetch result. Always stored (even empty []), so
+  // the presence of a key means "we've already fetched this feed".
   const [feedUnmappedFields, setFeedUnmappedFields] = useState<Record<string, UnmappedRequiredField[]>>({});
 
   useEffect(() => {
@@ -521,22 +523,23 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
           [feedId]: source.transformationInstructions ?? "",
         }));
       }
-      // Load unmapped fields data when expanding
-      if (session && routeParams) {
-        // Skip re-fetch if already loaded for this feed
-        if (feedUnmappedFields[feedId]) return;
+      // Load unmapped fields data when expanding (once per feed).
+      // Cache is keyed by feedId; presence means "already fetched", not just
+      // "has unmapped fields", so the guard works for clean and problem cases.
+      if (session && routeParams && !feedUnmappedFields[feedId]) {
         Promise.all([
           listFeedFibers(session.accessToken, routeParams.id, feedId),
           getAllApprovedMappingSnapshots(session.accessToken, routeParams.id, feedId, true),
         ])
           .then(([fibers, snapshots]) => {
             const unmapped = computeUnmappedRequiredFields(fibers, snapshots);
-            if (unmapped.length > 0) {
-              setFeedUnmappedFields((prev) => ({ ...prev, [feedId]: unmapped }));
-            }
+            // Always store the result (even []) so the guard above skips re-fetches.
+            setFeedUnmappedFields((prev) => ({ ...prev, [feedId]: unmapped }));
           })
           .catch((error) => {
             console.error("Failed to load unmapped fields data:", error);
+            // Mark as fetched even on failure so we don't retry every expand.
+            setFeedUnmappedFields((prev) => ({ ...prev, [feedId]: [] }));
           });
       }
     }
