@@ -13,6 +13,7 @@ from ..api.deps import (
     get_project_modifier_user,
 )
 from ..api.schemas import (
+    CodegenCodingStandardsTemplateResponse,
     MembershipResponse,
     ProjectCreateRequest,
     ProjectMemberResponse,
@@ -25,6 +26,7 @@ from ..api.schemas import (
 from ..db.models import User
 from ..management.access import require_project_access
 from ..management.projects import archive_project, create_project, get_project, list_projects, update_project, copy_project, assign_project_manager
+from ..codegen.coding_standards import render_coding_standards_template
 from ..management.service import add_project_member, list_project_members, remove_project_member
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -145,3 +147,20 @@ def patch_codegen_instructions(
         project_id=project_id,
         body=ProjectUpdateRequest(codegen_instructions=body.codegen_instructions),
     )
+
+
+@router.get("/{project_id}/codegen-coding-standards-template", response_model=CodegenCodingStandardsTemplateResponse)
+def get_codegen_coding_standards_template(
+    project_id: str,
+    actor: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> CodegenCodingStandardsTemplateResponse:
+    require_project_access(db, user=actor, project_id=project_id)
+    project = get_project(db, project_id=project_id)
+    config = project.domain_config
+    template = render_coding_standards_template(
+        db_engine=config.target_db_engine if config else None,
+        staging_schema=config.staging_schema if config else None,
+        destination_schema=config.destination_schema if config else None,
+    )
+    return CodegenCodingStandardsTemplateResponse(template=template)

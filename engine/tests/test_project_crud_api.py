@@ -648,3 +648,25 @@ def test_assign_project_manager_workflow(pm_user: tuple[str, str]) -> None:
         _cleanup_user(pm2_user_id)
         _cleanup_user(admin_user_id)
         _cleanup_user(sh_user_id)
+
+
+def test_get_codegen_coding_standards_template(admin_token: str) -> None:
+    project = _create_project(
+        admin_token,
+        {
+            "name": "Codegen Standards Test",
+            "domain_config": {
+                "target_db_engine": "postgresql",
+                "staging_schema": "stg",
+                "destination_schema": "cxp",
+            },
+        },
+    )
+
+    response = client.get(
+        f"/projects/{project['project_id']}/codegen-coding-standards-template",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 200, response.text
+    assert "PL/pgSQL using dollar-quoting" in response.json()["template"]
+    assert '"cxp" schema' in response.json()["template"]

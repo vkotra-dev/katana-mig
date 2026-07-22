@@ -280,6 +280,10 @@ class CodegenInstructionsRequest(BaseModel):
     codegen_instructions: str | None = None
 
 
+class CodegenCodingStandardsTemplateResponse(BaseModel):
+    template: str
+
+
 class TransformationInstructionsRequest(BaseModel):
     transformation_instructions: str | None = None
 
