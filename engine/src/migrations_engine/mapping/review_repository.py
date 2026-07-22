@@ -8,7 +8,7 @@ from ..api.deps import AuthApiError
 from ..api.schemas import MappingFieldBindingResponse, MappingReviewResponse
 from ..db.models import ProjectDefinition, ProjectRegistry, Feed, MappingSnapshot
 from ..management.source_analysis import get_latest_source_schema_artifact
-from .ddl import parse_all_ddl_tables, parse_ddl
+
 
 _SNAPSHOT_VERSION_RE = re.compile(r"^v(?P<number>\d+)$")
 
@@ -25,7 +25,24 @@ def get_project_destination_schema(db: Session, *, project_id: str) -> tuple[str
     if not ddl:
         raise AuthApiError("destination_schema_missing", "Project has no destination schema DDL configured.", 409)
 
-    return parse_ddl(ddl)
+    from ..ai.factory import get_adapter
+    from ..ai.prompt import Prompt
+    from .ai_schemas import SingleTableSchema
+
+    prompt = Prompt("single_table_schema")
+    adapter = get_adapter("destination_schema")
+    if not adapter:
+        raise AuthApiError("ai_adapter_unavailable", "AI adapter dependency is unavailable.", 503)
+
+    prompt.set(ddl=ddl)
+    sys_prompt, user_prompt = prompt.get_prompt()
+    try:
+        result = adapter.call(sys_prompt, user_prompt, SingleTableSchema)
+        if not result.parsed.columns:
+            raise AuthApiError("destination_schema_invalid", "Destination schema DDL has no parseable column definitions.", 422)
+        return result.parsed.table_name, result.parsed.columns
+    except Exception as e:
+        raise AuthApiError("destination_schema_invalid", f"Could not parse DDL: {e}", 422)
 
 
 def get_source_definition(db: Session, *, project_id: str, source_definition_id: str) -> Feed:
@@ -83,26 +100,12 @@ def next_snapshot_version(
     return f"v{highest + 1}"
 
 
-def derive_destination_fields(db: Session, project_id: str, destination_object_name: str) -> list[str]:
-    try:
-        project_definition = get_project_definition(db, project_id=project_id)
-        ddl = (project_definition.domain_config or {}).get("destination_schema_ddl")
-        if not ddl:
-            return []
-        ddl_tables = parse_all_ddl_tables(ddl)
-        return ddl_tables.get(destination_object_name) or []
-    except Exception:
-        return []
-
-
 def snapshot_to_response(
     snapshot: MappingSnapshot,
     db: Session,
     destination_fields: list[str] | None = None,
 ) -> MappingReviewResponse:
-    if destination_fields is None:
-        destination_fields = derive_destination_fields(db, snapshot.project_id, snapshot.destination_object_name)
-    fields = destination_fields if destination_fields else (snapshot.destination_fields or [])
+    fields = destination_fields if destination_fields is not None else (snapshot.destination_fields or [])
     
     lookup_table_references: list[dict[str, str]] = []
     for binding in snapshot.field_bindings:

@@ -18,6 +18,8 @@ _SLOT_MAP = {
     "implementation": lambda config: config.models.implementation,
     "pii_review": lambda config: config.migration_models.pii_review,
     "field_mapping": lambda config: config.migration_models.field_mapping,
+    "destination_schema": lambda config: config.migration_models.field_mapping,
+    "cobol_parsing": lambda config: config.migration_models.cobol_parsing,
     "lookup_mapping": lambda config: config.migration_models.lookup_mapping,
     "script_generation": lambda config: config.migration_models.script_generation,
     "script_correction": lambda config: config.migration_models.script_correction,

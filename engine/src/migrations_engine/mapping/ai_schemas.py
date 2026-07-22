@@ -1,6 +1,12 @@
 from typing import Literal, Any
 from pydantic import BaseModel, ConfigDict, model_validator, field_validator
 
+class SingleTableSchema(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    
+    table_name: str
+    columns: list[str]
+
 class Binding(BaseModel):
     model_config = ConfigDict(extra="forbid")
     
@@ -29,10 +35,26 @@ class Binding(BaseModel):
         return self
 
 
+class DestinationColumn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    
+    name: str
+    destination_data_type: str | None = None
+    nullable: bool | None = None
+
+    @field_validator("nullable", mode="before")
+    @classmethod
+    def _validate_nullable(cls, v: Any) -> bool | None:
+        if v is not None and not isinstance(v, bool):
+            raise ValueError("nullable must be a JSON boolean or null")
+        return v
+
+
 class TableProposal(BaseModel):
     model_config = ConfigDict(extra="forbid")
     
     destination_table_name: str
+    all_columns: list[DestinationColumn]
     bindings: list[Binding]
 
 

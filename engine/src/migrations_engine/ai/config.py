@@ -66,6 +66,7 @@ _TASK_TO_MODEL_ATTR = {
     "implementation": ("models", "implementation"),
     "pii_review": ("migration_models", "pii_review"),
     "field_mapping": ("migration_models", "field_mapping"),
+    "destination_schema": ("migration_models", "field_mapping"),
     "lookup_mapping": ("migration_models", "lookup_mapping"),
     "script_generation": ("migration_models", "script_generation"),
     "script_correction": ("migration_models", "script_correction"),

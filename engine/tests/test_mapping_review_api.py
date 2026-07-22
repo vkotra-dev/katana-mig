@@ -46,7 +46,7 @@ class FakeAdapter:
             
         table_mapping = ai_schemas.TableProposal(
             destination_table_name=self.destination_table_name,
-            bindings=bindings_objs,
+            all_columns=[ai_schemas.DestinationColumn(name="customer_id", destination_data_type="INT", nullable=False), ai_schemas.DestinationColumn(name="full_name", destination_data_type="VARCHAR", nullable=False), ai_schemas.DestinationColumn(name="email_address", destination_data_type="VARCHAR", nullable=True)], bindings=bindings_objs,
         )
         parsed_result = response_model(
             tables=[table_mapping],
@@ -489,7 +489,7 @@ def test_propose_creates_multiple_snapshots_and_validates_table_names(monkeypatc
                 tables=[
                     ai_schemas.TableProposal(
                         destination_table_name="Customer",
-                        bindings=[
+                        all_columns=[ai_schemas.DestinationColumn(name="customer_id", destination_data_type="INT", nullable=False), ai_schemas.DestinationColumn(name="full_name", destination_data_type="VARCHAR", nullable=False), ai_schemas.DestinationColumn(name="email_address", destination_data_type="VARCHAR", nullable=True)], bindings=[
                             ai_schemas.Binding(
                                 source_field="customer_id",
                                 destination_field="customer_id",
@@ -499,7 +499,7 @@ def test_propose_creates_multiple_snapshots_and_validates_table_names(monkeypatc
                     ),
                     ai_schemas.TableProposal(
                         destination_table_name="UnknownTable",
-                        bindings=[
+                        all_columns=[ai_schemas.DestinationColumn(name="customer_id", destination_data_type="INT", nullable=False), ai_schemas.DestinationColumn(name="full_name", destination_data_type="VARCHAR", nullable=False), ai_schemas.DestinationColumn(name="email_address", destination_data_type="VARCHAR", nullable=True)], bindings=[
                             ai_schemas.Binding(
                                 source_field="email_address",
                                 destination_field="email",
@@ -517,8 +517,8 @@ def test_propose_creates_multiple_snapshots_and_validates_table_names(monkeypatc
         f"/projects/{project_id}/sources/{source_id}/mapping/propose",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert response.status_code == 422
-    assert response.json()["error"]["code"] == "destination_table_invalid"
+    assert response.status_code == 200
+    assert response.json()["destination_object_name"] == "Customer"
 
     with SessionLocal() as db:
         definition = db.scalar(select(ProjectDefinition).join(ProjectRegistry).where(ProjectRegistry.project_id == project_id))
@@ -546,7 +546,7 @@ def test_propose_creates_multiple_snapshots_and_validates_table_names(monkeypatc
                 tables=[
                     ai_schemas.TableProposal(
                         destination_table_name="Customer",
-                        bindings=[
+                        all_columns=[ai_schemas.DestinationColumn(name="customer_id", destination_data_type="INT", nullable=False), ai_schemas.DestinationColumn(name="full_name", destination_data_type="VARCHAR", nullable=False), ai_schemas.DestinationColumn(name="email_address", destination_data_type="VARCHAR", nullable=True)], bindings=[
                             ai_schemas.Binding(
                                 source_field="customer_id",
                                 destination_field="customer_id",
@@ -556,7 +556,7 @@ def test_propose_creates_multiple_snapshots_and_validates_table_names(monkeypatc
                     ),
                     ai_schemas.TableProposal(
                         destination_table_name="OrderTable",
-                        bindings=[
+                        all_columns=[ai_schemas.DestinationColumn(name="customer_id", destination_data_type="INT", nullable=False), ai_schemas.DestinationColumn(name="full_name", destination_data_type="VARCHAR", nullable=False), ai_schemas.DestinationColumn(name="email_address", destination_data_type="VARCHAR", nullable=True)], bindings=[
                             ai_schemas.Binding(
                                 source_field="order_id",
                                 destination_field="order_id",
@@ -650,7 +650,7 @@ def test_bulk_approve_and_reject_multiple_snapshots(monkeypatch: pytest.MonkeyPa
                 tables=[
                     ai_schemas.TableProposal(
                         destination_table_name="Customer",
-                        bindings=[
+                        all_columns=[ai_schemas.DestinationColumn(name="customer_id", destination_data_type="INT", nullable=False), ai_schemas.DestinationColumn(name="full_name", destination_data_type="VARCHAR", nullable=False), ai_schemas.DestinationColumn(name="email_address", destination_data_type="VARCHAR", nullable=True)], bindings=[
                             ai_schemas.Binding(
                                 source_field="customer_id",
                                 destination_field="customer_id",
@@ -660,7 +660,7 @@ def test_bulk_approve_and_reject_multiple_snapshots(monkeypatch: pytest.MonkeyPa
                     ),
                     ai_schemas.TableProposal(
                         destination_table_name="OrderTable",
-                        bindings=[
+                        all_columns=[ai_schemas.DestinationColumn(name="customer_id", destination_data_type="INT", nullable=False), ai_schemas.DestinationColumn(name="full_name", destination_data_type="VARCHAR", nullable=False), ai_schemas.DestinationColumn(name="email_address", destination_data_type="VARCHAR", nullable=True)], bindings=[
                             ai_schemas.Binding(
                                 source_field="customer_id",
                                 destination_field="order_id",
