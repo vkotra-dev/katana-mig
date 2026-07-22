@@ -49,11 +49,14 @@ def test_mapping_prompt_parity():
         "6. For every binding, set destination_data_type to the exact SQL type of the destination column as declared in the DDL "
         "(e.g. 'INT', 'NVARCHAR(255)', 'DATE', 'DECIMAL(18,2)'). Set to null only if the column is not found in the DDL.\n"
         "7. For every binding, set nullable to true if the destination column allows nulls, or false if it is explicitly NOT NULL.\n"
-        "8. If the DDL is invalid or you cannot find any matching tables, set error_code and error_message.\n\n"
+        "8. For every identified table, extract its complete list of columns exactly as declared in the DDL into 'all_columns'. Include every column, not just the mapped ones. Extract its 'name', 'destination_data_type', and 'nullable' boolean.\n"
+        "9. Attempt to cover all NOT NULL destination fields present in the DDL — code generation will fail if they are left unmapped.\n"
+        "10. If the DDL is invalid or you cannot find any matching tables, set error_code and error_message.\n\n"
         "OUTPUT CONTRACT:\n"
         "Return strictly valid JSON with no markdown fences, no invented keys, and exact adherence to the schema.\n"
         "- Top-level keys: 'tables' (list), 'error_code' (string|null), 'error_message' (string|null)\n"
-        "- Table keys: 'destination_table_name' (string), 'bindings' (list)\n"
+        "- Table keys: 'destination_table_name' (string), 'all_columns' (list), 'bindings' (list)\n"
+        "- Column keys: 'name' (string), 'destination_data_type' (string|null), 'nullable' (boolean|null)\n"
         "- Binding keys: 'source_field' (string), 'destination_field' (string), 'binding_type' (string: 'direct', 'detail_fk', 'lookup_fk'), 'reference_table_name' (string|null), 'destination_data_type' (string|null), 'nullable' (boolean|null)"
     )
     

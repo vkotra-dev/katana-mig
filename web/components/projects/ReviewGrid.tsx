@@ -42,6 +42,7 @@ interface ReviewGridProps {
   onSignBinding?: (tableName: string, sourceField: string, destField: string) => void;
   onUnsignBinding?: (tableName: string, sourceField: string, destField: string) => void;
   onDestinationFieldChange?: (tableName: string, sourceField: string, oldDest: string, newDest: string) => void;
+  onAddBinding?: (tableName: string, sourceField: string, availableFields: string[]) => void;
   onSignLookup?: (lookupValueMapId: string) => void;
   onUnsignLookup?: (lookupValueMapId: string) => void;
 }
@@ -203,6 +204,7 @@ export function ReviewGrid({
   onSignBinding,
   onUnsignBinding,
   onDestinationFieldChange,
+  onAddBinding,
   onSignLookup,
   onUnsignLookup,
 }: ReviewGridProps) {
@@ -433,6 +435,11 @@ export function ReviewGrid({
           <div className="grid gap-3">
             {mappingTables.map((table) => {
               const isExpanded = !!expandedTables[table.destinationTableName];
+              // Count how many times each source field is mapped (for 1-to-N support)
+              const sourceFieldCount: Record<string, number> = {};
+              for (const b of table.bindings) {
+                sourceFieldCount[b.sourceField] = (sourceFieldCount[b.sourceField] || 0) + 1;
+              }
               return (
                 <div
                   key={table.destinationTableName}
@@ -490,7 +497,32 @@ export function ReviewGrid({
                             {table.bindings.map((binding, idx) => (
                               <tr key={idx} className="hover:bg-slate-50/50">
                                 <td className="py-2.5">
-                                  <div className="font-mono text-slate-700">{binding.sourceField}</div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-mono text-slate-700">{binding.sourceField}</span>
+                                    {sourceFieldCount[binding.sourceField] > 1 && (
+                                      <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
+                                        1-to-{sourceFieldCount[binding.sourceField]}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {(() => {
+                                    // Show "Map to another destination" button next to each editable row
+                                    const bindingStatus = signOffStatus?.bindings[table.destinationTableName]?.[binding.sourceField]?.[binding.destinationField];
+                                    const isRowSigned = !!(bindingStatus && (bindingStatus.centralTeam.signed || bindingStatus.projectStakeholder.signed));
+                                    if (!editingEnabled || isRowSigned) return null;
+                                    const mappedDests = new Set(table.bindings.filter(b => b.sourceField === binding.sourceField).map(b => b.destinationField));
+                                    const available = (table.destinationFields || []).filter(d => d && !mappedDests.has(d));
+                                    if (available.length === 0) return null;
+                                    return (
+                                      <button
+                                        type="button"
+                                        onClick={() => onAddBinding?.(table.destinationTableName, binding.sourceField, available)}
+                                        className="mt-1 text-xs text-primary font-semibold hover:text-primary-hover flex items-center gap-1"
+                                      >
+                                        <span className="text-sm leading-none">+</span> Map to another destination
+                                      </button>
+                                    );
+                                  })()}
                                   {(() => {
                                     const samples = sampleValues[binding.sourceField.toLowerCase()] ?? [];
                                     if (samples.length === 0) return null;

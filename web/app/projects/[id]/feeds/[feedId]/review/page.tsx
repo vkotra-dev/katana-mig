@@ -243,6 +243,46 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
     }
   };
 
+  const handleAddBinding = async (tableName: string, sourceField: string, availableFields: string[]) => {
+    // Filter out already-mapped destination fields
+    const targetSnapshot = mappingSnapshots.find((s) => s.destinationObjectName === tableName);
+    if (!targetSnapshot) return;
+
+    const existingDests = new Set(targetSnapshot.fieldBindings.map(b => b.destinationField));
+    const available = availableFields.find(d => d && !existingDests.has(d));
+    if (!available) {
+      setError("All destination fields are already mapped for this source field.");
+      return;
+    }
+
+    // Optimistically add the binding to local state
+    setMappingSnapshots((prev) =>
+      prev.map((snapshot) => {
+        if (snapshot.destinationObjectName !== tableName) return snapshot;
+        return {
+          ...snapshot,
+          fieldBindings: [
+            ...snapshot.fieldBindings,
+            { sourceField, destinationField: available, bindingType: "direct", lookupName: null }
+          ],
+        };
+      })
+    );
+
+    // Commit in the background
+    if (!session) return;
+    try {
+      // Include the newly added binding in the payload (use the target snapshot from local state,
+      // which is the same copy read by the optimistic update above — avoids stale closure)
+      const updatedBindings = [...targetSnapshot.fieldBindings, { sourceField, destinationField: available, lookupName: null }];
+      await patchMappingSnapshot(session.accessToken, projectId, feedId, updatedBindings, tableName);
+      const updated = await getSignOffStatus(session.accessToken, projectId, feedId);
+      setSignOffStatus(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add binding.");
+    }
+  };
+
   const handlePushForReview = async () => {
     if (!session) return;
     setLoading(true);
@@ -505,6 +545,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
                       onSignBinding={handleSignBinding}
                       onUnsignBinding={handleUnsignBinding}
                       onDestinationFieldChange={handleDestinationFieldChange}
+                      onAddBinding={handleAddBinding}
                       onSignLookup={handleSignLookup}
                       onUnsignLookup={handleUnsignLookup}
                     />

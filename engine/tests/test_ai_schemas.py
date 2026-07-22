@@ -37,6 +37,7 @@ def test_validate_source_fields():
         tables=[
             TableProposal(
                 destination_table_name="T1",
+                all_columns=[],
                 bindings=[
                     Binding(source_field="col1", destination_field="d1", binding_type="direct"),
                     Binding(source_field="Col2", destination_field="d2", binding_type="direct")

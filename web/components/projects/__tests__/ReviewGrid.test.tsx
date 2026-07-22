@@ -152,4 +152,200 @@ describe("ReviewGrid", () => {
 
     expect(onDestinationFieldChange).toHaveBeenCalledWith("accounts", "src_id", "id", "status_id");
   });
+
+  it("renders per-row 'Map to another destination' buttons for editable bindings with available destinations", () => {
+    const onAddBinding = vi.fn();
+    const testProps = {
+      ...props,
+      editingEnabled: true,
+      onAddBinding,
+      mappingTables: [
+        {
+          destinationTableName: "accounts",
+          destinationFields: ["id", "status_id", "name", "email", "created_at"],
+          bindings: [
+            {
+              sourceField: "src_id",
+              destinationField: "id",
+              bindingType: "direct" as const,
+            },
+            {
+              sourceField: "src_status",
+              destinationField: "status_id",
+              bindingType: "lookup_fk" as const,
+            },
+          ],
+        },
+      ],
+    };
+
+    render(<ReviewGrid {...testProps} />);
+
+    // Expand the accounts accordion
+    fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
+
+    // Both rows should have a "Map to another destination" button since editing is enabled
+    const buttons = screen.getAllByText(/Map to another destination/);
+    expect(buttons.length).toBe(2);
+
+    // Click the button on the first row
+    fireEvent.click(buttons[0]);
+    expect(onAddBinding).toHaveBeenCalledWith("accounts", "src_id", expect.any(Array));
+
+    // Click the button on the second row
+    fireEvent.click(buttons[1]);
+    expect(onAddBinding).toHaveBeenCalledWith("accounts", "src_status", expect.any(Array));
+  });
+
+  it("does not render 'Map to another destination' buttons when editing is disabled", () => {
+    const onAddBinding = vi.fn();
+    const testProps = {
+      ...props,
+      editingEnabled: false,
+      onAddBinding,
+      mappingTables: [
+        {
+          destinationTableName: "accounts",
+          destinationFields: ["id", "name"],
+          bindings: [
+            {
+              sourceField: "src_id",
+              destinationField: "id",
+              bindingType: "direct" as const,
+            },
+          ],
+        },
+      ],
+    };
+
+    render(<ReviewGrid {...testProps} />);
+    fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
+
+    expect(screen.queryByText(/Map to another destination/)).not.toBeInTheDocument();
+  });
+
+  describe("handleAddBinding", () => {
+    it("should allow adding a new binding when a row has available alternative destinations", async () => {
+      const onAddBinding = vi.fn();
+      const testProps = {
+        ...props,
+        editingEnabled: true,
+        onAddBinding,
+        onDestinationFieldChange: vi.fn(),
+        mappingTables: [
+          {
+            destinationTableName: "accounts",
+            destinationFields: ["id", "status_id", "name", "email", "created_at"],
+            bindings: [
+              {
+                sourceField: "src_id",
+                destinationField: "id",
+                bindingType: "direct" as const,
+              },
+            ],
+          },
+        ],
+      };
+
+      render(<ReviewGrid {...testProps} />);
+
+      // Expand the accounts accordion
+      fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
+
+      // Click the "Map to another destination" button on the first row
+      const mapButtons = screen.getAllByText(/Map to another destination/);
+      fireEvent.click(mapButtons[0]);
+
+      expect(onAddBinding).toHaveBeenCalledWith(
+        "accounts",
+        "src_id",
+        expect.any(Array)
+      );
+    });
+
+    it("should NOT show 'Map to another destination' button when all destination fields are already used for a source field", async () => {
+      const onAddBinding = vi.fn();
+      const testProps = {
+        ...props,
+        editingEnabled: true,
+        onAddBinding,
+        onDestinationFieldChange: vi.fn(),
+        mappingTables: [
+          {
+            destinationTableName: "accounts",
+            destinationFields: ["id", "status_id"],
+            bindings: [
+              {
+                sourceField: "src_id",
+                destinationField: "id",
+                bindingType: "direct" as const,
+              },
+              {
+                sourceField: "src_id",
+                destinationField: "status_id",
+                bindingType: "lookup_fk" as const,
+              },
+            ],
+          },
+        ],
+      };
+
+      render(<ReviewGrid {...testProps} />);
+
+      // Expand the accounts accordion
+      fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
+
+      // No rows should have the "Map to another destination" button
+      // because src_id already maps to both available destination fields
+      const mapButtons = screen.queryAllByText(/Map to another destination/);
+      expect(mapButtons).toHaveLength(0);
+    });
+
+    it("should NOT show 'Map to another destination' button for signed-off rows", async () => {
+      const onAddBinding = vi.fn();
+      const testProps = {
+        ...props,
+        editingEnabled: true,
+        onAddBinding,
+        onDestinationFieldChange: vi.fn(),
+        mappingTables: [
+          {
+            destinationTableName: "accounts",
+            destinationFields: ["id", "name", "email"],
+            bindings: [
+              {
+                sourceField: "src_id",
+                destinationField: "id",
+                bindingType: "direct" as const,
+              },
+            ],
+          },
+        ],
+        signOffStatus: {
+          complete: true,
+          currentBallRole: "central_team",
+          bindings: {
+            accounts: {
+              src_id: {
+                id: {
+                  centralTeam: { signed: true, signedAt: new Date(), userId: "user1" },
+                  projectStakeholder: { signed: true, signedAt: new Date(), userId: "user2" },
+                },
+              },
+            },
+          },
+          lookups: {},
+        } as any,
+      };
+
+      render(<ReviewGrid {...testProps} />);
+
+      // Expand the accounts accordion
+      fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
+
+      // The "Map to another destination" button should NOT appear for a signed-off row
+      const mapButtons = screen.queryAllByText(/Map to another destination/);
+      expect(mapButtons).toHaveLength(0);
+    });
+  });
 });

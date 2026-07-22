@@ -9,6 +9,7 @@ const {
   approveMappingSnapshotMock,
   rejectMappingSnapshotMock,
   unapproveMappingSnapshotMock,
+  patchMappingSnapshotMock,
   listFeedSlicesMock,
   getFeedContractMock,
   listFeedFibersMock,
@@ -29,6 +30,7 @@ const {
   approveMappingSnapshotMock: vi.fn(),
   rejectMappingSnapshotMock: vi.fn(),
   unapproveMappingSnapshotMock: vi.fn(),
+  patchMappingSnapshotMock: vi.fn(() => Promise.resolve({})),
   listFeedSlicesMock: vi.fn(),
   getFeedContractMock: vi.fn(),
   listFeedFibersMock: vi.fn(),
@@ -57,7 +59,7 @@ vi.mock("../../../../../../lib/mapping-api", () => ({
   getAllApprovedMappingSnapshots: getAllApprovedMappingSnapshotsMock,
   approveMappingSnapshot: approveMappingSnapshotMock,
   rejectMappingSnapshot: rejectMappingSnapshotMock,
-  patchMappingSnapshot: vi.fn(),
+  patchMappingSnapshot: patchMappingSnapshotMock,
   unapproveMappingSnapshot: unapproveMappingSnapshotMock,
 }));
 
@@ -357,5 +359,65 @@ describe("ReviewPage", () => {
     await waitFor(() => {
       expect(unapproveMappingSnapshotMock).toHaveBeenCalledWith("token-pm", "proj-1", "feed-1");
     });
+  });
+
+  it("includes the new binding in the PATCH payload when adding a binding", async () => {
+    loadUiSessionMock.mockReturnValue(BUSINESS_SESSION);
+
+    const multiFieldSnapshot = {
+      ...SNAPSHOT,
+      destinationObjectName: "users",
+      destinationFields: ["status_id", "name", "email"],
+      fieldBindings: [
+        {
+          sourceField: "src_status",
+          destinationField: "status_id",
+          lookupName: "status_map",
+          bindingType: "lookup_fk",
+          referenceTableName: "status_ref",
+        },
+      ],
+    };
+
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([multiFieldSnapshot]);
+
+    // currentBallRole must match the user's role for editing to be enabled
+    getSignOffStatusMock.mockResolvedValue({
+      complete: false,
+      currentBallRole: "project_stakeholder",
+      bindings: {
+        users: {
+          src_status: {
+            status_id: {
+              centralTeam: { signed: false, signedAt: null, userId: null },
+              projectStakeholder: { signed: false, signedAt: null, userId: null },
+            },
+          },
+        },
+      },
+      lookups: {},
+    });
+
+    await renderPage();
+
+    // Expand the accordion to reveal bindings
+    fireEvent.click(screen.getByRole("button", { name: /users/ }));
+
+    // Click "Map to another destination" on the first (and only) row
+    const mapBtn = screen.getByText(/Map to another destination/);
+    fireEvent.click(mapBtn);
+
+    // patchMappingSnapshot should have been called with bindings that include the new one
+    await waitFor(() => {
+      expect(patchMappingSnapshotMock).toHaveBeenCalled();
+    });
+
+    const callArgs = patchMappingSnapshotMock.mock.calls[0];
+    const bindings = callArgs[3]; // 4th arg is the bindings array
+
+    // Verify the original binding is preserved
+    expect(bindings).toContainEqual(expect.objectContaining({ sourceField: "src_status", destinationField: "status_id" }));
+    // Verify the new binding was included in the payload
+    expect(bindings).toContainEqual(expect.objectContaining({ sourceField: "src_status", destinationField: "name" }));
   });
 });

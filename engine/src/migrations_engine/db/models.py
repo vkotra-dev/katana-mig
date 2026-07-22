@@ -373,6 +373,7 @@ class MappingSnapshot(Base):
     mapping_snapshot_version: Mapped[str] = mapped_column(String(64), nullable=False)
     field_bindings: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
     destination_fields: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    destination_columns: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="approved")
     current_ball_role: Mapped[str | None] = mapped_column(String(50), nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
