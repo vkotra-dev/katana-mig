@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
 from ..api.deps import get_current_user, get_db
-from ..api.schemas import MappingSnapshotResponse
+from ..api.schemas import MappingDestinationColumnResponse, MappingSnapshotResponse
 from ..db.models import User
 from ..management.access import require_project_access
 from ..management.feeds import get_source_contract
@@ -63,7 +63,10 @@ def get_latest_mapping_snapshot(
         approved_by_user_id=mapping_snapshot.approved_by_user_id,
         created_at=mapping_snapshot.created_at,
         destination_fields=mapping_snapshot.destination_fields or [],
-        destination_columns=mapping_snapshot.destination_columns,
+        destination_columns=[
+            MappingDestinationColumnResponse(**c)
+            for c in (mapping_snapshot.destination_columns or [])
+        ] if mapping_snapshot.destination_columns else None,
     )
 
 
@@ -109,7 +112,10 @@ def list_approved_mapping_snapshots(
             approved_by_user_id=s.approved_by_user_id,
             created_at=s.created_at,
             destination_fields=s.destination_fields or [],
-            destination_columns=s.destination_columns,
+            destination_columns=[
+                MappingDestinationColumnResponse(**c)
+                for c in (s.destination_columns or [])
+            ] if s.destination_columns else None,
         )
         for s in snapshots
     ]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, UTC
 from types import SimpleNamespace
 
 import pytest
@@ -851,3 +852,79 @@ def test_propose_logs_raw_response_on_validation_error(monkeypatch: pytest.Monke
         logs = db.query(AICallLog).filter_by(project_id=project_id, call_type="mapping").all()
         assert len(logs) == 1
         assert logs[0].raw_response == '{"bad_json": true}'
+
+
+def test_destination_columns_in_api_response(
+    monkeypatch: pytest.MonkeyPatch,
+    admin_token: str,
+) -> None:
+    from unittest.mock import patch
+    from migrations_engine.db.models import MappingSnapshot
+
+    # Seed a project with a snapshot that has destination_columns set
+    with SessionLocal() as db:
+        project_id = "test-dc-project"
+        source_id = "test-dc-source"
+        snapshot_id = str(uuid.uuid4())
+        # Ensure project exists
+        from migrations_engine.db.models import ProjectDefinition, ProjectRegistry
+        db.query(ProjectDefinition).filter_by(project_id=project_id).delete()
+        db.query(ProjectRegistry).filter_by(project_id=project_id).delete()
+        db.query(MappingSnapshot).filter_by(project_id=project_id).delete()
+        db.add(
+            ProjectRegistry(
+                project_id=project_id, name="DC Test", definition_id=str(uuid.uuid4()), status="active",
+            )
+        )
+        db.add(
+            SourceDefinition(
+                source_definition_id=source_id,
+                project_id=project_id,
+                source_type="csv",
+                source_contract_version="v1",
+                destination_object_references=["Customer"],
+                source_details={},
+                status="active",
+            )
+        )
+        db.add(
+            MappingSnapshot(
+                mapping_snapshot_id=snapshot_id,
+                project_id=project_id,
+                destination_object_name="Customer",
+                mapping_snapshot_version="v1",
+                field_bindings=[
+                    {"source_field": "id", "destination_field": "id", "lookup_name": None},
+                ],
+                status="approved",
+                approved_at=datetime.now(UTC),
+                approved_by_user_id=db.query(User).filter_by(role="central_team").first().user_id,
+                destination_columns=[
+                    {"name": "id", "destination_data_type": "integer", "nullable": False},
+                    {"name": "name", "destination_data_type": "text", "nullable": True},
+                ],
+                destination_fields=["id", "name"],
+            )
+        )
+        db.commit()
+
+    with patch(
+        "migrations_engine.routes.mapping_snapshots.select_all_approved_mapping_snapshots",
+        return_value=[
+            db.scalar(
+                select(MappingSnapshot).where(MappingSnapshot.mapping_snapshot_id == snapshot_id)
+            )
+        ],
+    ):
+        response = client.get(
+            f"/projects/{project_id}/sources/{source_id}/mapping-snapshots",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]["destination_columns"] is not None
+        assert data[0]["destination_columns"][0]["name"] == "id"
+        assert data[0]["destination_columns"][0]["nullable"] is False
+        assert data[0]["destination_columns"][1]["name"] == "name"
+        assert data[0]["destination_columns"][1]["nullable"] is True

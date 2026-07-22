@@ -289,3 +289,58 @@ def test_codegen_preserves_raw_response_on_validation_error(monkeypatch: pytest.
         assert log.raw_response == '{"bad": "json"}'
         assert log.error_detail is not None
         assert "ValidationError: Failed" in log.error_detail
+
+
+def test_codegen_fails_loud_when_destination_columns_missing(
+    monkeypatch: pytest.MonkeyPatch, admin_token: str
+) -> None:
+    project_id, source_definition_id = _seed_project()
+    # Clear destination_columns so the snapshot has NULL
+    with SessionLocal() as db:
+        snapshot = db.scalars(
+            select(MappingSnapshot).where(
+                MappingSnapshot.project_id == project_id,
+            )
+        ).first()
+        assert snapshot is not None
+        snapshot.destination_columns = None
+        db.commit()
+
+    response = client.post(
+        f"/projects/{project_id}/sources/{source_definition_id}/codegen",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 422
+    data = response.json()
+    assert data["error"]["code"] == "destination_metadata_missing"
+
+
+def test_codegen_fails_loud_when_required_field_unmapped(
+    monkeypatch: pytest.MonkeyPatch, admin_token: str
+) -> None:
+    project_id, source_definition_id = _seed_project()
+    # Keep destination_columns but remove the mapping for a required field
+    with SessionLocal() as db:
+        snapshot = db.scalars(
+            select(MappingSnapshot).where(
+                MappingSnapshot.project_id == project_id,
+            )
+        ).first()
+        assert snapshot is not None
+        snapshot.field_bindings = [
+            {
+                "source_field": "full_name",
+                "destination_field": "full_name",
+                "lookup_name": None,
+            }
+        ]
+        db.commit()
+
+    response = client.post(
+        f"/projects/{project_id}/sources/{source_definition_id}/codegen",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 422
+    data = response.json()
+    assert data["error"]["code"] == "unmapped_required_destination_fields"
+    assert "customer_id" in data["error"]["message"]

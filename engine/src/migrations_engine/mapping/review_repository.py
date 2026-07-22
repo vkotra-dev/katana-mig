@@ -5,7 +5,11 @@ from sqlalchemy.orm import Session
 
 import re
 from ..api.deps import AuthApiError
-from ..api.schemas import MappingFieldBindingResponse, MappingReviewResponse
+from ..api.schemas import (
+    MappingDestinationColumnResponse,
+    MappingFieldBindingResponse,
+    MappingReviewResponse,
+)
 from ..db.models import ProjectDefinition, ProjectRegistry, Feed, MappingSnapshot
 from ..management.source_analysis import get_latest_source_schema_artifact
 
@@ -119,7 +123,12 @@ def snapshot_to_response(
                 "destination_table_name": ref_table,
             })
 
-    destination_columns_raw = snapshot.destination_columns
+    destination_columns = (
+        [MappingDestinationColumnResponse(**c) for c in snapshot.destination_columns]
+        if snapshot.destination_columns is not None
+        else None
+    )
+
     return MappingReviewResponse(
         mapping_snapshot_id=snapshot.mapping_snapshot_id,
         project_id=snapshot.project_id,
@@ -145,7 +154,7 @@ def snapshot_to_response(
         created_at=snapshot.created_at,
         destination_fields=fields,
         lookup_table_references=lookup_table_references,
-        destination_columns=destination_columns_raw,
+        destination_columns=destination_columns,
     )
 
 
