@@ -121,33 +121,112 @@ the end is unchanged, byte-for-byte, from the original.
 
 ## Tests
 
-Add to `engine/tests/test_mapping_review_api.py`. Read `test_patch_updates_field_bindings`
-(lines 278-306 as of this writing) and `_seed_project()` (lines 117-168) first — match their setup
-style exactly: seed via `_seed_project()`, propose via a mocked `FakeAdapter`, then interact via
-`client.patch`/`client.post` with `admin_token`.
+Add to `engine/tests/test_mapping_review_api.py`, directly after `test_patch_updates_field_bindings`
+(lines 278-306 as of this writing). `User`, `select`, `SessionLocal`, and `CENTRAL_TEAM_ROLE` are
+all already imported at the top of this file (lines 9, 11, 16, 19) — no new imports needed except
+`MappingBindingSignOff`, added locally inside each new test function.
 
-1. **New test: `"patch succeeds when removing a signed-off binding"`.** Seed a project, propose a
-   mapping (mock the adapter to bind `customer_id` -> `customer_id`, matching
-   `test_patch_updates_field_bindings`'s pattern), then directly insert a
-   `MappingBindingSignOff` row for that `(source_field="customer_id",
-   destination_field="customer_id")` pair via `SessionLocal()` (import `MappingBindingSignOff` from
-   `migrations_engine.db.models`; you'll need the snapshot's `mapping_snapshot_id` and
-   `destination_object_name` — fetch the snapshot via `select(MappingSnapshot).where(...)` after
-   the propose call to get these; a `user_id`/`role` value can come from the same admin user the
-   test already authenticates as). Then `client.patch` the mapping with a `field_bindings` array
-   that omits `customer_id` entirely (i.e., an empty list, or a list with unrelated bindings only).
-   Assert `response.status_code == 200` (previously this would have been `409` before this fix).
-2. **New test: `"patch removing a signed-off binding also deletes its sign-off row"`.** Same setup
-   as above. After the successful PATCH, query
-   `select(MappingBindingSignOff).where(MappingBindingSignOff.mapping_snapshot_id ==
-   snapshot_id, MappingBindingSignOff.source_field == "customer_id",
-   MappingBindingSignOff.destination_field == "customer_id")` and assert the result is empty — the
-   orphaned sign-off row must be gone, not just the binding.
-3. Run the full existing `test_mapping_review_api.py` file and confirm no other test regresses —
-   in particular, confirm no existing test relied on the removed 409 (a search of this file for
-   `"mapping_already_approved"` before starting should turn up nothing, confirming zero existing
-   coverage depends on the old behavior; if it does turn up something, stop and report it instead
-   of silently breaking that test).
+1.
+
+```python
+def test_patch_succeeds_when_removing_a_signed_off_binding(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+    project_id, source_id = _seed_project()
+    fake = FakeAdapter([
+        {"source_field": "customer_id", "destination_field": "customer_id"},
+    ])
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: fake)
+
+    client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/propose",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    from migrations_engine.db.models import MappingBindingSignOff, MappingSnapshot
+
+    with SessionLocal() as db:
+        snapshot = db.scalar(select(MappingSnapshot).where(MappingSnapshot.project_id == project_id))
+        assert snapshot is not None
+        admin_user = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
+        assert admin_user is not None
+        db.add(
+            MappingBindingSignOff(
+                mapping_snapshot_id=snapshot.mapping_snapshot_id,
+                destination_object_name=snapshot.destination_object_name,
+                source_field="customer_id",
+                destination_field="customer_id",
+                user_id=admin_user.user_id,
+                role=CENTRAL_TEAM_ROLE,
+            )
+        )
+        db.commit()
+
+    response = client.patch(
+        f"/projects/{project_id}/sources/{source_id}/mapping",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"field_bindings": []},
+    )
+
+    assert response.status_code == 200, response.text
+```
+
+2.
+
+```python
+def test_patch_removing_signed_off_binding_deletes_its_sign_off_row(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+    project_id, source_id = _seed_project()
+    fake = FakeAdapter([
+        {"source_field": "customer_id", "destination_field": "customer_id"},
+    ])
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: fake)
+
+    client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/propose",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    from migrations_engine.db.models import MappingBindingSignOff, MappingSnapshot
+
+    with SessionLocal() as db:
+        snapshot = db.scalar(select(MappingSnapshot).where(MappingSnapshot.project_id == project_id))
+        assert snapshot is not None
+        snapshot_id = snapshot.mapping_snapshot_id
+        admin_user = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
+        assert admin_user is not None
+        db.add(
+            MappingBindingSignOff(
+                mapping_snapshot_id=snapshot_id,
+                destination_object_name=snapshot.destination_object_name,
+                source_field="customer_id",
+                destination_field="customer_id",
+                user_id=admin_user.user_id,
+                role=CENTRAL_TEAM_ROLE,
+            )
+        )
+        db.commit()
+
+    response = client.patch(
+        f"/projects/{project_id}/sources/{source_id}/mapping",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"field_bindings": []},
+    )
+    assert response.status_code == 200, response.text
+
+    with SessionLocal() as db:
+        remaining = db.scalars(
+            select(MappingBindingSignOff).where(
+                MappingBindingSignOff.mapping_snapshot_id == snapshot_id,
+                MappingBindingSignOff.source_field == "customer_id",
+                MappingBindingSignOff.destination_field == "customer_id",
+            )
+        ).all()
+        assert remaining == []
+```
+
+3. Before starting, confirm zero existing coverage depends on the removed 409:
+   `grep -n "mapping_already_approved" engine/tests/test_mapping_review_api.py` must return
+   nothing. If it returns a match, stop and report it instead of silently breaking that test.
+4. Run the full existing `test_mapping_review_api.py` file and confirm every pre-existing test
+   still passes alongside the 2 new ones.
 
 ## Verification
 
