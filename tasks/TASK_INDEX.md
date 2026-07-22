@@ -4,6 +4,8 @@
 
 | Task | Summary |
 |---|---|
+| [001em-expose-destination-columns-codegen-guard](./001em-expose-destination-columns-codegen-guard.md) | Backend: expose MappingSnapshot.destination_columns via the API, fail loud in codegen instead of silently skipping the NOT-NULL check when it's missing. Prerequisite for 001en. |
+| [001en-unmapped-required-fields-codegen-banner](./001en-unmapped-required-fields-codegen-banner.md) | Frontend: feed-scoped banner on the codegen page for unmapped required destination fields, folded into the existing Generate Instructions template. Depends on 001em. |
 
 ## Completed
 
