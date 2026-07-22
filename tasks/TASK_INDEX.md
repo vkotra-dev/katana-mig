@@ -4,13 +4,13 @@
 
 | Task | Summary |
 |---|---|
-| [001em-expose-destination-columns-codegen-guard](./001em-expose-destination-columns-codegen-guard.md) | Backend: expose MappingSnapshot.destination_columns via the API, fail loud in codegen instead of silently skipping the NOT-NULL check when it's missing. Prerequisite for 001en. |
 | [001en-unmapped-required-fields-codegen-banner](./001en-unmapped-required-fields-codegen-banner.md) | Frontend: feed-scoped banner on the codegen page for unmapped required destination fields, folded into the existing Generate Instructions template. Depends on 001em. |
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001em-expose-destination-columns-codegen-guard](./completed/001em-expose-destination-columns-codegen-guard.md) | Exposed MappingSnapshot.destination_columns in the API (MappingDestinationColumnResponse model), populated in all 3 response builders via proper model construction; replaced silent-skip in codegen with loud destination_metadata_missing error; added 3 regression tests. Prerequisite for 001en. |
 | [001ek-eliminate-python-ddl-parsing](./completed/001ek-eliminate-python-ddl-parsing.md) | Removed both regex-based DDL parsers (mapping/ddl.py and codegen/service.py's private copy); AI now reports each table's full column list (all_columns) directly, stored in new MappingSnapshot.destination_columns column. |
 | [001el-preserve-signed-off-bindings-on-reanalyze](./completed/001el-preserve-signed-off-bindings-on-reanalyze.md) | Patched draft field mappings in place on re-analyze, preventing orphaned sign-offs. Re-supersedes 001df's mapping scope. |
 | [001ej-shared-dialog-primitive](./completed/001ej-shared-dialog-primitive.md) | Extracted shared Dialog primitive and wired to UI components |
