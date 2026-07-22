@@ -575,6 +575,12 @@ class LookupTableReferenceResponse(BaseModel):
     destination_table_name: str
 
 
+class MappingDestinationColumnResponse(BaseModel):
+    name: str
+    destination_data_type: str | None
+    nullable: bool | None
+
+
 class MappingSnapshotResponse(BaseModel):
     mapping_snapshot_id: str
     project_id: str
@@ -588,6 +594,7 @@ class MappingSnapshotResponse(BaseModel):
     created_at: datetime
     lookup_table_references: list[LookupTableReferenceResponse] = []
     destination_fields: list[str] = []
+    destination_columns: list[MappingDestinationColumnResponse] | None = None
 
 class MappingPatchRequest(BaseModel):
     field_bindings: list[MappingFieldBindingResponse]

@@ -119,6 +119,7 @@ def snapshot_to_response(
                 "destination_table_name": ref_table,
             })
 
+    destination_columns_raw = snapshot.destination_columns
     return MappingReviewResponse(
         mapping_snapshot_id=snapshot.mapping_snapshot_id,
         project_id=snapshot.project_id,
@@ -144,6 +145,7 @@ def snapshot_to_response(
         created_at=snapshot.created_at,
         destination_fields=fields,
         lookup_table_references=lookup_table_references,
+        destination_columns=destination_columns_raw,
     )
 
 

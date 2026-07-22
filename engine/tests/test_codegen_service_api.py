@@ -176,6 +176,10 @@ def _seed_project() -> tuple[str, str]:
                     status="approved",
                     approved_at=datetime.now(UTC),
                     approved_by_user_id=admin_user.user_id,
+                    destination_columns=[
+                        {"name": "customer_id", "destination_data_type": "integer", "nullable": False},
+                        {"name": "full_name", "destination_data_type": "text", "nullable": True},
+                    ],
                 )
         )
         db.commit()
