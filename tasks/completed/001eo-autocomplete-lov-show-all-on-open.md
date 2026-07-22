@@ -1,7 +1,7 @@
 ---
 type: Task Plan
 title: Fix AutocompleteInput to Show All Destination Fields When Opened
-status: ready
+status: completed
 ---
 
 # Task: 001eo-autocomplete-lov-show-all-on-open

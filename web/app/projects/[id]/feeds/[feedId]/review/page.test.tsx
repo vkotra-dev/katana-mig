@@ -420,4 +420,114 @@ describe("ReviewPage", () => {
     // Verify the new binding was included in the payload
     expect(bindings).toContainEqual(expect.objectContaining({ sourceField: "src_status", destinationField: "name" }));
   });
+
+  it("removes a binding and sends the reduced field list to patchMappingSnapshot", async () => {
+    loadUiSessionMock.mockReturnValue(BUSINESS_SESSION);
+
+    const multiFieldSnapshot = {
+      ...SNAPSHOT,
+      destinationObjectName: "users",
+      destinationFields: ["status_id", "name", "email"],
+      fieldBindings: [
+        {
+          sourceField: "src_status",
+          destinationField: "status_id",
+          lookupName: "status_map",
+          bindingType: "lookup_fk",
+          referenceTableName: "status_ref",
+        },
+        {
+          sourceField: "src_status",
+          destinationField: "name",
+          lookupName: null,
+          bindingType: "direct",
+        },
+      ],
+    };
+
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([multiFieldSnapshot]);
+    getSignOffStatusMock.mockResolvedValue({
+      complete: false,
+      currentBallRole: "project_stakeholder",
+      bindings: {
+        users: {
+          src_status: {
+            status_id: {
+              centralTeam: { signed: false, signedAt: null, userId: null },
+              projectStakeholder: { signed: false, signedAt: null, userId: null },
+            },
+            name: {
+              centralTeam: { signed: false, signedAt: null, userId: null },
+              projectStakeholder: { signed: false, signedAt: null, userId: null },
+            },
+          },
+        },
+      },
+      lookups: {},
+    });
+
+    await renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /users/ }));
+
+    fireEvent.click(screen.getByTitle("Remove this destination mapping"));
+
+    await waitFor(() => {
+      expect(patchMappingSnapshotMock).toHaveBeenCalled();
+    });
+
+    const callArgs = patchMappingSnapshotMock.mock.calls[0];
+    const bindings = callArgs[3];
+
+    expect(bindings).toContainEqual(expect.objectContaining({ sourceField: "src_status", destinationField: "status_id" }));
+    expect(bindings).not.toContainEqual(expect.objectContaining({ sourceField: "src_status", destinationField: "name" }));
+  });
+
+  it("removing a source field entirely sends a payload with no bindings for it", async () => {
+    loadUiSessionMock.mockReturnValue(BUSINESS_SESSION);
+
+    const multiFieldSnapshot = {
+      ...SNAPSHOT,
+      destinationObjectName: "users",
+      destinationFields: ["status_id", "name", "email"],
+      fieldBindings: [
+        {
+          sourceField: "src_status",
+          destinationField: "status_id",
+          lookupName: "status_map",
+          bindingType: "lookup_fk",
+          referenceTableName: "status_ref",
+        },
+        {
+          sourceField: "src_email",
+          destinationField: "email",
+          lookupName: null,
+          bindingType: "direct",
+        },
+      ],
+    };
+
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([multiFieldSnapshot]);
+    getSignOffStatusMock.mockResolvedValue({
+      complete: false,
+      currentBallRole: "project_stakeholder",
+      bindings: {},
+      lookups: {},
+    });
+
+    await renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /users/ }));
+
+    const deleteButtons = screen.getAllByTitle("Drop this source field from migration");
+    fireEvent.click(deleteButtons[0]); // "src_status" is the first group
+
+    await waitFor(() => {
+      expect(patchMappingSnapshotMock).toHaveBeenCalled();
+    });
+
+    const callArgs = patchMappingSnapshotMock.mock.calls[0];
+    const bindings = callArgs[3];
+
+    expect(bindings).not.toContainEqual(expect.objectContaining({ sourceField: "src_status" }));
+    expect(bindings).toContainEqual(expect.objectContaining({ sourceField: "src_email", destinationField: "email" }));
+  });
 });

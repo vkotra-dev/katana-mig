@@ -216,7 +216,7 @@ describe("ReviewGrid", () => {
     expect(screen.queryByText("region_code")).not.toBeInTheDocument();
   });
 
-  it("renders per-row 'Map to another destination' buttons for editable bindings with available destinations", () => {
+  it("renders 'Map to another destination' button per source-field group for editable bindings with available destinations", () => {
     const onAddBinding = vi.fn();
     const testProps = {
       ...props,
@@ -364,7 +364,7 @@ describe("ReviewGrid", () => {
       expect(mapButtons).toHaveLength(0);
     });
 
-    it("should NOT show 'Map to another destination' button for signed-off rows", async () => {
+    it("should show 'Map to another destination' button even for signed-off bindings (add is per-group, not per-row)", async () => {
       const onAddBinding = vi.fn();
       const testProps = {
         ...props,
@@ -406,9 +406,82 @@ describe("ReviewGrid", () => {
       // Expand the accounts accordion
       fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
 
-      // The "Map to another destination" button should NOT appear for a signed-off row
-      const mapButtons = screen.queryAllByText(/Map to another destination/);
-      expect(mapButtons).toHaveLength(0);
+      // The "+" button IS shown — the add button is per-group, not per-row, and no longer gated by signed-off status.
+      const mapButtons = screen.getAllByText(/Map to another destination/);
+      expect(mapButtons).toHaveLength(1);
+    });
+  });
+
+  describe("stacked destination-cell with add/remove controls", () => {
+    const testProps = {
+      ...props,
+      editingEnabled: true,
+      onRemoveBinding: vi.fn(),
+      onRemoveSourceField: vi.fn(),
+      onAddBinding: vi.fn(),
+      onDestinationFieldChange: vi.fn(),
+      mappingTables: [
+        {
+          destinationTableName: "accounts",
+          destinationFields: ["id", "status_id", "name", "email", "created_at"],
+          bindings: [
+            { sourceField: "src_id", destinationField: "id", bindingType: "direct" as const },
+            { sourceField: "src_id", destinationField: "name", bindingType: "direct" as const },
+            { sourceField: "src_status", destinationField: "status_id", bindingType: "lookup_fk" as const },
+          ],
+        },
+      ],
+    };
+
+    it("renders one row per source field, with destination fields stacked", () => {
+      render(<ReviewGrid {...testProps} />);
+
+      fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
+
+      // "src_id" appears once (one row for the group), not twice (one per binding)
+      expect(screen.getAllByText("src_id")).toHaveLength(1);
+      expect(screen.getAllByText("src_status")).toHaveLength(1);
+    });
+
+    it("shows a delete icon on all but the first stacked destination entry", () => {
+      render(<ReviewGrid {...testProps} />);
+      fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
+
+      // Only the group with 2 bindings ("src_id") has an entry past index 0
+      expect(screen.getAllByTitle("Remove this destination mapping")).toHaveLength(1);
+    });
+
+    it("calls onRemoveBinding with the correct source and destination field", () => {
+      const onRemoveBinding = vi.fn();
+      const propsWithRemove = { ...testProps, onRemoveBinding };
+      render(<ReviewGrid {...propsWithRemove} />);
+      fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
+
+      fireEvent.click(screen.getByTitle("Remove this destination mapping"));
+
+      expect(onRemoveBinding).toHaveBeenCalledWith("accounts", "src_id", "name");
+    });
+
+    it("shows a source-field delete icon even for a single-destination source field", () => {
+      const onRemoveSourceField = vi.fn();
+      const propsWithRemoveSource = { ...testProps, onRemoveSourceField };
+      render(<ReviewGrid {...propsWithRemoveSource} />);
+      fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
+
+      const deleteButtons = screen.getAllByTitle("Drop this source field from migration");
+      expect(deleteButtons).toHaveLength(2); // one per group, including the single-entry "src_status" group
+      fireEvent.click(deleteButtons[1]); // "src_status" is the second group in bindings order
+
+      expect(onRemoveSourceField).toHaveBeenCalledWith("accounts", "src_status");
+    });
+
+    it("does not show either delete icon when editingEnabled is false", () => {
+      const propsNoEdit = { ...testProps, editingEnabled: false };
+      render(<ReviewGrid {...propsNoEdit} />);
+      fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
+
+      expect(screen.queryByTitle("Remove this destination mapping")).not.toBeInTheDocument();
+      expect(screen.queryByTitle("Drop this source field from migration")).not.toBeInTheDocument();
     });
   });
 });

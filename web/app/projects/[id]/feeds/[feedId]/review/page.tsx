@@ -283,6 +283,66 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
     }
   };
 
+  const handleRemoveBinding = async (tableName: string, sourceField: string, destinationField: string) => {
+    const targetSnapshot = mappingSnapshots.find((s) => s.destinationObjectName === tableName);
+    if (!targetSnapshot) return;
+
+    // Optimistically remove the binding from local state
+    setMappingSnapshots((prev) =>
+      prev.map((snapshot) => {
+        if (snapshot.destinationObjectName !== tableName) return snapshot;
+        return {
+          ...snapshot,
+          fieldBindings: snapshot.fieldBindings.filter(
+            (b) => !(b.sourceField === sourceField && b.destinationField === destinationField)
+          ),
+        };
+      })
+    );
+
+    // Commit in the background — build the payload directly from the pre-update targetSnapshot
+    // closure captured above, same pattern as handleAddBinding, avoids any stale-closure race.
+    if (!session) return;
+    try {
+      const updatedBindings = targetSnapshot.fieldBindings
+        .filter((b) => !(b.sourceField === sourceField && b.destinationField === destinationField))
+        .map((b) => ({ sourceField: b.sourceField, destinationField: b.destinationField, lookupName: b.lookupName }));
+      await patchMappingSnapshot(session.accessToken, projectId, feedId, updatedBindings, tableName);
+      const updated = await getSignOffStatus(session.accessToken, projectId, feedId);
+      setSignOffStatus(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove binding.");
+    }
+  };
+
+  const handleRemoveSourceField = async (tableName: string, sourceField: string) => {
+    const targetSnapshot = mappingSnapshots.find((s) => s.destinationObjectName === tableName);
+    if (!targetSnapshot) return;
+
+    // Optimistically remove every binding for this source field from local state
+    setMappingSnapshots((prev) =>
+      prev.map((snapshot) => {
+        if (snapshot.destinationObjectName !== tableName) return snapshot;
+        return {
+          ...snapshot,
+          fieldBindings: snapshot.fieldBindings.filter((b) => b.sourceField !== sourceField),
+        };
+      })
+    );
+
+    if (!session) return;
+    try {
+      const updatedBindings = targetSnapshot.fieldBindings
+        .filter((b) => b.sourceField !== sourceField)
+        .map((b) => ({ sourceField: b.sourceField, destinationField: b.destinationField, lookupName: b.lookupName }));
+      await patchMappingSnapshot(session.accessToken, projectId, feedId, updatedBindings, tableName);
+      const updated = await getSignOffStatus(session.accessToken, projectId, feedId);
+      setSignOffStatus(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove source field mapping.");
+    }
+  };
+
   const handlePushForReview = async () => {
     if (!session) return;
     setLoading(true);
@@ -546,6 +606,8 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
                       onUnsignBinding={handleUnsignBinding}
                       onDestinationFieldChange={handleDestinationFieldChange}
                       onAddBinding={handleAddBinding}
+                      onRemoveBinding={handleRemoveBinding}
+                      onRemoveSourceField={handleRemoveSourceField}
                       onSignLookup={handleSignLookup}
                       onUnsignLookup={handleUnsignLookup}
                     />

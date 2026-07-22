@@ -43,6 +43,8 @@ interface ReviewGridProps {
   onUnsignBinding?: (tableName: string, sourceField: string, destField: string) => void;
   onDestinationFieldChange?: (tableName: string, sourceField: string, oldDest: string, newDest: string) => void;
   onAddBinding?: (tableName: string, sourceField: string, availableFields: string[]) => void;
+  onRemoveBinding?: (tableName: string, sourceField: string, destinationField: string) => void;
+  onRemoveSourceField?: (tableName: string, sourceField: string) => void;
   onSignLookup?: (lookupValueMapId: string) => void;
   onUnsignLookup?: (lookupValueMapId: string) => void;
 }
@@ -205,6 +207,8 @@ export function ReviewGrid({
   onUnsignBinding,
   onDestinationFieldChange,
   onAddBinding,
+  onRemoveBinding,
+  onRemoveSourceField,
   onSignLookup,
   onUnsignLookup,
 }: ReviewGridProps) {
@@ -435,11 +439,16 @@ export function ReviewGrid({
           <div className="grid gap-3">
             {mappingTables.map((table) => {
               const isExpanded = !!expandedTables[table.destinationTableName];
-              // Count how many times each source field is mapped (for 1-to-N support)
-              const sourceFieldCount: Record<string, number> = {};
-              for (const b of table.bindings) {
-                sourceFieldCount[b.sourceField] = (sourceFieldCount[b.sourceField] || 0) + 1;
-              }
+              type BindingEntry = MappingTableRecord["bindings"][number];
+              const groups: Array<{ sourceField: string; bindings: BindingEntry[] }> = [];
+              const groupIndexBySourceField: Record<string, number> = {};
+              table.bindings.forEach((b) => {
+                if (groupIndexBySourceField[b.sourceField] === undefined) {
+                  groupIndexBySourceField[b.sourceField] = groups.length;
+                  groups.push({ sourceField: b.sourceField, bindings: [] });
+                }
+                groups[groupIndexBySourceField[b.sourceField]].bindings.push(b);
+              });
               return (
                 <div
                   key={table.destinationTableName}
@@ -494,37 +503,29 @@ export function ReviewGrid({
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
-                            {table.bindings.map((binding, idx) => (
-                              <tr key={idx} className="hover:bg-slate-50/50">
-                                <td className="py-2.5">
+                            {groups.map((group) => (
+                              <tr key={group.sourceField} className="hover:bg-slate-50/50">
+                                <td className="py-2.5 align-top">
                                   <div className="flex items-center gap-1.5">
-                                    <span className="font-mono text-slate-700">{binding.sourceField}</span>
-                                    {sourceFieldCount[binding.sourceField] > 1 && (
+                                    {editingEnabled && (
+                                      <button
+                                        type="button"
+                                        onClick={() => onRemoveSourceField?.(table.destinationTableName, group.sourceField)}
+                                        title="Drop this source field from migration"
+                                        className="text-slate-400 hover:text-red-600 focus:outline-none text-xs font-bold leading-none"
+                                      >
+                                        ×
+                                      </button>
+                                    )}
+                                    <span className="font-mono text-slate-700">{group.sourceField}</span>
+                                    {group.bindings.length > 1 && (
                                       <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
-                                        1-to-{sourceFieldCount[binding.sourceField]}
+                                        1-to-{group.bindings.length}
                                       </span>
                                     )}
                                   </div>
                                   {(() => {
-                                    // Show "Map to another destination" button next to each editable row
-                                    const bindingStatus = signOffStatus?.bindings[table.destinationTableName]?.[binding.sourceField]?.[binding.destinationField];
-                                    const isRowSigned = !!(bindingStatus && (bindingStatus.centralTeam.signed || bindingStatus.projectStakeholder.signed));
-                                    if (!editingEnabled || isRowSigned) return null;
-                                    const mappedDests = new Set(table.bindings.filter(b => b.sourceField === binding.sourceField).map(b => b.destinationField));
-                                    const available = (table.destinationFields || []).filter(d => d && !mappedDests.has(d));
-                                    if (available.length === 0) return null;
-                                    return (
-                                      <button
-                                        type="button"
-                                        onClick={() => onAddBinding?.(table.destinationTableName, binding.sourceField, available)}
-                                        className="mt-1 text-xs text-primary font-semibold hover:text-primary-hover flex items-center gap-1"
-                                      >
-                                        <span className="text-sm leading-none">+</span> Map to another destination
-                                      </button>
-                                    );
-                                  })()}
-                                  {(() => {
-                                    const samples = sampleValues[binding.sourceField.toLowerCase()] ?? [];
+                                    const samples = sampleValues[group.sourceField.toLowerCase()] ?? [];
                                     if (samples.length === 0) return null;
                                     return (
                                       <div className="mt-0.5 flex flex-wrap gap-1">
@@ -537,35 +538,77 @@ export function ReviewGrid({
                                     );
                                   })()}
                                 </td>
-                                <td className="py-2.5 font-mono text-slate-900 font-medium">
-                                  {(() => {
-                                    const bindingStatus = signOffStatus?.bindings[table.destinationTableName]?.[binding.sourceField]?.[binding.destinationField];
-                                    const isSignedByEither = !!(bindingStatus && (bindingStatus.centralTeam.signed || bindingStatus.projectStakeholder.signed));
-                                    const rowEditable = editingEnabled && !isSignedByEither;
-                                    return rowEditable ? (
-                                      <AutocompleteInput
-                                        value={binding.destinationField}
-                                        options={table.destinationFields || []}
-                                        onChange={(newVal) => onDestinationFieldChange?.(table.destinationTableName, binding.sourceField, binding.destinationField, newVal)}
-                                        className="rounded border border-slate-200 bg-white px-2 py-1 font-mono text-xs w-full focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
-                                        placeholder="destination field..."
-                                      />
-                                    ) : (
-                                      <div className="flex items-center gap-1.5 py-1 text-slate-700">
-                                        <span>{binding.destinationField || <span className="text-slate-400 italic font-sans text-xs">unmapped</span>}</span>
-                                        {isSignedByEither && (
-                                          <span title="Locked because this mapping has been signed off by a reviewer" className="text-[10px] text-slate-400 select-none">
-                                            🔒
-                                          </span>
-                                        )}
-                                      </div>
-                                    );
-                                  })()}
+                                <td className="py-2.5 font-mono text-slate-900 font-medium align-top">
+                                  <div className="flex flex-col gap-1.5">
+                                    {group.bindings.map((binding, entryIdx) => {
+                                      const bindingStatus = signOffStatus?.bindings[table.destinationTableName]?.[binding.sourceField]?.[binding.destinationField];
+                                      const isSignedByEither = !!(bindingStatus && (bindingStatus.centralTeam.signed || bindingStatus.projectStakeholder.signed));
+                                      const rowEditable = editingEnabled && !isSignedByEither;
+                                      return (
+                                        <div key={entryIdx} className="flex items-center gap-1.5">
+                                          {rowEditable ? (
+                                            <AutocompleteInput
+                                              value={binding.destinationField}
+                                              options={table.destinationFields || []}
+                                              onChange={(newVal) => onDestinationFieldChange?.(table.destinationTableName, binding.sourceField, binding.destinationField, newVal)}
+                                              className="rounded border border-slate-200 bg-white px-2 py-1 font-mono text-xs w-full focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                                              placeholder="destination field..."
+                                            />
+                                          ) : (
+                                            <div className="flex items-center gap-1.5 py-1 text-slate-700">
+                                              <span>{binding.destinationField || <span className="text-slate-400 italic font-sans text-xs">unmapped</span>}</span>
+                                              {isSignedByEither && (
+                                                <span title="Locked because this mapping has been signed off by a reviewer" className="text-[10px] text-slate-400 select-none">
+                                                  🔒
+                                                </span>
+                                              )}
+                                            </div>
+                                          )}
+                                          {editingEnabled && entryIdx > 0 && (
+                                            <button
+                                              type="button"
+                                              onClick={() => onRemoveBinding?.(table.destinationTableName, binding.sourceField, binding.destinationField)}
+                                              title="Remove this destination mapping"
+                                              className="text-slate-400 hover:text-red-600 focus:outline-none text-xs font-bold leading-none"
+                                            >
+                                              ×
+                                            </button>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                    {editingEnabled && (() => {
+                                      const mappedDests = new Set(group.bindings.map((b) => b.destinationField));
+                                      const available = (table.destinationFields || []).filter((d) => d && !mappedDests.has(d));
+                                      if (available.length === 0) return null;
+                                      return (
+                                        <button
+                                          type="button"
+                                          onClick={() => onAddBinding?.(table.destinationTableName, group.sourceField, available)}
+                                          className="text-xs text-primary font-semibold hover:text-primary-hover flex items-center gap-1"
+                                        >
+                                          <span className="text-sm leading-none">+</span> Map to another destination
+                                        </button>
+                                      );
+                                    })()}
+                                  </div>
                                 </td>
-                                <td className="py-2.5">{getBindingBadge(binding.bindingType)}</td>
+                                <td className="py-2.5 align-top">
+                                  <div className="flex flex-col gap-1.5">
+                                    {group.bindings.map((binding, entryIdx) => (
+                                      <div key={entryIdx} className="py-1">{getBindingBadge(binding.bindingType)}</div>
+                                    ))}
+                                  </div>
+                                </td>
                                 {signOffStatus && (
-                                  <td className="py-2.5">
-                                    {renderSignOffChips(table.destinationTableName, binding.sourceField, binding.destinationField)}
+                                  <td className="py-2.5 align-top">
+                                    <div className="flex flex-col gap-1.5">
+                                      {group.bindings.map((binding, entryIdx) => (
+                                        <div key={entryIdx} className="py-1">
+                                          {renderSignOffChips(table.destinationTableName, binding.sourceField, binding.destinationField)}
+                                        </div>
+                                      ))}
+                                    </div>
                                   </td>
                                 )}
                               </tr>
