@@ -15,6 +15,7 @@ const {
   listFeedFibersMock,
   listFeedSlicesMock,
   getAllApprovedMappingSnapshotsMock,
+  getCodegenCodingStandardsTemplateMock,
 } = vi.hoisted(() => ({
   loadUiSessionMock: vi.fn(),
   listFeedContractsMock: vi.fn(),
@@ -28,6 +29,7 @@ const {
   listFeedFibersMock: vi.fn(),
   listFeedSlicesMock: vi.fn(),
   getAllApprovedMappingSnapshotsMock: vi.fn(),
+  getCodegenCodingStandardsTemplateMock: vi.fn(),
 }));
 
 vi.mock("../../../../components/Topbar", () => ({
@@ -40,6 +42,7 @@ vi.mock("../../../../lib/session", () => ({
 
 vi.mock("../../../../lib/projects-api", () => ({
   getProject: getProjectMock,
+  getCodegenCodingStandardsTemplate: getCodegenCodingStandardsTemplateMock,
 }));
 
 vi.mock("../../../../lib/mapping-api", () => ({
@@ -95,6 +98,7 @@ describe("CodegenPage", () => {
       archivedAt: null,
       codegenInstructions: "Date rules",
     });
+    getCodegenCodingStandardsTemplateMock.mockResolvedValue("");
     listFeedContractsMock.mockResolvedValue([
       {
         sourceDefinitionId: "source-1",
@@ -301,6 +305,9 @@ describe("CodegenPage", () => {
 
   it("suggests coding standards template when clicking Suggest Standards", async () => {
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    getCodegenCodingStandardsTemplateMock.mockResolvedValue(
+      "### Coding Standards and Guidelines\n\n1. **Schemas and Scoping**:\n   - ...\n"
+    );
 
     render(<CodegenPage params={Promise.resolve({ id: "project-1" })} />);
 
@@ -313,8 +320,10 @@ describe("CodegenPage", () => {
     fireEvent.click(suggestBtn);
 
     expect(confirmSpy).toHaveBeenCalled();
-    expect(textarea.value).toContain("Coding Standards and Guidelines");
-    expect(textarea.value).toContain("Schemas and Scoping");
+    await waitFor(() => {
+      expect(textarea.value).toContain("Coding Standards and Guidelines");
+      expect(textarea.value).toContain("Schemas and Scoping");
+    });
 
     confirmSpy.mockRestore();
   });

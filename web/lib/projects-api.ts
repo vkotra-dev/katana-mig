@@ -443,6 +443,15 @@ export async function getProject(token: string, id: string): Promise<ProjectReco
   return mapProjectRecord(response);
 }
 
+export async function getCodegenCodingStandardsTemplate(token: string, id: string): Promise<string> {
+  const response = await requestJson<{ template: string }>(
+    `/projects/${id}/codegen-coding-standards-template`,
+    { method: "GET", token },
+  );
+
+  return response.template;
+}
+
 export async function createProject(
   token: string,
   body: ProjectCreateInput,
