@@ -71,7 +71,7 @@ function AutocompleteInput({
     setQuery(value);
   }, [value]);
 
-  const filteredOptions = query.trim() === ""
+  const filteredOptions = query.trim() === "" || query === value
     ? options
     : options.filter((opt) =>
         opt.toLowerCase().includes(query.toLowerCase())
