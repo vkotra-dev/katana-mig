@@ -4,6 +4,8 @@
 
 | Task | Summary |
 |---|---|
+| [001er-extract-codegen-coding-standards-backend](./001er-extract-codegen-coding-standards-backend.md) | Backend: move the ~100-line hardcoded coding-standards template out of page.tsx into ai/prompts/codegen_coding_standards.yaml (one section per DB engine), loaded via a small dedicated function (not the Prompt class), exposed via a new GET endpoint. Prerequisite for 001es. |
+| [001es-wire-suggest-standards-button-to-backend-endpoint](./001es-wire-suggest-standards-button-to-backend-endpoint.md) | Frontend: wire the existing "Suggest Standards" button to the new endpoint instead of the local generateCodingStandardsTemplate function (deleted). No behavior change. Depends on 001er. |
 
 ## Completed
 
