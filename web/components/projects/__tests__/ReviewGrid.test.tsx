@@ -153,6 +153,69 @@ describe("ReviewGrid", () => {
     expect(onDestinationFieldChange).toHaveBeenCalledWith("accounts", "src_id", "id", "status_id");
   });
 
+  it("shows all destination field options when the picker is opened before typing", () => {
+    const testProps = {
+      ...props,
+      editingEnabled: true,
+      onDestinationFieldChange: vi.fn(),
+      mappingTables: [
+        {
+          destinationTableName: "accounts",
+          destinationFields: ["id", "status_id", "email_address", "region_code"],
+          bindings: [
+            {
+              sourceField: "src_id",
+              destinationField: "id",
+              bindingType: "direct" as const,
+            },
+          ],
+        },
+      ],
+    };
+
+    render(<ReviewGrid {...testProps} />);
+    fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
+
+    const input = screen.getByPlaceholderText("destination field...") as HTMLInputElement;
+    fireEvent.focus(input);
+
+    expect(screen.getByText("status_id")).toBeInTheDocument();
+    expect(screen.getByText("email_address")).toBeInTheDocument();
+    expect(screen.getByText("region_code")).toBeInTheDocument();
+  });
+
+  it("narrows destination field options once the user types", () => {
+    const testProps = {
+      ...props,
+      editingEnabled: true,
+      onDestinationFieldChange: vi.fn(),
+      mappingTables: [
+        {
+          destinationTableName: "accounts",
+          destinationFields: ["id", "status_id", "email_address", "region_code"],
+          bindings: [
+            {
+              sourceField: "src_id",
+              destinationField: "id",
+              bindingType: "direct" as const,
+            },
+          ],
+        },
+      ],
+    };
+
+    render(<ReviewGrid {...testProps} />);
+    fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
+
+    const input = screen.getByPlaceholderText("destination field...") as HTMLInputElement;
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "stat" } });
+
+    expect(screen.getByText("status_id")).toBeInTheDocument();
+    expect(screen.queryByText("email_address")).not.toBeInTheDocument();
+    expect(screen.queryByText("region_code")).not.toBeInTheDocument();
+  });
+
   it("renders per-row 'Map to another destination' buttons for editable bindings with available destinations", () => {
     const onAddBinding = vi.fn();
     const testProps = {
