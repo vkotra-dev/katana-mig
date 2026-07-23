@@ -24,7 +24,7 @@ const props = {
     {
       lookupName: "status_map",
       referenceTableName: "status_ref",
-      destinationTable: [], pairs: [
+      destinationTable: [{ id: "ACTIVE", name: "Active" }], pairs: [
         {
           sourceValue: "A",
           destinationRow: { id: "ACTIVE", name: "Active" },

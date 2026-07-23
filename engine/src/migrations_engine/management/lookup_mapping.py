@@ -389,7 +389,30 @@ def _extract_destination_id(row: dict[str, Any]) -> str:
         value = row.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
+    for key, value in row.items():
+        if key.endswith("_id"):
+            return str(value)
+    for key, value in row.items():
+        if isinstance(value, str) and value.strip():
+            return value.strip()
     return ""
+
+
+def _extract_destination_label(row: dict[str, Any]) -> str:
+    for key in ("label", "name", "description", "desc", "val", "value", "display"):
+        value = row.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    # Fallback: concatenate all other string values (excluding IDs)
+    pieces = []
+    for key, value in row.items():
+        if key in ("destination_mapping_id", "id", "destination_id", "entry_id", "uuid") or key.endswith("_id"):
+            continue
+        if isinstance(value, str) and value.strip():
+            pieces.append(value.strip())
+    if pieces:
+        return " | ".join(pieces)
+    return _extract_destination_id(row)
 
 
 def _lookup_value_map_response(row: LookupValueMap, unmapped_row_count: int = 0) -> LookupValueMapResponse:

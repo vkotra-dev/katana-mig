@@ -244,11 +244,21 @@ export function LookupMappingTable({
     new Map(
       destinationRows.map((row) => {
         const destId = extractDestinationId(row);
-        const label = Object.entries(row)
-          .filter(([key]) => key !== "id" && key !== "destination_id" && key !== "entry_id" && !key.toLowerCase().endsWith("_id"))
-          .map(([_, val]) => String(val).replace(/['"`]/g, ""))
-          .join(" | ");
-        return [destId, { value: destId, label: label || destId, row }];
+        const rawLabel = row.label || row.name || row.description || row.desc || row.val || row.value || row.display;
+        
+        let finalLabel = destId;
+        if (rawLabel) {
+            finalLabel = String(rawLabel).replace(/['"`]/g, "");
+        } else {
+            // Fallback for older raw JSON rows
+            const fallback = Object.entries(row)
+                .filter(([key]) => key !== "id" && key !== "destination_id" && key !== "entry_id" && !key.toLowerCase().endsWith("_id") && key !== "destination_mapping_id")
+                .map(([_, val]) => String(val).replace(/['"`]/g, ""))
+                .join(" | ");
+            if (fallback) finalLabel = fallback;
+        }
+
+        return [destId, { value: destId, label: finalLabel, row }];
       })
     ).values()
   ).filter(opt => opt.value !== "");
@@ -265,7 +275,7 @@ export function LookupMappingTable({
         <thead>
           <tr className="border-b border-slate-100 pb-2 text-slate-400 font-semibold uppercase tracking-wider">
             <th className="py-2">Source Value</th>
-            <th className="py-2">Destination Row</th>
+            <th className="py-2">Destination Value</th>
             <th className="py-2">Confidence</th>
             <th className="py-2">Status</th>
           </tr>
@@ -273,22 +283,18 @@ export function LookupMappingTable({
         <tbody className="divide-y divide-slate-100">
           {pairs.slice(0, visibleCount).map((pair, idx) => {
             const displayRow = editingEnabled ? pair.destinationRow : pair.destinationRow;
-            const destId = pair.destinationId ?? (displayRow?.id as string) ?? (displayRow?.destination_id as string);
+            const destId = pair.destinationId ?? (displayRow?.id as string) ?? (displayRow?.destination_id as string) ?? (displayRow?.destination_mapping_id as string);
+            
+            let destLabelText = "";
+            if (displayRow) {
+                const opt = availableDestinationOptions.find(o => o.value === destId);
+                destLabelText = opt?.label || destId;
+            }
+
             const destLabel = displayRow ? (
-              <div className="grid grid-cols-[repeat(auto-fit,minmax(72px,1fr))] gap-2 p-2 border border-slate-100 rounded-lg bg-slate-50/40 text-[10px] font-mono w-full">
-                {Object.entries(displayRow)
-                  .filter(([key]) => key !== "id" && key !== "destination_id")
-                  .map(([key, val]) => (
-                    <div key={key} className="flex flex-col border-l-2 border-primary/20 pl-2 min-w-[72px]">
-                      <span className="text-slate-400 font-medium text-[8px] uppercase tracking-wider truncate" title={key}>
-                        {key.trim().replace(/['"`]/g, "")}
-                      </span>
-                      <span className="text-slate-800 font-semibold truncate" title={String(val)}>
-                        {String(val).replace(/['"`]/g, "")}
-                      </span>
-                    </div>
-                  ))}
-              </div>
+              <span className="font-mono text-[11px] text-slate-700 font-medium">
+                {destLabelText} <span className="text-slate-400">({destId})</span>
+              </span>
             ) : (
               <span className="text-slate-400 italic">-</span>
             );

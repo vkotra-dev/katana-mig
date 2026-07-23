@@ -92,7 +92,7 @@ class _FieldMappingResult(BaseModel):
 
 class _LookupProposal(BaseModel):
     source_value: str
-    destination_mapping_id: str
+    dest_id: str
     confidence_score: float
 
 
@@ -359,6 +359,8 @@ def _bridge_lookup_fiber_to_value_map(db: Session, fiber: ProjectFiber) -> None:
     dest_feed = db.scalar(
         select(LookupDestFeed).where(LookupDestFeed.fiber_id == fiber.fiber_id)
     )
+    from .lookup_mapping import _extract_destination_label
+
     dest_entries: list[dict] = []
     if dest_feed:
         dest_entries_raw = db.scalars(
@@ -367,17 +369,17 @@ def _bridge_lookup_fiber_to_value_map(db: Session, fiber: ProjectFiber) -> None:
             )
         ).all()
         for row in dest_entries_raw:
-            d = dict(row.row_data)
-            d["destination_mapping_id"] = row.entry_id
-            dest_entries.append(d)
+            dest_entries.append({
+                "id": row.entry_id,
+                "label": _extract_destination_label(row.row_data)
+            })
 
     for lookup_name, mappings in by_name.items():
         source_value_map = {}
         for m in mappings:
             if m.dest_row:
-                if "destination_mapping_id" not in m.dest_row and m.dest_entry_id:
-                    m.dest_row["destination_mapping_id"] = m.dest_entry_id
-                dest_id = _extract_destination_id(m.dest_row)
+                # The dest_row is already simplified: {"id": "...", "label": "..."}
+                dest_id = m.dest_row.get("id")
                 if dest_id:
                     source_value_map[m.source_value] = dest_id
 
@@ -397,13 +399,14 @@ def _bridge_lookup_fiber_to_value_map(db: Session, fiber: ProjectFiber) -> None:
             existing.source_value_map = new_source_value_map
 
             existing_dest_ids = {
-                _extract_destination_id(r)
+                r.get("id") or _extract_destination_id(r)
                 for r in existing.destination_table
-                if _extract_destination_id(r)
+                if r.get("id") or _extract_destination_id(r)
             }
             new_dest_table = list(existing.destination_table)
             for row in dest_entries:
-                if _extract_destination_id(row) not in existing_dest_ids:
+                row_id = row.get("id") or _extract_destination_id(row)
+                if row_id not in existing_dest_ids:
                     new_dest_table.append(row)
             existing.destination_table = new_dest_table
         else:
@@ -844,11 +847,17 @@ def submit_lookup_inputs(
         adapter = get_adapter("lookup_mapping", model_policy)
     except TypeError:
         adapter = get_adapter("lookup_mapping")
+    from .lookup_mapping import _extract_destination_id, _extract_destination_label
+    
     payload = json.dumps(
         {
             "source_values": [entry.source_value for entry in source_entries],
-            "destination_rows": [
-                {**entry.row_data, "destination_mapping_id": entry.entry_id} for entry in dest_entries
+            "destination_options": [
+                {
+                    "id": entry.entry_id, 
+                    "value": _extract_destination_label(entry.row_data)
+                } 
+                for entry in dest_entries
             ],
         }
     )
@@ -906,17 +915,21 @@ def submit_lookup_inputs(
     source_entry_by_value = {entry.source_value: entry for entry in source_entries}
     dest_entry_by_id = {entry.entry_id: entry for entry in dest_entries}
     proposals_for_denorm: list[dict[str, Any]] = []
+    from .lookup_mapping import _extract_destination_label
+
     for proposal in ai_result.proposals:
         source_entry = source_entry_by_value.get(proposal.source_value)
         if source_entry is None:
             continue
-        dest_entry = dest_entry_by_id.get(proposal.destination_mapping_id)
+        dest_entry = dest_entry_by_id.get(proposal.dest_id)
         
-        # Inject destination_mapping_id into dest_row so it's always available
+        # Save a strictly simplified version of the row for the frontend
         dest_row = None
         if dest_entry:
-            dest_row = dict(dest_entry.row_data)
-            dest_row["destination_mapping_id"] = dest_entry.entry_id
+            dest_row = {
+                "id": dest_entry.entry_id,
+                "label": _extract_destination_label(dest_entry.row_data)
+            }
 
         mapping = LookupMapping(
             fiber_id=fiber.fiber_id,
@@ -933,7 +946,7 @@ def submit_lookup_inputs(
         proposals_for_denorm.append(
             {
                 "source_value": proposal.source_value,
-                "dest_entry_id": proposal.destination_mapping_id,
+                "dest_entry_id": proposal.dest_id,
                 "dest_row": dest_row,
                 "confidence_score": proposal.confidence_score,
             }
@@ -1091,7 +1104,14 @@ def patch_mapping(
 
     dest_entry = db.get(LookupDestEntry, body.dest_entry_id)
     mapping.dest_entry_id = body.dest_entry_id
-    mapping.dest_row = dest_entry.row_data if dest_entry is not None else None
+    if dest_entry is not None:
+        from .lookup_mapping import _extract_destination_label
+        mapping.dest_row = {
+            "id": dest_entry.entry_id,
+            "label": _extract_destination_label(dest_entry.row_data)
+        }
+    else:
+        mapping.dest_row = None
     mapping.status = body.status
     mapping.mapped_by = "operator"
 
