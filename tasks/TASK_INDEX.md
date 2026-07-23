@@ -5,13 +5,14 @@
 | Task | Summary |
 |---|---|
 | [001fd-codegen-lookup-integration](./001fd-codegen-lookup-integration.md) | Embed approved lookup reference table names, schema, and sample mappings into Codegen prompts for accurate stored procedure generation. |
-| [001fc-lookup-fiber-prompt-and-review-edit](./001fc-lookup-fiber-prompt-and-review-edit.md) | Fix AI prompt to return id/dest_value from raw dest rows; fix review page pair display and inline editing to sync with fiber PATCH endpoint. Supersedes 001fb. |
 
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001fc-lookup-fiber-prompt-and-review-edit](./completed/001fc-lookup-fiber-prompt-and-review-edit.md) | [summary](./summary/001fc-lookup-fiber-prompt-and-review-edit.md) |
+
 | [001ey-explicit-json-schema-in-lookup-mapping-prompt](./completed/001ey-explicit-json-schema-in-lookup-mapping-prompt.md) | Updated `lookup_mapping.yaml` to explicitly define the output JSON schema contract, preventing local LLM hallucinations. |
 | [001ex-unmapped-lookup-row-counts](./completed/001ex-unmapped-lookup-row-counts.md) | Added `data_profile` to `FeedSlice` and computed `unmapped_row_count` dynamically for LookupValueMap API responses. Displayed warnings in Feed and Review pages. All 77 tests pass. |
 | [001ew-review-page-lookup-virtualization-and-editing](./completed/001ew-review-page-lookup-virtualization-and-editing.md) | Enabled manual editing and IntersectionObserver-based virtualized scrolling for massive lookup tables on the Review page. Added backend PATCH route for updating lookup mappings. Verified 31/31 tests pass (9 backend, 22 frontend). |
