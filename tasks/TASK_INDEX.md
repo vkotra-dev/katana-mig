@@ -4,6 +4,7 @@
 
 | Task | Summary |
 |---|---|
+| [001ey-explicit-json-schema-in-lookup-mapping-prompt](./001ey-explicit-json-schema-in-lookup-mapping-prompt.md) | Update lookup_mapping.yaml to explicitly define the output JSON schema contract, preventing local LLM hallucinations. |
 
 
 ## Completed
