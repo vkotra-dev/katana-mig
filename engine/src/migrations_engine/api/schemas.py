@@ -537,6 +537,10 @@ class LookupValueMapCreateRequest(BaseModel):
     source_value_map: dict[str, str] = Field(default_factory=dict)
 
 
+class LookupValueMapPatchRequest(BaseModel):
+    source_value_map: dict[str, str]
+
+
 class LookupValueMapResponse(BaseModel):
     lookup_value_map_id: str
     project_id: str

@@ -12,6 +12,7 @@ from migrations_engine.app import app  # noqa: E402
 from migrations_engine.auth.passwords import hash_password  # noqa: E402
 from migrations_engine.config import get_settings  # noqa: E402
 from migrations_engine.db.models import (  # noqa: E402
+    LookupValueMap,
     ProjectDefinition,
     ProjectMembership,
     ProjectRegistry,
@@ -283,4 +284,111 @@ def test_mapping_snapshots_list_endpoint(admin_token: str) -> None:
     assert len(snapshots) == 2
     names = [s["destination_object_name"] for s in snapshots]
     assert names == ["Address", "Customer"]
+
+
+def test_patch_lookup_value_map(admin_token: str) -> None:
+    project_id, _source_definition_id = _seed_project()
+
+    # Create a lookup value map first
+    create = client.post(
+        f"/projects/{project_id}/lookup-maps",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "lookup_name": "status_code",
+            "destination_table": [{"id": "ACTIVE", "label": "Active"}, {"id": "BLOCKED", "label": "Blocked"}],
+            "source_value_map": {"A": "ACTIVE", "B": "BLOCKED"},
+        },
+    )
+    assert create.status_code == 201, create.text
+    lookup_map_id = create.json()["lookup_value_map_id"]
+
+    # Patch it
+    patch = client.patch(
+        f"/projects/{project_id}/lookup-maps/{lookup_map_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"source_value_map": {"A": "ACTIVE", "B": "ACTIVE"}},
+    )
+    assert patch.status_code == 200, patch.text
+    assert patch.json()["source_value_map"] == {"A": "ACTIVE", "B": "ACTIVE"}
+
+    # Verify it persists
+    result_list = client.get(
+        f"/projects/{project_id}/lookup-maps",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert result_list.status_code == 200
+    maps = result_list.json()
+    updated = [m for m in maps if m["lookup_value_map_id"] == lookup_map_id]
+    assert len(updated) == 1
+    assert updated[0]["source_value_map"] == {"A": "ACTIVE", "B": "ACTIVE"}
+
+
+def test_patch_lookup_value_map_forbidden(admin_token: str, stakeholder_token: str) -> None:
+    project_id, _source_definition_id = _seed_project()
+
+    # Create first
+    create = client.post(
+        f"/projects/{project_id}/lookup-maps",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "lookup_name": "status_code",
+            "destination_table": [{"id": "ACTIVE"}],
+            "source_value_map": {"A": "ACTIVE"},
+        },
+    )
+    assert create.status_code == 201
+    lookup_map_id = create.json()["lookup_value_map_id"]
+
+    # Stakeholder cannot patch
+    patch = client.patch(
+        f"/projects/{project_id}/lookup-maps/{lookup_map_id}",
+        headers={"Authorization": f"Bearer {stakeholder_token}"},
+        json={"source_value_map": {"A": "BLOCKED"}},
+    )
+    assert patch.status_code == 403
+    assert patch.json()["error"]["code"] == "forbidden"
+
+
+def test_patch_lookup_value_map_not_found(admin_token: str) -> None:
+    project_id, _source_definition_id = _seed_project()
+    fake_id = str(uuid.uuid4())
+
+    patch = client.patch(
+        f"/projects/{project_id}/lookup-maps/{fake_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"source_value_map": {"A": "B"}},
+    )
+    assert patch.status_code == 404
+
+
+def test_patch_lookup_value_map_approved(admin_token: str) -> None:
+    project_id, _source_definition_id = _seed_project()
+
+    # Create a lookup value map
+    create = client.post(
+        f"/projects/{project_id}/lookup-maps",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "lookup_name": "status_code",
+            "destination_table": [{"id": "ACTIVE"}],
+            "source_value_map": {"A": "ACTIVE"},
+        },
+    )
+    assert create.status_code == 201
+    lookup_map_id = create.json()["lookup_value_map_id"]
+
+    # Approve the lookup map
+    with SessionLocal() as db:
+        db_item = db.get(LookupValueMap, lookup_map_id)
+        db_item.status = "approved"
+        db.commit()
+
+    # Patch should fail with 409
+    patch = client.patch(
+        f"/projects/{project_id}/lookup-maps/{lookup_map_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"source_value_map": {"A": "BLOCKED"}},
+    )
+    assert patch.status_code == 409
+    assert patch.json()["error"]["code"] == "lookup_map_approved"
 

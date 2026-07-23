@@ -105,6 +105,25 @@ export async function createLookupValueMap(
   return mapLookupValueMapResponse(response);
 }
 
+export async function patchLookupValueMap(
+  token: string,
+  projectId: string,
+  lookupValueMapId: string,
+  input: { sourceValueMap: Record<string, string> },
+): Promise<LookupValueMapRecord> {
+  const response = await jsonRequest<Parameters<typeof mapLookupValueMapResponse>[0]>(
+    `/projects/${projectId}/lookup-maps/${lookupValueMapId}`,
+    {
+      method: "PATCH",
+      token,
+      body: JSON.stringify({
+        source_value_map: input.sourceValueMap,
+      }),
+    },
+  );
+  return mapLookupValueMapResponse(response);
+}
+
 export async function generateLookupSnapshot(
   token: string,
   projectId: string,

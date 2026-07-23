@@ -8,6 +8,7 @@ from ..api.schemas import (
     LookupSnapshotGenerateRequest,
     LookupSnapshotResponse,
     LookupValueMapCreateRequest,
+    LookupValueMapPatchRequest,
     LookupValueMapResponse,
 )
 from ..db.models import User
@@ -17,6 +18,7 @@ from ..management.lookup_mapping import (
     create_lookup_value_map,
     generate_lookup_snapshot,
     list_lookup_value_maps,
+    update_lookup_value_map,
 )
 
 router = APIRouter(tags=["lookup"])
@@ -54,6 +56,26 @@ def get_lookup_value_maps(
         db,
         project_id=project_id,
         feed_id=feed_id,
+    )
+
+
+@router.patch(
+    "/projects/{project_id}/lookup-maps/{lookup_value_map_id}",
+    response_model=LookupValueMapResponse,
+)
+def patch_lookup_value_map(
+    project_id: str,
+    lookup_value_map_id: str,
+    body: LookupValueMapPatchRequest,
+    actor: User = Depends(get_central_team_user),
+    db: Session = Depends(get_db),
+) -> LookupValueMapResponse:
+    require_project_access(db, user=actor, project_id=project_id)
+    return update_lookup_value_map(
+        db,
+        project_id=project_id,
+        lookup_value_map_id=lookup_value_map_id,
+        body=body,
     )
 
 

@@ -12,6 +12,7 @@ from ..api.schemas import (
     LookupSnapshotGenerateRequest,
     LookupSnapshotResponse,
     LookupValueMapCreateRequest,
+    LookupValueMapPatchRequest,
     LookupValueMapResponse,
     MappingSnapshotResponse,
 )
@@ -59,6 +60,45 @@ def create_lookup_value_map(
     db.commit()
     db.refresh(draft)
     return _lookup_value_map_response(draft)
+
+
+def update_lookup_value_map(
+    db: Session,
+    *,
+    project_id: str,
+    lookup_value_map_id: str,
+    body: LookupValueMapPatchRequest,
+) -> LookupValueMapResponse:
+    lookup_map = db.scalar(
+        select(LookupValueMap).where(
+            LookupValueMap.lookup_value_map_id == lookup_value_map_id,
+            LookupValueMap.project_id == project_id,
+        ),
+    )
+    if lookup_map is None:
+        raise AuthApiError("lookup_map_not_found", "Lookup value map not found.", 404)
+    if lookup_map.status == "approved":
+        raise AuthApiError("lookup_map_approved", "Cannot edit an approved lookup value map. Revert to draft first.", 409)
+
+    source_value_map = {key.strip(): value.strip() for key, value in body.source_value_map.items() if key.strip() and value.strip()}
+
+    # Reset related lookup snapshots to draft (sign-off invalidation)
+    snapshots = db.scalars(
+        select(LookupSnapshot).where(
+            LookupSnapshot.project_id == project_id,
+            LookupSnapshot.lookup_name == lookup_map.lookup_name,
+        ),
+    ).all()
+    for snapshot in snapshots:
+        if snapshot.status == "approved":
+            snapshot.status = "draft"
+            snapshot.approved_at = None
+            snapshot.approved_by_user_id = None
+
+    lookup_map.source_value_map = source_value_map
+    db.commit()
+    db.refresh(lookup_map)
+    return _lookup_value_map_response(lookup_map)
 
 
 def list_lookup_value_maps(

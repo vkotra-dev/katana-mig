@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { SignOffStatusRecord } from "../../lib/sign-offs-api";
+import { LookupMappingTable } from "./LookupMappingTable";
 
 export interface MappingTableRecord {
   destinationTableName: string;
@@ -47,6 +48,13 @@ interface ReviewGridProps {
   onRemoveSourceField?: (tableName: string, sourceField: string) => void;
   onSignLookup?: (lookupValueMapId: string) => void;
   onUnsignLookup?: (lookupValueMapId: string) => void;
+  onEditLookup?: (lookupValueMapId: string, pairs: Array<{
+    sourceValue: string;
+    destinationRow: Record<string, unknown> | null;
+    confidenceScore: number;
+    status: "confirmed" | "pending" | "rejected";
+    destinationId?: string;
+  }>) => void;
 }
 
 interface AutocompleteInputProps {
@@ -211,6 +219,7 @@ export function ReviewGrid({
   onRemoveSourceField,
   onSignLookup,
   onUnsignLookup,
+  onEditLookup,
 }: ReviewGridProps) {
   const [expandedTables, setExpandedTables] = useState<Record<string, boolean>>({});
   const [revisionOpen, setRevisionOpen] = useState(false);
@@ -725,65 +734,13 @@ export function ReviewGrid({
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-100 pb-2 text-slate-400 font-semibold uppercase tracking-wider">
-                        <th className="py-2">Source Value</th>
-                        <th className="py-2">Destination Row</th>
-                        <th className="py-2">Confidence</th>
-                        <th className="py-2">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {group.pairs.map((pair, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50/50">
-                          <td className="py-3 font-medium text-slate-800">{pair.sourceValue}</td>
-                          <td className="py-3 pr-4">
-                            {pair.destinationRow ? (
-                              <div className="grid grid-cols-[repeat(auto-fit,minmax(72px,1fr))] gap-2 p-2 border border-slate-100 rounded-lg bg-slate-50/40 text-[10px] font-mono w-full">
-                                {Object.entries(pair.destinationRow)
-                                  .filter(([key]) => key !== "id" && key !== "destination_id")
-                                  .map(([key, val]) => (
-                                    <div key={key} className="flex flex-col border-l-2 border-primary/20 pl-2 min-w-[72px]">
-                                      <span className="text-slate-400 font-medium text-[8px] uppercase tracking-wider truncate" title={key}>
-                                        {key.trim().replace(/['"`]/g, "")}
-                                      </span>
-                                      <span className="text-slate-800 font-semibold truncate" title={String(val)}>
-                                        {String(val).replace(/['"`]/g, "")}
-                                      </span>
-                                    </div>
-                                  ))}
-                              </div>
-                            ) : (
-                              <span className="text-slate-400 italic">—</span>
-                            )}
-                          </td>
-                          <td className="py-3">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-slate-700">
-                                {Math.round(pair.confidenceScore * 100)}%
-                              </span>
-                              <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full ${
-                                    pair.confidenceScore >= 0.8
-                                      ? "bg-emerald-500"
-                                      : pair.confidenceScore >= 0.5
-                                      ? "bg-amber-500"
-                                      : "bg-red-500"
-                                  }`}
-                                  style={{ width: `${pair.confidenceScore * 100}%` }}
-                                ></div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-3">{getStatusBadge(pair.status)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <LookupMappingTable
+                  pairs={group.pairs}
+                  destinationRows={group.pairs.map((p) => p.destinationRow).filter(Boolean) as Record<string, unknown>[]}
+                  lookupValueMapId={group.lookupValueMapId}
+                  editingEnabled={editingEnabled}
+                  onEditLookup={onEditLookup}
+                />
               </div>
             ))}
           </div>

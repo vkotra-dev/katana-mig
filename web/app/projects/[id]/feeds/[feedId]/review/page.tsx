@@ -13,6 +13,7 @@ import {
 } from "../../../../../../lib/mapping-api";
 import {
   listLookupValueMaps,
+  patchLookupValueMap,
   type LookupValueMapRecord,
 } from "../../../../../../lib/lookup-api";
 import { listFeedSlices, getFeedContract, listFeedFibers, type FeedContractRecord } from "../../../../../../lib/feeds-api";
@@ -201,6 +202,54 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
       setSignOffStatus(updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to unsign lookup mapping.");
+    }
+  };
+
+  const handleEditLookup = async (_lookupValueMapId: string, updatedPairs: Array<{
+    sourceValue: string;
+    destinationRow: Record<string, unknown> | null;
+    confidenceScore: number;
+    status: "confirmed" | "pending" | "rejected";
+    destinationId?: string;
+  }>) => {
+    // Find the lookup map being edited by matching pairs
+    const mapToEdit = lookupMaps.find((map) => {
+      const pairKeys = new Set(Object.keys(map.sourceValueMap));
+      const updatedKeys = new Set(updatedPairs.map((p) => p.sourceValue));
+      if (pairKeys.size !== updatedKeys.size) return false;
+      for (const key of pairKeys) {
+        if (!updatedKeys.has(key)) return false;
+      }
+      return true;
+    });
+
+    if (!_lookupValueMapId || !mapToEdit) return;
+
+    // Build sourceValueMap from updated pairs
+    const sourceValueMap: Record<string, string> = {};
+    for (const pair of updatedPairs) {
+      const destId = pair.destinationId ?? (pair.destinationRow?.id as string) ?? (pair.destinationRow?.destination_id as string);
+      if (destId) {
+        sourceValueMap[pair.sourceValue] = destId;
+      }
+    }
+
+    // Optimistically update local state
+    setLookupMaps((prev) =>
+      prev.map((map) =>
+        map.lookupValueMapId === mapToEdit.lookupValueMapId ? { ...map, sourceValueMap } : map,
+      ),
+    );
+    try {
+      await patchLookupValueMap(session.accessToken, projectId, mapToEdit.lookupValueMapId, { sourceValueMap });
+      // Sign-off status automatically resets in the backend; fetch the new status
+      const updated = await getSignOffStatus(session.accessToken, projectId, feedId);
+      setSignOffStatus(updated);
+      setNotice("Lookup mapping updated.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update lookup mapping.");
+      // Reload to recover server state
+      await loadData(session.accessToken);
     }
   };
 
@@ -610,6 +659,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
                       onRemoveSourceField={handleRemoveSourceField}
                       onSignLookup={handleSignLookup}
                       onUnsignLookup={handleUnsignLookup}
+                      onEditLookup={editingEnabled ? handleEditLookup : undefined}
                     />
                   );
                 })()
