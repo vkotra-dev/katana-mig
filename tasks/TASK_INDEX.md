@@ -4,6 +4,7 @@
 
 | Task | Summary |
 |---|---|
+| [001fb-lookup-prompt-id-value-contract](./001fb-lookup-prompt-id-value-contract.md) | Fix lookup fiber AI prompt to receive raw dest rows and return id, source_value, dest_value so UI and codegen get the correct business key and human label. |
 
 
 ## Completed
