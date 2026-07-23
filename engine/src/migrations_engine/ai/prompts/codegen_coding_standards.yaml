@@ -16,6 +16,7 @@ shared_footer: |
      - Use explicit column lists in all INSERT statements.
      - Do not hardcode environment-specific values. Do not create arbitrary default timestamps for business data columns. Database-managed audit columns, such as migration-log timestamps, may use an appropriate default when explicitly required by the schema.
 
+
 postgresql: |2
        - Use standard PostgreSQL coding conventions: lowercase identifiers, snake_case for tables/columns, explicit type casting (e.g. ::date, ::integer).
        - Stored procedures/functions should be written in PL/pgSQL using dollar-quoting.
@@ -55,22 +56,6 @@ postgresql: |2
          WHERE s.pk_column IS NOT NULL
 
          Then reference resolved_fk1_id and resolved_fk2_id in the INSERT/UPDATE clauses instead of the raw source code columns.
-         17. Every upsert must log to $stg.mig_upsert_log (columns: run_ref, dest_table, source_row_num, dest_row_id, action). PostgreSQL's MERGE (15+) has no OUTPUT clause; use INSERT ... ON CONFLICT ... RETURNING with a CTE:
-         WITH upserted AS (
-             INSERT INTO $dest.dest_table (...)
-             SELECT ... FROM $stg.source_table
-             ON CONFLICT (key_column) DO UPDATE SET ...
-             RETURNING dest_pk_column AS dest_row_id, (xmax = 0) AS is_insert, _row_num AS source_row_num
-         )
-         INSERT INTO $stg.mig_upsert_log (run_ref, dest_table, source_row_num, dest_row_id, action)
-         SELECT 'run_ref_value', 'dest_table_name', source_row_num, dest_row_id::text,
-                CASE WHEN is_insert THEN 'INSERT' ELSE 'UPDATE' END
-         FROM upserted;
-         (xmax = 0 is the standard PostgreSQL idiom for "this row was just inserted, not updated" within the same statement.)
-         18. Duplicate source-key checks must be performed for every ON CONFLICT target column set before executing the upsert. If duplicate source keys exist, RAISE EXCEPTION before the upsert runs.
-         19. Lookup seed data must be idempotent. Use INSERT ... ON CONFLICT DO NOTHING so rerunning the script cannot create duplicate lookup values.
-         20. For lookup tables created by the script, every business code column used for FK resolution must have a UNIQUE constraint or index.
-         21. Before upserting, validate that every required FK lookup resolved successfully. If a non-NULL source lookup code cannot be resolved to a required destination FK, RAISE EXCEPTION before executing the upsert. Preserve NULL only when the source value and destination FK are legitimately nullable.
 
 mssql: |2
        - Use T-SQL coding conventions: UPPERCASE SQL keywords, square brackets for identifiers only when necessary, proper schema qualifiers.
@@ -124,11 +109,6 @@ mssql: |2
          ) AS source
 
          Then reference source.resolved_fk1_id and source.resolved_fk2_id in the UPDATE SET and INSERT VALUES clauses instead of the raw source code columns.
-         17. Every MERGE statement must include an OUTPUT clause logging to [$stg].[mig_upsert_log]. After all MERGEs complete, return a result set with run_ref, rows_inserted, rows_updated, completed_at derived from the log table.
-         18. Duplicate source-key checks must be performed for every key or composite key used in the MERGE ON clause before executing MERGE. If duplicate source keys exist, THROW before MERGE. Also validate that required MERGE key columns are not NULL.
-         19. Lookup seed data must be idempotent. Never emit unconditional INSERT statements for lookup rows. Use IF NOT EXISTS or INSERT ... WHERE NOT EXISTS so rerunning the script cannot create duplicate lookup values.
-         20. For lookup tables created by the script, every business code column used for FK resolution must have a UNIQUE constraint or UNIQUE index.
-         21. Before MERGE, validate that every required FK lookup resolved successfully. If a non-NULL source lookup code cannot be resolved to a required destination FK, THROW before executing MERGE. Preserve NULL only when the source value and destination FK are legitimately nullable.
 
 oracle: |2
        - Use PL/SQL coding conventions: UPPERCASE keywords/types, clear EXCEPTION blocks, schema-qualified table references.
@@ -172,11 +152,6 @@ oracle: |2
          )
 
          (and equivalently in the paired INSERT ... SELECT ... WHERE NOT EXISTS statement)
-         17. Both the UPDATE and INSERT statements must use RETURNING dest_pk_column, _row_num BULK COLLECT INTO v_dest_ids, v_source_rows (separately for each), then FORALL i IN 1..v_dest_ids.COUNT INSERT INTO $stg.mig_upsert_log (run_ref, dest_table, source_row_num, dest_row_id, action) VALUES (v_run_ref, 'dest_table_name', v_source_rows(i), TO_CHAR(v_dest_ids(i)), 'UPDATE_OR_INSERT') — action is known statically per statement (not per row), since UPDATE and INSERT are separate here.
-         18. Duplicate source-key checks must be performed before the UPDATE/INSERT pair executes. If duplicate source keys exist, RAISE_APPLICATION_ERROR before the pair runs.
-         19. Lookup seed data must be idempotent. Use INSERT INTO ... SELECT ... WHERE NOT EXISTS (...) so rerunning the script cannot create duplicate lookup values.
-         20. For lookup tables created by the script, every business code column used for FK resolution must have a UNIQUE constraint or index.
-         21. Before the UPDATE/INSERT pair, validate that every required FK lookup resolved successfully. If a non-NULL source lookup code cannot be resolved to a required destination FK, RAISE_APPLICATION_ERROR before executing the pair. Preserve NULL only when the source value and destination FK are legitimately nullable.
 
 mysql: |2
        - Use standard MySQL coding conventions: backticks for reserved word identifiers, snake_case table/column names.
@@ -211,8 +186,3 @@ mysql: |2
            LEFT JOIN stg_lookup_table_1 lk1 ON lk1.code_column = s.source_code_column_1
            LEFT JOIN stg_lookup_table_2 lk2 ON lk2.code_column = s.source_code_column_2
            WHERE s.pk_column IS NOT NULL;
-         17. Every processed row must be logged to $stg.mig_upsert_log (run_ref, dest_table, source_row_num, dest_row_id, action) via the per-row ROW_COUNT()/LAST_INSERT_ID() pattern from item 4 — this is inherently row-by-row in MySQL, not set-based; note this explicitly as a comment in the generated procedure, and batch-commit every 500 rows for large source tables to bound transaction overhead.
-         18. Duplicate source-key checks must be performed for every key/composite key used as the ON DUPLICATE KEY UPDATE target before the cursor loop begins; SIGNAL SQLSTATE on duplicates.
-         19. Lookup seed data must be idempotent: use INSERT IGNORE or INSERT ... ON DUPLICATE KEY UPDATE so rerunning the script cannot create duplicate lookup values.
-         20. For lookup tables created by the script, every business code column used for FK resolution must have a UNIQUE KEY.
-         21. Before the cursor loop, validate every required FK lookup resolved via a pre-flight SELECT COUNT(*) ... WHERE resolved_fk IS NULL AND source_code IS NOT NULL; SIGNAL SQLSTATE before processing if any are unresolved.
