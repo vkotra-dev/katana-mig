@@ -12,8 +12,10 @@ from migrations_engine.app import app  # noqa: E402
 from migrations_engine.auth.passwords import hash_password  # noqa: E402
 from migrations_engine.config import get_settings  # noqa: E402
 from migrations_engine.db.models import (  # noqa: E402
+    FeedSlice,
     LookupValueMap,
     ProjectDefinition,
+    ProjectFiber,
     ProjectMembership,
     ProjectRegistry,
     SourceDefinition,
@@ -391,4 +393,67 @@ def test_patch_lookup_value_map_approved(admin_token: str) -> None:
     )
     assert patch.status_code == 409
     assert patch.json()["error"]["code"] == "lookup_map_approved"
+
+
+def test_get_lookup_maps_returns_unmapped_row_count(admin_token: str) -> None:
+    project_id, source_definition_id = _seed_project()
+
+    # Store a lookup value map directly in the DB with an unmapped (empty) value
+    # We can't use the API create endpoint because it strips empty values
+    with SessionLocal() as db:
+        db.add(
+            LookupValueMap(
+                lookup_value_map_id=str(uuid.uuid4()),
+                project_id=project_id,
+                lookup_name="status_code",
+                destination_table=[{"id": "ACTIVE", "label": "Active"}],
+                source_value_map={"A": "ACTIVE", "B": ""},  # B is unmapped (empty string)
+                status="draft",
+            )
+        )
+        db.add(
+            FeedSlice(
+                source_slice_id=str(uuid.uuid4()),
+                source_definition_id=source_definition_id,
+                source_contract_version="v1",
+                source_slice_version="v1",
+                source_schema_artifact=None,
+                masking_policy={},
+                header_csv="STATUS_CODE",
+                slice_payload=None,
+                status="approved",
+                parse_warnings=[],
+                file_storage_path="/tmp/source.csv",
+                data_profile={
+                    "STATUS_CODE": {"A": 100, "B": 250, "C": 50},
+                    "OTHER_COL": {"X": 10},
+                },
+                approved_at=datetime.now(UTC),
+                approved_by_user_id=db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE)).user_id,
+            )
+        )
+        db.add(
+            ProjectFiber(
+                fiber_id=str(uuid.uuid4()),
+                feed_id=source_definition_id,
+                project_id=project_id,
+                fiber_type="lookup",
+                fiber_key="status_code",
+                status="operator_triggered",
+                source="manual",
+            )
+        )
+        db.commit()
+
+    # Fetch with feed_id to trigger data_profile lookup
+    result = client.get(
+        f"/projects/{project_id}/lookup-maps?feed_id={source_definition_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert result.status_code == 200
+    maps = result.json()
+    assert len(maps) >= 1, f"Expected >=1 maps, got {len(maps)}: {maps}"
+    status_map = [m for m in maps if m["lookup_name"] == "status_code"][0]
+    # B is unmapped and has count 250 in data_profile
+    assert status_map["unmapped_row_count"] == 250
 

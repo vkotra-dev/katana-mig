@@ -48,7 +48,18 @@
       "Bash(echo \"ls-files: $?\")",
       "Bash(.venv/bin/pytest engine/tests/test_codegen_service_api.py engine/tests/test_mapping_review_api.py -q)",
       "Bash(PYTHONPATH=. python -c ' *)",
-      "Bash(.venv/bin/pytest engine/tests/test_mapping_review_api.py::test_destination_columns_in_api_response engine/tests/test_codegen_service_api.py -q)"
+      "Bash(.venv/bin/pytest engine/tests/test_mapping_review_api.py::test_destination_columns_in_api_response engine/tests/test_codegen_service_api.py -q)",
+      "Bash(./node_modules/.bin/tsc --noEmit --jsx preserve --moduleResolution bundler --module ESNext --target ES2022 --strict --skipLibCheck app/projects/\\\\[id\\\\]/codegen/page.tsx)",
+      "Bash(web/node_modules/.bin/tsc --noEmit --jsx preserve --moduleResolution bundler --module ESNext --target ES2022 --strict --skipLibCheck --paths '@/*':'./*' --baseUrl web app/projects/\\\\[id\\\\]/codegen/page.tsx)",
+      "Bash(web/node_modules/.bin/tsc --noEmit --project web/tsconfig.json)",
+      "Bash(.venv/bin/pytest engine/tests/test_mapping_review_api.py -q)",
+      "Bash(awk 'NR==81,/^};/{print NR\": \"$0}' \"web/app/projects/[id]/codegen/page.tsx\")",
+      "Bash(cd *)",
+      "Bash(.venv/bin/pytest engine/tests/test_codegen_coding_standards.py engine/tests/test_project_crud_api.py -q)",
+      "Bash(.venv/bin/pytest engine/tests/test_codegen_coding_standards.py -q)",
+      "Bash(.venv/bin/pytest engine/tests/test_codegen_system_prompt.py -q)",
+      "Bash(.venv/bin/pytest engine/tests/codegen/test_bundle_logging.py -q)",
+      "Bash(PYTHONPATH=/Users/vjkotra/projects/katana/engine/src python -c ' *)"
     ]
   }
 }

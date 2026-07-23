@@ -548,6 +548,7 @@ class LookupValueMapResponse(BaseModel):
     destination_table: list[dict[str, Any]]
     source_value_map: dict[str, str]
     status: Literal["draft", "approved"]
+    unmapped_row_count: int = 0
     created_at: datetime
 
 

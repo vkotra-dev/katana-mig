@@ -16,7 +16,7 @@ from ..api.schemas import (
     LookupValueMapResponse,
     MappingSnapshotResponse,
 )
-from ..db.models import LookupSnapshot, LookupValueMap, Feed, User, new_id, ProjectFiber
+from ..db.models import LookupSnapshot, LookupValueMap, Feed, FeedSlice, User, new_id, ProjectFiber
 from ..mapping.snapshots import select_latest_approved_mapping_snapshot
 from ..mapping.exceptions import SnapshotNotFoundError
 from .platform import record_management_audit
@@ -122,7 +122,41 @@ def list_lookup_value_maps(
     rows = db.scalars(
         stmt.order_by(LookupValueMap.created_at.asc(), LookupValueMap.lookup_value_map_id.asc())
     ).all()
-    return [_lookup_value_map_response(row) for row in rows]
+
+    # Find the latest approved FeedSlice with data_profile for this project
+    data_profile: dict[str, dict[str, int]] | None = None
+    if feed_id:
+        source_definition = db.scalar(
+            select(Feed).where(Feed.source_definition_id == feed_id)
+        )
+        if source_definition:
+            slice_record = db.scalar(
+                select(FeedSlice)
+                .where(
+                    FeedSlice.source_definition_id == source_definition.source_definition_id,
+                    FeedSlice.status == "approved",
+                    FeedSlice.data_profile.isnot(None),
+                )
+                .order_by(FeedSlice.created_at.desc())
+                .limit(1)
+            )
+            if slice_record and slice_record.data_profile:
+                data_profile = slice_record.data_profile  # type: ignore[assignment]
+
+    def _compute_unmapped_count(lookup_map: LookupValueMap) -> int:
+        if not data_profile:
+            return 0
+        unmapped_keys = {k for k, v in lookup_map.source_value_map.items() if not v or (isinstance(v, str) and not v.strip())}
+        if not unmapped_keys:
+            return 0
+        unmapped_count = 0
+        for col_profile in data_profile.values():
+            if isinstance(col_profile, dict):
+                for u_key in unmapped_keys:
+                    unmapped_count += col_profile.get(u_key, 0)
+        return unmapped_count
+
+    return [_lookup_value_map_response(row, _compute_unmapped_count(row)) for row in rows]
 
 
 def generate_lookup_snapshot(
@@ -358,7 +392,7 @@ def _extract_destination_id(row: dict[str, Any]) -> str:
     return ""
 
 
-def _lookup_value_map_response(row: LookupValueMap) -> LookupValueMapResponse:
+def _lookup_value_map_response(row: LookupValueMap, unmapped_row_count: int = 0) -> LookupValueMapResponse:
     return LookupValueMapResponse(
         lookup_value_map_id=row.lookup_value_map_id,
         project_id=row.project_id,
@@ -366,6 +400,7 @@ def _lookup_value_map_response(row: LookupValueMap) -> LookupValueMapResponse:
         destination_table=row.destination_table,
         source_value_map=row.source_value_map,
         status=row.status,
+        unmapped_row_count=unmapped_row_count,
         created_at=row.created_at,
     )
 

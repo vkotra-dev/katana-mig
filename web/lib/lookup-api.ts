@@ -7,6 +7,7 @@ export interface LookupValueMapRecord {
   destinationTable: Array<Record<string, unknown>>;
   sourceValueMap: Record<string, string>;
   status: "draft" | "approved";
+  unmappedRowCount?: number;
   createdAt: string;
 }
 

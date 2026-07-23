@@ -883,6 +883,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                       const refTable = binding.referenceTableName || "unknown_ref";
                       const fiber = fibers.find((f) => f.fiberType === "lookup" && f.fiberKey === lName);
                       const fiberId = fiber?.fiberId || "";
+                      const lookupMap = lookupMaps.find((m) => m.lookupName === lName);
 
                       const draft = lookupDrafts[lName] || { sourceText: "", destText: "", analyzing: false, error: null };
 
@@ -941,6 +942,11 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                               <span className="text-[10px] bg-amber-500/10 text-amber-700 px-1.5 py-0.5 rounded font-mono">
                                 ref: {refTable}
                               </span>
+                              {lookupMap?.unmappedRowCount != null && lookupMap.unmappedRowCount > 0 && (
+                                <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-mono font-bold">
+                                  ⚠️ {lookupMap.unmappedRowCount} unmapped
+                                </span>
+                              )}
                               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-150 ${isLookupOpen ? "rotate-180" : ""}`}>
                                 <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
                               </svg>

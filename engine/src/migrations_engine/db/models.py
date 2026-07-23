@@ -266,6 +266,7 @@ class FeedSlice(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending_approval")
     approval_rejection_reason: Mapped[str | None] = mapped_column(Text)
     parse_warnings: Mapped[list[str] | None] = mapped_column(JSON)
+    data_profile: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     file_storage_path: Mapped[str | None] = mapped_column(String(255))
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     approved_by_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.user_id"))

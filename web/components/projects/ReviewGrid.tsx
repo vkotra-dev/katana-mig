@@ -20,6 +20,7 @@ export interface LookupValueGroup {
   lookupName: string;
   referenceTableName: string;
   lookupValueMapId?: string;
+  unmappedRowCount?: number;
   fiberStatus?: string;
   pairs: Array<{
     sourceValue: string;
@@ -738,6 +739,7 @@ export function ReviewGrid({
                   pairs={group.pairs}
                   destinationRows={group.pairs.map((p) => p.destinationRow).filter(Boolean) as Record<string, unknown>[]}
                   lookupValueMapId={group.lookupValueMapId}
+                  unmappedRowCount={group.unmappedRowCount}
                   editingEnabled={editingEnabled}
                   onEditLookup={onEditLookup}
                 />

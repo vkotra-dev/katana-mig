@@ -14,6 +14,7 @@ interface LookupMappingTableProps {
   }>;
   destinationRows: Array<{ [key: string]: unknown }>;
   lookupValueMapId?: string;
+  unmappedRowCount?: number;
   editingEnabled?: boolean;
   onEditLookup?: (lookupValueMapId: string, pairs: Array<{
     sourceValue: string;
@@ -195,6 +196,7 @@ export function LookupMappingTable({
   pairs,
   destinationRows,
   lookupValueMapId,
+  unmappedRowCount,
   editingEnabled,
   onEditLookup,
 }: LookupMappingTableProps) {
@@ -236,6 +238,12 @@ export function LookupMappingTable({
 
   return (
     <div className="overflow-x-auto">
+      {unmappedRowCount != null && unmappedRowCount > 0 && (
+        <div className="flex items-center gap-2 text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-3 text-xs font-medium">
+          <span className="text-base">⚠️</span>
+          <span>{unmappedRowCount.toLocaleString()} rows unmapped</span>
+        </div>
+      )}
       <table className="w-full border-collapse text-left text-xs">
         <thead>
           <tr className="border-b border-slate-100 pb-2 text-slate-400 font-semibold uppercase tracking-wider">
