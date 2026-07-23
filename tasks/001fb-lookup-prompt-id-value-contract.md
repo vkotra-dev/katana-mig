@@ -4,65 +4,113 @@ title: Fix lookup fiber AI prompt — output id, source_value, dest_value
 status: active
 created: 2026-07-23
 priority: high
-domain: lookup-fiber / ai-prompt / fibers.py
+domain: lookup-fiber / ai-prompt / fibers.py / feed-page / review-page
 ---
 
 # Task 001fb — Fix Lookup Fiber AI Prompt Contract
 
 ## Context
 
-The lookup fiber currently submits source values (e.g., `APPROVED`, `UNDER_REVIEW`) and destination
-lookup table rows (e.g., `id, is_payable, is_terminal, status_code, status_name, display_order`) to
-the AI for mapping.
+The lookup fiber has two inputs:
 
-### Current broken flow
+**Input A — Source values** (unique values extracted from the source CSV by the operator):
+```
+APPROVED
+UNDER_REVIEW
+PAID
+PENDING
+REJECTED
+```
 
-1. Backend pre-processes destination rows with `_extract_destination_label()` — a heuristic that
-   only checks exact column names (`name`, `label`, etc.) and fails completely for columns like
-   `status_name`, `display_name`, `type_description`.
-2. AI receives lossy `{id: UUID, value: "Y | N | APPROVED | Approved | 3"}` — garbled concatenated
-   fallback — not the real data.
-3. AI returns only `dest_id` (a system UUID). No business key. No human label.
-4. The stored `dest_row` in `LookupMapping` is `{id: UUID, label: heuristic_garbage}`.
-5. UI can't display properly. Codegen can't extract the right FK value.
-6. Destination CSV rows are fed to AI with duplicates (same row appears 4–5×), burning tokens.
+**Input B — Destination lookup CSV** (pasted by the operator, full table dump, may contain duplicates):
+```
+id,is_payable,is_terminal,status_code,status_name,display_order
+3,Y,N,APPROVED,Approved,3
+2,N,N,UNDER_REVIEW,Under Review,2
+5,Y,Y,PAID,Paid,5
+...
+```
+
+The AI does the mapping work: for each source value it finds the best matching row in the
+destination CSV and extracts the business key (`id`) and the human-readable label (`dest_value`).
+
+## Current Broken State
+
+1. **Backend pre-processes destination rows** using a heuristic `_extract_destination_label()` that
+   only matches exact column names (`name`, `label`, etc.) — fails for `status_name`,
+   `display_name`, `type_description`.
+2. **AI receives lossy, garbled data** like `{id: UUID, value: "Y | N | APPROVED | Approved | 3"}`.
+3. **AI output has no business key or label** — only `dest_id` (a system UUID), `source_value`,
+   `confidence_score`.
+4. **`dest_row` saved in DB is wrong** — `{id: UUID, label: "Y | N | APPROVED | Approved | 3"}`.
+5. **Duplicate rows sent to AI** — same dest CSV row repeated 4–5× burns tokens and confuses
+   local LLMs.
+6. **`patch_mapping` (manual edit path)** also uses the same broken heuristic — so manually
+   patching a mapping from the feed page also saves a wrong `dest_row`.
+7. **Both feed page and review page** display from `dest_row.label` and `dest_row.id`, so both
+   pages show garbled values.
+
+## Correct Output Contract
+
+**AI must return:**
+```json
+{
+  "proposals": [
+    { "source_value": "APPROVED",     "id": "3", "dest_value": "Approved",     "confidence_score": 0.99 },
+    { "source_value": "UNDER_REVIEW", "id": "2", "dest_value": "Under Review", "confidence_score": 0.99 },
+    { "source_value": "PAID",         "id": "5", "dest_value": "Paid",         "confidence_score": 0.99 },
+    { "source_value": "PENDING",      "id": "1", "dest_value": "Pending",      "confidence_score": 0.99 },
+    { "source_value": "REJECTED",     "id": "4", "dest_value": "Rejected",     "confidence_score": 0.99 }
+  ],
+  "unmatched_source_values": []
+}
+```
+
+Where:
+- `source_value` — the original source value
+- `id` — the value in the `id` column of the best-matching destination row (business key, used by codegen for FK)
+- `dest_value` — the best human-readable label column value from the matching row (used by UI display)
+- `confidence_score` — 0.0–1.0
+
+## Local LLM Considerations
+
+The Ollama adapter appends the Pydantic JSON schema to the system prompt automatically. The prompt
+must therefore be:
+- **Extremely explicit** — local LLMs do not infer intent well; every field must be named and described
+- **Example-driven** — include a concrete input/output example in the system prompt
+- **No ambiguity** — do not rely on the LLM to "figure out" which column is the ID vs the label
 
 ## Objective
 
-Fix the full pipeline so:
+Fix the full pipeline:
 
-1. AI receives the **raw deduplicated destination rows** — full column data.
-2. AI returns: `source_value`, `id` (business key, e.g. `"3"`), `dest_value` (human label, e.g.
-   `"Approved"`), `dest_id` (system `_ref` UUID for DB linking), `confidence_score`.
-3. Backend stores `dest_row = {"id": "3", "label": "Approved"}` — clean, no heuristics.
-4. UI renders: Column 1 = `APPROVED`, Column 2 = `Approved (3)`.
-5. Codegen reads `dest_row["id"]` = `"3"` to feed FK into the proc.
+1. Prompt receives raw deduplicated destination rows and is explicit enough for local LLMs.
+2. AI returns `source_value`, `id`, `dest_value`, `confidence_score`.
+3. Backend looks up `LookupDestEntry` by scanning `row_data["id"] == proposal.id`.
+4. `dest_row` saved as `{"id": proposal.id, "label": proposal.dest_value}` — clean, no heuristic.
+5. `patch_mapping` (manual edit) also saves the same clean format.
+6. Feed page and review page both display correctly via `LookupMappingTable`.
 
 ## Out of Scope
 
-- No DB model changes (no migration needed — `dest_row` JSON column already exists)
-- No UI component changes (LookupMappingTable already renders `label (id)` format)
-- No codegen changes (already reads `dest_row["id"]`)
-- No changes to the manual patch path (`patch_mapping` in `fibers.py`) — that path already saves
-  simplified `dest_row` from `_extract_destination_label`; fix it as a follow-up if needed
-
-## Blast Radius
-
-- `engine/src/migrations_engine/ai/prompts/lookup_mapping.yaml` — prompt contract changes
-- `engine/src/migrations_engine/management/fibers.py` — payload construction, Pydantic model,
-  dest_row saving logic
-- `engine/tests/test_lookup_fiber_api.py` — `FakeLookupAdapter` and assertion updates
+- No DB model changes — `LookupMapping.dest_row` JSON column is sufficient
+- No migration needed
+- No UI component changes — `LookupMappingTable` already renders `label (id)` format
+- No codegen changes — already reads `dest_row["id"]`
 
 ## Red Flags
 
-1. **Duplicate rows** — destination CSV rows can repeat many times; must deduplicate on
+1. **Duplicate dest rows** — destination CSV dump often has repeated rows; must deduplicate by
    `row_data` content before sending to AI.
-2. **`dest_entry_by_id` lookup** — currently keyed by `entry_id` UUID. AI will echo the `_ref`
-   UUID field back as `dest_id`, so the lookup still works — do not change the key.
-3. **AI field `id` vs model field `id`** — `_LookupProposal.id` is the business key extracted by
-   the AI. This is a new field. Do not confuse with the DB primary key or `entry_id`.
-4. **Test suite** — `FakeLookupAdapter` currently returns `{"source_value", "dest_id",
-   "confidence_score"}`. Adding `id` and `dest_value` to `_LookupProposal` will cause validation
-   failures. Must update.
-5. **`_extract_destination_id` / `_extract_destination_label` imports** — the import line in
-   `fibers.py` must be cleaned up; these heuristics are no longer needed in the AI path.
+2. **Local LLM JSON compliance** — Ollama models sometimes wrap JSON in markdown fences or add
+   extra keys. The OllamaAdapter already strips fences and retries 3×. The prompt must still be as
+   tight as possible.
+3. **`dest_entry_id` FK lookup** — AI returns business `id` value (e.g. `"3"`). Backend must scan
+   `dest_entries` for `row_data["id"] == proposal.id` to find the UUID FK. No UUIDs in the prompt.
+4. **`id` field name conflict** — `_LookupProposal.id` is the business key string. Pydantic allows
+   it. Be careful it does not shadow Python's built-in `id()` in surrounding code.
+5. **`patch_mapping` path** — must also be fixed to save business key + label, not UUID + heuristic.
+   This is the manual operator edit path on the feed page.
+6. **Test `FakeLookupAdapter`** — currently returns `{"source_value", "dest_id",
+   "confidence_score"}`. Must add `id` and `dest_value`. Assertion on `dest_row` shape must match
+   new format.
