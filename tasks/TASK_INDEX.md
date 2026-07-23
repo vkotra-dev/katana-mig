@@ -4,6 +4,7 @@
 
 | Task | Summary |
 |---|---|
+| [001fd-codegen-lookup-integration](./001fd-codegen-lookup-integration.md) | Embed approved lookup reference table names, schema, and sample mappings into Codegen prompts for accurate stored procedure generation. |
 | [001fc-lookup-fiber-prompt-and-review-edit](./001fc-lookup-fiber-prompt-and-review-edit.md) | Fix AI prompt to return id/dest_value from raw dest rows; fix review page pair display and inline editing to sync with fiber PATCH endpoint. Supersedes 001fb. |
 
 
