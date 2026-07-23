@@ -4,7 +4,7 @@
 
 | Task | Summary |
 |---|---|
-| [001fb-lookup-prompt-id-value-contract](./001fb-lookup-prompt-id-value-contract.md) | Fix lookup fiber AI prompt to receive raw dest rows and return id, source_value, dest_value so UI and codegen get the correct business key and human label. |
+| [001fc-lookup-fiber-prompt-and-review-edit](./001fc-lookup-fiber-prompt-and-review-edit.md) | Fix AI prompt to return id/dest_value from raw dest rows; fix review page pair display and inline editing to sync with fiber PATCH endpoint. Supersedes 001fb. |
 
 
 ## Completed
@@ -145,3 +145,4 @@
 | [001f-ui-shell-and-tokens](./001f-ui-shell-and-tokens.md) | 001i | Subset of 001i scope |
 | [001g-ui-auth-and-login](./001g-ui-auth-and-login.md) | 001l (completed) | Login + session routing shipped in 001l |
 | [001fa-lookup-fiber-rewrite](./001fa-lookup-fiber-rewrite.md) | |
+| [001fb-lookup-prompt-id-value-contract](./001fb-lookup-prompt-id-value-contract.md) | Superseded by 001fc |
