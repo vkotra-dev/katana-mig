@@ -488,6 +488,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
           lookupValueMapId: latestMap?.lookupValueMapId,
           unmappedRowCount: latestMap?.unmappedRowCount,
           fiberStatus: fiber?.status,
+          destinationTable: latestMap?.destinationTable || [],
           pairs,
         });
       }

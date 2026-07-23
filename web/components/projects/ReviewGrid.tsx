@@ -27,7 +27,9 @@ export interface LookupValueGroup {
     destinationRow: Record<string, unknown> | null;
     confidenceScore: number;
     status: "confirmed" | "pending" | "rejected";
+    destinationId?: string;
   }>;
+  destinationTable: Array<Record<string, unknown>>;
 }
 
 interface ReviewGridProps {
@@ -737,7 +739,7 @@ export function ReviewGrid({
 
                 <LookupMappingTable
                   pairs={group.pairs}
-                  destinationRows={group.pairs.map((p) => p.destinationRow).filter(Boolean) as Record<string, unknown>[]}
+                  destinationRows={group.destinationTable}
                   lookupValueMapId={group.lookupValueMapId}
                   unmappedRowCount={group.unmappedRowCount}
                   editingEnabled={editingEnabled}
