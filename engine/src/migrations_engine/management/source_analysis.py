@@ -186,7 +186,10 @@ def analyze_source_slice(
     backfill_artifact_id(db, call_log.call_id, source_definition_id)
     db.refresh(schema_artifact)
 
-    return SourceAnalysisResponse(schema_artifact_id=schema_artifact.schema_artifact_id)
+    return SourceAnalysisResponse(
+        schema_artifact_id=schema_artifact.schema_artifact_id,
+        ai_reuse_score=analysis_result.re_use_score,
+    )
 
 
 def get_latest_source_schema_artifact(

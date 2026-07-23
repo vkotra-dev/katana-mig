@@ -26,6 +26,7 @@ class ColumnSchema(BaseModel):
 class AnalysisResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
     columns: list[ColumnSchema]
+    re_use_score: int | None = None
 
 class HeaderMismatch(Exception):
     pass

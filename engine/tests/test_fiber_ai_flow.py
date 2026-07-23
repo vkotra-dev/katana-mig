@@ -553,3 +553,173 @@ def test_submit_lookup_inputs_logs_generic_error(monkeypatch: pytest.MonkeyPatch
         logs = [log for log in logs if log.error_detail == "network failure"]
         assert len(logs) == 1
 
+
+def test_analyze_feed_creates_multiple_domain_object_fibers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """analyze_feed must create a fiber for each domain object identified by the AI."""
+    from migrations_engine.management.fibers import (
+        _DomainObject,
+        _FeedAnalysisResult,
+        _FieldBinding,
+        _FieldMappingResult,
+        analyze_feed,
+    )
+
+    fake_get_adapter, _, _ = _make_fake_get_adapter(
+        _FeedAnalysisResult(
+            lookups=[],
+            domain_objects=[
+                _DomainObject(destination_table="customers"),
+                _DomainObject(destination_table="orders"),
+                _DomainObject(destination_table="addresses"),
+            ],
+        ),
+        _FieldMappingResult(field_bindings=[
+            _FieldBinding(source_field="CUST_ID", destination_field="id", lookup_name=None),
+        ]),
+    )
+    monkeypatch.setattr("migrations_engine.management.fibers.get_adapter", fake_get_adapter)
+
+    with SessionLocal() as db:
+        actor = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
+        assert actor is not None
+        project_id, feed_id = _seed_feed_with_slice()
+        responses = analyze_feed(db, feed_id=feed_id, project_id=project_id, actor=actor)
+
+    assert len(responses) == 3
+    fiber_types = {row.fiber_type for row in responses}
+    assert fiber_types == {"domain_object"}
+    fiber_keys = {row.fiber_key for row in responses}
+    assert fiber_keys == {"customers", "orders", "addresses"}
+    for row in responses:
+        assert row.status == "mapped"
+        assert row.source == "auto"
+
+
+def test_analyze_feed_creates_lookup_fibers_with_sample_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Lookup fibers created by analyze_feed must have status 'deferred'."""
+    from migrations_engine.management.fibers import (
+        _DomainObject,
+        _FeedAnalysisResult,
+        _FieldBinding,
+        _FieldMappingResult,
+        _LookupIdentified,
+        analyze_feed,
+    )
+
+    fake_get_adapter, _, _ = _make_fake_get_adapter(
+        _FeedAnalysisResult(
+            lookups=[
+                _LookupIdentified(column_name="ACCT_TYPE", lookup_name="account_type", sample_values=["SAVINGS", "CHECKING"]),
+            ],
+            domain_objects=[],
+        ),
+        _FieldMappingResult(field_bindings=[
+            _FieldBinding(source_field="CUST_ID", destination_field="id", lookup_name=None),
+        ]),
+    )
+    monkeypatch.setattr("migrations_engine.management.fibers.get_adapter", fake_get_adapter)
+
+    with SessionLocal() as db:
+        actor = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
+        assert actor is not None
+        project_id, feed_id = _seed_feed_with_slice()
+        responses = analyze_feed(db, feed_id=feed_id, project_id=project_id, actor=actor)
+
+    assert len(responses) == 1
+    lookup_fiber = responses[0]
+    assert lookup_fiber.fiber_type == "lookup"
+    assert lookup_fiber.fiber_key == "account_type"
+    assert lookup_fiber.status == "deferred"
+    assert lookup_fiber.source == "auto"
+
+
+def test_analyze_feed_domain_object_fiber_status_progression(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Domain object fibers must transition from 'ai_running' to 'mapped'
+    once field mapping completes."""
+    from migrations_engine.management.fibers import (
+        _DomainObject,
+        _FeedAnalysisResult,
+        _FieldBinding,
+        _FieldMappingResult,
+        analyze_feed,
+    )
+    from migrations_engine.db.models import ProjectFiber
+    from sqlalchemy import select as sa_select
+
+    fake_get_adapter, _, _ = _make_fake_get_adapter(
+        _FeedAnalysisResult(
+            lookups=[],
+            domain_objects=[_DomainObject(destination_table="customers")],
+        ),
+        _FieldMappingResult(field_bindings=[
+            _FieldBinding(source_field="CUST_ID", destination_field="id", lookup_name=None),
+        ]),
+    )
+    monkeypatch.setattr("migrations_engine.management.fibers.get_adapter", fake_get_adapter)
+
+    with SessionLocal() as db:
+        actor = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
+        assert actor is not None
+        project_id, feed_id = _seed_feed_with_slice()
+        analyze_feed(db, feed_id=feed_id, project_id=project_id, actor=actor)
+
+        fiber = db.scalar(
+            sa_select(ProjectFiber).where(
+                ProjectFiber.feed_id == feed_id,
+                ProjectFiber.fiber_type == "domain_object",
+            )
+        )
+        assert fiber is not None
+        assert fiber.status == "mapped"
+        assert fiber.field_bindings is not None
+        assert len(fiber.field_bindings) > 0
+
+
+def test_analyze_feed_creates_separate_fibers_for_lookup_and_domain(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When the AI identifies both lookups and domain objects, each must
+    produce its own fiber with the correct type."""
+    from migrations_engine.management.fibers import (
+        _DomainObject,
+        _FeedAnalysisResult,
+        _FieldBinding,
+        _FieldMappingResult,
+        _LookupIdentified,
+        analyze_feed,
+    )
+
+    fake_get_adapter, _, _ = _make_fake_get_adapter(
+        _FeedAnalysisResult(
+            lookups=[
+                _LookupIdentified(column_name="ACCT_TYPE", lookup_name="account_type"),
+            ],
+            domain_objects=[_DomainObject(destination_table="customers")],
+        ),
+        _FieldMappingResult(field_bindings=[
+            _FieldBinding(source_field="CUST_ID", destination_field="id", lookup_name=None),
+        ]),
+    )
+    monkeypatch.setattr("migrations_engine.management.fibers.get_adapter", fake_get_adapter)
+
+    with SessionLocal() as db:
+        actor = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
+        assert actor is not None
+        project_id, feed_id = _seed_feed_with_slice()
+        responses = analyze_feed(db, feed_id=feed_id, project_id=project_id, actor=actor)
+
+    assert len(responses) == 2
+    fiber_types = {row.fiber_type for row in responses}
+    assert fiber_types == {"lookup", "domain_object"}
+    lookup = next(r for r in responses if r.fiber_type == "lookup")
+    domain = next(r for r in responses if r.fiber_type == "domain_object")
+    assert lookup.status == "deferred"
+    assert domain.status == "mapped"
+    assert domain.field_bindings is not None
+

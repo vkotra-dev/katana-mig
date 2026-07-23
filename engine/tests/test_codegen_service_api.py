@@ -344,3 +344,65 @@ def test_codegen_fails_loud_when_required_field_unmapped(
     data = response.json()
     assert data["error"]["code"] == "unmapped_required_destination_fields"
     assert "customer_id" in data["error"]["message"]
+
+
+def test_codegen_preserves_project_config_across_reruns(
+    monkeypatch: pytest.MonkeyPatch, admin_token: str
+) -> None:
+    """Codegen must use project config from project_definition.domain_config,
+    not stale values from a previous run."""
+    project_id, source_definition_id = _seed_project()
+    fake = FakeAdapter()
+    monkeypatch.setattr(codegen_service_module, "get_adapter", lambda task: fake)
+
+    first = client.post(
+        f"/projects/{project_id}/sources/{source_definition_id}/codegen",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert first.status_code == 201
+
+    second = client.post(
+        f"/projects/{project_id}/sources/{source_definition_id}/codegen",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert second.status_code == 201
+
+    first_data = first.json()
+    second_data = second.json()
+    assert first_data["codegen_artifact_id"] != second_data["codegen_artifact_id"]
+    assert first_data["source_slice_version"] == second_data["source_slice_version"]
+    assert first_data["mapping_snapshot_version"] == second_data["mapping_snapshot_version"]
+
+    with SessionLocal() as db:
+        first_artifact = db.scalar(
+            select(CodeGenerationArtifact).where(
+                CodeGenerationArtifact.codegen_artifact_id == first_data["codegen_artifact_id"]
+            )
+        )
+        second_artifact = db.scalar(
+            select(CodeGenerationArtifact).where(
+                CodeGenerationArtifact.codegen_artifact_id == second_data["codegen_artifact_id"]
+            )
+        )
+        assert first_artifact is not None
+        assert second_artifact is not None
+        assert first_artifact.status == "superseded"
+        assert second_artifact.status == "active"
+
+
+def test_codegen_includes_source_slice_version_in_response(
+    monkeypatch: pytest.MonkeyPatch, admin_token: str
+) -> None:
+    """The codegen trigger response must include the source slice version."""
+    project_id, source_definition_id = _seed_project()
+    fake = FakeAdapter()
+    monkeypatch.setattr(codegen_service_module, "get_adapter", lambda task: fake)
+
+    response = client.post(
+        f"/projects/{project_id}/sources/{source_definition_id}/codegen",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["source_slice_version"] == "v1"
+    assert data["mapping_snapshot_version"] == "v1"

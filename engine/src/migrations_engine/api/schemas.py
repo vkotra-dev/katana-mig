@@ -463,6 +463,7 @@ class LookupMappingResponse(BaseModel):
 class SourceAnalysisResponse(BaseModel):
     schema_artifact_id: str
     status: Literal["completed"] = "completed"
+    ai_reuse_score: int | None = None
 
 
 class SourceSchemaColumnResponse(BaseModel):

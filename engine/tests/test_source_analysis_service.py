@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from sqlite_test_support import Base, SessionLocal, TEST_ENGINE
 from migrations_engine.ai.adapter import AICallResult
+from migrations_engine.api.schemas import SourceAnalysisResponse
 from migrations_engine.db.models import (  # noqa: E402
     ProjectDefinition,
     ProjectRegistry,
@@ -293,3 +294,57 @@ def test_analyze_source_slice_logs_raw_response_on_validation_error(monkeypatch:
         logs = db.query(AICallLog).filter_by(project_id=project_id, call_type="source_analysis").all()
         assert len(logs) == 1
         assert logs[0].raw_response == '{"bad_json": "analysis"}'
+
+
+def test_analyze_source_slice_uses_ai_reuse_score_from_result(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The analyze_source_slice response must surface the AI-provided re_use_score
+    instead of computing it from value summary counts."""
+    from migrations_engine.api.schemas import SourceAnalysisResponse
+
+    fake_adapter = FakeAdapter(
+        analysis_result=AnalysisResult(
+            columns=[
+                ColumnSchema(name="CUST_ID", inferred_type="integer", nullable=False, max_length=8),
+                ColumnSchema(name="SURNAME", inferred_type="text", nullable=True, max_length=40),
+            ],
+            re_use_score=75,
+        )
+    )
+    monkeypatch.setattr("migrations_engine.management.source_analysis.get_adapter", lambda task: fake_adapter)
+
+    with SessionLocal() as db:
+        actor, project_id, source_definition_id = _seed_approved_slice(db, row_count=5)
+        response = analyze_source_slice(
+            db,
+            actor=actor,
+            project_id=project_id,
+            source_definition_id=source_definition_id,
+        )
+
+    assert isinstance(response, SourceAnalysisResponse)
+    assert response.ai_reuse_score == 75
+
+
+def test_analyze_source_slice_returns_none_reuse_score_when_ai_does_not_provide_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When the AI result has no re_use_score, the response must return None."""
+    fake_adapter = FakeAdapter(
+        analysis_result=AnalysisResult(
+            columns=[
+                ColumnSchema(name="CUST_ID", inferred_type="integer", nullable=False, max_length=8),
+                ColumnSchema(name="SURNAME", inferred_type="text", nullable=True, max_length=40),
+            ]
+        )
+    )
+    monkeypatch.setattr("migrations_engine.management.source_analysis.get_adapter", lambda task: fake_adapter)
+
+    with SessionLocal() as db:
+        actor, project_id, source_definition_id = _seed_approved_slice(db, row_count=5)
+        response = analyze_source_slice(
+            db,
+            actor=actor,
+            project_id=project_id,
+            source_definition_id=source_definition_id,
+        )
+
+    assert isinstance(response, SourceAnalysisResponse)
+    assert response.ai_reuse_score is None
