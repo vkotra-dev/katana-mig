@@ -5,10 +5,12 @@
 | Task | Summary |
 |---|---|
 
+
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001ew-review-page-lookup-virtualization-and-editing](./completed/001ew-review-page-lookup-virtualization-and-editing.md) | Enabled manual editing and IntersectionObserver-based virtualized scrolling for massive lookup tables on the Review page. Added backend PATCH route for updating lookup mappings. Verified 31/31 tests pass (9 backend, 22 frontend). |
 | [001ev-codegen-logging-prompt-extraction](./completed/001ev-codegen-logging-prompt-extraction.md) | Extracted rules 17–21 (mig_upsert_log audit logging instructions) from each platform block in `codegen_coding_standards.yaml` into new `codegen_logging_standards.yaml`. Renderer updated to load and append both with same `$stg/$dest` substitutions. 6 new tests (17/17). 364/364 full suite. |
 | [001es-wire-suggest-standards-button-to-backend-endpoint](./completed/001es-wire-suggest-standards-button-to-backend-endpoint.md) | Wired the "Suggest Standards" button to the new codegen-coding-standards-template endpoint; deleted the old local generateCodingStandardsTemplate function (~100 lines). No behavior change. Verified: 311/311 frontend tests pass. |
 | [001eu-engine-aware-mig-upsert-log-ddl](./completed/001eu-engine-aware-mig-upsert-log-ddl.md) | `_mig_upsert_log_ddl`/`_assemble_sql_bundle` used to hardcode MSSQL-only DDL and inject it into every generated bundle regardless of target_db_engine. Now engine-aware (mssql/postgresql/mysql/oracle), defaults to mssql when unset for backward compat. Verified: 358/358 backend tests pass. |
