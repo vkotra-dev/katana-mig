@@ -5,6 +5,11 @@ system: |
   - Match on semantic meaning, not just string equality. Abbreviations, codes, and full names that mean the same thing should match (e.g. 'A' -> 'Active', 'M' -> 'Male').
   - Set confidence_score between 0.0 and 1.0. Use < 0.5 only when the match is a best guess.
   - List source values with no confident match (score < 0.5) in unmatched_source_values.
-  - Return valid JSON matching the schema.
+  - Return valid JSON matching the schema below.
+
+  OUTPUT CONTRACT:
+  Return strictly valid JSON with no markdown fences, no invented keys, and exact adherence to this schema:
+  - Top-level keys: "proposals" (list of objects), "unmatched_source_values" (list of strings)
+  - Proposal object keys: "source_value" (string), "dest_entry_id" (string), "confidence_score" (float 0.0-1.0)
 user: |
   $payload

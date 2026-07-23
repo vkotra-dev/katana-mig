@@ -4,13 +4,13 @@
 
 | Task | Summary |
 |---|---|
-| [001ey-explicit-json-schema-in-lookup-mapping-prompt](./001ey-explicit-json-schema-in-lookup-mapping-prompt.md) | Update lookup_mapping.yaml to explicitly define the output JSON schema contract, preventing local LLM hallucinations. |
 
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001ey-explicit-json-schema-in-lookup-mapping-prompt](./completed/001ey-explicit-json-schema-in-lookup-mapping-prompt.md) | Updated `lookup_mapping.yaml` to explicitly define the output JSON schema contract, preventing local LLM hallucinations. |
 | [001ex-unmapped-lookup-row-counts](./completed/001ex-unmapped-lookup-row-counts.md) | Added `data_profile` to `FeedSlice` and computed `unmapped_row_count` dynamically for LookupValueMap API responses. Displayed warnings in Feed and Review pages. All 77 tests pass. |
 | [001ew-review-page-lookup-virtualization-and-editing](./completed/001ew-review-page-lookup-virtualization-and-editing.md) | Enabled manual editing and IntersectionObserver-based virtualized scrolling for massive lookup tables on the Review page. Added backend PATCH route for updating lookup mappings. Verified 31/31 tests pass (9 backend, 22 frontend). |
 | [001ev-codegen-logging-prompt-extraction](./completed/001ev-codegen-logging-prompt-extraction.md) | Extracted rules 17–21 (mig_upsert_log audit logging instructions) from each platform block in `codegen_coding_standards.yaml` into new `codegen_logging_standards.yaml`. Renderer updated to load and append both with same `$stg/$dest` substitutions. 6 new tests (17/17). 364/364 full suite. |
