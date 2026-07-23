@@ -143,3 +143,4 @@
 | [001e-ui-shell](./001e-ui-shell.md) | 001i, 001l, 001n | Shell/tokens → 001i; auth → 001l (done); role nav → 001n (done) |
 | [001f-ui-shell-and-tokens](./001f-ui-shell-and-tokens.md) | 001i | Subset of 001i scope |
 | [001g-ui-auth-and-login](./001g-ui-auth-and-login.md) | 001l (completed) | Login + session routing shipped in 001l |
+| [001fa-lookup-fiber-rewrite](./001fa-lookup-fiber-rewrite.md) | |
