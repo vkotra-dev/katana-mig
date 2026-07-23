@@ -31,25 +31,26 @@ function AutocompleteDropdown({
   onChange,
 }: {
   value: string;
-  options: string[];
+  options: Array<{value: string, label: string}>;
   onChange: (value: string) => void;
 }) {
+  const selectedLabel = options.find((o) => o.value === value)?.label || value;
   const [isOpen, setIsOpen] = useState(false);
-  const [query, setQuery] = useState(value);
+  const [query, setQuery] = useState(selectedLabel);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setQuery(value);
-  }, [value]);
+    setQuery(options.find((o) => o.value === value)?.label || value);
+  }, [value, options]);
 
-  const filteredOptions = query.trim() === "" || query === value
+  const filteredOptions = query.trim() === "" || query === selectedLabel
     ? options
-    : options.filter((opt) => opt.toLowerCase().includes(query.toLowerCase()));
+    : options.filter((opt) => opt.label.toLowerCase().includes(query.toLowerCase()));
 
-  const selectOption = (opt: string) => {
-    setQuery(opt);
-    onChange(opt);
+  const selectOption = (opt: {value: string, label: string}) => {
+    setQuery(opt.label);
+    onChange(opt.value);
     setIsOpen(false);
     setHighlightedIndex(-1);
   };
@@ -82,7 +83,7 @@ function AutocompleteDropdown({
       if (isOpen && highlightedIndex >= 0 && highlightedIndex < filteredOptions.length) {
         selectOption(filteredOptions[highlightedIndex]);
       } else {
-        onChange(query);
+        onChange(query); // Fallback to raw text if custom text is entered
         setIsOpen(false);
       }
     } else if (e.key === "Escape") {
@@ -103,7 +104,7 @@ function AutocompleteDropdown({
           }}
           onFocus={() => setIsOpen(true)}
           onBlur={() => {
-            onChange(query);
+            onChange(options.find(o => o.label === query)?.value || query);
             setIsOpen(false);
           }}
           onKeyDown={handleKeyDown}
@@ -129,7 +130,7 @@ function AutocompleteDropdown({
         <ul className="absolute left-0 right-0 z-[100] mt-1 max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 text-[10px] shadow-lg ring-1 ring-black/5 focus:outline-none font-mono">
           {filteredOptions.map((opt, index) => (
             <li
-              key={opt}
+              key={opt.value}
               onMouseDown={(e) => {
                 e.preventDefault();
                 selectOption(opt);
@@ -142,7 +143,7 @@ function AutocompleteDropdown({
                   : "text-slate-700 hover:bg-slate-100"
               }`}
             >
-              {opt}
+              {opt.label}
             </li>
           ))}
         </ul>
@@ -227,14 +228,20 @@ export function LookupMappingTable({
     }
   };
 
-  // Extract available destination IDs for autocomplete
-  const availableDestinationIds = destinationRows
-    .map((row) => {
-      const id = row.id as string | undefined;
-      const destId = row.destination_id as string | undefined;
-      return id ?? destId ?? null;
-    })
-    .filter((id): id is string => Boolean(id));
+  // Extract available destination options from mapped pairs
+  const availableDestinationOptions = Array.from(
+    new Map(
+      pairs
+        .filter((p) => p.destinationRow && p.destinationId)
+        .map((p) => {
+          const label = Object.entries(p.destinationRow!)
+            .filter(([key]) => key !== "id" && key !== "destination_id" && key !== "entry_id" && !key.toLowerCase().endsWith("_id"))
+            .map(([_, val]) => String(val).replace(/['"`]/g, ""))
+            .join(" | ");
+          return [p.destinationId!, { value: p.destinationId!, label: label || p.destinationId! }];
+        })
+    ).values()
+  );
 
   return (
     <div className="overflow-x-auto">
@@ -283,16 +290,13 @@ export function LookupMappingTable({
                   {editingEnabled ? (
                     <div className="space-y-1.5">
                       {destLabel}
-                      {availableDestinationIds.length > 0 && (
+                      {availableDestinationOptions.length > 0 && (
                         <AutocompleteDropdown
                           value={destId ?? ""}
-                          options={availableDestinationIds}
+                          options={availableDestinationOptions}
                           onChange={(newDestId) => {
-                            const targetRow = destinationRows.find(
-                              (r) =>
-                                (r.id as string) === newDestId || (r.destination_id as string) === newDestId,
-                            );
-                            handleChange(idx, targetRow ?? null, newDestId);
+                            const targetPair = pairs.find((p) => p.destinationId === newDestId);
+                            handleChange(idx, targetPair?.destinationRow ?? null, newDestId);
                           }}
                         />
                       )}
