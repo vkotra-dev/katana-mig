@@ -1,6 +1,6 @@
 ---
 id: 001fc
-title: Lookup fiber — fix AI prompt contract + review page editing
+title: Lookup fiber — destination-anchored AI output + review page source value editing
 status: active
 created: 2026-07-23
 priority: high
@@ -8,119 +8,118 @@ domain: lookup-fiber / ai-prompt / fibers.py / feed-page / review-page
 supersedes: 001fb
 ---
 
-# Task 001fc — Lookup Fiber: Fix AI Prompt Contract + Review Page Editing
+# Task 001fc — Lookup Fiber: Destination-Anchored Mapping + Review Page Editing
 
-## Context
+## The Mental Model (what this task establishes)
 
-The lookup fiber maps source values (e.g. `APPROVED`) to rows from a destination lookup table
-(e.g. `id, is_payable, status_code, status_name, display_order`). There are two problems to fix:
+The **destination lookup table is the anchor**. All its rows are always returned — matched or not.
+The operator sees:
 
-### Problem 1 — AI prompt contract is broken
+| Dest ID | Destination Value | Source Value |
+|---|---|---|
+| 3 | Approved | `APPROVED` ← AI pre-filled |
+| 2 | Under Review | `UNDER_REVIEW` ← AI pre-filled |
+| 5 | Paid | `PAID` ← AI pre-filled |
+| 4 | Rejected | `REJECTED` ← AI pre-filled |
+| 1 | Pending | `PENDING` ← AI pre-filled |
+| 6 | Cancelled | _(blank — operator types in)_ |
 
-**Input A — source values** (unique values operator extracts from source CSV):
+AI does best-effort matching. Operator fills in blanks or corrects AI mistakes on the
+**review page** directly in the grid.
+
+---
+
+## Problem 1 — AI prompt is source-anchored (wrong direction)
+
+**Current AI output** (`source_value` → `dest_id` UUID):
+```json
+{ "source_value": "APPROVED", "dest_id": "<uuid>", "confidence_score": 0.99 }
 ```
-APPROVED, UNDER_REVIEW, PAID, PENDING, REJECTED
-```
 
-**Input B — destination lookup CSV** (full table dump, may contain duplicate rows):
-```
-id,is_payable,is_terminal,status_code,status_name,display_order
-3,Y,N,APPROVED,Approved,3
-2,N,N,UNDER_REVIEW,Under Review,2
-...  (same rows repeated many times)
-```
-
-**Expected AI output:**
+**Required AI output** (destination-anchored, all rows, some with null source):
 ```json
 {
   "proposals": [
-    { "source_value": "APPROVED",     "id": "3", "dest_value": "Approved",     "confidence_score": 0.99 },
-    { "source_value": "UNDER_REVIEW", "id": "2", "dest_value": "Under Review", "confidence_score": 0.99 },
-    { "source_value": "PAID",         "id": "5", "dest_value": "Paid",         "confidence_score": 0.99 },
-    { "source_value": "PENDING",      "id": "1", "dest_value": "Pending",      "confidence_score": 0.99 },
-    { "source_value": "REJECTED",     "id": "4", "dest_value": "Rejected",     "confidence_score": 0.99 }
+    { "dest_id": "3", "dest_value": "Approved",    "source_value": "APPROVED",     "confidence_score": 0.99 },
+    { "dest_id": "2", "dest_value": "Under Review","source_value": "UNDER_REVIEW", "confidence_score": 0.98 },
+    { "dest_id": "5", "dest_value": "Paid",        "source_value": "PAID",         "confidence_score": 0.99 },
+    { "dest_id": "4", "dest_value": "Rejected",    "source_value": "REJECTED",     "confidence_score": 0.99 },
+    { "dest_id": "1", "dest_value": "Pending",     "source_value": "PENDING",      "confidence_score": 0.99 },
+    { "dest_id": "6", "dest_value": "Cancelled",   "source_value": null,           "confidence_score": 0.0 }
   ],
   "unmatched_source_values": []
 }
 ```
 
 Where:
-- `source_value` — original source value
-- `id` — primary key / unique identifier value from the matched destination row
-- `dest_value` — best human-readable label from the matched destination row
-- `confidence_score` — 0.0–1.0
+- `dest_id` — primary key value from the destination row (the ID the proc needs)
+- `dest_value` — best human-readable label from the destination row
+- `source_value` — matched source value, or `null` if no confident match
+- `confidence_score` — 0.0 if no match
 
-**Current broken state:**
-- AI receives lossy `{id: UUID, value: "Y | N | APPROVED | Approved | 3"}` — not raw rows
-- AI only returns `dest_id` (UUID), `source_value`, `confidence_score` — no business key, no label
-- Duplicate rows sent to AI — burns tokens, confuses local LLMs
-- `dest_row` saved as `{id: UUID, label: garbled_heuristic_output}`
+---
 
-### Problem 2 — Review page lookup editing is broken
+## Problem 2 — `LookupMapping` is source-anchored (schema constraint)
 
-The review page builds `pairs` for `LookupMappingTable` from `lookupMaps`. The current pair
-building logic:
-```ts
-const destRow = latestMap.destinationTable.find(
-  (row) => String(row.id) === String(destId) || String(row.destination_id) === String(destId)
-) || { id: destId };  // fallback: show raw UUID if row not found
-```
+Current: `source_entry_id` is `NOT NULL` — a `LookupMapping` row always requires a source entry.
 
-Since `source_value_map` maps `source_value → dest_entry_id` (UUID), and `destination_table`
-rows currently have `id = UUID`, the match works — but the **displayed value** is a UUID.
+For destination rows with no matched source value, no `LookupMapping` row is created today.
 
-After the prompt fix, `dest_row.id` will be the business key (`"3"`) and `dest_row.label` will
-be the human label (`"Approved"`). The review page pair building must be updated to use this.
+**Fix**: Make `source_entry_id` nullable. Create a `LookupMapping` row for **every** destination
+row — matched ones have `source_value` + `source_entry_id`; unmatched ones have `source_value=null`,
+`source_entry_id=null`, `status="unmatched"`.
 
-Additionally, the review page `handleEditLookup` function saves edits to `LookupValueMap.sourceValueMap`.
-Editing a lookup mapping from the review page currently calls `patchLookupValueMap`, but the
-fiber-level `LookupMapping` records (the per-row confirmed/proposed state) are not updated.
-The review page needs to also PATCH individual `LookupMapping` rows via the fiber PATCH endpoint
-so the feed page stays in sync.
+This requires a **hand-written Alembic migration** (I18).
 
-### Problem 3 — `source_value_map` stores UUID instead of business key
+---
 
-After the prompt fix, `LookupMapping.dest_row` will have `{id: "3", label: "Approved"}`.
-But `_bridge_lookup_fiber_to_value_map` builds `source_value_map = {source_value: dest_entry_id}`
-where `dest_entry_id` is still the UUID. Codegen or downstream consumers that read
-`source_value_map` get a UUID not `"3"`.
+## Problem 3 — Review page cannot edit source values for lookup mappings
 
-**The bridge must be updated** to write `source_value_map = {source_value: dest_row["id"]}` —
-the business key — not the UUID.
+The review page renders lookup groups from `LookupValueMap.source_value_map`. It cannot:
+1. Show destination rows that have no source mapping
+2. Let operator type a source value for an unmatched destination row
+3. Persist that edit back to the fiber `LookupMapping` rows
 
-## Local LLM Considerations
+**Fix**: Review page fetches ALL `LookupMapping` rows for the fiber (including `status="unmatched"`
+ones). Renders a grid where source value column is editable. PATCH route updates `LookupMapping`
+and optionally creates a `LookupSourceEntry` if the typed source value is new.
 
-The Ollama adapter appends the Pydantic JSON schema automatically to every prompt. The system
-prompt must be:
-- **Explicit**: every output field named and described
-- **Example-driven**: concrete input → output example (local LLMs need this)
-- **No ambiguity on which column is the PK**: say "the unique identifier column — typically named
-  `id`, `code`, or a column ending in `_id`"
-- **No ambiguity on which column is the label**: say "the most human-readable text column —
-  prefer columns named `name`, `status_name`, `display_name`, `description`; avoid flag columns
-  like `Y`/`N` or pure numeric columns"
+---
+
+## Problem 4 — Display (`dest_row`) currently stores UUID not business key
+
+Current `dest_row = {"id": UUID, "label": garbled}`.
+Required `dest_row = {"id": "3", "label": "Approved"}` — what AI extracts.
+
+---
+
+## Problem 5 — `_bridge_lookup_fiber_to_value_map`
+
+Currently reads `mapping.dest_row.get("id")` — after the fix this correctly gives `"3"`.
+The bridge already uses this pattern — it will work once `dest_row` is fixed.
+
+---
 
 ## Out of Scope
 
-- No DB model changes — `LookupMapping.dest_row` and `LookupValueMap.source_value_map` JSON
-  columns are sufficient
-- No Alembic migration needed
-- No `LookupMappingTable` UI component changes — already renders `label (id)` format
+- No changes to `LookupValueMap` model — `source_value_map` and `destination_table` remain
+- No codegen changes — already reads `dest_row["id"]`
+- No `LookupMappingTable` UI component logic change — just data binding fix
+
+---
 
 ## Red Flags
 
-1. **`dest_entry_by_row_id` lookup** — after removing UUIDs from AI output, backend must scan
-   `dest_entries` to find the `LookupDestEntry` whose `row_data` PK value matches `proposal.id`.
-   Use `_extract_destination_id(row_data)` heuristic for the scan key — it already handles
-   `id`, `code`, `key`, `_id` suffix columns.
-2. **`_LookupProposal.id` field name** — `id` is a Python built-in. Pydantic allows it but
-   be careful in surrounding code. If it causes issues use `dest_key` as the Pydantic field name
-   with `alias="id"` in JSON.
-3. **`source_value_map` UUID → business key migration** — the bridge function currently writes
-   UUIDs. After the fix it will write business keys. Any existing approved `LookupValueMap` rows
-   in prod still have UUID values — no retroactive fix, forward-only.
-4. **Review page `handleEditLookup`** — currently only calls `patchLookupValueMap`. Must also
-   call the fiber PATCH endpoint (`/fibers/:fiberId/mappings/:mappingId`) so individual
-   `LookupMapping` rows reflect the operator's edit.
-5. **Test `FakeLookupAdapter`** — must return `id` and `dest_value` in proposals.
-   Assertions on `dest_row` shape must match `{id: business_key, label: human_label}`.
+1. **Migration required** — `source_entry_id` nullable change requires Alembic migration. Follow I18.
+2. **Local LLM prompt** — Ollama adapter appends Pydantic schema. Prompt must be example-driven
+   and explicit. `source_value` must be typed as `str | None` in Pydantic.
+3. **Deduplication** — destination CSV dump often has many duplicate rows; deduplicate by
+   `row_data` content before sending to AI. Only send unique rows.
+4. **`dest_id` in prompt is business key** (e.g. `"3"`), not UUID. Backend scans
+   `LookupDestEntry.row_data` using `_extract_destination_id()` heuristic to find the UUID FK.
+5. **Review page needs fiber context** — to PATCH individual `LookupMapping` rows, the review
+   page needs the `fiberId` for the lookup fiber. Currently available in `fibers` state.
+6. **PATCH for unmatched rows** — when operator types a source value for an unmatched row,
+   if the source value is new, create a `LookupSourceEntry` and update the `LookupMapping`.
+7. **Test suite** — `FakeLookupAdapter` needs updating. Assertions on `LookupMapping` rows
+   must expect nullable `source_value`. Migration must run in test DB setup.
