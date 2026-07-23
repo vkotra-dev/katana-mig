@@ -409,7 +409,12 @@ class LookupDestFeedCreateRequest(BaseModel):
 
 class LookupMappingPatchRequest(BaseModel):
     dest_entry_id: str = Field(min_length=1)
-    status: Literal["confirmed", "overridden"]
+    status: Literal["confirmed", "overridden", "unmatched"] = "confirmed"
+    source_value: str | None = None
+
+    def is_source_value_set(self) -> bool:
+        """Return True if source_value was explicitly provided (including null)."""
+        return "source_value" in self.model_fields_set
 
 
 class FiberActionRequest(BaseModel):
@@ -444,12 +449,12 @@ class LookupMappingResponse(BaseModel):
     mapping_id: str
     fiber_id: str
     lookup_name: str
-    source_entry_id: str
-    source_value: str
+    source_entry_id: str | None
+    source_value: str | None
     dest_entry_id: str | None
     dest_row: dict[str, Any] | None
     confidence_score: float | None
-    status: Literal["proposed", "confirmed", "overridden"]
+    status: Literal["proposed", "confirmed", "overridden", "unmatched"]
     mapped_by: Literal["ai", "operator", "business"]
     created_at: datetime
     updated_at: datetime

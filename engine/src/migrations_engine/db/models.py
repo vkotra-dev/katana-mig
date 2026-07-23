@@ -493,10 +493,10 @@ class LookupMapping(Base):
         String(36), ForeignKey("project_fibers.fiber_id"), nullable=False, index=True
     )
     lookup_name: Mapped[str] = mapped_column(String(128), nullable=False)
-    source_entry_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("lookup_source_entries.entry_id"), nullable=False
+    source_entry_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("lookup_source_entries.entry_id"), nullable=True
     )
-    source_value: Mapped[str] = mapped_column(String(512), nullable=False)
+    source_value: Mapped[str | None] = mapped_column(String(512), nullable=True)
     dest_entry_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("lookup_dest_entries.entry_id")
     )

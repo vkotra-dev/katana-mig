@@ -91,8 +91,9 @@ class _FieldMappingResult(BaseModel):
 
 
 class _LookupProposal(BaseModel):
-    source_value: str
-    dest_id: str
+    dest_id: str  # business key from destination row (e.g. "3")
+    dest_value: str  # human-readable label (e.g. "Approved")
+    source_value: str | None  # matched source value, or None if no confident match
     confidence_score: float
 
 
@@ -251,15 +252,18 @@ def list_fibers(db: Session, *, project_id: str, feed_id: str) -> list[FiberResp
                     seen_dest_ids = set()
                     for pm in f.proposed_mappings:
                         src_val = pm.get("source_value")
-                        dest_id = pm.get("dest_entry_id")
-                        dest_row = pm.get("dest_row")
-                        if src_val and dest_id:
-                            source_value_map[src_val] = str(dest_id)
-                        if dest_row:
-                            row_id = dest_row.get("id") or dest_row.get("destination_id")
+                        dest_row_data = pm.get("dest_row")
+                        dest_entry_id = pm.get("dest_entry_id")
+                        if src_val:
+                            # Prefer business key from dest_row; fall back to UUID from dest_entry_id
+                            business_key = (dest_row_data and (dest_row_data.get("id") or dest_row_data.get("destination_id"))) or (dest_entry_id and str(dest_entry_id))
+                            if business_key:
+                                source_value_map[src_val] = business_key
+                        if dest_row_data:
+                            row_id = dest_row_data.get("id") or dest_row_data.get("destination_id")
                             if row_id and row_id not in seen_dest_ids:
                                 seen_dest_ids.add(row_id)
-                                destination_table.append(dest_row)
+                                destination_table.append(dest_row_data)
                     val_map = LookupValueMap(
                         lookup_value_map_id=new_id(),
                         project_id=project_id,
@@ -369,14 +373,18 @@ def _bridge_lookup_fiber_to_value_map(db: Session, fiber: ProjectFiber) -> None:
             )
         ).all()
         for row in dest_entries_raw:
+            row_data = row.row_data or {}
             dest_entries.append({
-                "id": row.entry_id,
-                "label": _extract_destination_label(row.row_data)
+                "id": str(row_data.get("id", row.entry_id)),
+                "label": _extract_destination_label(row_data),
             })
 
     for lookup_name, mappings in by_name.items():
         source_value_map = {}
         for m in mappings:
+            # Skip mappings with no source value (unmatched dest rows)
+            if not m.source_value:
+                continue
             if m.dest_row:
                 # The dest_row is already simplified: {"id": "...", "label": "..."}
                 dest_id = m.dest_row.get("id")
@@ -847,18 +855,20 @@ def submit_lookup_inputs(
         adapter = get_adapter("lookup_mapping", model_policy)
     except TypeError:
         adapter = get_adapter("lookup_mapping")
-    from .lookup_mapping import _extract_destination_id, _extract_destination_label
-    
+
+    # Deduplicate destination rows by content before sending to AI
+    seen_sigs: set[str] = set()
+    deduped_dest_entries: list[LookupDestEntry] = []
+    for entry in dest_entries:
+        sig = json.dumps(entry.row_data, sort_keys=True)
+        if sig not in seen_sigs:
+            seen_sigs.add(sig)
+            deduped_dest_entries.append(entry)
+
     payload = json.dumps(
         {
             "source_values": [entry.source_value for entry in source_entries],
-            "destination_options": [
-                {
-                    "id": entry.entry_id, 
-                    "value": _extract_destination_label(entry.row_data)
-                } 
-                for entry in dest_entries
-            ],
+            "destination_rows": [entry.row_data for entry in deduped_dest_entries],
         }
     )
     from ..ai.prompt import Prompt
@@ -913,40 +923,43 @@ def submit_lookup_inputs(
         raise
 
     source_entry_by_value = {entry.source_value: entry for entry in source_entries}
-    dest_entry_by_id = {entry.entry_id: entry for entry in dest_entries}
+
+    # Build lookup keyed by business PK extracted from row_data
+    from .lookup_mapping import _extract_destination_id as _extract_row_pk
+
+    dest_entry_by_pk: dict[str, LookupDestEntry] = {}
+    for entry in deduped_dest_entries:
+        pk = _extract_row_pk(entry.row_data or {})
+        if pk:
+            dest_entry_by_pk[pk] = entry
+
     proposals_for_denorm: list[dict[str, Any]] = []
-    from .lookup_mapping import _extract_destination_label
 
     for proposal in ai_result.proposals:
-        source_entry = source_entry_by_value.get(proposal.source_value)
-        if source_entry is None:
-            continue
-        dest_entry = dest_entry_by_id.get(proposal.dest_id)
-        
-        # Save a strictly simplified version of the row for the frontend
-        dest_row = None
-        if dest_entry:
-            dest_row = {
-                "id": dest_entry.entry_id,
-                "label": _extract_destination_label(dest_entry.row_data)
-            }
+        dest_entry = dest_entry_by_pk.get(proposal.dest_id)
+        source_entry = source_entry_by_value.get(proposal.source_value) if proposal.source_value else None
+
+        dest_row = {
+            "id": proposal.dest_id,
+            "label": proposal.dest_value,
+        }
 
         mapping = LookupMapping(
             fiber_id=fiber.fiber_id,
             lookup_name=fiber.fiber_key,
-            source_entry_id=source_entry.entry_id,
+            source_entry_id=source_entry.entry_id if source_entry else None,
             source_value=proposal.source_value,
             dest_entry_id=dest_entry.entry_id if dest_entry else None,
             dest_row=dest_row,
             confidence_score=proposal.confidence_score,
-            status="proposed",
+            status="proposed" if proposal.source_value else "unmatched",
             mapped_by="ai",
         )
         db.add(mapping)
         proposals_for_denorm.append(
             {
                 "source_value": proposal.source_value,
-                "dest_entry_id": proposal.dest_id,
+                "dest_entry_id": dest_entry.entry_id if dest_entry else None,
                 "dest_row": dest_row,
                 "confidence_score": proposal.confidence_score,
             }
@@ -1103,16 +1116,32 @@ def patch_mapping(
         raise AuthApiError("mapping_not_found", "Mapping not found.", 404)
 
     dest_entry = db.get(LookupDestEntry, body.dest_entry_id)
+
+    # If source_value explicitly provided and no source_entry exists, create one
+    if body.is_source_value_set() and body.source_value is not None and mapping.source_entry_id is None:
+        src_entry = LookupSourceEntry(
+            fiber_id=fiber.fiber_id,
+            lookup_name=fiber.fiber_key,
+            source_value=body.source_value,
+            discovery_type="manual",
+        )
+        db.add(src_entry)
+        db.flush()
+        mapping.source_entry_id = src_entry.entry_id
+
+    if body.is_source_value_set():
+        mapping.source_value = body.source_value
     mapping.dest_entry_id = body.dest_entry_id
+    mapping.status = body.status if body.status else ("confirmed" if body.source_value else "unmatched")
     if dest_entry is not None:
         from .lookup_mapping import _extract_destination_label
+        row_data = dest_entry.row_data or {}
         mapping.dest_row = {
-            "id": dest_entry.entry_id,
-            "label": _extract_destination_label(dest_entry.row_data)
+            "id": str(row_data.get("id", dest_entry.entry_id)),
+            "label": _extract_destination_label(row_data),
         }
     else:
         mapping.dest_row = None
-    mapping.status = body.status
     mapping.mapped_by = "operator"
 
     db.commit()

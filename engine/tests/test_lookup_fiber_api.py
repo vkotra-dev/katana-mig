@@ -29,20 +29,31 @@ class FakeLookupAdapter:
     def call(self, system: str, user: str, response_model: type[Any]) -> Any:
         self.calls.append(SimpleNamespace(system=system, user=user, response_model=response_model))
         payload = json.loads(user)
-        destination_options = payload["destination_options"]
+        source_values = list(payload["source_values"])
+        destination_rows = payload["destination_rows"]
+
+        # Build a lookup: first source value -> first row, second -> second, etc.
+        # For rows beyond source count, leave source_value null (unmatched)
         proposals = []
-        for src in payload["source_values"]:
-            # mock logic: pick first option or missing
-            dest_id = destination_options[0]["id"] if destination_options else "missing-entry"
-            if src == "B" and len(destination_options) > 1:
-                dest_id = destination_options[1]["id"]
-            proposals.append(
-                {
-                    "source_value": src,
-                    "dest_id": dest_id,
-                    "confidence_score": 0.95,
-                }
-            )
+        for i, row in enumerate(destination_rows):
+            if i < len(source_values):
+                proposals.append(
+                    {
+                        "dest_id": str(row.get("id", str(i + 1))),
+                        "dest_value": str(row.get("label") or row.get("name") or list(row.values())[0]),
+                        "source_value": source_values[i],
+                        "confidence_score": 0.95,
+                    }
+                )
+            else:
+                proposals.append(
+                    {
+                        "dest_id": str(row.get("id", str(i + 1))),
+                        "dest_value": str(row.get("label") or row.get("name") or list(row.values())[0]),
+                        "source_value": None,
+                        "confidence_score": 0.0,
+                    }
+                )
         parsed_result = response_model(proposals=proposals, unmatched_source_values=[])
         return AICallResult(parsed=parsed_result, raw_response="raw_response")
 
@@ -166,13 +177,14 @@ def test_lookup_inputs_creates_lookup_entities_and_maps_rows(monkeypatch: pytest
     body = response.json()
     assert body["status"] == "mapped"
     assert body["fiber_id"] == fiber_id
-    assert len(body["proposed_mappings"]) == 3
+    # One proposal per destination row (2 rows → 2 proposals)
+    assert len(body["proposed_mappings"]) == 2
 
     with SessionLocal() as db:
         fiber = db.get(ProjectFiber, fiber_id)
         assert fiber is not None
         assert fiber.status == "mapped"
-        assert len(fiber.proposed_mappings or []) == 3
+        assert len(fiber.proposed_mappings or []) == 2
 
     source_entries = client.get(
         f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/source-entries",
@@ -193,7 +205,8 @@ def test_lookup_inputs_creates_lookup_entities_and_maps_rows(monkeypatch: pytest
         headers={"Authorization": f"Bearer {_admin_token()}"},
     )
     assert mappings.status_code == 200, mappings.text
-    assert len(mappings.json()) == 3
+    # 2 destination rows → 2 mappings (both matched)
+    assert len(mappings.json()) == 2
     assert all(row["status"] == "proposed" for row in mappings.json())
     assert all(row["mapped_by"] == "ai" for row in mappings.json())
 
@@ -426,9 +439,10 @@ def test_lookup_fiber_approval_bridges_to_lookup_value_map(monkeypatch: pytest.M
             )
         )
         assert lvm is not None
-        assert lvm.source_value_map == {"A": dest_1["entry_id"], "B": dest_2["entry_id"]}
+        # source_value_map values are business keys from dest_row["id"], not UUIDs
+        assert lvm.source_value_map == {"A": "1", "B": "2"}
         assert len(lvm.destination_table) == 2
-        assert {row["id"] for row in lvm.destination_table} == {dest_1["entry_id"], dest_2["entry_id"]}
+        assert {row["id"] for row in lvm.destination_table} == {"1", "2"}
 
 
 def test_cannot_update_lookup_mappings_if_signed_off(monkeypatch: pytest.MonkeyPatch) -> None:

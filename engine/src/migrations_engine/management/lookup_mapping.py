@@ -399,11 +399,20 @@ def _extract_destination_id(row: dict[str, Any]) -> str:
 
 
 def _extract_destination_label(row: dict[str, Any]) -> str:
+    # 1. Exact matches for common label keys
     for key in ("label", "name", "description", "desc", "val", "value", "display"):
         value = row.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
-    # Fallback: concatenate all other string values (excluding IDs)
+            
+    # 2. Substring matches (e.g. status_name, display_label)
+    for key, value in row.items():
+        key_lower = key.lower()
+        if any(sub in key_lower for sub in ("name", "label", "desc", "display")):
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+                
+    # 3. Fallback: concatenate all other string values (excluding IDs)
     pieces = []
     for key, value in row.items():
         if key in ("destination_mapping_id", "id", "destination_id", "entry_id", "uuid") or key.endswith("_id"):
