@@ -30,10 +30,10 @@ class FakeLookupAdapter:
         self.calls.append(SimpleNamespace(system=system, user=user, response_model=response_model))
         payload = json.loads(user)
         destination_rows = payload["destination_rows"]
-        dest_entry_id = destination_rows[0]["entry_id"] if destination_rows else "missing-entry"
+        dest_entry_id = destination_rows[0]["destination_mapping_id"] if destination_rows else "missing-entry"
         parsed_result = response_model(
             proposals=[
-                {"source_value": value, "dest_entry_id": dest_entry_id, "confidence_score": 0.9}
+                {"source_value": value, "destination_mapping_id": dest_entry_id, "confidence_score": 0.9}
                 for value in payload["source_values"]
             ]
         )
@@ -419,7 +419,7 @@ def test_lookup_fiber_approval_bridges_to_lookup_value_map(monkeypatch: pytest.M
             )
         )
         assert lvm is not None
-        assert lvm.source_value_map == {"A": "1", "B": "2"}
+        assert lvm.source_value_map == {"A": dest_1["entry_id"], "B": dest_2["entry_id"]}
         assert len(lvm.destination_table) == 2
         assert {row["id"] for row in lvm.destination_table} == {"1", "2"}
 

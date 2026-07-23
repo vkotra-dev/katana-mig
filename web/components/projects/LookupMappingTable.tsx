@@ -228,20 +228,30 @@ export function LookupMappingTable({
     }
   };
 
-  // Extract available destination options from mapped pairs
+  // Replicate backend logic to reliably extract destination ID from a raw reference row
+  const extractDestinationId = (row: Record<string, unknown>): string => {
+    for (const key of ["destination_mapping_id", "id", "destination_id", "entry_id", "uuid"]) {
+      if (key in row && row[key] != null) return String(row[key]);
+    }
+    for (const key of Object.keys(row)) {
+      if (key.endsWith("_id") && row[key] != null) return String(row[key]);
+    }
+    return "";
+  };
+
+  // Extract available destination options from full reference table
   const availableDestinationOptions = Array.from(
     new Map(
-      pairs
-        .filter((p) => p.destinationRow && p.destinationId)
-        .map((p) => {
-          const label = Object.entries(p.destinationRow!)
-            .filter(([key]) => key !== "id" && key !== "destination_id" && key !== "entry_id" && !key.toLowerCase().endsWith("_id"))
-            .map(([_, val]) => String(val).replace(/['"`]/g, ""))
-            .join(" | ");
-          return [p.destinationId!, { value: p.destinationId!, label: label || p.destinationId! }];
-        })
+      destinationRows.map((row) => {
+        const destId = extractDestinationId(row);
+        const label = Object.entries(row)
+          .filter(([key]) => key !== "id" && key !== "destination_id" && key !== "entry_id" && !key.toLowerCase().endsWith("_id"))
+          .map(([_, val]) => String(val).replace(/['"`]/g, ""))
+          .join(" | ");
+        return [destId, { value: destId, label: label || destId, row }];
+      })
     ).values()
-  );
+  ).filter(opt => opt.value !== "");
 
   return (
     <div className="overflow-x-auto">
@@ -295,8 +305,8 @@ export function LookupMappingTable({
                           value={destId ?? ""}
                           options={availableDestinationOptions}
                           onChange={(newDestId) => {
-                            const targetPair = pairs.find((p) => p.destinationId === newDestId);
-                            handleChange(idx, targetPair?.destinationRow ?? null, newDestId);
+                            const targetOpt = availableDestinationOptions.find((o) => o.value === newDestId);
+                            handleChange(idx, targetOpt?.row ?? null, newDestId);
                           }}
                         />
                       )}

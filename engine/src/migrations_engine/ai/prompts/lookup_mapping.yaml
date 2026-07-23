@@ -10,6 +10,6 @@ system: |
   OUTPUT CONTRACT:
   Return strictly valid JSON with no markdown fences, no invented keys, and exact adherence to this schema:
   - Top-level keys: "proposals" (list of objects), "unmatched_source_values" (list of strings)
-  - Proposal object keys: "source_value" (string), "dest_entry_id" (string), "confidence_score" (float 0.0-1.0)
+  - Proposal object keys: "source_value" (string), "destination_mapping_id" (string), "confidence_score" (float 0.0-1.0)
 user: |
   $payload

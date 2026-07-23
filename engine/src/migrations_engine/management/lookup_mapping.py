@@ -385,7 +385,7 @@ def _normalize_destination_row(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def _extract_destination_id(row: dict[str, Any]) -> str:
-    for key in ("id", "value", "code", "key", "destination_id"):
+    for key in ("destination_mapping_id", "id", "value", "code", "key", "destination_id"):
         value = row.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()

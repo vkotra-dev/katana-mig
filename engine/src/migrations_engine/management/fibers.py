@@ -92,7 +92,7 @@ class _FieldMappingResult(BaseModel):
 
 class _LookupProposal(BaseModel):
     source_value: str
-    dest_entry_id: str
+    destination_mapping_id: str
     confidence_score: float
 
 
@@ -361,19 +361,22 @@ def _bridge_lookup_fiber_to_value_map(db: Session, fiber: ProjectFiber) -> None:
     )
     dest_entries: list[dict] = []
     if dest_feed:
-        dest_entries = [
-            row.row_data
-            for row in db.scalars(
-                select(LookupDestEntry).where(
-                    LookupDestEntry.dest_feed_id == dest_feed.dest_feed_id
-                )
-            ).all()
-        ]
+        dest_entries_raw = db.scalars(
+            select(LookupDestEntry).where(
+                LookupDestEntry.dest_feed_id == dest_feed.dest_feed_id
+            )
+        ).all()
+        for row in dest_entries_raw:
+            d = dict(row.row_data)
+            d["destination_mapping_id"] = row.entry_id
+            dest_entries.append(d)
 
     for lookup_name, mappings in by_name.items():
         source_value_map = {}
         for m in mappings:
             if m.dest_row:
+                if "destination_mapping_id" not in m.dest_row and m.dest_entry_id:
+                    m.dest_row["destination_mapping_id"] = m.dest_entry_id
                 dest_id = _extract_destination_id(m.dest_row)
                 if dest_id:
                     source_value_map[m.source_value] = dest_id
@@ -845,7 +848,7 @@ def submit_lookup_inputs(
         {
             "source_values": [entry.source_value for entry in source_entries],
             "destination_rows": [
-                {"entry_id": entry.entry_id, "row_data": entry.row_data} for entry in dest_entries
+                {**entry.row_data, "destination_mapping_id": entry.entry_id} for entry in dest_entries
             ],
         }
     )
@@ -907,14 +910,21 @@ def submit_lookup_inputs(
         source_entry = source_entry_by_value.get(proposal.source_value)
         if source_entry is None:
             continue
-        dest_entry = dest_entry_by_id.get(proposal.dest_entry_id)
+        dest_entry = dest_entry_by_id.get(proposal.destination_mapping_id)
+        
+        # Inject destination_mapping_id into dest_row so it's always available
+        dest_row = None
+        if dest_entry:
+            dest_row = dict(dest_entry.row_data)
+            dest_row["destination_mapping_id"] = dest_entry.entry_id
+
         mapping = LookupMapping(
             fiber_id=fiber.fiber_id,
             lookup_name=fiber.fiber_key,
             source_entry_id=source_entry.entry_id,
             source_value=proposal.source_value,
             dest_entry_id=dest_entry.entry_id if dest_entry else None,
-            dest_row=dest_entry.row_data if dest_entry else None,
+            dest_row=dest_row,
             confidence_score=proposal.confidence_score,
             status="proposed",
             mapped_by="ai",
@@ -923,8 +933,8 @@ def submit_lookup_inputs(
         proposals_for_denorm.append(
             {
                 "source_value": proposal.source_value,
-                "dest_entry_id": proposal.dest_entry_id,
-                "dest_row": dest_entry.row_data if dest_entry else None,
+                "dest_entry_id": proposal.destination_mapping_id,
+                "dest_row": dest_row,
                 "confidence_score": proposal.confidence_score,
             }
         )
