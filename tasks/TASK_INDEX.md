@@ -4,7 +4,6 @@
 
 | Task | Summary |
 |---|---|
-| [001fg-refactor-lookup-fiber-to-json](./001fg-refactor-lookup-fiber-to-json.md) | Refactor `_analyze_lookup_fiber()` and `_bridge_lookup_fiber_to_value_map()` to store transient AI discovery proposals in `ProjectFiber.proposed_mappings` JSON. |
 | [001fh-prune-transient-lookup-tables](./001fh-prune-transient-lookup-tables.md) | Create Alembic migration `0039_drop_transient_lookup_tables.py`, drop 4 deprecated transient lookup tables, and prune ORM models in `db/models.py`. |
 | [001fd-codegen-lookup-integration](./001fd-codegen-lookup-integration.md) | Embed approved lookup reference table names, schema, and sample mappings into Codegen prompts for accurate stored procedure generation. |
 
@@ -13,6 +12,7 @@
 
 | Task | Summary |
 |---|---|
+| [001fg-refactor-lookup-fiber-to-json](./completed/001fg-refactor-lookup-fiber-to-json.md) | [summary](./summary/001fg-refactor-lookup-fiber-to-json.md) |
 | [001fe-review-page-lookup-grid-display](./completed/001fe-review-page-lookup-grid-display.md) | [summary](./summary/001fe-review-page-lookup-grid-display.md) |
 | [001fc-lookup-fiber-prompt-and-review-edit](./completed/001fc-lookup-fiber-prompt-and-review-edit.md) | [summary](./summary/001fc-lookup-fiber-prompt-and-review-edit.md) |
 | [001ey-explicit-json-schema-in-lookup-mapping-prompt](./completed/001ey-explicit-json-schema-in-lookup-mapping-prompt.md) | Updated `lookup_mapping.yaml` to explicitly define the output JSON schema contract, preventing local LLM hallucinations. |
