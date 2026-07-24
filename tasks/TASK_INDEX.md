@@ -4,6 +4,7 @@
 
 | Task | Summary |
 |---|---|
+| [001fk-destination-labels-empty-in-backend](./001fk-destination-labels-empty-in-backend.md) | Populate `dest_label` in `destination_mappings` groups during auto-creation and PATCH actions (`add_source_value`, `remove_source_value`, `move_source_value`). |
 | [001fj-frontend-destination-mappings-ui](./001fj-frontend-destination-mappings-ui.md) | Refactor React frontend components (`LookupMappingTable.tsx`, `review/page.tsx`, `page.tsx`) to directly render `destination_mappings` from the backend API, removing client-side data inversions. Wire inline `+ Add source` and `×` delete buttons to backend PATCH API actions. |
 
 
