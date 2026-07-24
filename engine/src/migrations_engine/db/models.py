@@ -412,6 +412,7 @@ class LookupValueMap(Base):
     lookup_name: Mapped[str] = mapped_column(String(128), nullable=False)
     destination_table: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
     source_value_map: Mapped[dict[str, str]] = mapped_column(JSON, nullable=False, default=dict)
+    destination_mappings: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

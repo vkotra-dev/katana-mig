@@ -238,6 +238,8 @@ def list_fibers(db: Session, *, project_id: str, feed_id: str) -> list[FiberResp
                     source_value_map = {}
                     destination_table = []
                     seen_dest_ids = set()
+                    # Build destination_mappings grouped by dest_id
+                    dest_mappings_by_id: dict[str, dict[str, Any]] = {}
                     for pm in f.proposed_mappings:
                         src_val = pm.get("source_value")
                         dest_row_data = pm.get("dest_row")
@@ -247,17 +249,30 @@ def list_fibers(db: Session, *, project_id: str, feed_id: str) -> list[FiberResp
                             business_key = (dest_row_data and (dest_row_data.get("id") or dest_row_data.get("destination_id"))) or (dest_entry_id and str(dest_entry_id))
                             if business_key:
                                 source_value_map[src_val] = business_key
+                                dest_id = str(business_key)
+                                if dest_id not in dest_mappings_by_id:
+                                    dest_mappings_by_id[dest_id] = {
+                                        "dest_id": dest_id,
+                                        "dest_label": "",
+                                        "dest_row": dest_row_data or {},
+                                        "source_values": [],
+                                        "status": "proposed" if src_val else "unmapped",
+                                    }
+                                if src_val not in dest_mappings_by_id[dest_id]["source_values"]:
+                                    dest_mappings_by_id[dest_id]["source_values"].append(src_val)
                         if dest_row_data:
                             row_id = dest_row_data.get("id") or dest_row_data.get("destination_id")
                             if row_id and row_id not in seen_dest_ids:
                                 seen_dest_ids.add(row_id)
                                 destination_table.append(dest_row_data)
+                    destination_mappings = list(dest_mappings_by_id.values()) if dest_mappings_by_id else []
                     val_map = LookupValueMap(
                         lookup_value_map_id=new_id(),
                         project_id=project_id,
                         lookup_name=f.fiber_key,
                         destination_table=destination_table,
                         source_value_map=source_value_map,
+                        destination_mappings=destination_mappings,
                         status="draft",
                     )
                     db.add(val_map)

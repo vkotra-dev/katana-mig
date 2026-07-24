@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
 from ..api.schemas import (
+    DestinationMappingGroup,
     LookupSnapshotGenerateRequest,
     LookupSnapshotResponse,
     LookupValueMapCreateRequest,
@@ -33,6 +34,18 @@ def create_lookup_value_map(
     body: LookupValueMapCreateRequest,
 ) -> LookupValueMapResponse:
     lookup_name = body.lookup_name.strip()
+    destination_mappings = []
+    if body.destination_mappings:
+        destination_mappings = [
+            {
+                "dest_id": g.dest_id,
+                "dest_label": g.dest_label,
+                "dest_row": g.dest_row,
+                "source_values": g.source_values,
+                "status": g.status,
+            }
+            for g in body.destination_mappings
+        ]
     destination_table = [_normalize_destination_row(row) for row in body.destination_table]
     source_value_map = {key.strip(): value.strip() for key, value in body.source_value_map.items() if key.strip() and value.strip()}
     draft = LookupValueMap(
@@ -41,6 +54,7 @@ def create_lookup_value_map(
         lookup_name=lookup_name,
         destination_table=destination_table,
         source_value_map=source_value_map,
+        destination_mappings=destination_mappings,
         status="draft",
     )
     db.add(draft)
@@ -80,7 +94,131 @@ def update_lookup_value_map(
     if lookup_map.status == "approved":
         raise AuthApiError("lookup_map_approved", "Cannot edit an approved lookup value map. Revert to draft first.", 409)
 
-    source_value_map = {key.strip(): value.strip() for key, value in body.source_value_map.items() if key.strip() and value.strip()}
+    # Handle explicit source_value_map overwrite (full replacement)
+    if body.source_value_map is not None:
+        source_value_map = {key.strip(): value.strip() for key, value in body.source_value_map.items() if key.strip() and value.strip()}
+        lookup_map.source_value_map = source_value_map
+    # Handle add_source_value action
+    if body.add_source_value:
+        dest_id = body.add_source_value.get("dest_id", "")
+        src_val = body.add_source_value.get("source_value", "")
+        if dest_id and src_val:
+            mappings = list(lookup_map.destination_mappings or [])
+            found = False
+            for group in mappings:
+                if str(group.get("dest_id", "")) == str(dest_id):
+                    svs = group.setdefault("source_values", [])
+                    if src_val not in svs:
+                        svs.append(src_val)
+                    found = True
+                    break
+            if not found:
+                mappings.append({
+                    "dest_id": dest_id,
+                    "dest_label": "",
+                    "dest_row": {},
+                    "source_values": [src_val],
+                    "status": "draft",
+                })
+            lookup_map.destination_mappings = mappings
+            # Sync flat source_value_map for backward compat
+            svm = dict(lookup_map.source_value_map or {})
+            svm[src_val] = dest_id
+            lookup_map.source_value_map = svm
+
+    # Handle remove_source_value action
+    if body.remove_source_value:
+        dest_id = body.remove_source_value.get("dest_id", "")
+        src_val = body.remove_source_value.get("source_value", "")
+        if dest_id and src_val:
+            mappings = list(lookup_map.destination_mappings or [])
+            found = False
+            for group in mappings:
+                if str(group.get("dest_id", "")) == str(dest_id):
+                    group["source_values"] = [s for s in group.get("source_values", []) if s != src_val]
+                    found = True
+                    break
+            if not found:
+                # Group may not exist yet (e.g. legacy maps without destination_mappings)
+                mappings.append({
+                    "dest_id": dest_id,
+                    "dest_label": "",
+                    "dest_row": {},
+                    "source_values": [],
+                    "status": "draft",
+                })
+            lookup_map.destination_mappings = mappings
+            # Also remove from flat source_value_map
+            svm = dict(lookup_map.source_value_map or {})
+            svm.pop(src_val, None)
+            lookup_map.source_value_map = svm
+
+    # Handle full destination_mappings overwrite
+    if body.destination_mappings is not None:
+        lookup_map.destination_mappings = [
+            {
+                "dest_id": str(g.dest_id),
+                "dest_label": str(g.dest_label),
+                "dest_row": g.dest_row if isinstance(g.dest_row, dict) else dict(g.dest_row) if g.dest_row else {},
+                "source_values": list(g.source_values) if g.source_values else [],
+                "status": str(g.status),
+            }
+            for g in body.destination_mappings
+        ]
+        # Rebuild flat source_value_map from destination_mappings
+        svm: dict[str, str] = {}
+        for group in lookup_map.destination_mappings:
+            for src_val in group.get("source_values", []):
+                svm[src_val] = str(group.get("dest_id", ""))
+        lookup_map.source_value_map = svm
+
+    # Handle move_source_value action
+    if body.move_source_value:
+        src_val = body.move_source_value.get("source_value", "")
+        old_dest_id = body.move_source_value.get("old_dest_id", "")
+        new_dest_id = body.move_source_value.get("new_dest_id", "")
+        if src_val and old_dest_id and new_dest_id:
+            mappings = list(lookup_map.destination_mappings or [])
+            # Build destination_mappings from source_value_map if empty
+            if not mappings and lookup_map.source_value_map:
+                dest_groups: dict[str, dict[str, Any]] = {}
+                for src_v, dest_v in lookup_map.source_value_map.items():
+                    did = str(dest_v)
+                    if did not in dest_groups:
+                        dest_groups[did] = {"dest_id": did, "dest_label": "", "dest_row": {}, "source_values": [], "status": "draft"}
+                    dest_groups[did]["source_values"].append(src_v)
+                mappings = list(dest_groups.values())
+            src_moved = False
+            for group in mappings:
+                if str(group.get("dest_id", "")) == str(old_dest_id):
+                    svs = group.get("source_values", [])
+                    if src_val in svs:
+                        group["source_values"] = [s for s in svs if s != src_val]
+                        src_moved = True
+                    break
+            if src_moved:
+                found_new = False
+                for group in mappings:
+                    if str(group.get("dest_id", "")) == str(new_dest_id):
+                        svs = group.setdefault("source_values", [])
+                        if src_val not in svs:
+                            svs.append(src_val)
+                        found_new = True
+                        break
+                if not found_new:
+                    mappings.append({
+                        "dest_id": new_dest_id,
+                        "dest_label": "",
+                        "dest_row": {},
+                        "source_values": [src_val],
+                        "status": "draft",
+                    })
+            lookup_map.destination_mappings = mappings
+            # Sync flat source_value_map
+            svm = dict(lookup_map.source_value_map or {})
+            svm.pop(src_val, None)
+            svm[src_val] = new_dest_id
+            lookup_map.source_value_map = svm
 
     # Reset related lookup snapshots to draft (sign-off invalidation)
     snapshots = db.scalars(
@@ -95,7 +233,6 @@ def update_lookup_value_map(
             snapshot.approved_at = None
             snapshot.approved_by_user_id = None
 
-    lookup_map.source_value_map = source_value_map
     db.commit()
     db.refresh(lookup_map)
     return _lookup_value_map_response(lookup_map)
@@ -425,12 +562,14 @@ def _extract_destination_label(row: dict[str, Any]) -> str:
 
 
 def _lookup_value_map_response(row: LookupValueMap, unmapped_row_count: int = 0) -> LookupValueMapResponse:
+    dest_mappings = row.destination_mappings or []
     return LookupValueMapResponse(
         lookup_value_map_id=row.lookup_value_map_id,
         project_id=row.project_id,
         lookup_name=row.lookup_name,
         destination_table=row.destination_table,
         source_value_map=row.source_value_map,
+        destination_mappings=dest_mappings,
         status=row.status,
         unmapped_row_count=unmapped_row_count,
         created_at=row.created_at,

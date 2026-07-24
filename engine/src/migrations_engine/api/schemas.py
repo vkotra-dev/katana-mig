@@ -482,10 +482,23 @@ class LookupValueMapCreateRequest(BaseModel):
     lookup_name: str = Field(min_length=1, max_length=128)
     destination_table: list[dict[str, Any]]
     source_value_map: dict[str, str] = Field(default_factory=dict)
+    destination_mappings: list[DestinationMappingGroup] = Field(default_factory=list)
+
+
+class DestinationMappingGroup(BaseModel):
+    dest_id: str = Field(default="")
+    dest_label: str = Field(default="")
+    dest_row: dict[str, Any] = Field(default_factory=dict)
+    source_values: list[str] = Field(default_factory=list)
+    status: str = "draft"
 
 
 class LookupValueMapPatchRequest(BaseModel):
-    source_value_map: dict[str, str]
+    source_value_map: dict[str, str] | None = None
+    destination_mappings: list[DestinationMappingGroup] | None = None
+    add_source_value: dict[str, str] | None = None
+    remove_source_value: dict[str, str] | None = None
+    move_source_value: dict[str, str] | None = None
 
 
 class LookupValueMapResponse(BaseModel):
@@ -494,6 +507,7 @@ class LookupValueMapResponse(BaseModel):
     lookup_name: str
     destination_table: list[dict[str, Any]]
     source_value_map: dict[str, str]
+    destination_mappings: list[DestinationMappingGroup]
     status: Literal["draft", "approved"]
     unmapped_row_count: int = 0
     created_at: datetime

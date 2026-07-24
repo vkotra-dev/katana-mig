@@ -16,6 +16,15 @@ def _values_clause(value_map: dict[str, str]) -> str:
     return ", ".join(rows)
 
 
+def _values_clause_from_dest_mappings(destination_mappings: list[dict]) -> str:
+    rows = []
+    for group in destination_mappings:
+        dest_id = group.get("dest_id") or ""
+        for src in group.get("source_values", []):
+            rows.append(f"('{_escape(src)}', '{_escape(dest_id)}')")
+    return ", ".join(sorted(rows))
+
+
 def _table_ddl(ref_table: str, *, use_if_not_exists: bool) -> str:
     if use_if_not_exists:
         return (

@@ -220,3 +220,61 @@ def test_lookup_mapping_service_rejects_unmapped_values() -> None:
             )
 
     assert exc_info.value.code == "lookup_values_unmapped"
+
+
+def test_lookup_value_map_stores_destination_mappings() -> None:
+    Base.metadata.create_all(bind=TEST_ENGINE)
+
+    with SessionLocal() as db:
+        actor = User(
+            user_id=str(uuid.uuid4()),
+            email=f"central-{uuid.uuid4().hex[:8]}@example.com",
+            display_name="Central Team",
+            password_hash=hash_password("central-password"),
+            role=CENTRAL_TEAM_ROLE,
+            status="active",
+        )
+        project_id = str(uuid.uuid4())
+        db.add(actor)
+        db.add(
+            ProjectDefinition(
+                definition_id=str(uuid.uuid4()),
+                project_id=project_id,
+                name="Test",
+                status="active",
+            )
+        )
+        db.add(
+            ProjectRegistry(
+                project_id=project_id,
+                name="Test",
+                definition_id=str(uuid.uuid4()),
+                status="active",
+            )
+        )
+        db.commit()
+
+        response = create_lookup_value_map(
+            db,
+            actor=actor,
+            project_id=project_id,
+            body=LookupValueMapCreateRequest(
+                lookup_name="status_code",
+                destination_table=[{"id": "ACTIVE", "label": "Active"}],
+                source_value_map={"A": "ACTIVE"},
+                destination_mappings=[
+                    {
+                        "dest_id": "ACTIVE",
+                        "dest_label": "Active",
+                        "dest_row": {"id": "ACTIVE", "label": "Active"},
+                        "source_values": ["A"],
+                        "status": "draft",
+                    }
+                ],
+            ),
+        )
+
+    assert response.status == "draft"
+    assert len(response.destination_mappings) == 1
+    assert response.destination_mappings[0].dest_id == "ACTIVE"
+    assert response.destination_mappings[0].source_values == ["A"]

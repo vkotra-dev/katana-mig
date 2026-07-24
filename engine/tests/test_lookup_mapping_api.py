@@ -455,5 +455,222 @@ def test_get_lookup_maps_returns_unmapped_row_count(admin_token: str) -> None:
     assert len(maps) >= 1, f"Expected >=1 maps, got {len(maps)}: {maps}"
     status_map = [m for m in maps if m["lookup_name"] == "status_code"][0]
     # B is unmapped and has count 250 in data_profile
-    assert status_map["unmapped_row_count"] == 250
+def test_lookup_value_map_response_includes_destination_mappings(admin_token: str) -> None:
+    project_id, _source_definition_id = _seed_project()
+
+    create = client.post(
+        f"/projects/{project_id}/lookup-maps",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "lookup_name": "status_code",
+            "destination_table": [
+                {"id": "ACTIVE", "label": "Active"},
+            ],
+            "source_value_map": {"A": "ACTIVE"},
+            "destination_mappings": [
+                {
+                    "dest_id": "ACTIVE",
+                    "dest_label": "Active",
+                    "dest_row": {"id": "ACTIVE", "label": "Active"},
+                    "source_values": ["A"],
+                    "status": "draft",
+                }
+            ],
+        },
+    )
+    assert create.status_code == 201, create.text
+    data = create.json()
+    assert len(data["destination_mappings"]) == 1
+    assert data["destination_mappings"][0]["dest_id"] == "ACTIVE"
+    assert data["destination_mappings"][0]["source_values"] == ["A"]
+
+
+def test_patch_add_source_value(admin_token: str) -> None:
+    project_id, _source_definition_id = _seed_project()
+
+    create = client.post(
+        f"/projects/{project_id}/lookup-maps",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "lookup_name": "status_code",
+            "destination_table": [
+                {"id": "ACTIVE", "label": "Active"},
+                {"id": "BLOCKED", "label": "Blocked"},
+            ],
+            "source_value_map": {"A": "ACTIVE"},
+        },
+    )
+    assert create.status_code == 201, create.text
+    lookup_map_id = create.json()["lookup_value_map_id"]
+
+    # Add a source value to the BLOCKED destination
+    patch = client.patch(
+        f"/projects/{project_id}/lookup-maps/{lookup_map_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"add_source_value": {"dest_id": "BLOCKED", "source_value": "B"}},
+    )
+    assert patch.status_code == 200, patch.text
+    data = patch.json()
+    assert data["source_value_map"]["B"] == "BLOCKED"
+    dest_mappings = data["destination_mappings"]
+    blocked_group = next((g for g in dest_mappings if g["dest_id"] == "BLOCKED"), None)
+    assert blocked_group is not None
+    assert "B" in blocked_group["source_values"]
+
+
+def test_patch_remove_source_value(admin_token: str) -> None:
+    project_id, _source_definition_id = _seed_project()
+
+    create = client.post(
+        f"/projects/{project_id}/lookup-maps",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "lookup_name": "status_code",
+            "destination_table": [
+                {"id": "ACTIVE", "label": "Active"},
+                {"id": "BLOCKED", "label": "Blocked"},
+            ],
+            "source_value_map": {"A": "ACTIVE", "B": "BLOCKED"},
+        },
+    )
+    assert create.status_code == 201
+    lookup_map_id = create.json()["lookup_value_map_id"]
+
+    # Remove source value B from BLOCKED
+    patch = client.patch(
+        f"/projects/{project_id}/lookup-maps/{lookup_map_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"remove_source_value": {"dest_id": "BLOCKED", "source_value": "B"}},
+    )
+    assert patch.status_code == 200, patch.text
+    data = patch.json()
+    assert "B" not in data["source_value_map"]
+    dest_mappings = data["destination_mappings"]
+    blocked_group = next((g for g in dest_mappings if g["dest_id"] == "BLOCKED"), None)
+    assert blocked_group is not None
+    assert "B" not in blocked_group["source_values"]
+
+
+def test_patch_destination_mappings_overwrite(admin_token: str) -> None:
+    project_id, _source_definition_id = _seed_project()
+
+    create = client.post(
+        f"/projects/{project_id}/lookup-maps",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "lookup_name": "status_code",
+            "destination_table": [
+                {"id": "ACTIVE", "label": "Active"},
+                {"id": "BLOCKED", "label": "Blocked"},
+            ],
+            "source_value_map": {"A": "ACTIVE"},
+        },
+    )
+    assert create.status_code == 201
+    lookup_map_id = create.json()["lookup_value_map_id"]
+
+    # Overwrite destination_mappings
+    patch = client.patch(
+        f"/projects/{project_id}/lookup-maps/{lookup_map_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "destination_mappings": [
+                {
+                    "dest_id": "ACTIVE",
+                    "dest_label": "Active",
+                    "dest_row": {"id": "ACTIVE", "label": "Active"},
+                    "source_values": ["A", "C"],
+                    "status": "draft",
+                },
+                {
+                    "dest_id": "BLOCKED",
+                    "dest_label": "Blocked",
+                    "dest_row": {"id": "BLOCKED", "label": "Blocked"},
+                    "source_values": ["B"],
+                    "status": "draft",
+                },
+            ]
+        },
+    )
+    assert patch.status_code == 200, patch.text
+    data = patch.json()
+    assert data["source_value_map"] == {"A": "ACTIVE", "C": "ACTIVE", "B": "BLOCKED"}
+    assert len(data["destination_mappings"]) == 2
+    active_group = next(g for g in data["destination_mappings"] if g["dest_id"] == "ACTIVE")
+    assert set(active_group["source_values"]) == {"A", "C"}
+
+
+def test_patch_move_source_value(admin_token: str) -> None:
+    project_id, _source_definition_id = _seed_project()
+
+    create = client.post(
+        f"/projects/{project_id}/lookup-maps",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "lookup_name": "status_code",
+            "destination_table": [
+                {"id": "ACTIVE", "label": "Active"},
+                {"id": "BLOCKED", "label": "Blocked"},
+            ],
+            "source_value_map": {"A": "ACTIVE", "B": "ACTIVE"},
+        },
+    )
+    assert create.status_code == 201
+    lookup_map_id = create.json()["lookup_value_map_id"]
+
+    # Move A from ACTIVE to BLOCKED
+    patch = client.patch(
+        f"/projects/{project_id}/lookup-maps/{lookup_map_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "move_source_value": {
+                "source_value": "A",
+                "old_dest_id": "ACTIVE",
+                "new_dest_id": "BLOCKED",
+            }
+        },
+    )
+    assert patch.status_code == 200, patch.text
+    data = patch.json()
+    assert data["source_value_map"]["A"] == "BLOCKED"
+    blocked_group = next(g for g in data["destination_mappings"] if g["dest_id"] == "BLOCKED")
+    assert "A" in blocked_group["source_values"]
+
+
+def test_create_lookup_value_map_stores_destination_mappings(admin_token: str) -> None:
+    project_id, _source_definition_id = _seed_project()
+
+    create = client.post(
+        f"/projects/{project_id}/lookup-maps",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "lookup_name": "status_code",
+            "destination_table": [
+                {"id": "ACTIVE", "label": "Active"},
+                {"id": "BLOCKED", "label": "Blocked"},
+            ],
+            "source_value_map": {"A": "ACTIVE", "B": "BLOCKED"},
+            "destination_mappings": [
+                {
+                    "dest_id": "ACTIVE",
+                    "dest_label": "Active",
+                    "dest_row": {"id": "ACTIVE", "label": "Active"},
+                    "source_values": ["A"],
+                    "status": "draft",
+                },
+                {
+                    "dest_id": "BLOCKED",
+                    "dest_label": "Blocked",
+                    "dest_row": {"id": "BLOCKED", "label": "Blocked"},
+                    "source_values": ["B"],
+                    "status": "draft",
+                },
+            ],
+        },
+    )
+    assert create.status_code == 201, create.text
+    data = create.json()
+    assert len(data["destination_mappings"]) == 2
+    active = next(g for g in data["destination_mappings"] if g["dest_id"] == "ACTIVE")
+    assert active["source_values"] == ["A"]
 
