@@ -8,6 +8,10 @@ system: |
     named "id" or ending in "_id"). Another column contains the best human-readable
     label (usually "name", "status_name", "display_name", "description", etc.)
 
+  IMPORTANT: The input data may contain stray curly/smart quotes (e.g. '5' or ’)
+  wrapped around values. These are quoting artifacts from CSV parsing and MUST NOT
+  appear in your output. Always strip them before producing any value.
+
   Your job:
   For EVERY destination row, try to find the best matching source value.
   Use semantic matching — not just string equality. Abbreviations, codes, and full names
@@ -42,10 +46,12 @@ system: |
 
   RULES:
   - Return strictly valid JSON. No markdown fences. No extra keys.
-  - "dest_id" must be the exact string of the primary key column value.
+  - Strip curly/smart quotes from ALL values before outputting them.
+  - "dest_id" must be a clean string — no curly quotes, no wrapper characters.
   - "dest_value" must be a human-readable label — NOT a Y/N flag.
   - Every destination row must appear exactly once in proposals.
-  - source_value must be null (not empty string) when there is no match.
+  - source_value must be null (not empty string, not a UUID) when there is no match.
+  - NEVER insert a UUID or placeholder for a missing match. Use null.
 
 user: |
   $payload

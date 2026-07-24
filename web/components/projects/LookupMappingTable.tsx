@@ -240,25 +240,35 @@ export function LookupMappingTable({
   };
 
   // Extract available destination options from full reference table
+  // Matches backend _extract_destination_label priority chain
+  const extractLabelFromRow = (row: Record<string, unknown>): string => {
+    // 1. Exact matches for common label keys
+    for (const key of ["label", "name", "description", "desc", "val", "value", "display"]) {
+      const val = row[key];
+      if (typeof val === "string" && val.trim()) return val.trim();
+    }
+    // 2. Substring matches (e.g. status_name, display_label)
+    for (const [key, val] of Object.entries(row)) {
+      const keyLower = key.toLowerCase();
+      if (["name", "label", "desc", "display"].some(sub => keyLower.includes(sub))) {
+        if (typeof val === "string" && val.trim()) return val.trim();
+      }
+    }
+    // 3. Fallback: first non-ID string value
+    for (const [key, val] of Object.entries(row)) {
+      if (["destination_mapping_id", "id", "destination_id", "entry_id", "uuid", ...Object.keys(row).filter(k => k.endsWith("_id"))].includes(key)) continue;
+      if (typeof val === "string" && val.trim()) return val.trim();
+    }
+    return "";
+  };
+
   const availableDestinationOptions = Array.from(
     new Map(
       destinationRows.map((row) => {
         const destId = extractDestinationId(row);
-        const rawLabel = row.label || row.name || row.description || row.desc || row.val || row.value || row.display;
-        
-        let finalLabel = destId;
-        if (rawLabel) {
-            finalLabel = String(rawLabel).replace(/['"`]/g, "");
-        } else {
-            // Fallback for older raw JSON rows
-            const fallback = Object.entries(row)
-                .filter(([key]) => key !== "id" && key !== "destination_id" && key !== "entry_id" && !key.toLowerCase().endsWith("_id") && key !== "destination_mapping_id")
-                .map(([_, val]) => String(val).replace(/['"`]/g, ""))
-                .join(" | ");
-            if (fallback) finalLabel = fallback;
-        }
+        const label = extractLabelFromRow(row) || destId;
 
-        return [destId, { value: destId, label: finalLabel, row }];
+        return [destId, { value: destId, label, row }];
       })
     ).values()
   ).filter(opt => opt.value !== "");
@@ -274,63 +284,38 @@ export function LookupMappingTable({
       <table className="w-full border-collapse text-left text-xs">
         <thead>
           <tr className="border-b border-slate-100 pb-2 text-slate-400 font-semibold uppercase tracking-wider">
-            <th className="py-2">Source Value</th>
-            <th className="py-2">Destination Value</th>
-            <th className="py-2">Confidence</th>
-            <th className="py-2">Status</th>
+            <th className="py-2 w-1/3">Destination Value (ID)</th>
+            <th className="py-2 w-1/2">Mapped Source Value</th>
+            <th className="py-2 w-1/6">Status</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {pairs.slice(0, visibleCount).map((pair, idx) => {
-            const displayRow = editingEnabled ? pair.destinationRow : pair.destinationRow;
+            const displayRow = pair.destinationRow;
             const destId = pair.destinationId ?? (displayRow?.id as string) ?? (displayRow?.destination_id as string) ?? (displayRow?.destination_mapping_id as string);
-            
-            let destLabelText = "";
-            if (displayRow) {
-                const opt = availableDestinationOptions.find(o => o.value === destId);
-                destLabelText = opt?.label || destId;
-            }
-
-            const destLabel = displayRow ? (
-              <span className="font-mono text-[11px] text-slate-700 font-medium">
-                {destLabelText} <span className="text-slate-400">({destId})</span>
-              </span>
-            ) : (
-              <span className="text-slate-400 italic">-</span>
-            );
+            const destOpt = availableDestinationOptions.find(o => o.value === destId);
+            const destLabelText = destOpt?.label || destId;
 
             return (
               <tr key={idx} className="hover:bg-slate-50/50" ref={idx === visibleCount - 1 ? lastRowRef : undefined}>
-                <td className="py-2.5 font-medium text-slate-800">{pair.sourceValue}</td>
                 <td className="py-2.5 pr-4">
-                  {editingEnabled ? (
-                    <div className="space-y-1.5">
-                      {destLabel}
-                      {availableDestinationOptions.length > 0 && (
-                        <AutocompleteDropdown
-                          value={destId ?? ""}
-                          options={availableDestinationOptions}
-                          onChange={(newDestId) => {
-                            const targetOpt = availableDestinationOptions.find((o) => o.value === newDestId);
-                            handleChange(idx, targetOpt?.row ?? null, newDestId);
-                          }}
-                        />
-                      )}
-                    </div>
+                  {destLabelText !== destId ? (
+                    <>
+                      {destLabelText}{" "}
+                      <span className="text-slate-400">({destId})</span>
+                    </>
                   ) : (
-                    destLabel
+                    destId
                   )}
                 </td>
-                <td className="py-2.5">
-                  <ConfidenceBadge score={pair.confidenceScore} />
-                </td>
+                <td className="py-2.5 font-medium text-slate-800">{pair.sourceValue}</td>
                 <td className="py-2.5">{getStatusBadge(pair.status)}</td>
               </tr>
             );
           })}
           {pairs.length === 0 && (
             <tr>
-              <td colSpan={4} className="py-8 text-center text-slate-400 italic">
+              <td colSpan={3} className="py-8 text-center text-slate-400 italic">
                 No mappings yet.
               </td>
             </tr>

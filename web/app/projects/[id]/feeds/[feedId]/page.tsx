@@ -1005,18 +1005,41 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                                     <table className="w-full border-collapse text-left text-xs">
                                       <thead>
                                         <tr className="border-b border-slate-100 bg-slate-50 text-slate-500 font-semibold">
-                                          <th className="px-3 py-2">Source Value</th>
-                                          <th className="px-3 py-2">Destination Row</th>
+                                          <th className="px-3 py-2">Destination Value (ID)</th>
+                                          <th className="px-3 py-2">Mapped Source Value</th>
                                           <th className="px-3 py-2 text-right">Confidence</th>
                                         </tr>
                                       </thead>
                                       <tbody className="divide-y divide-slate-100 bg-white text-slate-900">
                                         {fiber.proposedMappings.map((pm, idx) => (
                                           <tr key={idx} className="hover:bg-slate-50/50">
-                                            <td className="px-3 py-2 font-medium">{pm.sourceValue}</td>
-                                            <td className="px-3 py-2 font-mono text-[10px] text-slate-600 truncate max-w-[300px]">
-                                              {pm.destRow ? JSON.stringify(pm.destRow) : "—"}
+                                            <td className="px-3 py-2">
+                                              {pm.destRow && (() => {
+                                                const dr = pm.destRow;
+                                                const id = dr.id || "—";
+                                                const extractLabel = (r: any) => {
+                                                  for (const key of ["label", "name", "description", "desc", "val", "value", "display"]) {
+                                                    if (r[key] != null && typeof r[key] === "string" && r[key].trim()) return r[key].trim();
+                                                  }
+                                                  for (const [key, val] of Object.entries(r)) {
+                                                    const kl = key.toLowerCase();
+                                                    if (["name", "label", "desc", "display"].some(sub => kl.includes(sub)) && typeof val === "string" && val.trim()) return val.trim();
+                                                  }
+                                                  return "";
+                                                };
+                                                const label = extractLabel(dr);
+                                                const labelText = label && label !== id ? label : undefined;
+                                                return labelText != null ? (
+                                                  <>
+                                                    {labelText}{" "}
+                                                    <span className="text-slate-400">({id})</span>
+                                                  </>
+                                                ) : (
+                                                  <span className="text-slate-800 font-mono text-[10px]">{id}</span>
+                                                );
+                                              })()}
                                             </td>
+                                            <td className="px-3 py-2 font-medium">{pm.sourceValue}</td>
                                             <td className="px-3 py-2 text-right font-semibold">
                                               {pm.confidenceScore != null ? (
                                                 <span className={

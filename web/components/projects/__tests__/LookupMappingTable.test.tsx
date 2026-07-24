@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { LookupMappingTable } from "../LookupMappingTable";
 
@@ -14,66 +14,58 @@ const destinationRows = [
 ];
 
 describe("LookupMappingTable", () => {
-  it("renders source values and destination rows", () => {
+  it("renders destination values with ID formatting", () => {
+    render(<LookupMappingTable pairs={pairs} destinationRows={destinationRows} />);
+
+    // Destination values appear with label+ID
+    expect(screen.getByText(/Active/)).toBeInTheDocument();
+    expect(screen.getByText(/ACTIVE/)).toBeInTheDocument();
+    expect(screen.getByText(/Blocked/)).toBeInTheDocument();
+    expect(screen.getByText(/BLOCKED/)).toBeInTheDocument();
+  });
+
+  it("renders source values in row-per-pair table", () => {
     render(<LookupMappingTable pairs={pairs} destinationRows={destinationRows} />);
 
     expect(screen.getByText("A")).toBeInTheDocument();
     expect(screen.getByText("B")).toBeInTheDocument();
     expect(screen.getByText("C")).toBeInTheDocument();
-    expect(screen.getByText("Active")).toBeInTheDocument();
-    expect(screen.getByText("Blocked")).toBeInTheDocument();
   });
 
-  it("renders confidence badges", () => {
+  it("renders status badges from pair status", () => {
     render(<LookupMappingTable pairs={pairs} destinationRows={destinationRows} />);
 
-    expect(screen.getByText("95%")).toBeInTheDocument();
-  });
-
-  it("renders status badges", () => {
-    render(<LookupMappingTable pairs={pairs} destinationRows={destinationRows} />);
-
-    expect(screen.getAllByText("Pending").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("Rejected")).toBeInTheDocument();
-  });
-
-  it("renders edit dropdowns when editing is enabled", () => {
-    render(<LookupMappingTable pairs={pairs} destinationRows={destinationRows} editingEnabled />);
-
-    // Input fields should be present in edit mode
-    const inputs = document.querySelectorAll('input[type="text"]');
-    expect(inputs.length).toBeGreaterThan(0);
-  });
-
-  it("calls onEditLookup when destination is changed in edit mode", () => {
-    const onEditLookup = vi.fn();
-    const testPairs = [
-      ...pairs,
-      { sourceValue: "D", destinationRow: null, confidenceScore: 0.5, status: "pending" as const, destinationId: "ACTIVE" },
-    ];
-
-    render(
-      <LookupMappingTable
-        pairs={testPairs}
-        destinationRows={destinationRows}
-        lookupValueMapId="map-1"
-        editingEnabled
-        onEditLookup={onEditLookup}
-      />,
-    );
-
-    // Click the dropdown button to open
-    const buttons = document.querySelectorAll("button[aria-label*='toggle']");
-    // Try clicking the input to trigger the dropdown
-    const inputs = document.querySelectorAll('input[type="text"]');
-
-    // Just verify the component renders without crashing in edit mode
-    expect(inputs.length).toBeGreaterThan(0);
+    // All pairs have "pending" status
+    const pendingEls = screen.getAllByText(/Pending/);
+    expect(pendingEls.length).toBeGreaterThanOrEqual(1);
+    // C has "rejected" status
+    const rejectedEls = screen.getAllByText(/Rejected/);
+    expect(rejectedEls.length).toBeGreaterThanOrEqual(1);
   });
 
   it("handles empty pairs", () => {
     render(<LookupMappingTable pairs={[]} destinationRows={[]} />);
 
     expect(screen.getByText("No mappings yet.")).toBeInTheDocument();
+  });
+
+  it("renders each pair as a separate row", () => {
+    render(<LookupMappingTable pairs={pairs} destinationRows={destinationRows} />);
+
+    // Each pair renders as a row — 3 pairs = 3 data rows
+    const table = document.querySelector("table");
+    const rows = table?.querySelectorAll("tbody tr");
+    expect(rows?.length).toBe(3);
+  });
+
+  it("displays destination label+ID when available", () => {
+    const { container } = render(<LookupMappingTable pairs={pairs} destinationRows={destinationRows} />);
+    const table = container.querySelector("table");
+    const textContent = table?.textContent || "";
+    // ACTIVE and BLOCKED have labels in destinationRows
+    expect(textContent).toContain("Active");
+    expect(textContent).toContain("ACTIVE");
+    expect(textContent).toContain("Blocked");
+    expect(textContent).toContain("BLOCKED");
   });
 });

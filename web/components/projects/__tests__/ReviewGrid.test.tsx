@@ -48,14 +48,13 @@ describe("ReviewGrid", () => {
     expect(screen.getByText("status_id")).toBeInTheDocument();
   });
 
-  it("renders lookup mapping groups and confidence scores", () => {
+  it("renders lookup mapping groups and destination-anchored grid", () => {
     render(<ReviewGrid {...props} />);
 
     expect(screen.getByText("status_map")).toBeInTheDocument();
     expect(screen.getByText("status_ref")).toBeInTheDocument();
     expect(screen.getByText("A")).toBeInTheDocument();
     expect(screen.getByText(/Active/)).toBeInTheDocument();
-    expect(screen.getByText("95%")).toBeInTheDocument();
   });
 
   it("handles conditional approval and revision request workflows", () => {
