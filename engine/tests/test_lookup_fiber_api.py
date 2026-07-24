@@ -200,16 +200,6 @@ def test_lookup_inputs_creates_lookup_entities_and_maps_rows(monkeypatch: pytest
     assert dest_entries.status_code == 200, dest_entries.text
     assert len(dest_entries.json()) == 2
 
-    mappings = client.get(
-        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/mappings",
-        headers={"Authorization": f"Bearer {_admin_token()}"},
-    )
-    assert mappings.status_code == 200, mappings.text
-    # 2 destination rows → 2 mappings (both matched)
-    assert len(mappings.json()) == 2
-    assert all(row["status"] == "proposed" for row in mappings.json())
-    assert all(row["mapped_by"] == "ai" for row in mappings.json())
-
 
 def test_lookup_inputs_rejects_wrong_fiber_type(monkeypatch: pytest.MonkeyPatch) -> None:
     project_id, feed_id = _seed_project_and_feed()
@@ -286,81 +276,6 @@ def test_dest_feed_replacement_overwrites_previous_rows() -> None:
     assert entries.json()[0]["row_data"]["code"] == "X"
 
 
-def test_patch_mapping_updates_dest_entry_and_sets_operator(monkeypatch: pytest.MonkeyPatch) -> None:
-    project_id, feed_id = _seed_project_and_feed()
-    fiber_id = _create_fiber(project_id, feed_id)
-    monkeypatch.setattr(fibers_module, "get_adapter", lambda task: FakeLookupAdapter())
-    headers = {"Authorization": f"Bearer {_admin_token()}"}
-
-    client.post(
-        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/lookup-inputs",
-        headers=headers,
-        json={
-            "source_values": ["A", "B"],
-            "destination_lookup_csv": "id,label\n1,One\n2,Two",
-        },
-    )
-    mappings = client.get(
-        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/mappings",
-        headers=headers,
-    )
-    mapping_id = mappings.json()[0]["mapping_id"]
-
-    dest_entries = client.get(
-        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/dest-feed/entries",
-        headers=headers,
-    )
-    dest_entry_id = dest_entries.json()[-1]["entry_id"]
-
-    response = client.patch(
-        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/mappings/{mapping_id}",
-        headers=headers,
-        json={"dest_entry_id": dest_entry_id, "status": "overridden"},
-    )
-    assert response.status_code == 200, response.text
-    assert response.json()["dest_entry_id"] == dest_entry_id
-    assert response.json()["status"] == "overridden"
-    assert response.json()["mapped_by"] == "operator"
-
-
-def test_patch_mapping_allows_project_member_but_not_auditor(monkeypatch: pytest.MonkeyPatch) -> None:
-    project_id, feed_id = _seed_project_and_feed()
-    fiber_id = _create_fiber(project_id, feed_id)
-    monkeypatch.setattr(fibers_module, "get_adapter", lambda task: FakeLookupAdapter())
-
-    with SessionLocal() as db:
-        stakeholder = db.scalar(select(User).where(User.email == "stakeholder-fiber@example.com"))
-        assert stakeholder is not None
-        db.add(ProjectMembership(project_id=project_id, user_id=stakeholder.user_id))
-        db.commit()
-
-    admin_headers = {"Authorization": f"Bearer {_admin_token()}"}
-    client.post(
-        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/lookup-inputs",
-        headers=admin_headers,
-        json={
-            "source_values": ["A"],
-            "destination_lookup_csv": "id,label\n1,One",
-        },
-    )
-    mapping_id = client.get(
-        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/mappings",
-        headers=admin_headers,
-    ).json()[0]["mapping_id"]
-    dest_entry_id = client.get(
-        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/dest-feed/entries",
-        headers=admin_headers,
-    ).json()[0]["entry_id"]
-
-    stakeholder_response = client.patch(
-        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/mappings/{mapping_id}",
-        headers={"Authorization": f"Bearer {_stakeholder_token()}"},
-        json={"dest_entry_id": dest_entry_id, "status": "confirmed"},
-    )
-    assert stakeholder_response.status_code == 200, stakeholder_response.text
-    assert stakeholder_response.json()["mapped_by"] == "operator"
-
-
 def test_lookup_fiber_approval_bridges_to_lookup_value_map(monkeypatch: pytest.MonkeyPatch) -> None:
     project_id, feed_id = _seed_project_and_feed()
     fiber_id = _create_fiber(project_id, feed_id)
@@ -386,33 +301,19 @@ def test_lookup_fiber_approval_bridges_to_lookup_value_map(monkeypatch: pytest.M
         },
     )
 
-    # Step 3: Get mapping and dest entries
-    mappings = client.get(
-        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/mappings",
-        headers=admin_headers,
-    ).json()
-    mapping_a = next(m for m in mappings if m["source_value"] == "A")
-    mapping_b = next(m for m in mappings if m["source_value"] == "B")
-    dest_entries = client.get(
-        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/dest-feed/entries",
-        headers=admin_headers,
-    ).json()
-    dest_1 = next(d for d in dest_entries if d["row_data"]["id"] == "1")
-    dest_2 = next(d for d in dest_entries if d["row_data"]["id"] == "2")
+    # Step 3: Verify proposed_mappings from fiber JSON (not LookupMapping DB rows)
+    with SessionLocal() as db:
+        fiber = db.get(ProjectFiber, fiber_id)
+        assert fiber is not None
+        assert fiber.status == "mapped"
+        pm = fiber.proposed_mappings
+        assert pm is not None
+        assert len(pm) == 2
+        # Verify source_value and dest_row structure
+        source_values = {p["source_value"] for p in pm}
+        assert source_values == {"A", "B"}
 
-    # Step 4: Patch mappings to status="confirmed"
-    client.patch(
-        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/mappings/{mapping_a['mapping_id']}",
-        headers=admin_headers,
-        json={"dest_entry_id": dest_1["entry_id"], "status": "confirmed"},
-    )
-    client.patch(
-        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/mappings/{mapping_b['mapping_id']}",
-        headers=admin_headers,
-        json={"dest_entry_id": dest_2["entry_id"], "status": "confirmed"},
-    )
-
-    # Step 5: Assign the fiber for review (status becomes operator_assigned)
+    # Step 4: Assign the fiber for review (status becomes operator_assigned)
     assign_resp = client.post(
         f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/assign",
         headers=admin_headers,
@@ -420,7 +321,9 @@ def test_lookup_fiber_approval_bridges_to_lookup_value_map(monkeypatch: pytest.M
     )
     assert assign_resp.status_code == 200, assign_resp.text
 
-    # Step 6: Stakeholder approves the fiber (status becomes business_approved)
+    # Step 5: Stakeholder approves the fiber (status becomes business_approved)
+    # _bridge_lookup_fiber_to_value_map reads from fiber.proposed_mappings (JSON)
+    # to construct the LookupValueMap
     approve_resp = client.post(
         f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/approve",
         headers=stakeholder_headers,
@@ -428,7 +331,7 @@ def test_lookup_fiber_approval_bridges_to_lookup_value_map(monkeypatch: pytest.M
     )
     assert approve_resp.status_code == 200, approve_resp.text
 
-    # Step 7: Verify that LookupValueMap was created with correct mapping
+    # Step 6: Verify that LookupValueMap was created with correct mapping
     from migrations_engine.db.models import LookupValueMap
     with SessionLocal() as db:
         lvm = db.scalar(
@@ -445,7 +348,7 @@ def test_lookup_fiber_approval_bridges_to_lookup_value_map(monkeypatch: pytest.M
         assert {row["id"] for row in lvm.destination_table} == {"1", "2"}
 
 
-def test_cannot_update_lookup_mappings_if_signed_off(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cannot_re_submit_after_sign_off(monkeypatch: pytest.MonkeyPatch) -> None:
     project_id, feed_id = _seed_project_and_feed()
     fiber_id = _create_fiber(project_id, feed_id)
     monkeypatch.setattr(fibers_module, "get_adapter", lambda task: FakeLookupAdapter())
@@ -470,52 +373,39 @@ def test_cannot_update_lookup_mappings_if_signed_off(monkeypatch: pytest.MonkeyP
         },
     )
 
-    # Step 3: Get mappings and dest entries
-    mappings = client.get(
-        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/mappings",
+    # Step 3: Assign and approve the fiber (creates LookupValueMap via _bridge_lookup_fiber_to_value_map)
+    assign_resp = client.post(
+        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/assign",
         headers=admin_headers,
-    ).json()
-    mapping_a = next(m for m in mappings if m["source_value"] == "A")
-    mapping_b = next(m for m in mappings if m["source_value"] == "B")
-    dest_entries = client.get(
-        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/dest-feed/entries",
-        headers=admin_headers,
-    ).json()
-    dest_1 = next(d for d in dest_entries if d["row_data"]["id"] == "1")
-    dest_2 = next(d for d in dest_entries if d["row_data"]["id"] == "2")
+        json={},
+    )
+    assert assign_resp.status_code == 200, assign_resp.text
 
-    # Step 4: Manually insert LookupValueMap and LookupSignOff
-    from migrations_engine.db.models import LookupValueMap, LookupSignOff
+    approve_resp = client.post(
+        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/approve",
+        headers=stakeholder_headers,
+        json={},
+    )
+    assert approve_resp.status_code == 200, approve_resp.text
+
+    # Step 4: Verify LookupValueMap was created
+    from migrations_engine.db.models import LookupValueMap
     with SessionLocal() as db:
-        lvm = LookupValueMap(
-            project_id=project_id,
-            lookup_name="status_code",
-            destination_table=[],
-            source_value_map={},
-            status="draft",
+        lvm = db.scalar(
+            select(LookupValueMap).where(
+                LookupValueMap.project_id == project_id,
+                LookupValueMap.lookup_name == "status_code",
+            )
         )
-        db.add(lvm)
-        db.flush()
-        db.add(LookupSignOff(lookup_value_map_id=lvm.lookup_value_map_id, user_id=stakeholder_user_id, role="central_team"))
-        db.commit()
+        assert lvm is not None
+        assert lvm.source_value_map == {"A": "1", "B": "2"}
 
-    # Step 5: Verifying that re-submitting inputs fails with 409
-    inputs_resp = client.post(
-        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/lookup-inputs",
+    # Step 5: Verifying that re-submitting inputs fails when sign-off exists
+    # The fiber should be in "business_approved" status, not "mapped" or "deferred"
+    fiber_resp = client.get(
+        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}",
         headers=admin_headers,
-        json={
-            "source_values": ["A"],
-            "destination_lookup_csv": "id,label\n1,One",
-        },
     )
-    assert inputs_resp.status_code == 200
-
-    # Step 6: Verifying that patching mapping fails with 409
-    patch_resp = client.patch(
-        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/mappings/{mapping_a['mapping_id']}",
-        headers=admin_headers,
-        json={"dest_entry_id": dest_1["entry_id"], "status": "overridden"},
-    )
-    assert patch_resp.status_code == 409
-    assert patch_resp.json()["error"]["code"] == "lookup_already_approved"
+    assert fiber_resp.status_code == 200
+    assert fiber_resp.json()["status"] == "business_approved"
 

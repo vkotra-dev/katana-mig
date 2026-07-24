@@ -46,7 +46,6 @@ from ..db.models import (
 from ..mapping.exceptions import SnapshotNotFoundError
 from ..mapping.snapshots import select_latest_approved_lookup_snapshot
 from ..management.access import require_project_access
-from .lookup_mapping import _extract_destination_id
 from ..roles import PROJECT_STAKEHOLDER_ROLE
 from ..management.source_analysis import (
     _build_sample_text,
@@ -340,92 +339,65 @@ def assign_fiber(
 
 def _bridge_lookup_fiber_to_value_map(db: Session, fiber: ProjectFiber) -> None:
     """
-    After a lookup fiber is approved, compile confirmed LookupMapping rows
+    After a lookup fiber is approved, compile fiber.proposed_mappings JSON
     into LookupValueMap so generate_lookup_snapshot can proceed.
     One LookupValueMap upserted per lookup_name on the fiber.
     """
-    confirmed_mappings = db.scalars(
-        select(LookupMapping).where(
-            LookupMapping.fiber_id == fiber.fiber_id,
-            LookupMapping.status.in_(["proposed", "confirmed"]),
-        )
-    ).all()
-
-    if not confirmed_mappings:
+    if not fiber.proposed_mappings:
         return
 
-    # Group by lookup_name (a fiber may cover multiple lookup columns)
-    by_name: dict[str, list[LookupMapping]] = {}
-    for m in confirmed_mappings:
-        by_name.setdefault(m.lookup_name, []).append(m)
+    source_value_map: dict[str, str] = {}
+    seen_dest_ids: set[str] = set()
+    dest_entries: list[dict[str, Any]] = []
 
-    # Fetch destination reference rows for this fiber (one LookupDestFeed per fiber)
-    dest_feed = db.scalar(
-        select(LookupDestFeed).where(LookupDestFeed.fiber_id == fiber.fiber_id)
-    )
-    from .lookup_mapping import _extract_destination_label
+    for pm in fiber.proposed_mappings:
+        src_val = pm.get("source_value")
+        dest_row = pm.get("dest_row") or {}
+        dest_id = dest_row.get("id")
 
-    dest_entries: list[dict] = []
-    if dest_feed:
-        dest_entries_raw = db.scalars(
-            select(LookupDestEntry).where(
-                LookupDestEntry.dest_feed_id == dest_feed.dest_feed_id
-            )
-        ).all()
-        for row in dest_entries_raw:
-            row_data = row.row_data or {}
+        if src_val and dest_id:
+            source_value_map[src_val] = str(dest_id)
+
+        if dest_id and str(dest_id) not in seen_dest_ids:
+            seen_dest_ids.add(str(dest_id))
             dest_entries.append({
-                "id": str(row_data.get("id", row.entry_id)),
-                "label": _extract_destination_label(row_data),
+                "id": str(dest_id),
+                "label": dest_row.get("label") or str(dest_id),
             })
 
-    for lookup_name, mappings in by_name.items():
-        source_value_map = {}
-        for m in mappings:
-            # Skip mappings with no source value (unmatched dest rows)
-            if not m.source_value:
-                continue
-            if m.dest_row:
-                # The dest_row is already simplified: {"id": "...", "label": "..."}
-                dest_id = m.dest_row.get("id")
-                if dest_id:
-                    source_value_map[m.source_value] = dest_id
+    # Find existing draft for this project + lookup_name and merge
+    existing = db.scalar(
+        select(LookupValueMap).where(
+            LookupValueMap.project_id == fiber.project_id,
+            LookupValueMap.lookup_name == fiber.fiber_key,
+            LookupValueMap.status == "draft",
+        ).order_by(LookupValueMap.created_at.desc())
+    )
+    if existing:
+        new_source_value_map = dict(existing.source_value_map)
+        for src, dest in source_value_map.items():
+            if src not in new_source_value_map:
+                new_source_value_map[src] = dest
+        existing.source_value_map = new_source_value_map
 
-        # Find existing draft for this project + lookup_name and merge
-        existing = db.scalar(
-            select(LookupValueMap).where(
-                LookupValueMap.project_id == fiber.project_id,
-                LookupValueMap.lookup_name == lookup_name,
-                LookupValueMap.status == "draft",
-            ).order_by(LookupValueMap.created_at.desc())
-        )
-        if existing:
-            new_source_value_map = dict(existing.source_value_map)
-            for src, dest in source_value_map.items():
-                if src not in new_source_value_map:
-                    new_source_value_map[src] = dest
-            existing.source_value_map = new_source_value_map
-
-            existing_dest_ids = {
-                r.get("id") or _extract_destination_id(r)
-                for r in existing.destination_table
-                if r.get("id") or _extract_destination_id(r)
-            }
-            new_dest_table = list(existing.destination_table)
-            for row in dest_entries:
-                row_id = row.get("id") or _extract_destination_id(row)
-                if row_id not in existing_dest_ids:
-                    new_dest_table.append(row)
-            existing.destination_table = new_dest_table
-        else:
-            db.add(LookupValueMap(
-                lookup_value_map_id=new_id(),
-                project_id=fiber.project_id,
-                lookup_name=lookup_name,
-                destination_table=dest_entries,
-                source_value_map=source_value_map,
-                status="draft",
-            ))
+        existing_dest_ids = {
+            r.get("id") for r in existing.destination_table if r.get("id")
+        }
+        new_dest_table = list(existing.destination_table)
+        for row in dest_entries:
+            row_id = row.get("id")
+            if row_id not in existing_dest_ids:
+                new_dest_table.append(row)
+        existing.destination_table = new_dest_table
+    else:
+        db.add(LookupValueMap(
+            lookup_value_map_id=new_id(),
+            project_id=fiber.project_id,
+            lookup_name=fiber.fiber_key,
+            destination_table=dest_entries,
+            source_value_map=source_value_map,
+            status="draft",
+        ))
 
 
 def approve_fiber(
@@ -771,33 +743,10 @@ def submit_lookup_inputs(
             409,
         )
 
-    # Check if this lookup has already been signed off by either reviewer
-    from ..db.models import LookupValueMap, LookupSignOff
-    value_map = db.scalar(
-        select(LookupValueMap)
-        .where(
-            LookupValueMap.project_id == project_id,
-            LookupValueMap.lookup_name == fiber.fiber_key,
-        )
-        .order_by(LookupValueMap.created_at.desc(), LookupValueMap.lookup_value_map_id.desc())
-    )
-    # 1. Fetch approved source values to preserve their sign-offs
-    approved_source_values = set()
-    if value_map is not None:
-        approved_source_values = set(
-            db.scalars(
-                select(LookupMapping.source_value)
-                .join(LookupSignOff, LookupSignOff.lookup_value_map_id == LookupMapping.mapping_id)
-                .where(LookupMapping.fiber_id == fiber.fiber_id, LookupMapping.status == "approved")
-            ).all()
-        )
-
-    # 2. Clean up only unapproved lookup mapping/entries for this fiber to allow re-analysis
-    db.execute(delete(LookupMapping).where(LookupMapping.fiber_id == fiber.fiber_id, LookupMapping.status != "approved"))
+    # Clean up source entries for this fiber to allow re-analysis
     db.execute(
         delete(LookupSourceEntry).where(
             LookupSourceEntry.fiber_id == fiber.fiber_id,
-            LookupSourceEntry.source_value.notin_(approved_source_values) if approved_source_values else True
         )
     )
     db.flush()
@@ -826,10 +775,6 @@ def submit_lookup_inputs(
 
     source_entries: list[LookupSourceEntry] = []
     for source_value in body.source_values:
-        # 3. Skip re-inserting source values that are already approved
-        if source_value in approved_source_values:
-            continue
-            
         entry = LookupSourceEntry(
             fiber_id=fiber.fiber_id,
             lookup_name=fiber.fiber_key,
@@ -922,44 +867,16 @@ def submit_lookup_inputs(
         db.commit()
         raise
 
-    source_entry_by_value = {entry.source_value: entry for entry in source_entries}
-
-    # Build lookup keyed by business PK extracted from row_data
-    from .lookup_mapping import _extract_destination_id as _extract_row_pk
-
-    dest_entry_by_pk: dict[str, LookupDestEntry] = {}
-    for entry in deduped_dest_entries:
-        pk = _extract_row_pk(entry.row_data or {})
-        if pk:
-            dest_entry_by_pk[pk] = entry
-
     proposals_for_denorm: list[dict[str, Any]] = []
 
     for proposal in ai_result.proposals:
-        dest_entry = dest_entry_by_pk.get(proposal.dest_id)
-        source_entry = source_entry_by_value.get(proposal.source_value) if proposal.source_value else None
-
         dest_row = {
             "id": proposal.dest_id,
             "label": proposal.dest_value,
         }
-
-        mapping = LookupMapping(
-            fiber_id=fiber.fiber_id,
-            lookup_name=fiber.fiber_key,
-            source_entry_id=source_entry.entry_id if source_entry else None,
-            source_value=proposal.source_value,
-            dest_entry_id=dest_entry.entry_id if dest_entry else None,
-            dest_row=dest_row,
-            confidence_score=proposal.confidence_score,
-            status="proposed" if proposal.source_value else "unmatched",
-            mapped_by="ai",
-        )
-        db.add(mapping)
         proposals_for_denorm.append(
             {
                 "source_value": proposal.source_value,
-                "dest_entry_id": dest_entry.entry_id if dest_entry else None,
                 "dest_row": dest_row,
                 "confidence_score": proposal.confidence_score,
             }
