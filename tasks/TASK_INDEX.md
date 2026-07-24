@@ -2,7 +2,10 @@
 
 ## Ready
 
-*All tasks are currently completed!*
+| Task | Summary |
+|---|---|
+| [001fi-backend-destination-mappings-model](./001fi-backend-destination-mappings-model.md) | Refactor `LookupValueMap` and `LookupSnapshot` backend DB models, API schemas, and routes to natively store and manage 1-to-Many Destination-Anchored mappings (`destination_mappings: list[dict]`). Add backend PATCH actions for adding/removing source values per destination. |
+| [001fj-frontend-destination-mappings-ui](./001fj-frontend-destination-mappings-ui.md) | Refactor React frontend components (`LookupMappingTable.tsx`, `review/page.tsx`, `page.tsx`) to directly render `destination_mappings` from the backend API, removing client-side data inversions. Wire inline `+ Add source` and `×` delete buttons to backend PATCH API actions. |
 
 
 ## Completed
