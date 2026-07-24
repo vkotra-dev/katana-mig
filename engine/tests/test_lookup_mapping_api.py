@@ -13,6 +13,7 @@ from migrations_engine.auth.passwords import hash_password  # noqa: E402
 from migrations_engine.config import get_settings  # noqa: E402
 from migrations_engine.db.models import (  # noqa: E402
     FeedSlice,
+    LookupSnapshot,
     LookupValueMap,
     ProjectDefinition,
     ProjectFiber,
@@ -679,4 +680,70 @@ def test_create_lookup_value_map_stores_destination_mappings(admin_token: str) -
     assert len(data["destination_mappings"]) == 2
     active = next(g for g in data["destination_mappings"] if g["dest_id"] == "ACTIVE")
     assert active["source_values"] == ["A"]
+
+
+def test_patch_lookup_value_map_resets_approved_snapshots_to_draft(
+    admin_token: str, stakeholder_token: str
+) -> None:
+    project_id, source_definition_id = _seed_project()
+
+    # Seed project creates SourceValueSummary with A and B; map both to ACTIVE
+    # so generate_lookup_snapshot does not reject unmapped values.
+    create = client.post(
+        f"/projects/{project_id}/lookup-maps",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "lookup_name": "status_code",
+            "destination_table": [{"id": "ACTIVE", "label": "Active"}],
+            "source_value_map": {"A": "ACTIVE", "B": "ACTIVE"},
+        },
+    )
+    assert create.status_code == 201, create.text
+    lookup_map_id = create.json()["lookup_value_map_id"]
+
+    generate = client.post(
+        f"/projects/{project_id}/sources/{source_definition_id}/lookup-snapshots",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"lookup_name": "status_code"},
+    )
+    assert generate.status_code == 201, generate.text
+    snapshot_id = generate.json()["lookup_snapshot_id"]
+
+    approve = client.post(
+        f"/projects/{project_id}/lookup-snapshots/{snapshot_id}/approve",
+        headers={"Authorization": f"Bearer {stakeholder_token}"},
+    )
+    assert approve.status_code == 200, approve.text
+    assert approve.json()["status"] == "approved"
+
+    # add_source_value should reset the approved snapshot to draft
+    patch_add = client.patch(
+        f"/projects/{project_id}/lookup-maps/{lookup_map_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"add_source_value": {"dest_id": "ACTIVE", "source_value": "B"}},
+    )
+    assert patch_add.status_code == 200, patch_add.text
+
+    with SessionLocal() as db:
+        snapshot = db.get(LookupSnapshot, snapshot_id)
+        assert snapshot.status == "draft"
+        assert snapshot.approved_at is None
+
+    # Re-approve, then confirm remove_source_value also resets it
+    reapprove = client.post(
+        f"/projects/{project_id}/lookup-snapshots/{snapshot_id}/approve",
+        headers={"Authorization": f"Bearer {stakeholder_token}"},
+    )
+    assert reapprove.status_code == 200, reapprove.text
+
+    patch_remove = client.patch(
+        f"/projects/{project_id}/lookup-maps/{lookup_map_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"remove_source_value": {"dest_id": "ACTIVE", "source_value": "B"}},
+    )
+    assert patch_remove.status_code == 200, patch_remove.text
+
+    with SessionLocal() as db:
+        snapshot = db.get(LookupSnapshot, snapshot_id)
+        assert snapshot.status == "draft"
 

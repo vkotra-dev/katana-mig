@@ -728,3 +728,32 @@ def test_only_domain_artifacts_no_lookup_artifacts(
 
     assert result.artifact_count == 2
     assert result.sql_bundle.index("-- [01] customers") < result.sql_bundle.index("-- [02] orders")
+
+
+def test_generate_lookup_upsert_sql_handles_one_to_many_stacked_mappings() -> None:
+    stacked_map = {"A": "ACTIVE", "B": "ACTIVE", "C": "BLOCKED"}
+
+    pg_sql = generate_lookup_upsert_sql("status_code", stacked_map, "postgresql")
+    assert "('A', 'ACTIVE')" in pg_sql
+    assert "('B', 'ACTIVE')" in pg_sql
+    assert "('C', 'BLOCKED')" in pg_sql
+    assert "ON CONFLICT (source_val) DO UPDATE SET dest_val = EXCLUDED.dest_val;" in pg_sql
+
+    mysql_sql = generate_lookup_upsert_sql("status_code", stacked_map, "mysql")
+    assert "('A', 'ACTIVE')" in mysql_sql
+    assert "('B', 'ACTIVE')" in mysql_sql
+    assert "('C', 'BLOCKED')" in mysql_sql
+    assert "ON DUPLICATE KEY UPDATE dest_val = VALUES(dest_val);" in mysql_sql
+
+    mssql_sql = generate_lookup_upsert_sql("status_code", stacked_map, "mssql")
+    assert "('A', 'ACTIVE')" in mssql_sql
+    assert "('B', 'ACTIVE')" in mssql_sql
+    assert "('C', 'BLOCKED')" in mssql_sql
+    assert "MERGE status_code_ref AS target" in mssql_sql
+
+    oracle_sql = generate_lookup_upsert_sql("status_code", stacked_map, "oracle")
+    assert "('A', 'ACTIVE')" in oracle_sql
+    assert "('B', 'ACTIVE')" in oracle_sql
+    assert "('C', 'BLOCKED')" in oracle_sql
+    assert "MERGE" in oracle_sql
+    assert "WHEN MATCHED THEN UPDATE SET" in oracle_sql
