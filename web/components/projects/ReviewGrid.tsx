@@ -58,6 +58,8 @@ interface ReviewGridProps {
   onRemoveSourceField?: (tableName: string, sourceField: string) => void;
   onSignLookup?: (lookupValueMapId: string) => void;
   onUnsignLookup?: (lookupValueMapId: string) => void;
+  onAddLookupSourceValue?: (lookupName: string, destId: string, sourceValue: string) => void;
+  onRemoveLookupSourceValue?: (lookupName: string, destId: string, sourceValue: string) => void;
 }
 
 interface AutocompleteInputProps {
@@ -222,6 +224,8 @@ export function ReviewGrid({
   onRemoveSourceField,
   onSignLookup,
   onUnsignLookup,
+  onAddLookupSourceValue,
+  onRemoveLookupSourceValue,
 }: ReviewGridProps) {
   const [expandedTables, setExpandedTables] = useState<Record<string, boolean>>({});
   const [revisionOpen, setRevisionOpen] = useState(false);
@@ -740,6 +744,8 @@ export function ReviewGrid({
                   groups={group.destinationMappings ?? []}
                   unmappedRowCount={group.unmappedRowCount}
                   editingEnabled={editingEnabled}
+                  onAddSourceValue={(destId, sourceValue) => onAddLookupSourceValue?.(group.lookupName, destId, sourceValue)}
+                  onRemoveSourceValue={(destId, sourceValue) => onRemoveLookupSourceValue?.(group.lookupName, destId, sourceValue)}
                 />
               </div>
             ))}

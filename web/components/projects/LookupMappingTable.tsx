@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { DestinationMappingGroup } from "../../lib/lookup-api";
 
 interface LookupMappingTableProps {
@@ -41,6 +42,27 @@ export function LookupMappingTable({
   onAddSourceValue,
   onRemoveSourceValue,
 }: LookupMappingTableProps) {
+  const [addingDestId, setAddingDestId] = useState<string | null>(null);
+  const [newSourceValue, setNewSourceValue] = useState("");
+
+  const handleStartAdd = (destId: string) => {
+    setAddingDestId(destId);
+    setNewSourceValue("");
+  };
+
+  const handleCancelAdd = () => {
+    setAddingDestId(null);
+    setNewSourceValue("");
+  };
+
+  const handleConfirmAdd = (destId: string) => {
+    const value = newSourceValue.trim();
+    if (value && onAddSourceValue) {
+      onAddSourceValue(destId, value);
+    }
+    handleCancelAdd();
+  };
+
   return (
     <div className="overflow-x-auto">
       {unmappedRowCount != null && unmappedRowCount > 0 && (
@@ -78,13 +100,13 @@ export function LookupMappingTable({
                         type="text"
                         readOnly={!editingEnabled}
                         value={srcVal}
-                        className="px-2.5 py-1 text-sm border rounded bg-slate-50 border-slate-200 text-slate-800 focus:outline-none focus:bg-white focus:border-indigo-500 w-full max-w-sm"
+                        className="px-2.5 py-1 text-sm border rounded bg-slate-50 border-slate-200 text-slate-800 focus:outline-none focus:bg-white focus:border-indigo-500 w-full max-w-sm font-mono"
                       />
                       {editingEnabled && onRemoveSourceValue && group.destId && (
                         <button
                           type="button"
                           onClick={() => onRemoveSourceValue(group.destId, srcVal)}
-                          className="text-slate-400 hover:text-red-500 p-1 font-bold text-xs"
+                          className="text-slate-400 hover:text-red-600 focus:outline-none text-xs font-bold leading-none p-1 transition-colors"
                           title="Remove source value"
                         >
                           ×
@@ -93,18 +115,45 @@ export function LookupMappingTable({
                     </div>
                   ))}
                   {editingEnabled && onAddSourceValue && group.destId && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const val = prompt("Enter new source value alias:");
-                        if (val && val.trim()) {
-                          onAddSourceValue(group.destId, val.trim());
-                        }
-                      }}
-                      className="text-xs text-indigo-600 font-medium hover:text-indigo-800 self-start mt-1"
-                    >
-                      + Add another source value
-                    </button>
+                    addingDestId === group.destId ? (
+                      <div className="flex items-center gap-2 mt-1">
+                        <input
+                          type="text"
+                          autoFocus
+                          value={newSourceValue}
+                          onChange={(e) => setNewSourceValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleConfirmAdd(group.destId);
+                            if (e.key === "Escape") handleCancelAdd();
+                          }}
+                          placeholder="Enter source value alias..."
+                          className="px-2.5 py-1 text-xs border border-indigo-300 rounded bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full max-w-xs font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleConfirmAdd(group.destId)}
+                          disabled={!newSourceValue.trim()}
+                          className="px-2 py-1 text-xs font-semibold rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Add
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelAdd}
+                          className="px-1.5 py-1 text-xs font-medium text-slate-500 hover:text-slate-700"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleStartAdd(group.destId)}
+                        className="text-xs text-indigo-600 font-medium hover:text-indigo-800 self-start mt-1 flex items-center gap-1"
+                      >
+                        + Add another source value
+                      </button>
+                    )
                   )}
                 </div>
               </td>

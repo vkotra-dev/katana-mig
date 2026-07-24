@@ -715,6 +715,8 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
                       onRemoveSourceField={handleRemoveSourceField}
                       onSignLookup={handleSignLookup}
                       onUnsignLookup={handleUnsignLookup}
+                      onAddLookupSourceValue={handleAddSourceByLookup}
+                      onRemoveLookupSourceValue={handleRemoveSourceByLookup}
                     />
                   );
                 })()

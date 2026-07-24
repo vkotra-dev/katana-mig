@@ -415,6 +415,82 @@ describe("ReviewGrid", () => {
     });
   });
 
+  describe("lookup handler wiring", () => {
+    it("passes onAddSourceValue and onRemoveSourceValue to LookupMappingTable", () => {
+      const onAddLookupSourceValue = vi.fn();
+      const onRemoveLookupSourceValue = vi.fn();
+      const testProps = {
+        ...props,
+        onAddLookupSourceValue,
+        onRemoveLookupSourceValue,
+      };
+      render(<ReviewGrid {...testProps} />);
+
+      // The LookupMappingTable should show add/remove controls
+      // because the handlers are wired through
+      expect(screen.getByText("status_map")).toBeInTheDocument();
+
+      // The lookup table should render with editing enabled indicators
+      // (add/remove buttons appear when editingEnabled is true)
+      const addButtons = screen.queryAllByText("+ Add another source value");
+      // With editingEnabled not set, add buttons should NOT appear
+      expect(addButtons.length).toBe(0);
+    });
+
+    it("passes lookup add/remove handlers to LookupMappingTable when editing enabled", () => {
+      const onAddLookupSourceValue = vi.fn();
+      const onRemoveLookupSourceValue = vi.fn();
+      const testProps = {
+        ...props,
+        editingEnabled: true,
+        onAddLookupSourceValue,
+        onRemoveLookupSourceValue,
+      };
+      render(<ReviewGrid {...testProps} />);
+
+      // With editing enabled, the LookupMappingTable should show add buttons
+      expect(screen.queryAllByText("+ Add another source value").length).toBeGreaterThan(0);
+    });
+
+    it("calls onRemoveLookupSourceValue with (lookupName, destId, sourceValue) when a source value is removed", () => {
+      const onAddLookupSourceValue = vi.fn();
+      const onRemoveLookupSourceValue = vi.fn();
+      const testProps = {
+        ...props,
+        editingEnabled: true,
+        onAddLookupSourceValue,
+        onRemoveLookupSourceValue,
+      };
+      render(<ReviewGrid {...testProps} />);
+
+      fireEvent.click(screen.getByTitle("Remove source value"));
+
+      expect(onRemoveLookupSourceValue).toHaveBeenCalledWith("status_map", "ACTIVE", "A");
+      expect(onAddLookupSourceValue).not.toHaveBeenCalled();
+    });
+
+    it("calls onAddLookupSourceValue with (lookupName, destId, sourceValue) when a source value is added", () => {
+      const onAddLookupSourceValue = vi.fn();
+      const onRemoveLookupSourceValue = vi.fn();
+      const testProps = {
+        ...props,
+        editingEnabled: true,
+        onAddLookupSourceValue,
+        onRemoveLookupSourceValue,
+      };
+      render(<ReviewGrid {...testProps} />);
+
+      fireEvent.click(screen.getByText("+ Add another source value"));
+      fireEvent.change(screen.getByPlaceholderText("Enter source value alias..."), {
+        target: { value: "B" },
+      });
+      fireEvent.click(screen.getByText("Add"));
+
+      expect(onAddLookupSourceValue).toHaveBeenCalledWith("status_map", "ACTIVE", "B");
+      expect(onRemoveLookupSourceValue).not.toHaveBeenCalled();
+    });
+  });
+
   describe("stacked destination-cell with add/remove controls", () => {
     const testProps = {
       ...props,
