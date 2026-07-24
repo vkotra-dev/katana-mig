@@ -4,14 +4,18 @@
 
 | Task | Summary |
 |---|---|
-| [001fk-destination-labels-empty-in-backend](./001fk-destination-labels-empty-in-backend.md) | Populate `dest_label` in `destination_mappings` groups during auto-creation and PATCH actions (`add_source_value`, `remove_source_value`, `move_source_value`). |
-| [001fj-frontend-destination-mappings-ui](./001fj-frontend-destination-mappings-ui.md) | Refactor React frontend components (`LookupMappingTable.tsx`, `review/page.tsx`, `page.tsx`) to directly render `destination_mappings` from the backend API, removing client-side data inversions. Wire inline `+ Add source` and `×` delete buttons to backend PATCH API actions. |
-
+| [001gn-lookup-stacked-source-ui](./001gn-lookup-stacked-source-ui.md) | Component-Level Stacked Source Upsert & Delete Controls in `LookupMappingTable.tsx`. |
+| [001go-lookup-review-grid-wiring](./001go-lookup-review-grid-wiring.md) | End-to-End Prop Wiring for Lookup Mapping Actions in `ReviewGrid.tsx` and Review Page. |
+| [001gp-codegen-lookup-stacked-verification](./001gp-codegen-lookup-stacked-verification.md) | Codegen Invalidation & Multi-Dialect DML Tests for Stacked Lookup Mappings (`postgresql`, `mysql`, `mssql`, `oracle`). |
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001fm-lookup-fiber-inputs-upsert-sync](./completed/001fm-lookup-fiber-inputs-upsert-sync.md) | Synchronized `LookupValueMap` (`source_value_map`, `destination_table`, `destination_mappings`) upon AI Analyze input submission and stakeholder fiber approval. Pre-filled textareas in Feed Page. |
+| [001fl-destination-label-review-page](./completed/001fl-destination-label-review-page.md) | Widened fallback label extractor in Review Page to extract `destLabel` using 6-key priority search (`label`, `name`, `desc`, etc.). |
+| [001fk-destination-labels-empty-in-backend](./completed/001fk-destination-labels-empty-in-backend.md) | Populate `dest_label` in `destination_mappings` groups during auto-creation and PATCH actions (`add_source_value`, `remove_source_value`, `move_source_value`). |
+| [001fj-frontend-destination-mappings-ui](./completed/001fj-frontend-destination-mappings-ui.md) | Refactor React frontend components (`LookupMappingTable.tsx`, `review/page.tsx`, `page.tsx`) to directly render `destination_mappings` from the backend API. |
 | [001fi-backend-destination-mappings-model](./completed/001fi-backend-destination-mappings-model.md) | [summary](./summary/001fi-backend-destination-mappings-model.md) |
 | [001fd-codegen-lookup-integration](./completed/001fd-codegen-lookup-integration.md) | [summary](./summary/001fd-codegen-lookup-integration.md) |
 | [001fh-prune-transient-lookup-tables](./completed/001fh-prune-transient-lookup-tables.md) | [summary](./summary/001fh-prune-transient-lookup-tables.md) |

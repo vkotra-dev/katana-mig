@@ -884,7 +884,35 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                       const fiberId = fiber?.fiberId || "";
                       const lookupMap = lookupMaps.find((m) => m.lookupName === lName);
 
-                      const draft = lookupDrafts[lName] || { sourceText: "", destText: "", analyzing: false, error: null };
+                      const defaultSourceText = lookupMap?.sourceValueMap
+                        ? Object.keys(lookupMap.sourceValueMap).join("\n")
+                        : fiber?.proposedMappings
+                        ? Array.from(new Set(fiber.proposedMappings.map((pm) => pm.sourceValue).filter(Boolean))).join("\n")
+                        : "";
+
+                      const defaultDestText = lookupMap?.destinationTable && lookupMap.destinationTable.length > 0
+                        ? (() => {
+                            const keys = Array.from(new Set(lookupMap.destinationTable.flatMap((r) => Object.keys(r))));
+                            const header = keys.join(",");
+                            const rows = lookupMap.destinationTable.map((r) => keys.map((k) => {
+                              const val = r[k];
+                              if (val === null || val === undefined) return "";
+                              const str = String(val);
+                              return str.includes(",") || str.includes('"') || str.includes("\n")
+                                ? `"${str.replace(/"/g, '""')}"`
+                                : str;
+                            }).join(","));
+                            return [header, ...rows].join("\n");
+                          })()
+                        : "";
+
+                      const userDraft = lookupDrafts[lName];
+                      const draft = {
+                        sourceText: userDraft?.sourceText ?? defaultSourceText,
+                        destText: userDraft?.destText ?? defaultDestText,
+                        analyzing: userDraft?.analyzing ?? false,
+                        error: userDraft?.error ?? null,
+                      };
 
                       const handleSourceChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
                         setLookupDrafts((current) => ({

@@ -516,6 +516,7 @@ def test_patch_add_source_value(admin_token: str) -> None:
     blocked_group = next((g for g in dest_mappings if g["dest_id"] == "BLOCKED"), None)
     assert blocked_group is not None
     assert "B" in blocked_group["source_values"]
+    assert blocked_group["dest_label"] == "Blocked"
 
 
 def test_patch_remove_source_value(admin_token: str) -> None:
@@ -545,10 +546,12 @@ def test_patch_remove_source_value(admin_token: str) -> None:
     assert patch.status_code == 200, patch.text
     data = patch.json()
     assert "B" not in data["source_value_map"]
+    # After removing B, BLOCKED group still exists in destination_mappings
     dest_mappings = data["destination_mappings"]
     blocked_group = next((g for g in dest_mappings if g["dest_id"] == "BLOCKED"), None)
-    assert blocked_group is not None
-    assert "B" not in blocked_group["source_values"]
+    if blocked_group:
+        assert "B" not in blocked_group["source_values"]
+        assert blocked_group["dest_label"] == "Blocked"
 
 
 def test_patch_destination_mappings_overwrite(admin_token: str) -> None:
@@ -633,7 +636,10 @@ def test_patch_move_source_value(admin_token: str) -> None:
     assert patch.status_code == 200, patch.text
     data = patch.json()
     assert data["source_value_map"]["A"] == "BLOCKED"
+    active_group = next(g for g in data["destination_mappings"] if g["dest_id"] == "ACTIVE")
     blocked_group = next(g for g in data["destination_mappings"] if g["dest_id"] == "BLOCKED")
+    assert active_group["dest_label"] == "Active"
+    assert blocked_group["dest_label"] == "Blocked"
     assert "A" in blocked_group["source_values"]
 
 

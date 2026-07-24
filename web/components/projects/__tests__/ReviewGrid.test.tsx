@@ -24,12 +24,14 @@ const props = {
     {
       lookupName: "status_map",
       referenceTableName: "status_ref",
-      destinationTable: [{ id: "ACTIVE", name: "Active" }], pairs: [
+      destinationTable: [{ id: "ACTIVE", name: "Active" }],
+      destinationMappings: [
         {
-          sourceValue: "A",
-          destinationRow: { id: "ACTIVE", name: "Active" },
-          confidenceScore: 0.95,
-          status: "confirmed" as const,
+          destId: "ACTIVE",
+          destLabel: "Active",
+          destRow: { id: "ACTIVE", name: "Active" },
+          sourceValues: ["A"],
+          status: "approved",
         },
       ],
     },
@@ -53,7 +55,9 @@ describe("ReviewGrid", () => {
 
     expect(screen.getByText("status_map")).toBeInTheDocument();
     expect(screen.getByText("status_ref")).toBeInTheDocument();
-    expect(screen.getByText("A")).toBeInTheDocument();
+    // Source values appear as input values in the mapped source values column
+    const inputs = screen.getAllByDisplayValue("A");
+    expect(inputs.length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Active/)).toBeInTheDocument();
   });
 

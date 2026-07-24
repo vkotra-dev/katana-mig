@@ -1,71 +1,122 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { LookupMappingTable } from "../LookupMappingTable";
 
-const pairs = [
-  { sourceValue: "A", destinationRow: { id: "ACTIVE", name: "Active" }, confidenceScore: 0.95, status: "pending" as const, destinationId: "ACTIVE" },
-  { sourceValue: "B", destinationRow: { id: "BLOCKED", name: "Blocked" }, confidenceScore: 0.5, status: "pending" as const, destinationId: "BLOCKED" },
-  { sourceValue: "C", destinationRow: null, confidenceScore: 0.2, status: "rejected" as const, destinationId: undefined },
-];
-
-const destinationRows = [
-  { id: "ACTIVE", name: "Active" },
-  { id: "BLOCKED", name: "Blocked" },
+const groups = [
+  {
+    destId: "ACTIVE",
+    destLabel: "Active",
+    destRow: { id: "ACTIVE", name: "Active" },
+    sourceValues: ["A", "B"],
+    status: "draft",
+  },
+  {
+    destId: "BLOCKED",
+    destLabel: "Blocked",
+    destRow: { id: "BLOCKED", name: "Blocked" },
+    sourceValues: ["C"],
+    status: "approved",
+  },
 ];
 
 describe("LookupMappingTable", () => {
   it("renders destination values with ID formatting", () => {
-    render(<LookupMappingTable pairs={pairs} destinationRows={destinationRows} />);
+    render(<LookupMappingTable groups={groups} />);
 
-    // Destination values appear with label+ID
     expect(screen.getByText(/Active/)).toBeInTheDocument();
     expect(screen.getByText(/ACTIVE/)).toBeInTheDocument();
     expect(screen.getByText(/Blocked/)).toBeInTheDocument();
     expect(screen.getByText(/BLOCKED/)).toBeInTheDocument();
   });
 
-  it("renders source values in row-per-pair table", () => {
-    render(<LookupMappingTable pairs={pairs} destinationRows={destinationRows} />);
+  it("renders all source values", () => {
+    render(<LookupMappingTable groups={groups} />);
 
-    expect(screen.getByText("A")).toBeInTheDocument();
-    expect(screen.getByText("B")).toBeInTheDocument();
-    expect(screen.getByText("C")).toBeInTheDocument();
+    expect(screen.getAllByDisplayValue("A")).toHaveLength(1);
+    expect(screen.getAllByDisplayValue("B")).toHaveLength(1);
+    expect(screen.getAllByDisplayValue("C")).toHaveLength(1);
   });
 
-  it("renders status badges from pair status", () => {
-    render(<LookupMappingTable pairs={pairs} destinationRows={destinationRows} />);
+  it("renders status badges from group status", () => {
+    render(<LookupMappingTable groups={groups} />);
 
-    // All pairs have "pending" status
-    const pendingEls = screen.getAllByText(/Pending/);
-    expect(pendingEls.length).toBeGreaterThanOrEqual(1);
-    // C has "rejected" status
-    const rejectedEls = screen.getAllByText(/Rejected/);
-    expect(rejectedEls.length).toBeGreaterThanOrEqual(1);
+    // BLOCKED has "approved" status
+    expect(screen.getByText(/Confirmed/)).toBeInTheDocument();
+    // ACTIVE has "draft" status → shows "Pending"
+    expect(screen.getAllByText(/Pending/)).toHaveLength(1);
   });
 
-  it("handles empty pairs", () => {
-    render(<LookupMappingTable pairs={[]} destinationRows={[]} />);
+  it("handles empty groups", () => {
+    render(<LookupMappingTable groups={[]} />);
 
     expect(screen.getByText("No mappings yet.")).toBeInTheDocument();
   });
 
-  it("renders each pair as a separate row", () => {
-    render(<LookupMappingTable pairs={pairs} destinationRows={destinationRows} />);
+  it("renders each group as a separate row", () => {
+    render(<LookupMappingTable groups={groups} />);
 
-    // Each pair renders as a row — 3 pairs = 3 data rows
     const table = document.querySelector("table");
     const rows = table?.querySelectorAll("tbody tr");
-    expect(rows?.length).toBe(3);
+    expect(rows?.length).toBe(2);
   });
 
-  it("displays destination label+ID when available", () => {
-    const { container } = render(<LookupMappingTable pairs={pairs} destinationRows={destinationRows} />);
-    const table = container.querySelector("table");
-    const textContent = table?.textContent || "";
-    // ACTIVE and BLOCKED have labels in destinationRows
-    expect(textContent).toContain("Active");
-    expect(textContent).toContain("ACTIVE");
-    expect(textContent).toContain("Blocked");
-    expect(textContent).toContain("BLOCKED");
+  it("shows + Add another source value button when editing enabled", () => {
+    render(<LookupMappingTable groups={groups} editingEnabled onAddSourceValue={() => {}} />);
+
+    expect(screen.getAllByText("+ Add another source value").length).toBe(2);
+  });
+
+  it("shows remove (×) button for each source value when editing enabled", () => {
+    render(<LookupMappingTable groups={groups} editingEnabled onRemoveSourceValue={() => {}} />);
+
+    const removeButtons = screen.getAllByTitle("Remove source value");
+    expect(removeButtons.length).toBe(3); // A, B from ACTIVE + C from BLOCKED
+  });
+
+  it("does not show add/remove buttons when editing disabled", () => {
+    render(<LookupMappingTable groups={groups} />);
+
+    expect(screen.queryByText("+ Add another source value")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Remove source value")).not.toBeInTheDocument();
+  });
+
+  it("displays source value inputs that are read-only when not editing", () => {
+    render(<LookupMappingTable groups={groups} />);
+
+    const inputs = document.querySelectorAll('input[type="text"]');
+    expect(inputs.length).toBe(3);
+    inputs.forEach((input) => {
+      expect(input).toHaveAttribute("readOnly");
+    });
+  });
+
+  it("displays source value inputs that are editable when editing enabled", () => {
+    render(<LookupMappingTable groups={groups} editingEnabled />);
+
+    const inputs = document.querySelectorAll('input[type="text"]');
+    inputs.forEach((input) => {
+      expect(input).not.toHaveAttribute("readOnly");
+    });
+  });
+
+  it("renders multiple groups with empty destId without duplicates", () => {
+    const emptyDestGroups = [
+      {
+        destId: "",
+        destLabel: "",
+        destRow: null,
+        sourceValues: ["X"],
+        status: "active",
+      },
+      {
+        destId: "",
+        destLabel: "",
+        destRow: null,
+        sourceValues: ["Y"],
+        status: "active",
+      },
+    ];
+    // Should not throw React duplicate key warning
+    expect(() => render(<LookupMappingTable groups={emptyDestGroups} />)).not.toThrow();
   });
 });

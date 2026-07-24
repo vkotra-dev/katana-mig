@@ -24,9 +24,14 @@ from migrations_engine.management.lookup_mapping import (
     create_lookup_value_map,
     generate_lookup_snapshot,
     list_lookup_value_maps,
+    update_lookup_value_map,
 )
 from migrations_engine.mapping.snapshots import FieldBinding, create_approved_mapping_snapshot
-from migrations_engine.api.schemas import LookupSnapshotGenerateRequest, LookupValueMapCreateRequest
+from migrations_engine.api.schemas import (
+    LookupSnapshotGenerateRequest,
+    LookupValueMapCreateRequest,
+    LookupValueMapPatchRequest,
+)
 from migrations_engine.roles import CENTRAL_TEAM_ROLE
 
 
@@ -278,3 +283,39 @@ def test_lookup_value_map_stores_destination_mappings() -> None:
     assert len(response.destination_mappings) == 1
     assert response.destination_mappings[0].dest_id == "ACTIVE"
     assert response.destination_mappings[0].source_values == ["A"]
+
+
+def test_update_lookup_value_map_populates_dest_label() -> None:
+    Base.metadata.create_all(bind=TEST_ENGINE)
+
+    with SessionLocal() as db:
+        actor, project_id, _source_definition_id = _seed_project(db)
+
+        # Create map without destination_mappings (legacy-style)
+        response = create_lookup_value_map(
+            db,
+            actor=actor,
+            project_id=project_id,
+            body=LookupValueMapCreateRequest(
+                lookup_name="status_code",
+                destination_table=[
+                    {"id": "ACTIVE", "label": "Active"},
+                    {"id": "BLOCKED", "label": "Blocked"},
+                ],
+                source_value_map={"A": "ACTIVE", "B": "BLOCKED"},
+            ),
+        )
+        lookup_map_id = response.lookup_value_map_id
+
+        # Add source value — should create a new group with dest_label from destination_table
+        add_response = update_lookup_value_map(
+            db,
+            project_id=project_id,
+            lookup_value_map_id=lookup_map_id,
+            body=LookupValueMapPatchRequest(
+                add_source_value={"dest_id": "BLOCKED", "source_value": "C"}
+            ),
+        )
+        blocked_group = next(g for g in add_response.destination_mappings if g.dest_id == "BLOCKED")
+        assert "C" in blocked_group.source_values
+        assert blocked_group.dest_label == "Blocked"

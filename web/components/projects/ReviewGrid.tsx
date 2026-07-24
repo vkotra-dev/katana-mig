@@ -22,14 +22,21 @@ export interface LookupValueGroup {
   lookupValueMapId?: string;
   unmappedRowCount?: number;
   fiberStatus?: string;
-  pairs: Array<{
+  pairs?: Array<{
     sourceValue: string;
     destinationRow: Record<string, unknown> | null;
     confidenceScore: number;
     status: "confirmed" | "pending" | "rejected";
     destinationId?: string;
   }>;
-  destinationTable: Array<Record<string, unknown>>;
+  destinationTable?: Array<Record<string, unknown>>;
+  destinationMappings?: Array<{
+    destId: string;
+    destLabel: string;
+    destRow?: Record<string, unknown>;
+    sourceValues: string[];
+    status: string;
+  }>;
 }
 
 interface ReviewGridProps {
@@ -51,13 +58,6 @@ interface ReviewGridProps {
   onRemoveSourceField?: (tableName: string, sourceField: string) => void;
   onSignLookup?: (lookupValueMapId: string) => void;
   onUnsignLookup?: (lookupValueMapId: string) => void;
-  onEditLookup?: (lookupValueMapId: string, pairs: Array<{
-    sourceValue: string;
-    destinationRow: Record<string, unknown> | null;
-    confidenceScore: number;
-    status: "confirmed" | "pending" | "rejected";
-    destinationId?: string;
-  }>) => void;
 }
 
 interface AutocompleteInputProps {
@@ -222,7 +222,6 @@ export function ReviewGrid({
   onRemoveSourceField,
   onSignLookup,
   onUnsignLookup,
-  onEditLookup,
 }: ReviewGridProps) {
   const [expandedTables, setExpandedTables] = useState<Record<string, boolean>>({});
   const [revisionOpen, setRevisionOpen] = useState(false);
@@ -738,12 +737,9 @@ export function ReviewGrid({
                 </div>
 
                 <LookupMappingTable
-                  pairs={group.pairs}
-                  destinationRows={group.destinationTable}
-                  lookupValueMapId={group.lookupValueMapId}
+                  groups={group.destinationMappings ?? []}
                   unmappedRowCount={group.unmappedRowCount}
                   editingEnabled={editingEnabled}
-                  onEditLookup={onEditLookup}
                 />
               </div>
             ))}

@@ -205,51 +205,44 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
     }
   };
 
-  const handleEditLookup = async (_lookupValueMapId: string, updatedPairs: Array<{
-    sourceValue: string;
-    destinationRow: Record<string, unknown> | null;
-    confidenceScore: number;
-    status: "confirmed" | "pending" | "rejected";
-    destinationId?: string;
-  }>) => {
-    // Find the lookup map being edited by matching pairs
-    const mapToEdit = lookupMaps.find((map) => {
-      const pairKeys = new Set(Object.keys(map.sourceValueMap));
-      const updatedKeys = new Set(updatedPairs.map((p) => p.sourceValue));
-      if (pairKeys.size !== updatedKeys.size) return false;
-      for (const key of pairKeys) {
-        if (!updatedKeys.has(key)) return false;
-      }
-      return true;
-    });
-
-    if (!_lookupValueMapId || !mapToEdit) return;
-
-    // Build sourceValueMap from updated pairs
-    const sourceValueMap: Record<string, string> = {};
-    for (const pair of updatedPairs) {
-      const destId = pair.destinationId ?? (pair.destinationRow?.id as string) ?? (pair.destinationRow?.destination_id as string);
-      if (destId) {
-        sourceValueMap[pair.sourceValue] = destId;
-      }
-    }
-
-    // Optimistically update local state
-    setLookupMaps((prev) =>
-      prev.map((map) =>
-        map.lookupValueMapId === mapToEdit.lookupValueMapId ? { ...map, sourceValueMap } : map,
-      ),
-    );
+  const handleAddSourceValue = async (lookupValueMapId: string, destId: string, sourceValue: string) => {
+    if (!session) return;
     try {
-      await patchLookupValueMap(session.accessToken, projectId, mapToEdit.lookupValueMapId, { sourceValueMap });
-      // Sign-off status automatically resets in the backend; fetch the new status
-      const updated = await getSignOffStatus(session.accessToken, projectId, feedId);
-      setSignOffStatus(updated);
-      setNotice("Lookup mapping updated.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update lookup mapping.");
-      // Reload to recover server state
+      await patchLookupValueMap(session.accessToken, projectId, lookupValueMapId, {
+        addSourceValue: { destId, sourceValue },
+      });
       await loadData(session.accessToken);
+      setNotice(`Added source value "${sourceValue}" to ${destId}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add source value.");
+    }
+  };
+
+  const handleRemoveSourceValue = async (lookupValueMapId: string, destId: string, sourceValue: string) => {
+    if (!session) return;
+    try {
+      await patchLookupValueMap(session.accessToken, projectId, lookupValueMapId, {
+        removeSourceValue: { destId, sourceValue },
+      });
+      await loadData(session.accessToken);
+      setNotice(`Removed source value "${sourceValue}" from ${destId}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove source value.");
+    }
+  };
+
+  // Wrapper that maps lookupName → lookupValueMapId
+  const handleAddSourceByLookup = async (lookupName: string, destId: string, sourceValue: string) => {
+    const map = lookupMaps.find(m => m.lookupName === lookupName);
+    if (map?.lookupValueMapId) {
+      await handleAddSourceValue(map.lookupValueMapId, destId, sourceValue);
+    }
+  };
+
+  const handleRemoveSourceByLookup = async (lookupName: string, destId: string, sourceValue: string) => {
+    const map = lookupMaps.find(m => m.lookupName === lookupName);
+    if (map?.lookupValueMapId) {
+      await handleRemoveSourceValue(map.lookupValueMapId, destId, sourceValue);
     }
   };
 
@@ -449,50 +442,100 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
         const refTable = binding.referenceTableName || "unknown_ref";
         const latestMap = lookupMaps.find((m) => m.lookupName === binding.lookupName);
         const fiber = fibers.find(f => f.fiberKey === binding.lookupName);
-        const pairs: Array<{
-          sourceValue: string;
-          destinationRow: Record<string, unknown> | null;
-          confidenceScore: number;
-          status: "rejected" | "confirmed" | "pending";
-        }> = [];
-        if (latestMap) {
-          for (const [srcVal, destId] of Object.entries(latestMap.sourceValueMap)) {
-            // Skip entries with no destination ID (e.g. rows from reference tables
-            // that don't have an id / destination_id column)
-            if (!destId || !destId.trim()) continue;
 
-            const destRow = latestMap.destinationTable.find((row) => {
-              const rowId = (row as Record<string, unknown>).id ??
-                (row as Record<string, unknown>).destination_id ??
-                (row as Record<string, unknown>).destination_mapping_id ??
-                (row as Record<string, unknown>).entry_id ??
-                (row as Record<string, unknown>).uuid;
-              return String(rowId ?? "") === String(destId);
-            });
-            if (!destRow) continue; // skip rows that don't exist in the destination table
+        // Build destinationMappings from backend-provided data
+        const isConfirmed = latestMap?.status === "approved" || (
+          signOffStatus && latestMap &&
+          signOffStatus.lookups[latestMap.lookupValueMapId]?.centralTeam.signed &&
+          signOffStatus.lookups[latestMap.lookupValueMapId]?.projectStakeholder.signed
+        );
 
-            const isConfirmed = latestMap.status === "approved" || (
-              signOffStatus &&
-              signOffStatus.lookups[latestMap.lookupValueMapId]?.centralTeam.signed &&
-              signOffStatus.lookups[latestMap.lookupValueMapId]?.projectStakeholder.signed
-            );
-            pairs.push({
-              sourceValue: srcVal,
-              destinationRow: destRow,
-              confidenceScore: 0.95,
-              status: (isConfirmed ? "confirmed" : "pending") as any,
-            });
-          }
-        } else if (fiber && fiber.proposedMappings) {
-          for (const pm of fiber.proposedMappings) {
-            pairs.push({
-              sourceValue: pm.sourceValue,
-              destinationRow: pm.destRow,
-              confidenceScore: pm.confidenceScore ?? 0.95,
-              status: "pending",
-            });
+        let destinationMappings = latestMap?.destinationMappings ?? [];
+        // Repair stale destinationMappings where destLabel is empty (e.g. created before dest_label fix)
+        const hasEmptyDestLabels = destinationMappings.length > 0 && destinationMappings.every(g => !g.destLabel);
+
+        // For approved maps without destinationMappings (legacy), fall back to pairs
+        if (destinationMappings.length === 0 || hasEmptyDestLabels) {
+          const extractDestLabel = (row: Record<string, unknown>): string => {
+            for (const key of ["label", "name", "description", "desc", "val", "value", "display"]) {
+              const v = row[key];
+              if (typeof v === "string" && v.trim()) return v.trim();
+            }
+            for (const [k, v] of Object.entries(row)) {
+              const kl = k.toLowerCase();
+              if (["label", "name", "desc", "display"].some((s) => kl.includes(s)) && typeof v === "string" && v.trim())
+                return v.trim();
+            }
+            return "";
+          };
+
+          if (latestMap) {
+            // Fallback to sourceValueMap + destinationTable from lookup_value_maps
+            // When source_value_map values don't match destinationTable IDs (e.g. stale UUIDs),
+            // fall back to the fiber's proposed_mappings which has the correct destRow data.
+            const fallbackGroups = Object.entries(latestMap.sourceValueMap)
+              .filter(([, destId]) => destId && destId.trim())
+              .map(([srcVal, destId]) => {
+                const destRow = latestMap.destinationTable.find((row: Record<string, unknown>) => {
+                  const rowId = (row as any).id ?? (row as any).destination_id;
+                  return String(rowId ?? "") === String(destId);
+                });
+                const destLabel = destRow ? extractDestLabel(destRow) : "";
+                return {
+                  destId,
+                  destLabel,
+                  destRow: destRow || {},
+                  sourceValues: [srcVal],
+                  status: isConfirmed ? "approved" : "draft",
+                };
+              });
+
+            // If none of the destIds matched destinationTable rows, try fiber proposed_mappings
+            const unmatchedCount = fallbackGroups.filter(g => !g.destLabel && g.destId !== "0" && !latestMap.destinationTable.some((r: Record<string, unknown>) => String((r as any).id ?? (r as any).destination_id) === g.destId)).length;
+            if (unmatchedCount > 0 && unmatchedCount === fallbackGroups.length && fallbackGroups.length > 0 && fiber?.proposedMappings) {
+              // Use fiber proposed_mappings as the source of truth
+              const srcToDest = fiber.proposedMappings.reduce((acc, pm) => {
+                const sv = pm.sourceValue ?? "";
+                const dr = pm.destRow ?? {};
+                const did = pm.destEntryId ?? String((dr as any).id ?? (dr as any).destination_id ?? "");
+                if (sv && did) {
+                  if (!acc[did]) acc[did] = { destId: did, destRow: dr, sourceValues: [] };
+                  acc[did].sourceValues.push(sv);
+                }
+                return acc;
+              }, {} as Record<string, { destId: string; destRow: Record<string, unknown>; sourceValues: string[] }>);
+              destinationMappings = Object.values(srcToDest).map(({ destId, destRow, sourceValues }) => ({
+                destId,
+                destLabel: extractDestLabel(destRow),
+                destRow,
+                sourceValues,
+                status: isConfirmed ? "approved" : "draft",
+              }));
+            } else {
+              destinationMappings = fallbackGroups;
+            }
+          } else if (fiber?.proposedMappings) {
+            // Fallback to fiber proposed_mappings when no lookup_value_maps record exists
+            const srcToDest = fiber.proposedMappings.reduce((acc, pm) => {
+              const sv = pm.sourceValue ?? "";
+              const dr = pm.destRow ?? {};
+              const did = pm.destEntryId ?? String((dr as any).id ?? (dr as any).destination_id ?? "");
+              if (sv && did) {
+                if (!acc[did]) acc[did] = { destId: did, destRow: dr, sourceValues: [] };
+                acc[did].sourceValues.push(sv);
+              }
+              return acc;
+            }, {} as Record<string, { destId: string; destRow: Record<string, unknown>; sourceValues: string[] }>);
+            destinationMappings = Object.values(srcToDest).map(({ destId, destRow, sourceValues }) => ({
+              destId,
+              destLabel: extractDestLabel(destRow),
+              destRow,
+              sourceValues,
+              status: isConfirmed ? "approved" : "draft",
+            }));
           }
         }
+
         lookupGroups.push({
           lookupName: binding.lookupName,
           referenceTableName: refTable,
@@ -500,7 +543,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
           unmappedRowCount: latestMap?.unmappedRowCount,
           fiberStatus: fiber?.status,
           destinationTable: latestMap?.destinationTable || [],
-          pairs,
+          destinationMappings,
         });
       }
     }
@@ -672,7 +715,6 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
                       onRemoveSourceField={handleRemoveSourceField}
                       onSignLookup={handleSignLookup}
                       onUnsignLookup={handleUnsignLookup}
-                      onEditLookup={editingEnabled ? handleEditLookup : undefined}
                     />
                   );
                 })()

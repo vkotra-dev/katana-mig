@@ -14,7 +14,7 @@ from migrations_engine.ai.adapter import AICallResult
 from migrations_engine.app import app
 from migrations_engine.auth.passwords import hash_password
 from migrations_engine.config import get_settings
-from migrations_engine.db.models import Feed, ProjectDefinition, ProjectFiber, ProjectMembership, ProjectRegistry, User
+from migrations_engine.db.models import Feed, LookupValueMap, ProjectDefinition, ProjectFiber, ProjectMembership, ProjectRegistry, User
 from migrations_engine.management import fibers as fibers_module
 from migrations_engine.roles import CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE
 
@@ -295,7 +295,6 @@ def test_lookup_fiber_approval_bridges_to_lookup_value_map(monkeypatch: pytest.M
     assert approve_resp.status_code == 200, approve_resp.text
 
     # Step 6: Verify that LookupValueMap was created with correct mapping
-    from migrations_engine.db.models import LookupValueMap
     with SessionLocal() as db:
         lvm = db.scalar(
             select(LookupValueMap).where(
@@ -371,4 +370,38 @@ def test_cannot_re_submit_after_sign_off(monkeypatch: pytest.MonkeyPatch) -> Non
     )
     assert fiber_resp.status_code == 200
     assert fiber_resp.json()["status"] == "business_approved"
+
+
+def test_submit_lookup_inputs_upserts_lookup_value_map(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify submit_lookup_inputs creates LookupValueMap with source_value_map and destination_mappings."""
+    project_id, feed_id = _seed_project_and_feed()
+    fiber_id = _create_fiber(project_id, feed_id)
+    monkeypatch.setattr(fibers_module, "get_adapter", lambda task: FakeLookupAdapter())
+
+    response = client.post(
+        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/lookup-inputs",
+        headers={"Authorization": f"Bearer {_admin_token()}"},
+        json={
+            "source_values": ["A", "B", "C"],
+            "destination_lookup_csv": "id,label\n1,Active\n2,Blocked\n3,Pending",
+        },
+    )
+    assert response.status_code == 200, response.text
+
+    with SessionLocal() as db:
+        lvm = db.scalar(
+            select(LookupValueMap).where(
+                LookupValueMap.project_id == project_id,
+                LookupValueMap.lookup_name == "status_code",
+                LookupValueMap.status == "draft",
+            )
+        )
+        assert lvm is not None, "LookupValueMap must be created by submit_lookup_inputs"
+        assert lvm.source_value_map == {"A": "1", "B": "2", "C": "3"}
+        assert len(lvm.destination_mappings) == 3
+        active_group = next(g for g in lvm.destination_mappings if g["dest_id"] == "1")
+        assert active_group["dest_label"] == "Active"
+        assert active_group["source_values"] == ["A"]
+        blocked_group = next(g for g in lvm.destination_mappings if g["dest_id"] == "2")
+        assert blocked_group["dest_label"] == "Blocked"
 

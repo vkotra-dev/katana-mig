@@ -113,10 +113,11 @@ def update_lookup_value_map(
                     found = True
                     break
             if not found:
+                label, dest_row_data = _lookup_dest_label(lookup_map, dest_id)
                 mappings.append({
                     "dest_id": dest_id,
-                    "dest_label": "",
-                    "dest_row": {},
+                    "dest_label": label,
+                    "dest_row": dest_row_data,
                     "source_values": [src_val],
                     "status": "draft",
                 })
@@ -140,10 +141,11 @@ def update_lookup_value_map(
                     break
             if not found:
                 # Group may not exist yet (e.g. legacy maps without destination_mappings)
+                label, dest_row_data = _lookup_dest_label(lookup_map, dest_id)
                 mappings.append({
                     "dest_id": dest_id,
-                    "dest_label": "",
-                    "dest_row": {},
+                    "dest_label": label,
+                    "dest_row": dest_row_data,
                     "source_values": [],
                     "status": "draft",
                 })
@@ -185,7 +187,8 @@ def update_lookup_value_map(
                 for src_v, dest_v in lookup_map.source_value_map.items():
                     did = str(dest_v)
                     if did not in dest_groups:
-                        dest_groups[did] = {"dest_id": did, "dest_label": "", "dest_row": {}, "source_values": [], "status": "draft"}
+                        label, dest_row_data = _lookup_dest_label(lookup_map, did)
+                        dest_groups[did] = {"dest_id": did, "dest_label": label, "dest_row": dest_row_data, "source_values": [], "status": "draft"}
                     dest_groups[did]["source_values"].append(src_v)
                 mappings = list(dest_groups.values())
             src_moved = False
@@ -206,10 +209,11 @@ def update_lookup_value_map(
                         found_new = True
                         break
                 if not found_new:
+                    label, dest_row_data = _lookup_dest_label(lookup_map, new_dest_id)
                     mappings.append({
                         "dest_id": new_dest_id,
-                        "dest_label": "",
-                        "dest_row": {},
+                        "dest_label": label,
+                        "dest_row": dest_row_data,
                         "source_values": [src_val],
                         "status": "draft",
                     })
@@ -233,6 +237,7 @@ def update_lookup_value_map(
             snapshot.approved_at = None
             snapshot.approved_by_user_id = None
 
+    db.flush()
     db.commit()
     db.refresh(lookup_map)
     return _lookup_value_map_response(lookup_map)
@@ -559,6 +564,15 @@ def _extract_destination_label(row: dict[str, Any]) -> str:
     if pieces:
         return " | ".join(pieces)
     return _extract_destination_id(row)
+
+
+def _lookup_dest_label(lookup_map: LookupValueMap, dest_id: str) -> tuple[str, dict[str, Any]]:
+    """Find the destination row in destination_table matching dest_id and return (label, dest_row)."""
+    for row in (lookup_map.destination_table or []):
+        row_id = row.get("id") or row.get("destination_id")
+        if str(row_id) == str(dest_id):
+            return (_extract_destination_label(row), row)
+    return ("", {})
 
 
 def _lookup_value_map_response(row: LookupValueMap, unmapped_row_count: int = 0) -> LookupValueMapResponse:
