@@ -520,6 +520,172 @@ def test_patch_add_source_value(admin_token: str) -> None:
     assert blocked_group["dest_label"] == "Blocked"
 
 
+def test_patch_add_source_value_stacks_into_existing_group(admin_token: str) -> None:
+    """Adding a second, different source value to a dest_id that already has one
+    source value must append to the SAME group, not create a duplicate group."""
+    project_id, _source_definition_id = _seed_project()
+
+    create = client.post(
+        f"/projects/{project_id}/lookup-maps",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "lookup_name": "status_code",
+            "destination_table": [{"id": "ACTIVE", "label": "Active"}],
+            "source_value_map": {"A": "ACTIVE"},
+            "destination_mappings": [
+                {
+                    "dest_id": "ACTIVE",
+                    "dest_label": "Active",
+                    "dest_row": {},
+                    "source_values": ["A"],
+                    "status": "draft",
+                },
+            ],
+        },
+    )
+    assert create.status_code == 201, create.text
+    lookup_map_id = create.json()["lookup_value_map_id"]
+
+    # ACTIVE already has "A". Add a second, different source value "B" to ACTIVE.
+    patch = client.patch(
+        f"/projects/{project_id}/lookup-maps/{lookup_map_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"add_source_value": {"dest_id": "ACTIVE", "source_value": "B"}},
+    )
+    assert patch.status_code == 200, patch.text
+    data = patch.json()
+
+    active_groups = [g for g in data["destination_mappings"] if g["dest_id"] == "ACTIVE"]
+    assert len(active_groups) == 1, f"expected exactly one ACTIVE group, got {len(active_groups)}: {active_groups}"
+    assert set(active_groups[0]["source_values"]) == {"A", "B"}
+
+
+def test_patch_add_source_value_stacks_when_destination_mappings_preseeded(admin_token: str) -> None:
+    """Control case: when destination_mappings is explicitly seeded at create time
+    (not left to be inferred from source_value_map), does add_source_value stack correctly?"""
+    project_id, _source_definition_id = _seed_project()
+
+    create = client.post(
+        f"/projects/{project_id}/lookup-maps",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "lookup_name": "status_code",
+            "destination_table": [{"id": "ACTIVE", "label": "Active"}],
+            "source_value_map": {"A": "ACTIVE"},
+            "destination_mappings": [
+                {"dest_id": "ACTIVE", "dest_label": "Active", "dest_row": {}, "source_values": ["A"], "status": "draft"},
+            ],
+        },
+    )
+    assert create.status_code == 201, create.text
+    lookup_map_id = create.json()["lookup_value_map_id"]
+
+    patch = client.patch(
+        f"/projects/{project_id}/lookup-maps/{lookup_map_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"add_source_value": {"dest_id": "ACTIVE", "source_value": "B"}},
+    )
+    assert patch.status_code == 200, patch.text
+    data = patch.json()
+
+    active_groups = [g for g in data["destination_mappings"] if g["dest_id"] == "ACTIVE"]
+    assert len(active_groups) == 1, f"expected exactly one ACTIVE group, got {len(active_groups)}: {active_groups}"
+    assert set(active_groups[0]["source_values"]) == {"A", "B"}
+
+
+def test_patch_remove_source_value_from_preseeded_group(admin_token: str) -> None:
+    """When destination_mappings already has a group with 2+ source values (the
+    normal state once stacking works), removing one value must actually persist
+    — not silently no-op due to in-place-mutation-not-detected-by-SQLAlchemy."""
+    project_id, _source_definition_id = _seed_project()
+
+    create = client.post(
+        f"/projects/{project_id}/lookup-maps",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "lookup_name": "status_code",
+            "destination_table": [{"id": "ACTIVE", "label": "Active"}],
+            "source_value_map": {"A": "ACTIVE", "B": "ACTIVE"},
+            "destination_mappings": [
+                {"dest_id": "ACTIVE", "dest_label": "Active", "dest_row": {}, "source_values": ["A", "B"], "status": "draft"},
+            ],
+        },
+    )
+    assert create.status_code == 201, create.text
+    lookup_map_id = create.json()["lookup_value_map_id"]
+
+    patch = client.patch(
+        f"/projects/{project_id}/lookup-maps/{lookup_map_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"remove_source_value": {"dest_id": "ACTIVE", "source_value": "B"}},
+    )
+    assert patch.status_code == 200, patch.text
+    data = patch.json()
+
+    active_groups = [g for g in data["destination_mappings"] if g["dest_id"] == "ACTIVE"]
+    assert len(active_groups) == 1, f"expected exactly one ACTIVE group, got {len(active_groups)}: {active_groups}"
+    assert active_groups[0]["source_values"] == ["A"], active_groups[0]["source_values"]
+
+
+def test_patch_move_source_value_between_existing_groups(admin_token: str) -> None:
+    """Moving a source value from one existing, populated group to another
+    existing, populated group must persist both the removal from the old
+    group and the addition to the new group (both exercise the
+    in-place-mutation SQLAlchemy bug)."""
+    project_id, _source_definition_id = _seed_project()
+
+    create = client.post(
+        f"/projects/{project_id}/lookup-maps",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "lookup_name": "status_code",
+            "destination_table": [
+                {"id": "ACTIVE", "label": "Active"},
+                {"id": "BLOCKED", "label": "Blocked"},
+            ],
+            "source_value_map": {"A": "ACTIVE", "B": "BLOCKED"},
+            "destination_mappings": [
+                {
+                    "dest_id": "ACTIVE",
+                    "dest_label": "Active",
+                    "dest_row": {},
+                    "source_values": ["A", "C"],
+                    "status": "draft",
+                },
+                {
+                    "dest_id": "BLOCKED",
+                    "dest_label": "Blocked",
+                    "dest_row": {},
+                    "source_values": ["B"],
+                    "status": "draft",
+                },
+            ],
+        },
+    )
+    assert create.status_code == 201, create.text
+    lookup_map_id = create.json()["lookup_value_map_id"]
+
+    patch = client.patch(
+        f"/projects/{project_id}/lookup-maps/{lookup_map_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "move_source_value": {
+                "source_value": "C",
+                "old_dest_id": "ACTIVE",
+                "new_dest_id": "BLOCKED",
+            }
+        },
+    )
+    assert patch.status_code == 200, patch.text
+    data = patch.json()
+
+    active_group = next(g for g in data["destination_mappings"] if g["dest_id"] == "ACTIVE")
+    blocked_group = next(g for g in data["destination_mappings"] if g["dest_id"] == "BLOCKED")
+    assert active_group["source_values"] == ["A"], active_group["source_values"]
+    assert set(blocked_group["source_values"]) == {"B", "C"}, blocked_group["source_values"]
+    assert data["source_value_map"]["C"] == "BLOCKED"
+
+
 def test_patch_remove_source_value(admin_token: str) -> None:
     project_id, _source_definition_id = _seed_project()
 

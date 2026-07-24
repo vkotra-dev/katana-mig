@@ -6,6 +6,7 @@ from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from ..api.deps import AuthApiError
 from ..api.schemas import (
@@ -122,6 +123,7 @@ def update_lookup_value_map(
                     "status": "draft",
                 })
             lookup_map.destination_mappings = mappings
+            flag_modified(lookup_map, "destination_mappings")
             # Sync flat source_value_map for backward compat
             svm = dict(lookup_map.source_value_map or {})
             svm[src_val] = dest_id
@@ -150,6 +152,7 @@ def update_lookup_value_map(
                     "status": "draft",
                 })
             lookup_map.destination_mappings = mappings
+            flag_modified(lookup_map, "destination_mappings")
             # Also remove from flat source_value_map
             svm = dict(lookup_map.source_value_map or {})
             svm.pop(src_val, None)
@@ -218,6 +221,7 @@ def update_lookup_value_map(
                         "status": "draft",
                     })
             lookup_map.destination_mappings = mappings
+            flag_modified(lookup_map, "destination_mappings")
             # Sync flat source_value_map
             svm = dict(lookup_map.source_value_map or {})
             svm.pop(src_val, None)
