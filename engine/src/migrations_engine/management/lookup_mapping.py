@@ -104,7 +104,7 @@ def update_lookup_value_map(
         dest_id = body.add_source_value.get("dest_id", "")
         src_val = body.add_source_value.get("source_value", "")
         if dest_id and src_val:
-            mappings = list(lookup_map.destination_mappings or [])
+            mappings = _reconcile_destination_mappings(lookup_map)
             found = False
             for group in mappings:
                 if str(group.get("dest_id", "")) == str(dest_id):
@@ -134,7 +134,7 @@ def update_lookup_value_map(
         dest_id = body.remove_source_value.get("dest_id", "")
         src_val = body.remove_source_value.get("source_value", "")
         if dest_id and src_val:
-            mappings = list(lookup_map.destination_mappings or [])
+            mappings = _reconcile_destination_mappings(lookup_map)
             found = False
             for group in mappings:
                 if str(group.get("dest_id", "")) == str(dest_id):
@@ -183,17 +183,7 @@ def update_lookup_value_map(
         old_dest_id = body.move_source_value.get("old_dest_id", "")
         new_dest_id = body.move_source_value.get("new_dest_id", "")
         if src_val and old_dest_id and new_dest_id:
-            mappings = list(lookup_map.destination_mappings or [])
-            # Build destination_mappings from source_value_map if empty
-            if not mappings and lookup_map.source_value_map:
-                dest_groups: dict[str, dict[str, Any]] = {}
-                for src_v, dest_v in lookup_map.source_value_map.items():
-                    did = str(dest_v)
-                    if did not in dest_groups:
-                        label, dest_row_data = _lookup_dest_label(lookup_map, did)
-                        dest_groups[did] = {"dest_id": did, "dest_label": label, "dest_row": dest_row_data, "source_values": [], "status": "draft"}
-                    dest_groups[did]["source_values"].append(src_v)
-                mappings = list(dest_groups.values())
+            mappings = _reconcile_destination_mappings(lookup_map)
             src_moved = False
             for group in mappings:
                 if str(group.get("dest_id", "")) == str(old_dest_id):
@@ -577,6 +567,33 @@ def _lookup_dest_label(lookup_map: LookupValueMap, dest_id: str) -> tuple[str, d
         if str(row_id) == str(dest_id):
             return (_extract_destination_label(row), row)
     return ("", {})
+
+
+def _reconcile_destination_mappings(lookup_map: LookupValueMap) -> list[dict[str, Any]]:
+    """Return the working copy of destination_mappings groups to mutate.
+
+    If destination_mappings was never explicitly seeded (empty) but
+    source_value_map already has entries, rebuild groups from source_value_map
+    first — otherwise those source values would be silently dropped the
+    moment a PATCH action rebuilds destination_mappings from an empty start.
+    """
+    mappings = list(lookup_map.destination_mappings or [])
+    if not mappings and lookup_map.source_value_map:
+        dest_groups: dict[str, dict[str, Any]] = {}
+        for src_v, dest_v in lookup_map.source_value_map.items():
+            did = str(dest_v)
+            if did not in dest_groups:
+                label, dest_row_data = _lookup_dest_label(lookup_map, did)
+                dest_groups[did] = {
+                    "dest_id": did,
+                    "dest_label": label,
+                    "dest_row": dest_row_data,
+                    "source_values": [],
+                    "status": "draft",
+                }
+            dest_groups[did]["source_values"].append(src_v)
+        mappings = list(dest_groups.values())
+    return mappings
 
 
 def _lookup_value_map_response(row: LookupValueMap, unmapped_row_count: int = 0) -> LookupValueMapResponse:

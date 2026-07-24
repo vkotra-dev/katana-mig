@@ -686,6 +686,106 @@ def test_patch_move_source_value_between_existing_groups(admin_token: str) -> No
     assert data["source_value_map"]["C"] == "BLOCKED"
 
 
+def test_patch_add_source_value_reconciles_from_source_value_map_when_destination_mappings_empty(
+    admin_token: str,
+) -> None:
+    """When destination_mappings was never explicitly seeded (only source_value_map
+    was provided at create time), adding a new source value to a dest_id that
+    already has one (via source_value_map) must not drop the existing one."""
+    project_id, _source_definition_id = _seed_project()
+
+    create = client.post(
+        f"/projects/{project_id}/lookup-maps",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "lookup_name": "status_code",
+            "destination_table": [{"id": "ACTIVE", "label": "Active"}],
+            "source_value_map": {"A": "ACTIVE"},
+        },
+    )
+    assert create.status_code == 201, create.text
+    lookup_map_id = create.json()["lookup_value_map_id"]
+
+    patch = client.patch(
+        f"/projects/{project_id}/lookup-maps/{lookup_map_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"add_source_value": {"dest_id": "ACTIVE", "source_value": "B"}},
+    )
+    assert patch.status_code == 200, patch.text
+    data = patch.json()
+
+    active_groups = [g for g in data["destination_mappings"] if g["dest_id"] == "ACTIVE"]
+    assert len(active_groups) == 1, active_groups
+    assert set(active_groups[0]["source_values"]) == {"A", "B"}, active_groups[0]["source_values"]
+
+
+def test_patch_remove_source_value_reconciles_from_source_value_map_when_destination_mappings_empty(
+    admin_token: str,
+) -> None:
+    """When destination_mappings was never explicitly seeded, removing one source
+    value must not drop its siblings that were only known via source_value_map."""
+    project_id, _source_definition_id = _seed_project()
+
+    create = client.post(
+        f"/projects/{project_id}/lookup-maps",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "lookup_name": "status_code",
+            "destination_table": [{"id": "ACTIVE", "label": "Active"}],
+            "source_value_map": {"A": "ACTIVE", "B": "ACTIVE"},
+        },
+    )
+    assert create.status_code == 201, create.text
+    lookup_map_id = create.json()["lookup_value_map_id"]
+
+    patch = client.patch(
+        f"/projects/{project_id}/lookup-maps/{lookup_map_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"remove_source_value": {"dest_id": "ACTIVE", "source_value": "B"}},
+    )
+    assert patch.status_code == 200, patch.text
+    data = patch.json()
+
+    active_groups = [g for g in data["destination_mappings"] if g["dest_id"] == "ACTIVE"]
+    assert len(active_groups) == 1, active_groups
+    assert active_groups[0]["source_values"] == ["A"], active_groups[0]["source_values"]
+
+
+def test_patch_move_source_value_reconciles_from_source_value_map_when_destination_mappings_empty(
+    admin_token: str,
+) -> None:
+    """Regression guard for the _reconcile_destination_mappings refactor: this
+    already passed before the refactor (move_source_value had its own inline
+    version of this logic) and must keep passing after."""
+    project_id, _source_definition_id = _seed_project()
+
+    create = client.post(
+        f"/projects/{project_id}/lookup-maps",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "lookup_name": "status_code",
+            "destination_table": [
+                {"id": "ACTIVE", "label": "Active"},
+                {"id": "BLOCKED", "label": "Blocked"},
+            ],
+            "source_value_map": {"A": "ACTIVE", "C": "ACTIVE"},
+        },
+    )
+    assert create.status_code == 201, create.text
+    lookup_map_id = create.json()["lookup_value_map_id"]
+
+    patch = client.patch(
+        f"/projects/{project_id}/lookup-maps/{lookup_map_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"move_source_value": {"source_value": "C", "old_dest_id": "ACTIVE", "new_dest_id": "BLOCKED"}},
+    )
+    assert patch.status_code == 200, patch.text
+    data = patch.json()
+
+    active_group = next(g for g in data["destination_mappings"] if g["dest_id"] == "ACTIVE")
+    assert active_group["source_values"] == ["A"], active_group["source_values"]
+
+
 def test_patch_remove_source_value(admin_token: str) -> None:
     project_id, _source_definition_id = _seed_project()
 
