@@ -7,6 +7,7 @@
 | [001gn-lookup-stacked-source-ui](./001gn-lookup-stacked-source-ui.md) | Inline add form (replacing `window.prompt()`) and item-delete `×` style parity for source values in `LookupMappingTable.tsx`. Source values only, no destination-group delete. |
 | [001go-lookup-review-grid-wiring](./001go-lookup-review-grid-wiring.md) | Fix `removeSourceValue` snake_case bug in `lookup-api.ts`; wire existing add/remove source value handlers through `ReviewGrid.tsx` into the Review Page. |
 | [001gp-codegen-lookup-stacked-verification](./001gp-codegen-lookup-stacked-verification.md) | Snapshot-invalidation and multi-dialect DML test coverage (`postgresql`, `mysql`, `mssql`, `oracle`) for `add_source_value`/`remove_source_value`. Backend-only, no frontend dependency. |
+| [001gq-lookup-patch-inner-key-casing-bug](./001gq-lookup-patch-inner-key-casing-bug.md) | Fix silent no-op bug: `patchLookupValueMap` snake_cases the outer PATCH key but not the inner `{destId, sourceValue}` object, so `add_source_value`/`remove_source_value`/`move_source_value` are dropped by the backend with a false success toast. Frontend-only fix. |
 
 ## Completed
 

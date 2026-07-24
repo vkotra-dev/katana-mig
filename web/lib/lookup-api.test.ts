@@ -168,7 +168,7 @@ describe("lookup-api", () => {
         expect.objectContaining({
           method: "PATCH",
           body: JSON.stringify({
-            add_source_value: { destId: "ACTIVE", sourceValue: "active_status" },
+            add_source_value: { dest_id: "ACTIVE", source_value: "active_status" },
           }),
         }),
       );
@@ -199,7 +199,7 @@ describe("lookup-api", () => {
         expect.objectContaining({
           method: "PATCH",
           body: JSON.stringify({
-            remove_source_value: { destId: "ACTIVE", sourceValue: "old_alias" },
+            remove_source_value: { dest_id: "ACTIVE", source_value: "old_alias" },
           }),
         }),
       );
@@ -232,7 +232,7 @@ describe("lookup-api", () => {
         expect.objectContaining({
           method: "PATCH",
           body: JSON.stringify({
-            move_source_value: { sourceValue: "A", oldDestId: "OLD", newDestId: "ACTIVE" },
+            move_source_value: { source_value: "A", old_dest_id: "OLD", new_dest_id: "ACTIVE" },
           }),
         }),
       );

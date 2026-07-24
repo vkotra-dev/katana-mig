@@ -140,9 +140,25 @@ export async function patchLookupValueMap(
   const body: Record<string, unknown> = {};
   if (input.sourceValueMap) body.source_value_map = input.sourceValueMap;
   if (input.destinationMappings) body.destination_mappings = input.destinationMappings;
-  if (input.addSourceValue) body.add_source_value = input.addSourceValue;
-  if (input.removeSourceValue) body.remove_source_value = input.removeSourceValue;
-  if (input.moveSourceValue) body.move_source_value = input.moveSourceValue;
+  if (input.addSourceValue) {
+    body.add_source_value = {
+      dest_id: input.addSourceValue.destId,
+      source_value: input.addSourceValue.sourceValue,
+    };
+  }
+  if (input.removeSourceValue) {
+    body.remove_source_value = {
+      dest_id: input.removeSourceValue.destId,
+      source_value: input.removeSourceValue.sourceValue,
+    };
+  }
+  if (input.moveSourceValue) {
+    body.move_source_value = {
+      source_value: input.moveSourceValue.sourceValue,
+      old_dest_id: input.moveSourceValue.oldDestId,
+      new_dest_id: input.moveSourceValue.newDestId,
+    };
+  }
 
   const response = await jsonRequest<Parameters<typeof mapLookupValueMapResponse>[0]>(
     `/projects/${projectId}/lookup-maps/${lookupValueMapId}`,
