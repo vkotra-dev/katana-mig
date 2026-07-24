@@ -483,48 +483,6 @@ export async function getFiber(
   return mapFiberResponse(response);
 }
 
-export interface LookupSourceEntryRecord {
-  entryId: string;
-  sourceValue: string;
-}
-
-export interface LookupDestEntryRecord {
-  entryId: string;
-  rowData: Record<string, any>;
-}
-
-export async function getLookupSourceEntries(
-  token: string,
-  projectId: string,
-  feedId: string,
-  fiberId: string,
-): Promise<LookupSourceEntryRecord[]> {
-  const response = await requestJson<any[]>(
-    `/projects/${projectId}/feeds/${feedId}/fibers/${fiberId}/source-entries`,
-    { method: "GET", token },
-  );
-  return response.map((item) => ({
-    entryId: item.entry_id,
-    sourceValue: item.source_value,
-  }));
-}
-
-export async function getLookupDestEntries(
-  token: string,
-  projectId: string,
-  feedId: string,
-  fiberId: string,
-): Promise<LookupDestEntryRecord[]> {
-  const response = await requestJson<any[]>(
-    `/projects/${projectId}/feeds/${feedId}/fibers/${fiberId}/dest-feed/entries`,
-    { method: "GET", token },
-  );
-  return response.map((item) => ({
-    entryId: item.entry_id,
-    rowData: item.row_data,
-  }));
-}
-
 export async function assignFiber(
   token: string,
   projectId: string,

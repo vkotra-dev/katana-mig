@@ -13,8 +13,6 @@ import {
   patchFeedMappingHints,
   uploadFeedSlice,
   resubmitFeedSlice,
-  getLookupSourceEntries,
-  getLookupDestEntries,
   discardFeed,
   type FeedContractRecord,
   type FeedSliceRecord,
@@ -100,38 +98,23 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
       setSlices(slicesData);
       setFibers(fibersData);
 
-      // Populate lookup drafts for lookups if they exist in DB
+      // Populate lookup drafts for lookups if they exist in DB/proposed mappings
       for (const fiber of fibersData) {
         if (fiber.fiberType === "lookup") {
           try {
-            const [sourceEntries, destEntries] = await Promise.all([
-              getLookupSourceEntries(token, projectId, feedId, fiber.fiberId),
-              getLookupDestEntries(token, projectId, feedId, fiber.fiberId),
-            ]);
-            
-            let sourceText = sourceEntries.map((e) => e.sourceValue).join("\n");
             const sharedMap = mapsData.find((m) => m.lookupName === fiber.fiberKey);
+            let sourceText = "";
             
-            if (!sourceText && sharedMap) {
+            if (sharedMap) {
               sourceText = Object.keys(sharedMap.sourceValueMap).join("\n");
+            } else if (fiber.proposedMappings && fiber.proposedMappings.length > 0) {
+              const srcVals = fiber.proposedMappings.map((pm) => pm.sourceValue || pm.source_value).filter(Boolean);
+              sourceText = Array.from(new Set(srcVals)).join("\n");
             }
             
             // Reconstruct CSV for destination entries
             let destText = "";
-            if (destEntries.length > 0) {
-              const columns = Object.keys(destEntries[0].rowData);
-              const headerRow = columns.join(",");
-              const dataRows = destEntries.map((entry) =>
-                columns.map((col) => {
-                  const val = entry.rowData[col];
-                  if (typeof val === "string") {
-                    return val.startsWith("'") && val.endsWith("'") ? val : `'${val}'`;
-                  }
-                  return val;
-                }).join(",")
-              );
-              destText = [headerRow, ...dataRows].join("\n");
-            } else if (sharedMap && sharedMap.destinationTable.length > 0) {
+            if (sharedMap && sharedMap.destinationTable.length > 0) {
               const columns = Object.keys(sharedMap.destinationTable[0]);
               const headerRow = columns.join(",");
               const dataRows = sharedMap.destinationTable.map((row) =>
@@ -144,6 +127,22 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                 }).join(",")
               );
               destText = [headerRow, ...dataRows].join("\n");
+            } else if (fiber.proposedMappings && fiber.proposedMappings.length > 0) {
+              const destRows = fiber.proposedMappings.map((pm) => pm.destRow || pm.dest_row).filter(Boolean);
+              if (destRows.length > 0) {
+                const columns = Object.keys(destRows[0]);
+                const headerRow = columns.join(",");
+                const dataRows = destRows.map((row) =>
+                  columns.map((col) => {
+                    const val = row[col];
+                    if (typeof val === "string") {
+                      return val.startsWith("'") && val.endsWith("'") ? val : `'${val}'`;
+                    }
+                    return val;
+                  }).join(",")
+                );
+                destText = [headerRow, ...dataRows].join("\n");
+              }
             }
 
             setLookupDrafts((current) => ({
