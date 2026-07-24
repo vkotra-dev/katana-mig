@@ -11,9 +11,15 @@ INSTRUCTIONS FOR SQL BUNDLE GENERATION:
    - Source/staging tables already exist — do NOT create them.
 LOOKUP RESOLUTION RULES (apply when a field uses a lookup table):
    - The destination column type is shown in the field binding as [TYPE] (e.g. "claim_status [INT]")
-   - Declare a local variable of that exact type before the loop: DECLARE @_<lookup_name>_id <destination_type> = NULL
-   - Inside the loop, resolve before INSERT/UPDATE: SELECT @_<lookup_name>_id = [id] FROM [schema].[lookup_table] WHERE [source_value] = @_source_field
+   - Reference tables are created in the staging schema as <lookup_name>_ref with columns: source_val (VARCHAR(255) PRIMARY KEY), dest_val (VARCHAR(255) NOT NULL)
+   - Declare a local variable of the target type before the loop: DECLARE @_<lookup_name>_id <destination_type> = NULL
+   - Inside the loop, resolve before INSERT/UPDATE by joining the staging row to the reference table:
+     SELECT @_<lookup_name>_id = CAST(ref.dest_val AS <destination_type>)
+       FROM <staging_schema>.<lookup_name>_ref ref
+       JOIN <staging_schema>.staging_table stg ON stg.<source_column> = ref.source_val
    - Use the resolved variable directly in INSERT/UPDATE — do NOT use inline subqueries or CAST to NVARCHAR
+   - Wrap lookup resolution and upsert logic in TRY...CATCH (SQL Server) / BEGIN...EXCEPTION (PostgreSQL) for transaction atomicity
+   - Log errors to mig_upsert_log on failure
 3. Return your output as JSON with these fields:
    - staging_ddl: use a SQL comment (e.g. "-- No new tables required") — do not generate CREATE TABLE for source or destination tables
    - lookup_ddl: list of CREATE TABLE statements for lookup/reference tables (empty list if none)

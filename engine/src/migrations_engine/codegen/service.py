@@ -18,6 +18,7 @@ from ..api.schemas import (
 )
 from ..db.models import (
     CodeGenerationArtifact,
+    LookupSnapshot,
     MappingSnapshot,
     ProjectDefinition,
     ProjectRegistry,
@@ -122,11 +123,18 @@ def generate_codegen_artifact(
         destination_object_name=destination_object_name,
         project_definition=project_definition,
     )
+    lookup_tables = _build_lookup_tables(
+        db,
+        project_id=project_id,
+        mapping_snapshot=mapping_snapshot,
+    )
+
     user_prompt = _build_user_prompt(
         source_definition=source_definition,
         source_slice=source_slice,
         mapping_snapshot=mapping_snapshot,
         lookup_snapshot_version=lookup_snapshot_version,
+        lookup_tables=lookup_tables,
         project_config=project_config,
         run_ref=f"{project_id}_{source_definition_id}",
         comments=comments,
@@ -448,6 +456,53 @@ def _select_lookup_snapshot_version(
     return None
 
 
+def _build_lookup_tables(
+    db: Session,
+    *,
+    project_id: str,
+    mapping_snapshot: MappingSnapshot,
+) -> list[dict]:
+    """Build structured lookup reference table info for prompt embedding.
+
+    Returns a list of dicts with keys: lookup_name, ref_table_name, columns,
+    sample_mappings (up to 5 rows), and snapshot_version.
+    """
+    lookup_names = sorted(
+        {
+            str(binding.get("lookup_name"))
+            for binding in mapping_snapshot.field_bindings
+            if binding.get("lookup_name")
+        }
+    )
+    results = []
+    for lookup_name in lookup_names:
+        try:
+            snapshot = select_latest_approved_lookup_snapshot(
+                db,
+                project_id=project_id,
+                lookup_name=lookup_name,
+            )
+        except SnapshotNotFoundError:
+            continue
+
+        value_map = snapshot.value_map or {}
+        ref_table = f"{lookup_name}_ref" if not lookup_name.endswith("_ref") else lookup_name
+        sample = list(value_map.items())[:5]
+        sample_mappings = [
+            {"source_val": src, "dest_val": dst}
+            for src, dst in sample
+        ]
+
+        results.append({
+            "lookup_name": lookup_name,
+            "ref_table_name": ref_table,
+            "columns": ["source_val VARCHAR(255) PRIMARY KEY", "dest_val VARCHAR(255) NOT NULL"],
+            "sample_mappings": sample_mappings,
+            "snapshot_version": snapshot.lookup_snapshot_version,
+        })
+    return results
+
+
 def _mig_upsert_log_ddl(staging_schema: str, db_engine: str | None = None) -> str:
     lower_engine = (db_engine or "").lower()
     engine_key = "mssql" if lower_engine == "sqlserver" else lower_engine
@@ -585,6 +640,7 @@ def _build_user_prompt(
     source_slice: FeedSlice,
     mapping_snapshot: MappingSnapshot,
     lookup_snapshot_version: str | None,
+    lookup_tables: list[dict],
     project_config: MigrationProjectConfig,
     run_ref: str,
     comments: list[tuple[FeedComment, str]],
@@ -596,6 +652,7 @@ def _build_user_prompt(
         source_slice=source_slice,
         mapping_snapshot=mapping_snapshot,
         lookup_snapshot_version=lookup_snapshot_version,
+        lookup_tables=lookup_tables,
         project_config=project_config,
         run_ref=run_ref,
         discussion=_format_discussion(comments),

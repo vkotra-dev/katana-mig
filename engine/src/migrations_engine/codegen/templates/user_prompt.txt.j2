@@ -10,6 +10,17 @@ Field bindings:
 {% for binding in mapping_snapshot.field_bindings %}
 - {{ binding.get('source_field') }} -> {{ binding.get('destination_field') }}{% if binding.get('destination_data_type') %} [{{ binding.get('destination_data_type') }}]{% endif %} (lookup: {{ binding.get('lookup_name') or 'none' }})
 {% endfor %}
+{% if lookup_tables %}
+LOOKUP REFERENCE TABLES
+{% for lt in lookup_tables %}
+- Table: {{ lt.ref_table_name }} (snapshot: {{ lt.snapshot_version }})
+  Columns: {{ ", ".join(lt.columns) }}
+  Sample mappings (up to 5 rows):
+  {% for m in lt.sample_mappings %}
+  - {{ m.source_val }} -> {{ m.dest_val }}
+  {% endfor %}
+{% endfor %}
+{% endif %}
 {% if source_definition.transformation_instructions %}
 FEED-SPECIFIC TRANSFORMATION INSTRUCTIONS
 {{ source_definition.transformation_instructions.strip() }}
