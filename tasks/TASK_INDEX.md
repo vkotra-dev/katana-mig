@@ -4,7 +4,6 @@
 
 | Task | Summary |
 |---|---|
-| [001fh-prune-transient-lookup-tables](./001fh-prune-transient-lookup-tables.md) | Create Alembic migration `0039_drop_transient_lookup_tables.py`, drop 4 deprecated transient lookup tables, and prune ORM models in `db/models.py`. |
 | [001fd-codegen-lookup-integration](./001fd-codegen-lookup-integration.md) | Embed approved lookup reference table names, schema, and sample mappings into Codegen prompts for accurate stored procedure generation. |
 
 
@@ -12,6 +11,7 @@
 
 | Task | Summary |
 |---|---|
+| [001fh-prune-transient-lookup-tables](./completed/001fh-prune-transient-lookup-tables.md) | [summary](./summary/001fh-prune-transient-lookup-tables.md) |
 | [001fg-refactor-lookup-fiber-to-json](./completed/001fg-refactor-lookup-fiber-to-json.md) | [summary](./summary/001fg-refactor-lookup-fiber-to-json.md) |
 | [001fe-review-page-lookup-grid-display](./completed/001fe-review-page-lookup-grid-display.md) | [summary](./summary/001fe-review-page-lookup-grid-display.md) |
 | [001fc-lookup-fiber-prompt-and-review-edit](./completed/001fc-lookup-fiber-prompt-and-review-edit.md) | [summary](./summary/001fc-lookup-fiber-prompt-and-review-edit.md) |

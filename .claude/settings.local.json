@@ -59,7 +59,8 @@
       "Bash(.venv/bin/pytest engine/tests/test_codegen_coding_standards.py -q)",
       "Bash(.venv/bin/pytest engine/tests/test_codegen_system_prompt.py -q)",
       "Bash(.venv/bin/pytest engine/tests/codegen/test_bundle_logging.py -q)",
-      "Bash(PYTHONPATH=/Users/vjkotra/projects/katana/engine/src python -c ' *)"
+      "Bash(PYTHONPATH=/Users/vjkotra/projects/katana/engine/src python -c ' *)",
+      "Bash(sort -t'.' -k1 -V)"
     ]
   }
 }
