@@ -2,15 +2,14 @@
 
 ## Ready
 
-| Task | Summary |
-|---|---|
-| [001fd-codegen-lookup-integration](./001fd-codegen-lookup-integration.md) | Embed approved lookup reference table names, schema, and sample mappings into Codegen prompts for accurate stored procedure generation. |
+*All tasks are currently completed!*
 
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001fd-codegen-lookup-integration](./completed/001fd-codegen-lookup-integration.md) | [summary](./summary/001fd-codegen-lookup-integration.md) |
 | [001fh-prune-transient-lookup-tables](./completed/001fh-prune-transient-lookup-tables.md) | [summary](./summary/001fh-prune-transient-lookup-tables.md) |
 | [001fg-refactor-lookup-fiber-to-json](./completed/001fg-refactor-lookup-fiber-to-json.md) | [summary](./summary/001fg-refactor-lookup-fiber-to-json.md) |
 | [001fe-review-page-lookup-grid-display](./completed/001fe-review-page-lookup-grid-display.md) | [summary](./summary/001fe-review-page-lookup-grid-display.md) |
