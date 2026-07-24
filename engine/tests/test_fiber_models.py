@@ -31,10 +31,6 @@ from migrations_engine.config import get_settings  # noqa: E402
 from migrations_engine.db.base import Base  # noqa: E402
 from migrations_engine.db.models import (  # noqa: E402
     Feed,
-    LookupDestEntry,
-    LookupDestFeed,
-    LookupMapping,
-    LookupSourceEntry,
     ProjectDefinition,
     ProjectMembership,
     ProjectFiber,
@@ -124,10 +120,6 @@ def _create_project_and_feed(db) -> tuple[str, str]:
 
 def test_fiber_models_exist_and_are_linked_to_feeds() -> None:
     assert ProjectFiber.__tablename__ == "project_fibers"
-    assert LookupSourceEntry.__tablename__ == "lookup_source_entries"
-    assert LookupDestFeed.__tablename__ == "lookup_dest_feeds"
-    assert LookupDestEntry.__tablename__ == "lookup_dest_entries"
-    assert LookupMapping.__tablename__ == "lookup_mappings"
 
     fiber_columns = {column.name for column in ProjectFiber.__table__.columns}
     assert {"fiber_id", "feed_id", "project_id", "fiber_type", "fiber_key", "status", "source"}.issubset(

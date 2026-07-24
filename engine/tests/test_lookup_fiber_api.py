@@ -185,20 +185,12 @@ def test_lookup_inputs_creates_lookup_entities_and_maps_rows(monkeypatch: pytest
         assert fiber is not None
         assert fiber.status == "mapped"
         assert len(fiber.proposed_mappings or []) == 2
-
-    source_entries = client.get(
-        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/source-entries",
-        headers={"Authorization": f"Bearer {_admin_token()}"},
-    )
-    assert source_entries.status_code == 200, source_entries.text
-    assert {row["source_value"] for row in source_entries.json()} == {"A", "B", "C"}
-
-    dest_entries = client.get(
-        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/dest-feed/entries",
-        headers={"Authorization": f"Bearer {_admin_token()}"},
-    )
-    assert dest_entries.status_code == 200, dest_entries.text
-    assert len(dest_entries.json()) == 2
+        # Verify proposed_mappings structure (JSON, not DB rows)
+        pm = fiber.proposed_mappings
+        assert pm[0]["source_value"] in ("A", "B")
+        assert pm[0]["dest_row"] is not None
+        assert "id" in pm[0]["dest_row"]
+        assert "label" in pm[0]["dest_row"]
 
 
 def test_lookup_inputs_rejects_wrong_fiber_type(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -245,35 +237,6 @@ def test_lookup_inputs_allows_re_analysis_on_mapped_state(monkeypatch: pytest.Mo
 
     assert second.status_code == 200
     assert second.json()["status"] == "mapped"
-
-
-def test_dest_feed_replacement_overwrites_previous_rows() -> None:
-    project_id, feed_id = _seed_project_and_feed()
-    fiber_id = _create_fiber(project_id, feed_id)
-    headers = {"Authorization": f"Bearer {_admin_token()}"}
-
-    first = client.post(
-        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/dest-feed",
-        headers=headers,
-        json={"columns": ["id", "label"], "rows": [{"id": "1", "label": "One"}, {"id": "2", "label": "Two"}]},
-    )
-    assert first.status_code == 201, first.text
-
-    second = client.post(
-        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/dest-feed",
-        headers=headers,
-        json={"columns": ["code"], "rows": [{"code": "X"}]},
-    )
-    assert second.status_code == 201, second.text
-    assert second.json()["columns"] == ["code"]
-
-    entries = client.get(
-        f"/projects/{project_id}/feeds/{feed_id}/fibers/{fiber_id}/dest-feed/entries",
-        headers=headers,
-    )
-    assert entries.status_code == 200, entries.text
-    assert len(entries.json()) == 1
-    assert entries.json()[0]["row_data"]["code"] == "X"
 
 
 def test_lookup_fiber_approval_bridges_to_lookup_value_map(monkeypatch: pytest.MonkeyPatch) -> None:

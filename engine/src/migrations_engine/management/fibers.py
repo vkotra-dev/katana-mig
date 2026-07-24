@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from ..ai.factory import get_adapter
@@ -19,23 +19,12 @@ from ..api.schemas import (
     FiberActionRequest,
     FiberCreateRequest,
     FiberResponse,
-    LookupDestEntryResponse,
-    LookupDestFeedCreateRequest,
-    LookupDestFeedResponse,
     LookupInputsRequest,
-    LookupMappingPatchRequest,
-    LookupMappingResponse,
-    LookupSourceEntriesCreateRequest,
-    LookupSourceEntryResponse,
 )
 from ..codegen.lookup_upsert import generate_lookup_upsert_sql
 from ..db.models import (
     CodeGenerationArtifact,
     Feed,
-    LookupDestEntry,
-    LookupDestFeed,
-    LookupMapping,
-    LookupSourceEntry,
     LookupValueMap,
     ProjectDefinition,
     ProjectFiber,
@@ -739,54 +728,27 @@ def submit_lookup_inputs(
     if fiber.status not in ("deferred", "mapped", "inputs_ready"):
         raise AuthApiError(
             "fiber_not_deferred",
-            "Fiber must be in 'deferred', 'inputs_ready', or 'mapped' status.",
+            "Fiber must be in 'deferred', 'mapped', or 'inputs_ready' status.",
             409,
         )
 
-    # Clean up source entries for this fiber to allow re-analysis
-    db.execute(
-        delete(LookupSourceEntry).where(
-            LookupSourceEntry.fiber_id == fiber.fiber_id,
-        )
-    )
-    db.flush()
-
     columns, dest_rows = _parse_destination_csv(body.destination_lookup_csv)
-    
-    # Use existing dest feed if it exists, otherwise create a new one
-    existing_dest_feed = db.scalar(select(LookupDestFeed).where(LookupDestFeed.fiber_id == fiber.fiber_id))
-    if existing_dest_feed is None:
-        dest_feed = LookupDestFeed(
-            fiber_id=fiber.fiber_id,
-            lookup_name=fiber.fiber_key,
-            columns=columns,
-        )
-        db.add(dest_feed)
-        db.flush()
-    else:
-        dest_feed = existing_dest_feed
 
-    dest_entries: list[LookupDestEntry] = []
+    # Deduplicate destination rows by content before sending to AI
+    seen_sigs: set[str] = set()
+    deduped_dest_rows: list[dict[str, Any]] = []
     for row in dest_rows:
-        entry = LookupDestEntry(dest_feed_id=dest_feed.dest_feed_id, row_data=row)
-        db.add(entry)
-        dest_entries.append(entry)
-    db.flush()
+        sig = json.dumps(row, sort_keys=True)
+        if sig not in seen_sigs:
+            seen_sigs.add(sig)
+            deduped_dest_rows.append(row)
 
-    source_entries: list[LookupSourceEntry] = []
-    for source_value in body.source_values:
-        entry = LookupSourceEntry(
-            fiber_id=fiber.fiber_id,
-            lookup_name=fiber.fiber_key,
-            source_value=source_value,
-            discovery_type="sample",
-        )
-        db.add(entry)
-        source_entries.append(entry)
-    db.flush()
-
-    fiber.status = "inputs_ready"
-    db.flush()
+    payload = json.dumps(
+        {
+            "source_values": body.source_values,
+            "destination_rows": deduped_dest_rows,
+        }
+    )
 
     registry = db.get(ProjectRegistry, project_id)
     if registry is None:
@@ -801,21 +763,6 @@ def submit_lookup_inputs(
     except TypeError:
         adapter = get_adapter("lookup_mapping")
 
-    # Deduplicate destination rows by content before sending to AI
-    seen_sigs: set[str] = set()
-    deduped_dest_entries: list[LookupDestEntry] = []
-    for entry in dest_entries:
-        sig = json.dumps(entry.row_data, sort_keys=True)
-        if sig not in seen_sigs:
-            seen_sigs.add(sig)
-            deduped_dest_entries.append(entry)
-
-    payload = json.dumps(
-        {
-            "source_values": [entry.source_value for entry in source_entries],
-            "destination_rows": [entry.row_data for entry in deduped_dest_entries],
-        }
-    )
     from ..ai.prompt import Prompt
     prompt3 = Prompt("lookup_mapping")
     prompt3.set(payload=payload)
@@ -887,183 +834,6 @@ def submit_lookup_inputs(
     db.commit()
     db.refresh(fiber)
     return _fiber_response(fiber)
-
-
-def list_source_entries(
-    db: Session,
-    *,
-    feed_id: str,
-    fiber_id: str,
-    project_id: str,
-) -> list[LookupSourceEntryResponse]:
-    fiber = _require_lookup_fiber(db, feed_id=feed_id, fiber_id=fiber_id, project_id=project_id)
-    entries = db.scalars(
-        select(LookupSourceEntry)
-        .where(LookupSourceEntry.fiber_id == fiber.fiber_id)
-        .order_by(LookupSourceEntry.created_at.asc())
-    ).all()
-    return [_source_entry_response(entry) for entry in entries]
-
-
-def add_source_entries(
-    db: Session,
-    *,
-    feed_id: str,
-    fiber_id: str,
-    project_id: str,
-    body: LookupSourceEntriesCreateRequest,
-) -> list[LookupSourceEntryResponse]:
-    fiber = _require_lookup_fiber(db, feed_id=feed_id, fiber_id=fiber_id, project_id=project_id)
-    entries: list[LookupSourceEntry] = []
-    for source_value in body.values:
-        entry = LookupSourceEntry(
-            fiber_id=fiber.fiber_id,
-            lookup_name=fiber.fiber_key,
-            source_value=source_value,
-            discovery_type=body.discovery_type,
-        )
-        db.add(entry)
-        entries.append(entry)
-    db.commit()
-    for entry in entries:
-        db.refresh(entry)
-    return [_source_entry_response(entry) for entry in entries]
-
-
-def create_or_replace_dest_feed(
-    db: Session,
-    *,
-    feed_id: str,
-    fiber_id: str,
-    project_id: str,
-    body: LookupDestFeedCreateRequest,
-) -> LookupDestFeedResponse:
-    fiber = _require_lookup_fiber(db, feed_id=feed_id, fiber_id=fiber_id, project_id=project_id)
-    existing = db.scalar(select(LookupDestFeed).where(LookupDestFeed.fiber_id == fiber.fiber_id))
-    if existing is not None:
-        db.execute(delete(LookupDestEntry).where(LookupDestEntry.dest_feed_id == existing.dest_feed_id))
-        db.delete(existing)
-        db.flush()
-
-    dest_feed = LookupDestFeed(fiber_id=fiber.fiber_id, lookup_name=fiber.fiber_key, columns=body.columns)
-    db.add(dest_feed)
-    db.flush()
-    for row in body.rows:
-        db.add(LookupDestEntry(dest_feed_id=dest_feed.dest_feed_id, row_data=row))
-    db.commit()
-    db.refresh(dest_feed)
-    return _dest_feed_response(dest_feed)
-
-
-def list_dest_entries(
-    db: Session,
-    *,
-    feed_id: str,
-    fiber_id: str,
-    project_id: str,
-) -> list[LookupDestEntryResponse]:
-    fiber = _require_lookup_fiber(db, feed_id=feed_id, fiber_id=fiber_id, project_id=project_id)
-    dest_feed = db.scalar(select(LookupDestFeed).where(LookupDestFeed.fiber_id == fiber.fiber_id))
-    if dest_feed is None:
-        return []
-    entries = db.scalars(
-        select(LookupDestEntry)
-        .where(LookupDestEntry.dest_feed_id == dest_feed.dest_feed_id)
-        .order_by(LookupDestEntry.created_at.asc())
-    ).all()
-    return [_dest_entry_response(entry) for entry in entries]
-
-
-def list_mappings(
-    db: Session,
-    *,
-    feed_id: str,
-    fiber_id: str,
-    project_id: str,
-) -> list[LookupMappingResponse]:
-    fiber = _require_lookup_fiber(db, feed_id=feed_id, fiber_id=fiber_id, project_id=project_id)
-    mappings = db.scalars(
-        select(LookupMapping)
-        .where(LookupMapping.fiber_id == fiber.fiber_id)
-        .order_by(LookupMapping.created_at.asc())
-    ).all()
-    return [_mapping_response(mapping) for mapping in mappings]
-
-
-def patch_mapping(
-    db: Session,
-    *,
-    feed_id: str,
-    fiber_id: str,
-    mapping_id: str,
-    project_id: str,
-    body: LookupMappingPatchRequest,
-) -> LookupMappingResponse:
-    fiber = _require_lookup_fiber(db, feed_id=feed_id, fiber_id=fiber_id, project_id=project_id)
-    # Check if this lookup has already been signed off by either reviewer
-    from ..db.models import LookupValueMap, LookupSignOff
-    value_map = db.scalar(
-        select(LookupValueMap)
-        .where(
-            LookupValueMap.project_id == project_id,
-            LookupValueMap.lookup_name == fiber.fiber_key,
-        )
-        .order_by(LookupValueMap.created_at.desc(), LookupValueMap.lookup_value_map_id.desc())
-    )
-    if value_map is not None:
-        has_sign_off = db.scalar(
-            select(LookupSignOff)
-            .where(LookupSignOff.lookup_value_map_id == value_map.lookup_value_map_id)
-            .limit(1)
-        ) is not None
-        if has_sign_off:
-            raise AuthApiError(
-                "lookup_already_approved",
-                f"Cannot update mappings for lookup '{fiber.fiber_key}' because it has already been signed off by a reviewer.",
-                409,
-            )
-
-    mapping = db.scalar(
-        select(LookupMapping).where(
-            LookupMapping.mapping_id == mapping_id,
-            LookupMapping.fiber_id == fiber.fiber_id,
-        )
-    )
-    if mapping is None:
-        raise AuthApiError("mapping_not_found", "Mapping not found.", 404)
-
-    dest_entry = db.get(LookupDestEntry, body.dest_entry_id)
-
-    # If source_value explicitly provided and no source_entry exists, create one
-    if body.is_source_value_set() and body.source_value is not None and mapping.source_entry_id is None:
-        src_entry = LookupSourceEntry(
-            fiber_id=fiber.fiber_id,
-            lookup_name=fiber.fiber_key,
-            source_value=body.source_value,
-            discovery_type="manual",
-        )
-        db.add(src_entry)
-        db.flush()
-        mapping.source_entry_id = src_entry.entry_id
-
-    if body.is_source_value_set():
-        mapping.source_value = body.source_value
-    mapping.dest_entry_id = body.dest_entry_id
-    mapping.status = body.status if body.status else ("confirmed" if body.source_value else "unmatched")
-    if dest_entry is not None:
-        from .lookup_mapping import _extract_destination_label
-        row_data = dest_entry.row_data or {}
-        mapping.dest_row = {
-            "id": str(row_data.get("id", dest_entry.entry_id)),
-            "label": _extract_destination_label(row_data),
-        }
-    else:
-        mapping.dest_row = None
-    mapping.mapped_by = "operator"
-
-    db.commit()
-    db.refresh(mapping)
-    return _mapping_response(mapping)
 
 
 def _get_feed(db: Session, *, project_id: str, feed_id: str) -> Feed:
@@ -1145,48 +915,3 @@ def _parse_destination_csv(csv_text: str) -> tuple[list[str], list[dict[str, Any
     return columns, rows
 
 
-def _source_entry_response(entry: LookupSourceEntry) -> LookupSourceEntryResponse:
-    return LookupSourceEntryResponse(
-        entry_id=entry.entry_id,
-        fiber_id=entry.fiber_id,
-        lookup_name=entry.lookup_name,
-        source_value=entry.source_value,
-        discovery_type=entry.discovery_type,
-        created_at=entry.created_at,
-    )
-
-
-def _dest_feed_response(dest_feed: LookupDestFeed) -> LookupDestFeedResponse:
-    return LookupDestFeedResponse(
-        dest_feed_id=dest_feed.dest_feed_id,
-        fiber_id=dest_feed.fiber_id,
-        lookup_name=dest_feed.lookup_name,
-        columns=dest_feed.columns,
-        created_at=dest_feed.created_at,
-    )
-
-
-def _dest_entry_response(entry: LookupDestEntry) -> LookupDestEntryResponse:
-    return LookupDestEntryResponse(
-        entry_id=entry.entry_id,
-        dest_feed_id=entry.dest_feed_id,
-        row_data=entry.row_data,
-        created_at=entry.created_at,
-    )
-
-
-def _mapping_response(mapping: LookupMapping) -> LookupMappingResponse:
-    return LookupMappingResponse(
-        mapping_id=mapping.mapping_id,
-        fiber_id=mapping.fiber_id,
-        lookup_name=mapping.lookup_name,
-        source_entry_id=mapping.source_entry_id,
-        source_value=mapping.source_value,
-        dest_entry_id=mapping.dest_entry_id,
-        dest_row=mapping.dest_row,
-        confidence_score=mapping.confidence_score,
-        status=mapping.status,
-        mapped_by=mapping.mapped_by,
-        created_at=mapping.created_at,
-        updated_at=mapping.updated_at,
-    )

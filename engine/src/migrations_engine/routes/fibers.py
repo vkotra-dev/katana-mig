@@ -8,30 +8,17 @@ from ..api.schemas import (
     FiberActionRequest,
     FiberCreateRequest,
     FiberResponse,
-    LookupDestEntryResponse,
-    LookupDestFeedCreateRequest,
-    LookupDestFeedResponse,
     LookupInputsRequest,
-    LookupMappingPatchRequest,
-    LookupMappingResponse,
-    LookupSourceEntriesCreateRequest,
-    LookupSourceEntryResponse,
 )
 from ..db.models import User
-from ..management.access import require_non_auditor, require_project_access
+from ..management.access import require_project_access
 from ..management.fibers import (
-    add_source_entries,
     analyze_feed,
     approve_fiber,
     assign_fiber,
     create_fiber,
-    create_or_replace_dest_feed,
     get_fiber,
-    list_dest_entries,
     list_fibers,
-    list_mappings,
-    list_source_entries,
-    patch_mapping,
     submit_lookup_inputs,
     trigger_fiber,
 )
@@ -94,96 +81,6 @@ def post_lookup_inputs(
     db: Session = Depends(get_db),
 ) -> FiberResponse:
     return submit_lookup_inputs(db, feed_id=feed_id, fiber_id=fiber_id, project_id=project_id, body=body)
-
-
-@router.get("/{fiber_id}/source-entries", response_model=list[LookupSourceEntryResponse])
-def get_source_entries(
-    project_id: str,
-    feed_id: str,
-    fiber_id: str,
-    actor: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> list[LookupSourceEntryResponse]:
-    require_project_access(db, user=actor, project_id=project_id)
-    return list_source_entries(db, feed_id=feed_id, fiber_id=fiber_id, project_id=project_id)
-
-
-@router.post(
-    "/{fiber_id}/source-entries",
-    response_model=list[LookupSourceEntryResponse],
-    status_code=status.HTTP_201_CREATED,
-)
-def post_source_entries(
-    project_id: str,
-    feed_id: str,
-    fiber_id: str,
-    body: LookupSourceEntriesCreateRequest,
-    actor: User = Depends(get_central_team_user),
-    db: Session = Depends(get_db),
-) -> list[LookupSourceEntryResponse]:
-    return add_source_entries(db, feed_id=feed_id, fiber_id=fiber_id, project_id=project_id, body=body)
-
-
-@router.post(
-    "/{fiber_id}/dest-feed",
-    response_model=LookupDestFeedResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-def post_dest_feed(
-    project_id: str,
-    feed_id: str,
-    fiber_id: str,
-    body: LookupDestFeedCreateRequest,
-    actor: User = Depends(get_central_team_user),
-    db: Session = Depends(get_db),
-) -> LookupDestFeedResponse:
-    return create_or_replace_dest_feed(db, feed_id=feed_id, fiber_id=fiber_id, project_id=project_id, body=body)
-
-
-@router.get("/{fiber_id}/dest-feed/entries", response_model=list[LookupDestEntryResponse])
-def get_dest_feed_entries(
-    project_id: str,
-    feed_id: str,
-    fiber_id: str,
-    actor: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> list[LookupDestEntryResponse]:
-    require_project_access(db, user=actor, project_id=project_id)
-    return list_dest_entries(db, feed_id=feed_id, fiber_id=fiber_id, project_id=project_id)
-
-
-@router.get("/{fiber_id}/mappings", response_model=list[LookupMappingResponse])
-def get_mappings(
-    project_id: str,
-    feed_id: str,
-    fiber_id: str,
-    actor: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> list[LookupMappingResponse]:
-    require_project_access(db, user=actor, project_id=project_id)
-    return list_mappings(db, feed_id=feed_id, fiber_id=fiber_id, project_id=project_id)
-
-
-@router.patch("/{fiber_id}/mappings/{mapping_id}", response_model=LookupMappingResponse)
-def patch_mapping_by_id(
-    project_id: str,
-    feed_id: str,
-    fiber_id: str,
-    mapping_id: str,
-    body: LookupMappingPatchRequest,
-    actor: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> LookupMappingResponse:
-    require_non_auditor(actor)
-    require_project_access(db, user=actor, project_id=project_id)
-    return patch_mapping(
-        db,
-        feed_id=feed_id,
-        fiber_id=fiber_id,
-        mapping_id=mapping_id,
-        project_id=project_id,
-        body=body,
-    )
 
 
 @router.post("/{fiber_id}/assign", response_model=FiberResponse)

@@ -397,67 +397,8 @@ class LookupInputsRequest(BaseModel):
     destination_lookup_csv: str = Field(min_length=1)
 
 
-class LookupSourceEntriesCreateRequest(BaseModel):
-    values: list[str] = Field(min_length=1)
-    discovery_type: Literal["sample", "delta"] = "sample"
-
-
-class LookupDestFeedCreateRequest(BaseModel):
-    columns: list[str]
-    rows: list[dict[str, Any]]
-
-
-class LookupMappingPatchRequest(BaseModel):
-    dest_entry_id: str = Field(min_length=1)
-    status: Literal["confirmed", "overridden", "unmatched"] = "confirmed"
-    source_value: str | None = None
-
-    def is_source_value_set(self) -> bool:
-        """Return True if source_value was explicitly provided (including null)."""
-        return "source_value" in self.model_fields_set
-
-
 class FiberActionRequest(BaseModel):
     comment: str | None = None
-
-
-class LookupSourceEntryResponse(BaseModel):
-    entry_id: str
-    fiber_id: str
-    lookup_name: str
-    source_value: str
-    discovery_type: str
-    created_at: datetime
-
-
-class LookupDestFeedResponse(BaseModel):
-    dest_feed_id: str
-    fiber_id: str
-    lookup_name: str
-    columns: list[str]
-    created_at: datetime
-
-
-class LookupDestEntryResponse(BaseModel):
-    entry_id: str
-    dest_feed_id: str
-    row_data: dict[str, Any]
-    created_at: datetime
-
-
-class LookupMappingResponse(BaseModel):
-    mapping_id: str
-    fiber_id: str
-    lookup_name: str
-    source_entry_id: str | None
-    source_value: str | None
-    dest_entry_id: str | None
-    dest_row: dict[str, Any] | None
-    confidence_score: float | None
-    status: Literal["proposed", "confirmed", "overridden", "unmatched"]
-    mapped_by: Literal["ai", "operator", "business"]
-    created_at: datetime
-    updated_at: datetime
 
 
 class SourceAnalysisResponse(BaseModel):
