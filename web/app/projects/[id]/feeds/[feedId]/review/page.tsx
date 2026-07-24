@@ -457,9 +457,20 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
         }> = [];
         if (latestMap) {
           for (const [srcVal, destId] of Object.entries(latestMap.sourceValueMap)) {
-            const destRow = latestMap.destinationTable.find(
-              (row) => String(row.id) === String(destId) || String(row.destination_id) === String(destId)
-            ) || { id: destId };
+            // Skip entries with no destination ID (e.g. rows from reference tables
+            // that don't have an id / destination_id column)
+            if (!destId || !destId.trim()) continue;
+
+            const destRow = latestMap.destinationTable.find((row) => {
+              const rowId = (row as Record<string, unknown>).id ??
+                (row as Record<string, unknown>).destination_id ??
+                (row as Record<string, unknown>).destination_mapping_id ??
+                (row as Record<string, unknown>).entry_id ??
+                (row as Record<string, unknown>).uuid;
+              return String(rowId ?? "") === String(destId);
+            });
+            if (!destRow) continue; // skip rows that don't exist in the destination table
+
             const isConfirmed = latestMap.status === "approved" || (
               signOffStatus &&
               signOffStatus.lookups[latestMap.lookupValueMapId]?.centralTeam.signed &&

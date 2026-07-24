@@ -292,7 +292,12 @@ export function LookupMappingTable({
         <tbody className="divide-y divide-slate-100">
           {pairs.slice(0, visibleCount).map((pair, idx) => {
             const displayRow = pair.destinationRow;
-            const destId = pair.destinationId ?? (displayRow?.id as string) ?? (displayRow?.destination_id as string) ?? (displayRow?.destination_mapping_id as string);
+            const destId = pair.destinationId ??
+              (displayRow?.id as string) ??
+              (displayRow?.destination_id as string) ??
+              (displayRow?.destination_mapping_id as string) ??
+              (displayRow?.entry_id as string) ??
+              (displayRow?.uuid as string);
             const destOpt = availableDestinationOptions.find(o => o.value === destId);
             const destLabelText = destOpt?.label || destId;
 
