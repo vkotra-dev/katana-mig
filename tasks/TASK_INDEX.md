@@ -4,7 +4,6 @@
 
 | Task | Summary |
 |---|---|
-| [001fi-backend-destination-mappings-model](./001fi-backend-destination-mappings-model.md) | Refactor `LookupValueMap` and `LookupSnapshot` backend DB models, API schemas, and routes to natively store and manage 1-to-Many Destination-Anchored mappings (`destination_mappings: list[dict]`). Add backend PATCH actions for adding/removing source values per destination. |
 | [001fj-frontend-destination-mappings-ui](./001fj-frontend-destination-mappings-ui.md) | Refactor React frontend components (`LookupMappingTable.tsx`, `review/page.tsx`, `page.tsx`) to directly render `destination_mappings` from the backend API, removing client-side data inversions. Wire inline `+ Add source` and `×` delete buttons to backend PATCH API actions. |
 
 
@@ -12,6 +11,7 @@
 
 | Task | Summary |
 |---|---|
+| [001fi-backend-destination-mappings-model](./completed/001fi-backend-destination-mappings-model.md) | [summary](./summary/001fi-backend-destination-mappings-model.md) |
 | [001fd-codegen-lookup-integration](./completed/001fd-codegen-lookup-integration.md) | [summary](./summary/001fd-codegen-lookup-integration.md) |
 | [001fh-prune-transient-lookup-tables](./completed/001fh-prune-transient-lookup-tables.md) | [summary](./summary/001fh-prune-transient-lookup-tables.md) |
 | [001fg-refactor-lookup-fiber-to-json](./completed/001fg-refactor-lookup-fiber-to-json.md) | [summary](./summary/001fg-refactor-lookup-fiber-to-json.md) |
