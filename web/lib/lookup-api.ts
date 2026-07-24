@@ -141,7 +141,7 @@ export async function patchLookupValueMap(
   if (input.sourceValueMap) body.source_value_map = input.sourceValueMap;
   if (input.destinationMappings) body.destination_mappings = input.destinationMappings;
   if (input.addSourceValue) body.add_source_value = input.addSourceValue;
-  if (input.removeSourceValue) body.removeSourceValue = input.removeSourceValue;
+  if (input.removeSourceValue) body.remove_source_value = input.removeSourceValue;
   if (input.moveSourceValue) body.move_source_value = input.moveSourceValue;
 
   const response = await jsonRequest<Parameters<typeof mapLookupValueMapResponse>[0]>(

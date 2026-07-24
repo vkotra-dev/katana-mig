@@ -4,6 +4,7 @@ import {
   createLookupValueMap,
   generateLookupSnapshot,
   listLookupValueMaps,
+  patchLookupValueMap,
 } from "./lookup-api";
 
 const BASE = "http://127.0.0.1:8000";
@@ -137,5 +138,104 @@ describe("lookup-api", () => {
       }),
     );
     expect(result.status).toBe("approved");
+  });
+
+  describe("patchLookupValueMap", () => {
+    it("sends addSourceValue as add_source_value in the request body", async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          lookup_value_map_id: "map-1",
+          project_id: "project-1",
+          lookup_name: "status_code",
+          destination_table: [{ id: "ACTIVE", label: "Active" }],
+          source_value_map: { A: "ACTIVE" },
+          destination_mappings: [
+            { dest_id: "ACTIVE", dest_label: "Active", source_values: ["A"], status: "draft" },
+          ],
+          status: "draft",
+          created_at: "2026-06-30T00:00:00Z",
+        }),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await patchLookupValueMap("token-1", "project-1", "map-1", {
+        addSourceValue: { destId: "ACTIVE", sourceValue: "active_status" },
+      });
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        `${BASE}/projects/project-1/lookup-maps/map-1`,
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({
+            add_source_value: { destId: "ACTIVE", sourceValue: "active_status" },
+          }),
+        }),
+      );
+    });
+
+    it("sends removeSourceValue as remove_source_value (snake_case) in the request body", async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          lookup_value_map_id: "map-1",
+          project_id: "project-1",
+          lookup_name: "status_code",
+          destination_table: [{ id: "ACTIVE", label: "Active" }],
+          source_value_map: {},
+          destination_mappings: [],
+          status: "draft",
+          created_at: "2026-06-30T00:00:00Z",
+        }),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await patchLookupValueMap("token-1", "project-1", "map-1", {
+        removeSourceValue: { destId: "ACTIVE", sourceValue: "old_alias" },
+      });
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        `${BASE}/projects/project-1/lookup-maps/map-1`,
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({
+            remove_source_value: { destId: "ACTIVE", sourceValue: "old_alias" },
+          }),
+        }),
+      );
+    });
+
+    it("sends moveSourceValue as move_source_value in the request body", async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          lookup_value_map_id: "map-1",
+          project_id: "project-1",
+          lookup_name: "status_code",
+          destination_table: [{ id: "ACTIVE", label: "Active" }],
+          source_value_map: { A: "ACTIVE" },
+          destination_mappings: [
+            { dest_id: "ACTIVE", dest_label: "Active", source_values: ["A"], status: "draft" },
+          ],
+          status: "draft",
+          created_at: "2026-06-30T00:00:00Z",
+        }),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await patchLookupValueMap("token-1", "project-1", "map-1", {
+        moveSourceValue: { sourceValue: "A", oldDestId: "OLD", newDestId: "ACTIVE" },
+      });
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        `${BASE}/projects/project-1/lookup-maps/map-1`,
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({
+            move_source_value: { sourceValue: "A", oldDestId: "OLD", newDestId: "ACTIVE" },
+          }),
+        }),
+      );
+    });
   });
 });
