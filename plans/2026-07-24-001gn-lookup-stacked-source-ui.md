@@ -1,4 +1,4 @@
-# Plan: Task 001gn — Component-Level Stacked Source Upsert & Delete Controls in LookupMappingTable
+# Plan: Task 001gn — Component-Level Stacked Source Value Upsert (Add/Remove) UI in LookupMappingTable
 
 - **Task**: [001gn-lookup-stacked-source-ui.md](file:///Users/vjkotra/projects/katana/tasks/001gn-lookup-stacked-source-ui.md)
 
@@ -8,13 +8,15 @@
 
 Refactor `LookupMappingTable.tsx` on the Review Page to provide a destination-anchored stacked source upsert interface with exact visual parity (`×` buttons) matching table mapping fibers (Task 001eq).
 
+**Source values only** — there is no delete control on the destination side; destination groups are never deleted from this table.
+
 ```
 +----------------------------------+--------------------------------------+------------+
 | Destination (Anchor)             | Mapped Source Values (Stacked)       | Status     |
 +----------------------------------+--------------------------------------+------------+
-| Blocked (BLOCKED)            [×] | ['B']                         [×]    | Pending    |
-|                                  | ['BLOCKED']                   [×]    |            |
-|                                  | + Add source value                   |            |
+| Blocked (BLOCKED)                | ['B']                         [×]    | Pending    |
+|                                   | ['BLOCKED']                   [×]    |            |
+|                                   | + Add source value                   |            |
 +----------------------------------+--------------------------------------+------------+
 ```
 
@@ -24,7 +26,7 @@ Refactor `LookupMappingTable.tsx` on the Review Page to provide a destination-an
 
 ---
 
-### Step 1: Add `onDeleteGroup` and Inline Add Form State in `LookupMappingTable.tsx`
+### Step 1: Add Inline Add Form State in `LookupMappingTable.tsx`
 
 **File**: [web/components/projects/LookupMappingTable.tsx](file:///Users/vjkotra/projects/katana/web/components/projects/LookupMappingTable.tsx)
 
@@ -35,7 +37,6 @@ Refactor `LookupMappingTable.tsx` on the Review Page to provide a destination-an
    editingEnabled?: boolean;
    onAddSourceValue?: (destId: string, sourceValue: string) => void;
    onRemoveSourceValue?: (destId: string, sourceValue: string) => void;
-+  onDeleteGroup?: (destId: string) => void;
  }
 
  export function LookupMappingTable({
@@ -44,7 +45,6 @@ Refactor `LookupMappingTable.tsx` on the Review Page to provide a destination-an
    editingEnabled,
    onAddSourceValue,
    onRemoveSourceValue,
-+  onDeleteGroup,
  }: LookupMappingTableProps) {
 +  const [addingDestId, setAddingDestId] = useState<string | null>(null);
 +  const [newSourceValue, setNewSourceValue] = useState("");
@@ -67,54 +67,32 @@ Refactor `LookupMappingTable.tsx` on the Review Page to provide a destination-an
 +  };
 ```
 
+Note: add `import { useState } from "react";` at the top of the file (it's currently a plain `"use client"` component with no hooks).
+
 ---
 
-### Step 2: Render Group Delete `×` and Item Delete `×` in `LookupMappingTable.tsx`
+### Step 2: Tighten Item Delete `×` Styling in `LookupMappingTable.tsx`
 
 **File**: [web/components/projects/LookupMappingTable.tsx](file:///Users/vjkotra/projects/katana/web/components/projects/LookupMappingTable.tsx)
 
+Destination label cell is unchanged — no delete control is added there. Only the existing item-delete button's className is tightened to exact parity with the table-mapping `×` buttons in `ReviewGrid.tsx`, and the add flow becomes the inline form:
+
 ```diff
-       {groups.map((group, groupIdx) => (
-         <tr key={`${group.destId || 'empty'}-${groupIdx}`} className="hover:bg-slate-50/50 group">
-           <td className="py-2.5 pr-4">
-+            <div className="flex items-center justify-between gap-2">
-               <div>
-                 {group.destLabel && group.destLabel !== group.destId ? (
-                   <>
-                     {group.destLabel}{" "}
-                     <span className="text-slate-400">({group.destId})</span>
-                   </>
-                 ) : (
-                   group.destId || "—"
-                 )}
-               </div>
-+              {editingEnabled && onDeleteGroup && group.destId && (
-+                <button
-+                  type="button"
-+                  onClick={() => onDeleteGroup(group.destId)}
-+                  className="text-slate-400 hover:text-red-600 focus:outline-none text-xs font-bold leading-none p-1 transition-colors opacity-0 group-hover:opacity-100"
-+                  title="Delete destination group"
-+                >
-+                  ×
-+                </button>
-+              )}
-+            </div>
-           </td>
-           <td className="py-2.5">
-             <div className="flex flex-col gap-1.5 w-full">
                {group.sourceValues.map((srcVal, idx) => (
                  <div key={`${group.destId}-sv-${idx}`} className="flex items-center gap-2">
                    <input
                      type="text"
                      readOnly={!editingEnabled}
                      value={srcVal}
-                     className="px-2.5 py-1 text-sm border rounded bg-slate-50 border-slate-200 text-slate-800 focus:outline-none focus:bg-white focus:border-indigo-500 w-full max-w-sm font-mono"
+-                    className="px-2.5 py-1 text-sm border rounded bg-slate-50 border-slate-200 text-slate-800 focus:outline-none focus:bg-white focus:border-indigo-500 w-full max-w-sm"
++                    className="px-2.5 py-1 text-sm border rounded bg-slate-50 border-slate-200 text-slate-800 focus:outline-none focus:bg-white focus:border-indigo-500 w-full max-w-sm font-mono"
                    />
                    {editingEnabled && onRemoveSourceValue && group.destId && (
                      <button
                        type="button"
                        onClick={() => onRemoveSourceValue(group.destId, srcVal)}
-                       className="text-slate-400 hover:text-red-600 focus:outline-none text-xs font-bold leading-none p-1 transition-colors"
+-                      className="text-slate-400 hover:text-red-500 p-1 font-bold text-xs"
++                      className="text-slate-400 hover:text-red-600 focus:outline-none text-xs font-bold leading-none p-1 transition-colors"
                        title="Remove source value"
                      >
                        ×
@@ -174,16 +152,6 @@ Refactor `LookupMappingTable.tsx` on the Review Page to provide a destination-an
 **File**: [web/components/projects/__tests__/LookupMappingTable.test.tsx](file:///Users/vjkotra/projects/katana/web/components/projects/__tests__/LookupMappingTable.test.tsx)
 
 ```typescript
-  it("renders row delete '×' button when onDeleteGroup is provided", () => {
-    const onDeleteGroup = vi.fn();
-    render(<LookupMappingTable groups={groups} editingEnabled onDeleteGroup={onDeleteGroup} />);
-
-    const groupDeleteButtons = screen.getAllByTitle("Delete destination group");
-    expect(groupDeleteButtons.length).toBe(2);
-    fireEvent.click(groupDeleteButtons[0]);
-    expect(onDeleteGroup).toHaveBeenCalledWith("ACTIVE");
-  });
-
   it("opens inline add form when + Add another source value is clicked", () => {
     const onAddSourceValue = vi.fn();
     render(<LookupMappingTable groups={groups} editingEnabled onAddSourceValue={onAddSourceValue} />);
@@ -198,6 +166,19 @@ Refactor `LookupMappingTable.tsx` on the Review Page to provide a destination-an
     fireEvent.keyDown(input, { key: "Enter" });
 
     expect(onAddSourceValue).toHaveBeenCalledWith("ACTIVE", "NEW_ALIAS");
+  });
+
+  it("closes inline add form without calling onAddSourceValue when Escape is pressed", () => {
+    const onAddSourceValue = vi.fn();
+    render(<LookupMappingTable groups={groups} editingEnabled onAddSourceValue={onAddSourceValue} />);
+
+    fireEvent.click(screen.getAllByText("+ Add another source value")[0]);
+    const input = screen.getByPlaceholderText("Enter source value alias...");
+    fireEvent.change(input, { target: { value: "DRAFT_ALIAS" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+
+    expect(onAddSourceValue).not.toHaveBeenCalled();
+    expect(screen.queryByPlaceholderText("Enter source value alias...")).not.toBeInTheDocument();
   });
 ```
 

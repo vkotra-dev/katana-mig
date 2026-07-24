@@ -4,9 +4,9 @@
 
 | Task | Summary |
 |---|---|
-| [001gn-lookup-stacked-source-ui](./001gn-lookup-stacked-source-ui.md) | Component-Level Stacked Source Upsert & Delete Controls in `LookupMappingTable.tsx`. |
-| [001go-lookup-review-grid-wiring](./001go-lookup-review-grid-wiring.md) | End-to-End Prop Wiring for Lookup Mapping Actions in `ReviewGrid.tsx` and Review Page. |
-| [001gp-codegen-lookup-stacked-verification](./001gp-codegen-lookup-stacked-verification.md) | Codegen Invalidation & Multi-Dialect DML Tests for Stacked Lookup Mappings (`postgresql`, `mysql`, `mssql`, `oracle`). |
+| [001gn-lookup-stacked-source-ui](./001gn-lookup-stacked-source-ui.md) | Inline add form (replacing `window.prompt()`) and item-delete `×` style parity for source values in `LookupMappingTable.tsx`. Source values only, no destination-group delete. |
+| [001go-lookup-review-grid-wiring](./001go-lookup-review-grid-wiring.md) | Fix `removeSourceValue` snake_case bug in `lookup-api.ts`; wire existing add/remove source value handlers through `ReviewGrid.tsx` into the Review Page. |
+| [001gp-codegen-lookup-stacked-verification](./001gp-codegen-lookup-stacked-verification.md) | Snapshot-invalidation and multi-dialect DML test coverage (`postgresql`, `mysql`, `mssql`, `oracle`) for `add_source_value`/`remove_source_value`. Backend-only, no frontend dependency. |
 
 ## Completed
 
