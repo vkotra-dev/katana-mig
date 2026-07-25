@@ -1,7 +1,7 @@
 ---
 id: 001go
 title: Fix removeSourceValue Patch Key Bug and Wire Add/Remove Source Value Actions Through ReviewGrid
-status: active
+status: completed
 created: 2026-07-24
 priority: high
 domain: frontend / review-page / review-grid
@@ -35,3 +35,7 @@ Separately, `web/lib/lookup-api.ts` has a live bug: `patchLookupValueMap`'s `rem
 ```bash
 cd web && npm test -- --run
 ```
+
+---
+Plan: plans/2026-07-24-001go-lookup-review-grid-wiring.md
+Summary: tasks/summary/001go-lookup-review-grid-wiring.md

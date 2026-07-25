@@ -1,7 +1,7 @@
 ---
 id: 001gs
 title: Reconcile destination_mappings from source_value_map When Empty (add_source_value / remove_source_value)
-status: active
+status: completed
 created: 2026-07-25
 priority: critical
 domain: backend / lookup-mapping
@@ -95,3 +95,7 @@ Same as [[001gr]]: use `.venv/bin/python` for everything, never a bare `python`/
 Baseline before this task's changes (with the 3 new tests already added and red, 2 of them): `.venv/bin/python -m pytest engine/tests -q` should show `391 passed` for existing tests, then adding the 3 new tests should show `2 failed, 392 passed` (the move-control test passes immediately since it needs no code change; the add/remove tests are red until the fix lands). After the fix: `394 passed`, zero failures.
 
 If you get a different count at any checkpoint, do not assume it's fine — stop and figure out why before proceeding.
+
+---
+Plan: plans/2026-07-25-001gs-lookup-destination-mappings-not-reconciled-from-flat-map.md
+Summary: tasks/summary/001gs-lookup-destination-mappings-not-reconciled-from-flat-map.md

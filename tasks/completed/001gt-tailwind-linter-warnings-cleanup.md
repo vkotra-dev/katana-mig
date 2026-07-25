@@ -1,7 +1,7 @@
 ---
 id: 001gt
 title: Clean up Tailwind CSS Linter Diagnostics (Narrowed Scope — Safe Fixes Only)
-status: active
+status: completed
 created: 2026-07-25
 priority: low
 domain: frontend / tailwind / cleanup
@@ -45,3 +45,7 @@ cd web && npm test -- --run
 **This alone is not sufficient** — nothing in the existing test suite asserts computed background color, so it cannot confirm the badge fix is visually correct. After the automated tests pass, start the dev server and visually confirm in a browser:
 - The `lookup_fk` badge on the Review page renders with the intended light-amber background (matching the visual weight of the `direct`/`detail_fk` badges next to it, just in amber) — not a jarring color shift.
 - No unrelated dropdown/z-index/layout-width changes crept in (there shouldn't be any, since those items are out of scope for this task).
+
+---
+Plan: plans/2026-07-25-001gt-tailwind-linter-warnings-cleanup.md
+Summary: tasks/summary/001gt-tailwind-linter-warnings-cleanup.md

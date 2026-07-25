@@ -10,7 +10,7 @@ tags:
   - lookup
   - codegen
   - ai
-timestamp: 2026-07-16
+timestamp: 2026-07-25
 ---
 
 # Source Model
@@ -449,27 +449,23 @@ This enables post-hoc debugging and audit of AI mapping decisions.
 
 ### Lookup mapping
 
-Lookup mapping is the operator-managed flow that maps unique source values for each `lookup_fk` field to destination reference rows.
+Lookup mapping maps unique source values for each `lookup_fk` field to destination reference rows. The transient per-value tables described in earlier revisions of this page (`LookupSourceEntry`, `LookupDestFeed`, `LookupDestEntry`, `LookupMapping`) were removed by tasks 001fg/001fh — the current model is a single project-scoped `LookupValueMap` row per lookup name, holding the whole mapping as JSON.
 
 The flow per lookup field:
 
-1. Operator supplies the complete production value list for the source field (`LookupSourceEntry` records with `discovery_type="operator"`). The feed window alone is insufficient — the operator extracts distinct values from the full source system.
-2. Operator uploads reference rows from the destination lookup table (`LookupDestFeed` / `LookupDestEntry` records). These rows come from the destination DB (id, description, and any domain-specific codes).
-3. AI maps source values to destination rows, producing `LookupMapping` records with confidence scores. This AI run happens once per production cycle.
-4. After first approval, new unmapped source values surface in the review grid as delta rows. No AI re-run — the additive path simply creates new `LookupMapping` records without overwriting existing `confirmed` or `human`-mapped entries.
+1. Operator submits `destination_lookup_csv` (raw reference-table rows) and the feed's distinct source values via `submit_lookup_inputs`.
+2. The `lookup_mapping` AI adapter proposes `dest_id`/`dest_value`/`source_value`/`confidence_score` per destination row, plus `unmatched_source_values` for source values it couldn't confidently place — the AI is instructed to strip stray CSV-quoting artifacts from its own output (it does not clean the *input* it's given; see the CSV-parsing caveat below).
+3. `_sync_lookup_value_map_from_proposed_mappings` (`engine/src/migrations_engine/management/fibers.py`) writes the proposal onto the project-scoped `LookupValueMap` draft: `source_value_map` (flat `{source_value: dest_id}`), `destination_table` (raw reference rows), `destination_mappings` (structured `[{dest_id, dest_label, dest_row, source_values, status}]` groups — the shape the Review Page actually renders), and `unmapped_source_values` (the AI's list, threaded straight through — previously computed but discarded before task 001gu).
+4. Operators can further edit a draft `LookupValueMap` via `PATCH /projects/{project_id}/lookup-maps/{id}` — `add_source_value`, `remove_source_value`, `move_source_value`, or a full `destination_mappings` overwrite.
 
-Rules:
+`add_source_value` validation rules (task 001gu), in order:
+- case-insensitive match against an existing `source_value_map` key: same `dest_id` → no-op; a *different* `dest_id` → **rejected** with `409 duplicate_source_value`, never silently reassigned
+- no case-insensitive match, but `dest_id` doesn't correspond to any known `destination_mappings` group or `destination_table` row → the value is appended to `unmapped_source_values`, never used to fabricate a phantom destination group
+- otherwise, stacks into the existing group for that `dest_id`, or creates a new group if none exists yet
 
-- `submit_lookup_inputs` is additive and re-runnable: existing `LookupMapping` records with `status="confirmed"` or `mapped_by="human"` are never overwritten
-- AI re-runs are allowed any number of times before the first production approval; after first approval, delta additions only
-- unmapped source values are directly queryable; they do not block the call but will surface as gaps in the review grid
-- runtime lookup delta handling (values discovered during execution) follows the same additive path
+Known gap, not yet fixed: `_parse_destination_csv` does not strip quoting artifacts from the raw CSV it hands to the AI, so a destination reference table pasted with non-standard (e.g. single-quote) cell quoting can end up with literal stray quote characters in `destination_table` if that data doesn't route through the AI's own cleanup.
 
-#### LookupValueMap — project-scoped
-
-`LookupValueMap` is promoted from feed-scoped `(source_definition_id, lookup_name)` to project-scoped `(project_id, lookup_name)`. This means a single lookup value mapping is shared across all feeds in the project that reference the same lookup name.
-
-On fiber approval, all confirmed `LookupMapping` rows are auto-written to `LookupValueMap`, making them available project-wide for codegen and other feeds.
+Sign-off invalidation: any `add_source_value`/`remove_source_value`/`move_source_value`/`destination_mappings` PATCH that changes an approved `LookupSnapshot`'s underlying data resets that snapshot to `draft`.
 
 ### Source/run snapshot policy
 
@@ -750,6 +746,7 @@ replace source analysis.
 
 ## Changelog
 
+- 2026-07-25: Rewrote the "Lookup mapping" section — it still described the transient `LookupSourceEntry`/`LookupDestFeed`/`LookupDestEntry`/`LookupMapping` tables that tasks 001fg/001fh removed in favor of the JSON-based `LookupValueMap` model, never patched at the time (I22 retroactively applied). Documented the current `submit_lookup_inputs` → `_sync_lookup_value_map_from_proposed_mappings` flow, the `add_source_value` case-insensitive-duplicate/reject/unmapped-routing rules (task 001gu), and the known CSV-quoting gap in `_parse_destination_csv`.
 - 2026-07-21: AI re-analysis safely upserts and preserves existing approved mappings without throwing AuthApiError.
 - 2026-07 — AI-driven multi-table mapping extraction with binding type classification; multi-party sign-off model; LookupValueMap promoted to project scope; feed/slice comments with codegen injection; mapping hints and AI trace; codegen instructions (project-wide + per-feed); migration run logging (mig_upsert_log); AI call logging; feed slice immutability and workflow overhaul
 - 2026-07-04: Replaced global approvals inbox UI entry point with per-feed workspace entry point; documented multi-table AI mapping (binding types, MappingSnapshot per table, lookup_table_references); documented LookupSourceEntry discovery_type="operator" and additive submit_lookup_inputs rule.

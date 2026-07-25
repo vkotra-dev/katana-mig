@@ -1,7 +1,7 @@
 ---
 id: 001gq
 title: Fix camelCase Inner-Key Bug in add_source_value/remove_source_value/move_source_value PATCH Actions
-status: active
+status: completed
 created: 2026-07-24
 priority: high
 domain: frontend / lookup-api
@@ -53,3 +53,7 @@ cd web && npm test -- --run
 ```
 
 Manual check on the Review Page (with a draft lookup map, signed in as the role holding the ball): click "+ Add another source value" on a destination group, type a new alias, submit, then **reload the page** and confirm the value is still there (proves it actually persisted, not just optimistic local state). Repeat for the `×` remove button.
+
+---
+Plan: plans/2026-07-24-001gq-lookup-patch-inner-key-casing-bug.md
+Summary: tasks/summary/001gq-lookup-patch-inner-key-casing-bug.md

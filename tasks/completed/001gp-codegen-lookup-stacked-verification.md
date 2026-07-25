@@ -1,7 +1,7 @@
 ---
 id: 001gp
 title: Codegen Invalidation & Multi-Dialect DML Tests for Stacked Lookup Mappings
-status: active
+status: completed
 created: 2026-07-24
 priority: high
 domain: backend / codegen / lookup-upsert
@@ -31,3 +31,7 @@ cd engine && source ../.venv/bin/activate
 pytest tests/test_lookup_mapping_api.py tests/test_bundle_sequencing.py -v
 pytest -v
 ```
+
+---
+Plan: plans/2026-07-24-001gp-codegen-lookup-stacked-verification.md
+Summary: tasks/summary/001gp-codegen-lookup-stacked-verification.md

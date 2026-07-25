@@ -1,7 +1,7 @@
 ---
 id: 001gr
 title: Fix Silent No-Op on Existing-Group Mutations in Lookup PATCH Actions (SQLAlchemy JSON Mutation-Detection Bug)
-status: active
+status: completed
 created: 2026-07-25
 priority: critical
 domain: backend / lookup-mapping / sqlalchemy
@@ -93,3 +93,7 @@ All of the following must go green (currently red, except the new move test whic
 Exact expected count: `.venv/bin/python -m pytest engine/tests -q` currently prints `3 failed, 387 passed` (the 3 regression tests above are already committed and red). After this task's fix plus the new move test, it must print `391 passed` with zero failures.
 
 No frontend changes are needed to verify this — the bug is entirely below the API boundary. A browser-level manual check (add two values to one destination, reload, confirm both are present) remains valuable as final confirmation but is not required to prove this specific fix, since the new pytest tests hit the real DB through the real ORM layer (sqlite via `sqlite_test_support`), which is exactly where this bug lives.
+
+---
+Plan: plans/2026-07-25-001gr-lookup-json-mutation-not-detected-bug.md
+Summary: tasks/summary/001gr-lookup-json-mutation-not-detected-bug.md

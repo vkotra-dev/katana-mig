@@ -1,7 +1,7 @@
 ---
 id: 001gn
 title: Component-Level Stacked Source Value Upsert (Add/Remove) UI in LookupMappingTable
-status: active
+status: completed
 created: 2026-07-24
 priority: high
 domain: frontend / lookup-mapping-table
@@ -31,3 +31,7 @@ Refactor `LookupMappingTable.tsx` on the Review Page to provide a destination-an
 ```bash
 cd web && npm test -- --run components/projects/__tests__/LookupMappingTable.test.tsx
 ```
+
+---
+Plan: plans/2026-07-24-001gn-lookup-stacked-source-ui.md
+Summary: tasks/summary/001gn-lookup-stacked-source-ui.md

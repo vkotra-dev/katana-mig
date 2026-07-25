@@ -1,7 +1,7 @@
 ---
 id: 001gu
 title: Wire AI unmatched_source_values Through to UI, Reject Cross-Destination Case-Insensitive Duplicates on Add
-status: active
+status: completed
 created: 2026-07-25
 priority: critical
 domain: backend / frontend / lookup-mapping
@@ -94,3 +94,7 @@ cd web && npm test -- --run
 ```
 
 Applying migration `0041` to the live dev MySQL DB is a separate, explicit step for whoever owns that environment — do not run it automatically as part of "verification."
+
+---
+Plan: plans/2026-07-25-001gu-lookup-unmapped-source-values-and-case-insensitive-add.md
+Summary: tasks/summary/001gu-lookup-unmapped-source-values-and-case-insensitive-add.md
