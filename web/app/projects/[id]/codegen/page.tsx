@@ -259,7 +259,7 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
       getSchemaAnalysis(session.accessToken, routeParams.id),
       getProject(session.accessToken, routeParams.id),
     ])
-      .then(([sourceResponse, artifactResponse, analysisResponse, projectResponse]) => {
+      .then(async ([sourceResponse, artifactResponse, analysisResponse, projectResponse]) => {
         if (!active) {
           return;
         }
@@ -267,7 +267,17 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
         setArtifacts(artifactResponse);
         setSchemaAnalysis(analysisResponse);
         setProject(projectResponse);
-        setGlobalInstructions(projectResponse.codegenInstructions ?? "");
+        const saved = projectResponse.codegenInstructions ?? "";
+        if (saved) {
+          setGlobalInstructions(saved);
+        } else {
+          try {
+            const template = await getCodegenCodingStandardsTemplate(session.accessToken, routeParams.id);
+            setGlobalInstructions(template.trim());
+          } catch {
+            setGlobalInstructions("");
+          }
+        }
       })
       .catch((error: unknown) => {
         if (active) {
