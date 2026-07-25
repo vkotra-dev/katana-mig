@@ -449,7 +449,7 @@ def reject_mapping(
                 MappingSnapshot.project_id == project_id,
                 MappingSnapshot.source_definition_id == source_definition_id,
                 MappingSnapshot.destination_object_name == destination_object_name,
-                MappingSnapshot.status == "draft",
+                MappingSnapshot.status == "approved",
             )
             .order_by(MappingSnapshot.created_at.desc(), MappingSnapshot.mapping_snapshot_id.desc())
             .limit(1)
@@ -460,13 +460,13 @@ def reject_mapping(
             .where(
                 MappingSnapshot.project_id == project_id,
                 MappingSnapshot.source_definition_id == source_definition_id,
-                MappingSnapshot.status == "draft",
+                MappingSnapshot.status == "approved",
             )
             .order_by(MappingSnapshot.destination_object_name.asc())
         ).all()
 
     if not snapshots:
-        msg = "No draft mapping snapshots exist to reject."
+        msg = "No approved mapping snapshots exist to reject."
         raise AuthApiError("mapping_not_found", msg, 404)
 
     for snapshot in snapshots:

@@ -16,7 +16,7 @@ from migrations_engine.config import get_settings  # noqa: E402
 from migrations_engine.db.models import ProjectDefinition, ProjectMembership, ProjectRegistry, SourceDefinition, SourceSchemaArtifact, User  # noqa: E402
 from migrations_engine.mapping import review as mapping_review_module, ai_schemas  # noqa: E402
 from migrations_engine.mapping import proposal as mapping_proposal_module
-from migrations_engine.roles import CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE, PM_ROLE  # noqa: E402
+from migrations_engine.roles import ADMIN_ROLE, CENTRAL_TEAM_ROLE, PROJECT_STAKEHOLDER_ROLE, PM_ROLE  # noqa: E402
 
 client = TestClient(app)
 
@@ -515,7 +515,9 @@ def test_unapprove_mapping_by_pm(monkeypatch: pytest.MonkeyPatch, admin_token: s
         assert source.destination_object_references == []
 
 
-def test_reject_marks_snapshot_rejected(monkeypatch: pytest.MonkeyPatch, admin_token: str, stakeholder_token: str) -> None:
+def test_request_revision_marks_snapshot_draft_and_returns_ball_to_operator(
+    monkeypatch: pytest.MonkeyPatch, admin_token: str, stakeholder_token: str
+) -> None:
     project_id, source_id = _seed_project()
     fake = FakeAdapter([
         {"source_field": "customer_id", "destination_field": "customer_id"},
@@ -528,13 +530,67 @@ def test_reject_marks_snapshot_rejected(monkeypatch: pytest.MonkeyPatch, admin_t
     )
 
     response = client.post(
-        f"/projects/{project_id}/sources/{source_id}/mapping/reject",
+        f"/projects/{project_id}/sources/{source_id}/mapping/revision",
         headers={"Authorization": f"Bearer {stakeholder_token}"},
         json={"reason": "Needs another source field mapped."},
     )
 
     assert response.status_code == 200, response.text
-    assert response.json()["status"] == "rejected"
+    assert response.json()["status"] == "draft"
+    assert response.json()["current_ball_role"] == "central_team"
+
+
+def test_reject_marks_approved_snapshot_rejected_and_clears_ball(
+    monkeypatch: pytest.MonkeyPatch, admin_token: str, stakeholder_token: str
+) -> None:
+    project_id, source_id = _seed_project()
+    fake = FakeAdapter([
+        {"source_field": "customer_id", "destination_field": "customer_id"},
+    ])
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: fake)
+
+    client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/propose",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    approve = client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/approve",
+        headers={"Authorization": f"Bearer {stakeholder_token}"},
+    )
+    assert approve.status_code == 200, approve.text
+    assert approve.json()["status"] == "approved"
+
+    with SessionLocal() as db:
+        admin_user = db.scalar(select(User).where(User.email == "admin_role_test@example.com"))
+        if not admin_user:
+            db.add(
+                User(
+                    user_id=str(uuid.uuid4()),
+                    email="admin_role_test@example.com",
+                    display_name="Admin Role Test",
+                    password_hash=hash_password("admin-password"),
+                    role=ADMIN_ROLE,
+                    status="active",
+                )
+            )
+            db.commit()
+    admin_role_token = _login("admin_role_test@example.com", "admin-password")
+
+    reject = client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/reject",
+        headers={"Authorization": f"Bearer {admin_role_token}"},
+    )
+    assert reject.status_code == 200, reject.text
+    assert reject.json()["status"] == "rejected"
+    assert reject.json()["current_ball_role"] is None
+
+    # A stakeholder can no longer request revision or approve a rejected snapshot,
+    # and reject_mapping should find nothing left to reject a second time.
+    reject_again = client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/reject",
+        headers={"Authorization": f"Bearer {admin_role_token}"},
+    )
+    assert reject_again.status_code == 404
 
 
 def test_patch_422_on_approved_snapshot(monkeypatch: pytest.MonkeyPatch, admin_token: str, stakeholder_token: str) -> None:
@@ -793,15 +849,28 @@ def test_bulk_approve_and_reject_multiple_snapshots(monkeypatch: pytest.MonkeyPa
         assert len(snapshots) == 2
         for s in snapshots:
             assert s.status == "approved"
-            # Revert to draft for testing reject
-            s.status = "draft"
-        db.commit()
+        # No DB mutation needed — reject_mapping operates on approved snapshots directly.
+
+    with SessionLocal() as db:
+        admin_user = db.scalar(select(User).where(User.email == "bulk_admin_test@example.com"))
+        if not admin_user:
+            db.add(
+                User(
+                    user_id=str(uuid.uuid4()),
+                    email="bulk_admin_test@example.com",
+                    display_name="Bulk Admin Test",
+                    password_hash=hash_password("bulk-admin-password"),
+                    role=ADMIN_ROLE,
+                    status="active",
+                )
+            )
+            db.commit()
+    bulk_admin_token = _login("bulk_admin_test@example.com", "bulk-admin-password")
 
     # 3. Reject all (bulk reject)
     resp_reject = client.post(
         f"/projects/{project_id}/sources/{source_id}/mapping/reject",
-        headers={"Authorization": f"Bearer {stakeholder_token}"},
-        json={"reason": "Bulk rejection test"}
+        headers={"Authorization": f"Bearer {bulk_admin_token}"},
     )
     assert resp_reject.status_code == 200
 

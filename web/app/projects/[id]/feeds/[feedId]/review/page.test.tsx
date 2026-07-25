@@ -8,6 +8,7 @@ const {
   listLookupValueMapsMock,
   approveMappingSnapshotMock,
   requestRevisionMock,
+  rejectMappingSnapshotMock,
   unapproveMappingSnapshotMock,
   patchMappingSnapshotMock,
   listFeedSlicesMock,
@@ -351,6 +352,38 @@ describe("ReviewPage", () => {
 
     await waitFor(() => {
       expect(unapproveMappingSnapshotMock).toHaveBeenCalledWith("token-pm", "proj-1", "feed-1");
+    });
+  });
+
+  it("calls rejectMappingSnapshot when PM/Admin clicks Reject on an approved mapping", async () => {
+    const adminSession = {
+      accessToken: "token-admin",
+      expiresAt: "2026-06-30T12:00:00Z",
+      role: "admin" as const,
+      sessionVersion: 1,
+    };
+    loadUiSessionMock.mockReturnValue(adminSession);
+
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([
+      { ...SNAPSHOT, destinationObjectName: "table_1", status: "approved" },
+    ]);
+
+    rejectMappingSnapshotMock.mockResolvedValue({
+      ...SNAPSHOT,
+      status: "rejected",
+    });
+
+    await renderPage();
+
+    expect(await screen.findByText("approved")).toBeInTheDocument();
+
+    const rejectBtn = screen.getByRole("button", { name: "Reject" });
+    expect(rejectBtn).toBeInTheDocument();
+
+    fireEvent.click(rejectBtn);
+
+    await waitFor(() => {
+      expect(rejectMappingSnapshotMock).toHaveBeenCalledWith("token-admin", "proj-1", "feed-1");
     });
   });
 

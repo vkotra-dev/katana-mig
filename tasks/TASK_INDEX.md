@@ -2,6 +2,10 @@
 
 ## Ready
 
+| Task | Summary |
+|---|---|
+| [001gy-fix-reject-mapping-approved-precondition](./001gy-fix-reject-mapping-approved-precondition.md) | Fixes a real product bug found during review of commit `492684f`: the "Reject" button only renders when `aggregateStatus === "approved"`, but `reject_mapping()` only matches `status == "draft"` — clicking it always 404s. Also repairs 2 backend tests broken by that same commit's request-revision/reject split (never updated), and 2 mechanical frontend test breakages (a missing `vi.hoisted()` destructured variable dropping an entire test file from the suite, and a stale mock response body). |
+
 ## Completed
 
 | Task | Summary |
