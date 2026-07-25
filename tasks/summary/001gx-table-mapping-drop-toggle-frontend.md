@@ -1,6 +1,6 @@
 Task: tasks/completed/001gx-table-mapping-drop-toggle-frontend.md
 Plan: plans/2026-07-25-001gx-table-mapping-drop-toggle-frontend.md
-Commits: c7a0728
+Commits: c7a0728, 63eea96
 
 ## Changes Made
 
@@ -23,7 +23,7 @@ Commits: c7a0728
 
 ## Deviations from Plan
 
-- **`AutocompleteInput`'s flip-upward measurement is only wired to the text input's `onFocus` handler.** The chevron toggle button (`onClick={() => setIsOpen((prev) => !prev)}`) still opens the dropdown without calling `onOpen()` first. If a user clicks the chevron directly without previously focusing the text field, `dropdownUpward` (a single piece of state shared across every `AutocompleteInput` instance in the whole grid, recomputed on each `onFocus`) can be stale from whichever row was interacted with last, opening the dropdown in the wrong direction for that specific click path. Narrow — the primary interaction (clicking/tabbing into the text field) works correctly — but a real, unverified-by-tests gap. Not fixed as part of this summary; flagging for whoever picks this up next.
+- **Fixed in follow-up commit `63eea96`**: `AutocompleteInput`'s flip-upward measurement was initially only wired to the text input's `onFocus` handler — the chevron toggle button opened the dropdown without measuring first, so clicking it directly (without prior focus) could use stale direction state from a different row. `63eea96` moves the measurement into an internal `openDropdown()` function called by both `onFocus` and the chevron's `onClick`, and removes the now-unnecessary parent-level `dropdownUpward` state and `onOpen`/`openUpward` props entirely (dead-code cleanup, not just a patch). Verified directly against `git show 63eea96`: `openDropdown()` measures via `containerRef.current.querySelector('input').getBoundingClientRect()` on every open, wrapped in try/catch for jsdom/SSR safety. The three remaining bare `setIsOpen(true)` calls (ArrowDown/ArrowUp/typing handlers) are safe as-is — they can only fire on an already-focused input, so `openDropdown()` has always already run via `onFocus` by that point.
 - Checkbox "dropped" state uses `.some()` across a group's bindings (any dropped → show as excluded) rather than the plan's `.every()` (all dropped → show as excluded). Reasonable and arguably safer — surfaces a partial-drop state instead of hiding it — but differs from the plan.
 - Both of the above were found and verified through direct code review (`git show`, not the implementer's report) after an earlier report for this same task turned out to describe files that didn't exist in the referenced commit. This implementation is real and independently verified: `git diff-tree` confirms the commit touches only `web/` files, `git show` confirms every diff matches what's described above, and both test suites were run fresh (not assumed from a report).
 

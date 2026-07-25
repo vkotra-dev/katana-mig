@@ -7,7 +7,7 @@
 | Task | Summary |
 |---|---|
 | [001gw-table-mapping-drop-toggle-backend](./completed/001gw-table-mapping-drop-toggle-backend.md) | [summary](./summary/001gw-table-mapping-drop-toggle-backend.md) |
-| [001gx-table-mapping-drop-toggle-frontend](./completed/001gx-table-mapping-drop-toggle-frontend.md) | [summary](./summary/001gx-table-mapping-drop-toggle-frontend.md) — see summary's Deviations section for a real, unfixed gap: the `AutocompleteInput` flip-upward fix isn't wired to the chevron button's click path, only to text-field focus. |
+| [001gx-table-mapping-drop-toggle-frontend](./completed/001gx-table-mapping-drop-toggle-frontend.md) | [summary](./summary/001gx-table-mapping-drop-toggle-frontend.md) |
 | [001gv-react-readonly-input-value-prop-warning](./completed/001gv-react-readonly-input-value-prop-warning.md) | [summary](./summary/001gv-react-readonly-input-value-prop-warning.md) |
 | [001gp-codegen-lookup-stacked-verification](./completed/001gp-codegen-lookup-stacked-verification.md) | [summary](./summary/001gp-codegen-lookup-stacked-verification.md) |
 | [001go-lookup-review-grid-wiring](./completed/001go-lookup-review-grid-wiring.md) | [summary](./summary/001go-lookup-review-grid-wiring.md) |
