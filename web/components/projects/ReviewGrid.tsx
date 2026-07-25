@@ -13,6 +13,7 @@ export interface MappingTableRecord {
     destinationField: string;
     bindingType: "direct" | "detail_fk" | "lookup_fk";
     referenceTableName?: string | null;
+    dropped?: boolean;
   }>;
 }
 
@@ -56,7 +57,7 @@ interface ReviewGridProps {
   onDestinationFieldChange?: (tableName: string, sourceField: string, oldDest: string, newDest: string) => void;
   onAddBinding?: (tableName: string, sourceField: string, availableFields: string[]) => void;
   onRemoveBinding?: (tableName: string, sourceField: string, destinationField: string) => void;
-  onRemoveSourceField?: (tableName: string, sourceField: string) => void;
+  onToggleSourceField?: (tableName: string, sourceField: string, dropped: boolean) => void;
   onSignLookup?: (lookupValueMapId: string) => void;
   onUnsignLookup?: (lookupValueMapId: string) => void;
   onAddLookupSourceValue?: (lookupName: string, destId: string, sourceValue: string) => void;
@@ -69,6 +70,8 @@ interface AutocompleteInputProps {
   onChange: (value: string) => void;
   className?: string;
   placeholder?: string;
+  openUpward?: boolean;
+  onOpen?: () => void;
 }
 
 function AutocompleteInput({
@@ -77,6 +80,8 @@ function AutocompleteInput({
   onChange,
   className = "",
   placeholder = "",
+  openUpward = false,
+  onOpen,
 }: AutocompleteInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState(value);
@@ -139,7 +144,7 @@ function AutocompleteInput({
   };
 
   return (
-    <div ref={containerRef} className="relative w-full max-w-60">
+    <div ref={containerRef} className="relative z-[100] w-full max-w-60">
       <div className="relative flex items-center">
         <input
           type="text"
@@ -149,7 +154,10 @@ function AutocompleteInput({
             setIsOpen(true);
             setHighlightedIndex(-1);
           }}
-          onFocus={() => setIsOpen(true)}
+          onFocus={() => {
+            onOpen?.();
+            setIsOpen(true);
+          }}
           onBlur={() => {
             onChange(query);
             setIsOpen(false);
@@ -175,7 +183,11 @@ function AutocompleteInput({
       </div>
 
       {isOpen && filteredOptions.length > 0 && (
-        <ul className="absolute left-0 right-0 z-[100] mt-1 max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 text-xs shadow-lg ring-1 ring-black/5 focus:outline-none font-mono">
+        <ul className={`absolute left-0 right-0 z-[100] max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 text-xs shadow-lg ring-1 ring-black/5 focus:outline-none font-mono ${
+          openUpward
+            ? "bottom-full mb-1"
+            : "top-full mt-1"
+        }`}>
           {filteredOptions.map((opt, index) => {
             const isHighlighted = index === highlightedIndex;
             const isSelected = opt === value;
@@ -222,7 +234,7 @@ export function ReviewGrid({
   onDestinationFieldChange,
   onAddBinding,
   onRemoveBinding,
-  onRemoveSourceField,
+  onToggleSourceField,
   onSignLookup,
   onUnsignLookup,
   onAddLookupSourceValue,
@@ -231,6 +243,7 @@ export function ReviewGrid({
   const [expandedTables, setExpandedTables] = useState<Record<string, boolean>>({});
   const [revisionOpen, setRevisionOpen] = useState(false);
   const [revisionComment, setRevisionComment] = useState("");
+  const [dropdownUpward, setDropdownUpward] = useState(false);
 
   const allSignedByStakeholder = (() => {
     if (!signOffStatus) return false;
@@ -523,17 +536,26 @@ export function ReviewGrid({
                               <tr key={group.sourceField} className="hover:bg-slate-50/50">
                                 <td className="py-2.5 align-top">
                                   <div className="flex items-center gap-1.5">
-                                    {editingEnabled && (
-                                      <button
-                                        type="button"
-                                        onClick={() => onRemoveSourceField?.(table.destinationTableName, group.sourceField)}
-                                        title="Drop this source field from migration"
-                                        className="text-slate-400 hover:text-red-600 focus:outline-none text-xs font-bold leading-none"
-                                      >
-                                        ×
-                                      </button>
-                                    )}
-                                    <span className="font-mono text-slate-700">{group.sourceField}</span>
+                                    <input
+                                      type="checkbox"
+                                      checked={!group.bindings.some(b => b.dropped)}
+                                      disabled={!editingEnabled}
+                                      onChange={(e) => {
+                                        e.stopPropagation();
+                                        onToggleSourceField?.(table.destinationTableName, group.sourceField, !e.target.checked);
+                                      }}
+                                      title={editingEnabled ? "Toggle source field inclusion" : "View only — toggle disabled"}
+                                      className={`h-3.5 w-3.5 rounded border focus:outline-none ${
+                                        editingEnabled
+                                          ? "border-slate-300 text-primary focus:ring-primary/20 cursor-pointer"
+                                          : "border-slate-300 bg-slate-100 cursor-not-allowed opacity-60"
+                                      }`}
+                                    />
+                                    <span className={`font-mono ${
+                                      group.bindings.some(b => b.dropped)
+                                        ? "line-through text-slate-400"
+                                        : "text-slate-700"
+                                    }`}>{group.sourceField}</span>
                                     {group.bindings.length > 1 && (
                                       <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
                                         1-to-{group.bindings.length}
@@ -569,6 +591,13 @@ export function ReviewGrid({
                                               onChange={(newVal) => onDestinationFieldChange?.(table.destinationTableName, binding.sourceField, binding.destinationField, newVal)}
                                               className="rounded border border-slate-200 bg-white px-2 py-1 font-mono text-xs w-full focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
                                               placeholder="destination field..."
+                                              onOpen={() => {
+                                                const el = document.activeElement as HTMLElement;
+                                                const rect = el?.getBoundingClientRect();
+                                                const hasRoomBelow = rect ? (window.innerHeight - rect.bottom) > 192 : true;
+                                                setDropdownUpward(!hasRoomBelow);
+                                              }}
+                                              openUpward={dropdownUpward}
                                             />
                                           ) : (
                                             <div className="flex items-center gap-1.5 py-1 text-slate-700">

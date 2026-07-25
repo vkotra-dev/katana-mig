@@ -517,8 +517,9 @@ describe("ReviewPage", () => {
     await renderPage();
     fireEvent.click(screen.getByRole("button", { name: /users/ }));
 
-    const deleteButtons = screen.getAllByTitle("Drop this source field from migration");
-    fireEvent.click(deleteButtons[0]); // "src_status" is the first group
+    // The drop toggle is now a checkbox — click the first one to drop "src_status"
+    const checkboxes = screen.getAllByRole("checkbox");
+    fireEvent.click(checkboxes[0]); // toggles src_status → dropped=true
 
     await waitFor(() => {
       expect(patchMappingSnapshotMock).toHaveBeenCalled();
@@ -527,7 +528,10 @@ describe("ReviewPage", () => {
     const callArgs = patchMappingSnapshotMock.mock.calls[0];
     const bindings = callArgs[3];
 
-    expect(bindings).not.toContainEqual(expect.objectContaining({ sourceField: "src_status" }));
+    // The binding still exists but with dropped=true
+    const droppedBinding = bindings.find((b: any) => b.sourceField === "src_status");
+    expect(droppedBinding).toBeDefined();
+    expect(droppedBinding!.dropped).toBe(true);
     expect(bindings).toContainEqual(expect.objectContaining({ sourceField: "src_email", destinationField: "email" }));
   });
 });

@@ -9,6 +9,7 @@ export interface MappingFieldBindingRecord {
   destinationTableName?: string | null;
   destinationDataType?: string | null;
   nullable?: boolean | null;
+  dropped?: boolean;
 }
 
 export interface LookupTableReference {
@@ -65,6 +66,7 @@ type MappingSnapshotRaw = {
     destination_table_name?: string | null;
     destination_data_type?: string | null;
     nullable?: boolean | null;
+    dropped?: boolean;
   }>;
   status: string;
   approved_at: string | null;
@@ -100,6 +102,7 @@ function mapMappingSnapshotResponse(response: MappingSnapshotRaw): MappingSnapsh
       destinationTableName: binding.destination_table_name,
       destinationDataType: binding.destination_data_type,
       nullable: binding.nullable,
+      dropped: binding.dropped ?? false,
     })),
     status: response.status,
     approvedAt: response.approved_at,
@@ -221,7 +224,7 @@ export async function patchMappingSnapshot(
   token: string,
   projectId: string,
   sourceDefinitionId: string,
-  fieldBindings: Array<{ sourceField: string; destinationField: string; lookupName: string | null }>,
+  fieldBindings: Array<{ sourceField: string; destinationField: string; lookupName: string | null; dropped?: boolean }>,
   destinationObjectName?: string,
 ): Promise<MappingReviewRecord> {
   const query = destinationObjectName ? `?destination_object_name=${encodeURIComponent(destinationObjectName)}` : "";
@@ -235,6 +238,7 @@ export async function patchMappingSnapshot(
           source_field: binding.sourceField,
           destination_field: binding.destinationField,
           lookup_name: binding.lookupName,
+          dropped: binding.dropped,
         })),
       }),
     },

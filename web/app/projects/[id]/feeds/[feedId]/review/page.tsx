@@ -357,31 +357,37 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
     }
   };
 
-  const handleRemoveSourceField = async (tableName: string, sourceField: string) => {
+  const handleToggleSourceField = async (tableName: string, sourceField: string, dropped: boolean) => {
     const targetSnapshot = mappingSnapshots.find((s) => s.destinationObjectName === tableName);
     if (!targetSnapshot) return;
 
-    // Optimistically remove every binding for this source field from local state
+    // Optimistically flip the dropped flag on every binding for this source field
     setMappingSnapshots((prev) =>
       prev.map((snapshot) => {
         if (snapshot.destinationObjectName !== tableName) return snapshot;
         return {
           ...snapshot,
-          fieldBindings: snapshot.fieldBindings.filter((b) => b.sourceField !== sourceField),
+          fieldBindings: snapshot.fieldBindings.map((b) =>
+            b.sourceField === sourceField ? { ...b, dropped } : b
+          ),
         };
       })
     );
 
     if (!session) return;
     try {
-      const updatedBindings = targetSnapshot.fieldBindings
-        .filter((b) => b.sourceField !== sourceField)
-        .map((b) => ({ sourceField: b.sourceField, destinationField: b.destinationField, lookupName: b.lookupName }));
+      // Send the full bindings list (not filtered) so sign-off preservation works
+      const updatedBindings = targetSnapshot.fieldBindings.map((b) => ({
+        sourceField: b.sourceField,
+        destinationField: b.destinationField,
+        lookupName: b.lookupName,
+        dropped: b.sourceField === sourceField ? dropped : b.dropped ?? false,
+      }));
       await patchMappingSnapshot(session.accessToken, projectId, feedId, updatedBindings, tableName);
       const updated = await getSignOffStatus(session.accessToken, projectId, feedId);
       setSignOffStatus(updated);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to remove source field mapping.");
+      setError(err instanceof Error ? err.message : "Failed to toggle source field.");
     }
   };
 
@@ -428,6 +434,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
         destinationField: binding.destinationField,
         bindingType: binding.bindingType || "direct",
         referenceTableName: binding.referenceTableName || null,
+        dropped: binding.dropped ?? false,
       });
     }
   }
@@ -713,7 +720,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
                       onDestinationFieldChange={handleDestinationFieldChange}
                       onAddBinding={handleAddBinding}
                       onRemoveBinding={handleRemoveBinding}
-                      onRemoveSourceField={handleRemoveSourceField}
+                      onToggleSourceField={handleToggleSourceField}
                       onSignLookup={handleSignLookup}
                       onUnsignLookup={handleUnsignLookup}
                       onAddLookupSourceValue={handleAddSourceByLookup}

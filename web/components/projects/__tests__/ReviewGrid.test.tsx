@@ -541,26 +541,29 @@ describe("ReviewGrid", () => {
       expect(onRemoveBinding).toHaveBeenCalledWith("accounts", "src_id", "name");
     });
 
-    it("shows a source-field delete icon even for a single-destination source field", () => {
-      const onRemoveSourceField = vi.fn();
-      const propsWithRemoveSource = { ...testProps, onRemoveSourceField };
-      render(<ReviewGrid {...propsWithRemoveSource} />);
+    it("toggles source field via checkbox (not remove)", () => {
+      const onToggleSourceField = vi.fn();
+      const propsWithToggle = { ...testProps, onToggleSourceField };
+      render(<ReviewGrid {...propsWithToggle} />);
       fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
 
-      const deleteButtons = screen.getAllByTitle("Drop this source field from migration");
-      expect(deleteButtons).toHaveLength(2); // one per group, including the single-entry "src_status" group
-      fireEvent.click(deleteButtons[1]); // "src_status" is the second group in bindings order
+      // There are now checkboxes, one per source field group
+      const checkboxes = screen.getAllByRole("checkbox");
+      expect(checkboxes).toHaveLength(2); // src_id and src_status groups
+      fireEvent.click(checkboxes[1]); // "src_status" is the second group
 
-      expect(onRemoveSourceField).toHaveBeenCalledWith("accounts", "src_status");
+      expect(onToggleSourceField).toHaveBeenCalledWith("accounts", "src_status", true);
     });
 
-    it("does not show either delete icon when editingEnabled is false", () => {
+    it("shows checkboxes but they are disabled when editingEnabled is false", () => {
       const propsNoEdit = { ...testProps, editingEnabled: false };
       render(<ReviewGrid {...propsNoEdit} />);
       fireEvent.click(screen.getByRole("button", { name: /accounts/ }));
 
       expect(screen.queryByTitle("Remove this destination mapping")).not.toBeInTheDocument();
-      expect(screen.queryByTitle("Drop this source field from migration")).not.toBeInTheDocument();
+      const checkboxes = screen.getAllByRole("checkbox");
+      expect(checkboxes.length).toBeGreaterThan(0);
+      checkboxes.forEach(cb => expect(cb).toBeDisabled());
     });
   });
 });
