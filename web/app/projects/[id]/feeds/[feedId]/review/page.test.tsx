@@ -7,7 +7,7 @@ const {
   getAllApprovedMappingSnapshotsMock,
   listLookupValueMapsMock,
   approveMappingSnapshotMock,
-  rejectMappingSnapshotMock,
+  requestRevisionMock,
   unapproveMappingSnapshotMock,
   patchMappingSnapshotMock,
   listFeedSlicesMock,
@@ -28,6 +28,7 @@ const {
   getAllApprovedMappingSnapshotsMock: vi.fn(),
   listLookupValueMapsMock: vi.fn(),
   approveMappingSnapshotMock: vi.fn(),
+  requestRevisionMock: vi.fn(),
   rejectMappingSnapshotMock: vi.fn(),
   unapproveMappingSnapshotMock: vi.fn(),
   patchMappingSnapshotMock: vi.fn(() => Promise.resolve({})),
@@ -58,8 +59,9 @@ vi.mock("../../../../../../lib/session", () => ({
 vi.mock("../../../../../../lib/mapping-api", () => ({
   getAllApprovedMappingSnapshots: getAllApprovedMappingSnapshotsMock,
   approveMappingSnapshot: approveMappingSnapshotMock,
-  rejectMappingSnapshot: rejectMappingSnapshotMock,
+  requestRevision: requestRevisionMock,
   patchMappingSnapshot: patchMappingSnapshotMock,
+  rejectMappingSnapshot: rejectMappingSnapshotMock,
   unapproveMappingSnapshot: unapproveMappingSnapshotMock,
 }));
 
@@ -232,15 +234,6 @@ describe("ReviewPage", () => {
     expect(await screen.findByText("approved")).toBeInTheDocument();
   });
 
-  it("shows rejected aggregate status when any is rejected", async () => {
-    loadUiSessionMock.mockReturnValue(BUSINESS_SESSION);
-    getAllApprovedMappingSnapshotsMock.mockResolvedValue([
-      { ...SNAPSHOT, destinationObjectName: "table_1", status: "approved" },
-      { ...SNAPSHOT, destinationObjectName: "table_2", status: "rejected" }
-    ]);
-    await renderPage();
-    expect(await screen.findByText("rejected")).toBeInTheDocument();
-  });
 
   it("renders decision controls for project_stakeholder when any snapshot is draft", async () => {
     loadUiSessionMock.mockReturnValue(BUSINESS_SESSION);

@@ -6,8 +6,9 @@ import { Topbar } from "../../../../../../components/Topbar";
 import {
   getAllApprovedMappingSnapshots,
   approveMappingSnapshot,
-  rejectMappingSnapshot,
+  requestRevision,
   patchMappingSnapshot,
+  rejectMappingSnapshot,
   unapproveMappingSnapshot,
   type MappingSnapshotRecord,
 } from "../../../../../../lib/mapping-api";
@@ -141,7 +142,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
     if (!session) return;
     setLoading(true);
     try {
-      await rejectMappingSnapshot(session.accessToken, projectId, feedId, comment);
+      await requestRevision(session.accessToken, projectId, feedId, comment);
       setNotice(`Revision requested: "${comment}"`);
       await loadData(session.accessToken);
     } catch (err) {
@@ -161,6 +162,21 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
       await loadData(session.accessToken);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to revert mapping snapshot back to draft.");
+      setLoading(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!session) return;
+    setLoading(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await rejectMappingSnapshot(session.accessToken, projectId, feedId);
+      setNotice("Mapping snapshot rejected.");
+      await loadData(session.accessToken);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to reject mapping snapshot.");
       setLoading(false);
     }
   };
@@ -563,8 +579,6 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
     ? null
     : mappingSnapshots.every(s => s.status === "approved")
     ? "approved"
-    : mappingSnapshots.some(s => s.status === "rejected")
-    ? "rejected"
     : "draft";
 
   // Check editing and notification controls
@@ -614,21 +628,28 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
               <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
                 aggregateStatus === "approved"
                   ? "bg-emerald-100 text-emerald-700"
-                  : aggregateStatus === "rejected"
-                  ? "bg-red-100 text-red-700"
                   : "bg-amber-100 text-amber-700"
               }`}>
                 {aggregateStatus}
               </span>
             )}
-            {aggregateStatus === "approved" && (role === "pm" || role === "admin") && (
-              <button
-                onClick={handleRevertToDraft}
-                className="mt-2 rounded-lg border border-red-300 bg-red-50 hover:bg-red-100 px-3 py-1 text-xs font-semibold text-red-700 transition-colors"
-                type="button"
-              >
-                Revert to Draft
-              </button>
+            {(role === "pm" || role === "admin") && aggregateStatus === "approved" && (
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  onClick={handleRevertToDraft}
+                  className="rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 transition-colors"
+                  type="button"
+                >
+                  Revert to Draft
+                </button>
+                <button
+                  onClick={handleReject}
+                  className="rounded-lg border border-red-300 bg-red-50 hover:bg-red-100 px-3 py-1 text-xs font-semibold text-red-700 transition-colors"
+                  type="button"
+                >
+                  Reject
+                </button>
+              </div>
             )}
           </div>
         </div>

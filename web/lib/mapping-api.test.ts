@@ -6,7 +6,7 @@ import {
   getMappingSnapshot,
   patchMappingSnapshot,
   proposeMappingSnapshot,
-  rejectMappingSnapshot,
+  requestRevision,
 } from "./mapping-api";
 
 const BASE = "http://127.0.0.1:8000";
@@ -199,8 +199,8 @@ describe("mapping-api", () => {
     await expect(approveMappingSnapshot("token-1", "project-1", "source-1")).resolves.toMatchObject({
       status: "approved",
     });
-    await expect(rejectMappingSnapshot("token-1", "project-1", "source-1", "Needs changes")).resolves.toMatchObject({
-      status: "rejected",
+    await expect(requestRevision("token-1", "project-1", "source-1", "Needs changes")).resolves.toMatchObject({
+      status: "draft",
     });
   });
 

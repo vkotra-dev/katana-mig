@@ -9,7 +9,7 @@ const {
   listFeedSchemaMock,
   patchMappingSnapshotMock,
   proposeMappingSnapshotMock,
-  rejectMappingSnapshotMock,
+  requestRevisionMock,
   replaceMock,
   topbarMock,
 } = vi.hoisted(() => ({
@@ -19,7 +19,7 @@ const {
   listFeedSchemaMock: vi.fn(),
   patchMappingSnapshotMock: vi.fn(),
   proposeMappingSnapshotMock: vi.fn(),
-  rejectMappingSnapshotMock: vi.fn(),
+  requestRevisionMock: vi.fn(),
   replaceMock: vi.fn(),
   topbarMock: vi.fn(),
 }));
@@ -40,7 +40,7 @@ vi.mock("../../../../../../lib/mapping-api", () => ({
   getMappingSnapshot: getMappingSnapshotMock,
   patchMappingSnapshot: patchMappingSnapshotMock,
   proposeMappingSnapshot: proposeMappingSnapshotMock,
-  rejectMappingSnapshot: rejectMappingSnapshotMock,
+  requestRevision: requestRevisionMock,
 }));
 
 vi.mock("../../../../../../lib/feeds-api", () => ({
@@ -159,7 +159,7 @@ describe("MappingPage", () => {
       approvedAt: "2026-06-30T01:00:00Z",
       approvedByUserId: "user-1",
     });
-    vi.mocked(rejectMappingSnapshotMock).mockResolvedValue({
+    vi.mocked(requestRevisionMock).mockResolvedValue({
       ...DRAFT_SNAPSHOT,
       status: "rejected",
     });
@@ -178,7 +178,7 @@ describe("MappingPage", () => {
   it("submits a rejection decision with a comment", async () => {
     vi.mocked(loadUiSessionMock).mockReturnValue(SESSION);
     vi.mocked(getMappingSnapshotMock).mockResolvedValue(DRAFT_SNAPSHOT);
-    vi.mocked(rejectMappingSnapshotMock).mockResolvedValue({
+    vi.mocked(requestRevisionMock).mockResolvedValue({
       ...DRAFT_SNAPSHOT,
       status: "rejected",
     });
@@ -193,7 +193,7 @@ describe("MappingPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /submit decision/i }));
 
     await waitFor(() => {
-      expect(rejectMappingSnapshotMock).toHaveBeenCalledWith(
+      expect(requestRevisionMock).toHaveBeenCalledWith(
         "token-1",
         "project-1",
         "source-1",

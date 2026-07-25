@@ -21,12 +21,6 @@ function getStatusBadge(status: string) {
           Confirmed
         </span>
       );
-    case "rejected":
-      return (
-        <span className="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">
-          Rejected
-        </span>
-      );
     default:
       return (
         <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">

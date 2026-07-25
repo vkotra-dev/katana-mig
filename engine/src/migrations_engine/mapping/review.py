@@ -275,7 +275,7 @@ def approve_mapping(
     return snapshot_to_response(drafts[-1], db=db)
 
 
-def reject_mapping(
+def request_revision(
     db: Session,
     *,
     project_id: str,
@@ -328,13 +328,13 @@ def reject_mapping(
                     422,
                 )
             continue
-        snapshot.status = "rejected"
+        snapshot.status = "draft"
         snapshot.current_ball_role = "central_team"
         record_management_audit(
             db,
             project_id=project_id,
             actor_user_id=actor_user_id,
-            event_type="mapping_rejected",
+            event_type="mapping_revision_requested",
             payload={
                 "mapping_snapshot_id": snapshot.mapping_snapshot_id,
                 "destination_object_name": snapshot.destination_object_name,
@@ -426,6 +426,62 @@ def unapprove_mapping(
     current_refs = source_definition.destination_object_references or []
     new_refs = [t for t in current_refs if t not in unapproved_tables]
     source_definition.destination_object_references = new_refs
+
+    db.commit()
+    db.refresh(snapshots[-1])
+    return snapshot_to_response(snapshots[-1], db=db)
+
+
+def reject_mapping(
+    db: Session,
+    *,
+    project_id: str,
+    source_definition_id: str,
+    actor_user_id: str,
+    destination_object_name: str | None = None,
+) -> MappingReviewResponse:
+    source_definition = get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
+
+    if destination_object_name:
+        snapshots = db.scalars(
+            select(MappingSnapshot)
+            .where(
+                MappingSnapshot.project_id == project_id,
+                MappingSnapshot.source_definition_id == source_definition_id,
+                MappingSnapshot.destination_object_name == destination_object_name,
+                MappingSnapshot.status == "draft",
+            )
+            .order_by(MappingSnapshot.created_at.desc(), MappingSnapshot.mapping_snapshot_id.desc())
+            .limit(1)
+        ).all()
+    else:
+        snapshots = db.scalars(
+            select(MappingSnapshot)
+            .where(
+                MappingSnapshot.project_id == project_id,
+                MappingSnapshot.source_definition_id == source_definition_id,
+                MappingSnapshot.status == "draft",
+            )
+            .order_by(MappingSnapshot.destination_object_name.asc())
+        ).all()
+
+    if not snapshots:
+        msg = "No draft mapping snapshots exist to reject."
+        raise AuthApiError("mapping_not_found", msg, 404)
+
+    for snapshot in snapshots:
+        snapshot.status = "rejected"
+        snapshot.current_ball_role = None
+        record_management_audit(
+            db,
+            project_id=project_id,
+            actor_user_id=actor_user_id,
+            event_type="mapping_rejected",
+            payload={
+                "mapping_snapshot_id": snapshot.mapping_snapshot_id,
+                "destination_object_name": snapshot.destination_object_name,
+            },
+        )
 
     db.commit()
     db.refresh(snapshots[-1])

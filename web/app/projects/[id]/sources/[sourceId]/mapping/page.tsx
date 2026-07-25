@@ -8,7 +8,7 @@ import {
   getMappingSnapshot,
   patchMappingSnapshot,
   proposeMappingSnapshot,
-  rejectMappingSnapshot,
+  requestRevision,
   type MappingApiError,
   type MappingFieldBindingRecord,
   type MappingReviewRecord,
@@ -185,7 +185,7 @@ export default function MappingPage() {
       const next =
         decision === "approved"
           ? await approveMappingSnapshot(session.accessToken, projectId, sourceDefinitionId)
-          : await rejectMappingSnapshot(session.accessToken, projectId, sourceDefinitionId, rejectionReason.trim());
+          : await requestRevision(session.accessToken, projectId, sourceDefinitionId, rejectionReason.trim());
       setSnapshot(next);
       setEditedBindings(next.fieldBindings.map((binding) => ({ ...binding })));
       setDecision(null);

@@ -208,6 +208,18 @@ export async function unapproveMappingSnapshot(
   return mapMappingReviewResponse(response);
 }
 
+export async function rejectMappingSnapshot(
+  token: string,
+  projectId: string,
+  sourceDefinitionId: string,
+): Promise<MappingReviewRecord> {
+  const response = await requestMappingJson<MappingReviewRaw>(
+    `/projects/${projectId}/sources/${sourceDefinitionId}/mapping/reject`,
+    { method: "POST", token },
+  );
+  return mapMappingReviewResponse(response);
+}
+
 export async function getMappingSnapshot(
   token: string,
   projectId: string,
@@ -258,14 +270,14 @@ export async function approveMappingSnapshot(
   return mapMappingReviewResponse(response);
 }
 
-export async function rejectMappingSnapshot(
+export async function requestRevision(
   token: string,
   projectId: string,
   sourceDefinitionId: string,
   reason: string,
 ): Promise<MappingReviewRecord> {
   const response = await requestMappingJson<MappingReviewRaw>(
-    `/projects/${projectId}/sources/${sourceDefinitionId}/mapping/reject`,
+    `/projects/${projectId}/sources/${sourceDefinitionId}/mapping/revision`,
     {
       method: "POST",
       token,

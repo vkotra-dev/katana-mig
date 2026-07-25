@@ -509,7 +509,7 @@ class LookupValueMapResponse(BaseModel):
     source_value_map: dict[str, str]
     destination_mappings: list[DestinationMappingGroup]
     unmapped_source_values: list[str] = Field(default_factory=list)
-    status: Literal["draft", "approved"]
+    status: Literal["draft", "approved", "discarded"]
     unmapped_row_count: int = 0
     created_at: datetime
 
@@ -577,7 +577,7 @@ class MappingReviewResponse(MappingSnapshotResponse):
     pass
 
 
-class MappingRejectRequest(BaseModel):
+class MappingRevisionRequest(BaseModel):
     reason: str = Field(min_length=1, max_length=1000)
 
 
