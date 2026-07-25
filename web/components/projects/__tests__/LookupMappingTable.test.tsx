@@ -90,12 +90,12 @@ describe("LookupMappingTable", () => {
     });
   });
 
-  it("displays source value inputs that are editable when editing enabled", () => {
+  it("keeps source value inputs readOnly even when editing enabled (no onChange exists; mutation is via Add/Remove controls only)", () => {
     render(<LookupMappingTable groups={groups} editingEnabled />);
 
     const inputs = document.querySelectorAll('input[type="text"]');
     inputs.forEach((input) => {
-      expect(input).not.toHaveAttribute("readOnly");
+      expect(input).toHaveAttribute("readOnly");
     });
   });
 

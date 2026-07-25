@@ -100,7 +100,7 @@ export function LookupMappingTable({
                     <div key={`${group.destId}-sv-${idx}`} className="flex items-center gap-2">
                       <input
                         type="text"
-                        readOnly={!editingEnabled}
+                        readOnly
                         value={srcVal}
                         className="px-2.5 py-1 text-sm border rounded bg-slate-50 border-slate-200 text-slate-800 focus:outline-none focus:bg-white focus:border-indigo-500 w-full max-w-sm font-mono"
                       />
