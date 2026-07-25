@@ -540,6 +540,38 @@ def test_request_revision_marks_snapshot_draft_and_returns_ball_to_operator(
     assert response.json()["current_ball_role"] == "central_team"
 
 
+def test_request_revision_on_approved_snapshot_returns_ball_to_operator(
+    monkeypatch: pytest.MonkeyPatch, admin_token: str, stakeholder_token: str
+) -> None:
+    project_id, source_id = _seed_project()
+    fake = FakeAdapter([
+        {"source_field": "customer_id", "destination_field": "customer_id"},
+    ])
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: fake)
+
+    client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/propose",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    approve = client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/approve",
+        headers={"Authorization": f"Bearer {stakeholder_token}"},
+    )
+    assert approve.status_code == 200, approve.text
+    assert approve.json()["status"] == "approved"
+
+    # Stakeholder requests revision from approved state
+    response = client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/revision",
+        headers={"Authorization": f"Bearer {stakeholder_token}"},
+        json={"reason": "Need to adjust mappings."},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "draft"
+    assert response.json()["current_ball_role"] == "central_team"
+
+
 def test_reject_marks_approved_snapshot_rejected_and_clears_ball(
     monkeypatch: pytest.MonkeyPatch, admin_token: str, stakeholder_token: str
 ) -> None:

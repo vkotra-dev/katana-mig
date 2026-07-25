@@ -287,46 +287,41 @@ def request_revision(
     get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
 
     if destination_object_name:
-        drafts = db.scalars(
+        snapshots = db.scalars(
             select(MappingSnapshot)
             .where(
                 MappingSnapshot.project_id == project_id,
                 MappingSnapshot.source_definition_id == source_definition_id,
                 MappingSnapshot.destination_object_name == destination_object_name,
+                MappingSnapshot.status.in_(("draft", "approved")),
             )
             .order_by(MappingSnapshot.created_at.desc(), MappingSnapshot.mapping_snapshot_id.desc())
             .limit(1)
         ).all()
     else:
-        drafts = db.scalars(
+        snapshots = db.scalars(
             select(MappingSnapshot)
             .where(
                 MappingSnapshot.project_id == project_id,
                 MappingSnapshot.source_definition_id == source_definition_id,
-                MappingSnapshot.status == "draft",
+                MappingSnapshot.status.in_(("draft", "approved")),
             )
             .order_by(MappingSnapshot.destination_object_name.asc(), MappingSnapshot.created_at.desc())
         ).all()
         seen: set[str] = set()
-        unique_drafts = []
-        for s in drafts:
+        unique_snapshots = []
+        for s in snapshots:
             if s.destination_object_name not in seen:
                 seen.add(s.destination_object_name)
-                unique_drafts.append(s)
-        drafts = unique_drafts
+                unique_snapshots.append(s)
+        snapshots = unique_snapshots
 
-    if not drafts:
-        msg = "No mapping snapshot exists yet." if destination_object_name else "No draft mapping snapshots exist for this feed."
+    if not snapshots:
+        msg = "No mapping snapshot exists yet." if destination_object_name else "No draft or approved mapping snapshots exist for this feed."
         raise AuthApiError("mapping_not_found", msg, 404)
 
-    for snapshot in drafts:
-        if snapshot.status != "draft":
-            if destination_object_name:
-                raise AuthApiError(
-                    "mapping_not_rejectable",
-                    f"Cannot reject a mapping snapshot with status '{snapshot.status}'.",
-                    422,
-                )
+    for snapshot in snapshots:
+        if snapshot.status not in ("draft", "approved"):
             continue
         snapshot.status = "draft"
         snapshot.current_ball_role = "central_team"
@@ -343,8 +338,8 @@ def request_revision(
         )
 
     db.commit()
-    db.refresh(drafts[-1])
-    return snapshot_to_response(drafts[-1], db=db)
+    db.refresh(snapshots[-1])
+    return snapshot_to_response(snapshots[-1], db=db)
 
 
 def unapprove_mapping(
