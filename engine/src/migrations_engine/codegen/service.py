@@ -89,7 +89,7 @@ def generate_codegen_artifact(
     mapped_dest_fields = {
         binding.get("destination_field")
         for binding in mapping_snapshot.field_bindings
-        if binding.get("destination_field")
+        if binding.get("destination_field") and not binding.get("dropped")
     }
     unmapped_required = required_dest_fields - mapped_dest_fields
     if unmapped_required:
@@ -440,7 +440,7 @@ def _select_lookup_snapshot_version(
         {
             str(binding.get("lookup_name"))
             for binding in mapping_snapshot.field_bindings
-            if binding.get("lookup_name")
+            if binding.get("lookup_name") and not binding.get("dropped")
         }
     )
     for lookup_name in lookup_names:
@@ -471,7 +471,7 @@ def _build_lookup_tables(
         {
             str(binding.get("lookup_name"))
             for binding in mapping_snapshot.field_bindings
-            if binding.get("lookup_name")
+            if binding.get("lookup_name") and not binding.get("dropped")
         }
     )
     results = []

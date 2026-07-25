@@ -539,6 +539,7 @@ class MappingFieldBindingResponse(BaseModel):
     destination_table_name: str | None = None
     destination_data_type: str | None = None
     nullable: bool | None = None
+    dropped: bool = False
 
 
 class MappingDestinationColumnResponse(BaseModel):

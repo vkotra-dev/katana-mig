@@ -105,6 +105,7 @@ def patch_mapping(
             "reference_table_name": existing.get("reference_table_name"),
             "destination_data_type": existing.get("destination_data_type"),
             "nullable": existing.get("nullable"),
+            "dropped": binding.dropped,
         })
 
     # Detect changed fields and delete their sign-off records. A pair can be "changed" either by

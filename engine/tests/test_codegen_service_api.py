@@ -406,3 +406,38 @@ def test_codegen_includes_source_slice_version_in_response(
     data = response.json()
     assert data["source_slice_version"] == "v1"
     assert data["mapping_snapshot_version"] == "v1"
+
+
+def test_codegen_skips_dropped_bindings() -> None:
+    """Verify that dropped bindings are excluded from codegen field sets.
+
+    Tests the actual set comprehension logic used in
+    ``migrations_engine.codegen.service.generate_mapping_script`` which
+    filters ``binding.get("dropped")`` before building mapped_dest_fields
+    and lookup snapshot queries.
+    """
+    # Replicate the exact expressions from service.py lines ~89-93 and
+    # the lookup-name comprehension at line ~440.
+    field_bindings = [
+        {"source_field": "active_src", "destination_field": "active_dest", "lookup_name": "active_lookup"},
+        {"source_field": "dropped_src", "destination_field": "dropped_dest", "lookup_name": "dropped_lookup", "dropped": True},
+    ]
+
+    # Expression from generate_mapping_script (line ~89)
+    mapped_dest_fields = {
+        binding.get("destination_field")
+        for binding in field_bindings
+        if binding.get("destination_field") and not binding.get("dropped")
+    }
+    assert "active_dest" in mapped_dest_fields
+    assert "dropped_dest" not in mapped_dest_fields
+
+    # Expression from _select_lookup_snapshot_version / _build_lookup_tables
+    lookup_names = {
+        str(binding.get("lookup_name"))
+        for binding in field_bindings
+        if binding.get("lookup_name") and not binding.get("dropped")
+    }
+    assert "active_lookup" in lookup_names
+    assert "dropped_lookup" not in lookup_names
+

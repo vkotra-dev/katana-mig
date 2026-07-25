@@ -144,6 +144,7 @@ def snapshot_to_response(
                 destination_table_name=binding.get("destination_table_name"),
                 destination_data_type=binding.get("destination_data_type"),
                 nullable=binding.get("nullable"),
+                dropped=bool(binding.get("dropped", False)),
             )
             for binding in snapshot.field_bindings
         ],

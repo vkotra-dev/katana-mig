@@ -17,6 +17,7 @@ class FieldBinding:
     source_field: str
     destination_field: str
     lookup_name: str
+    dropped: bool = False
 
 
 def create_approved_mapping_snapshot(
@@ -47,6 +48,7 @@ def create_approved_mapping_snapshot(
             "source_field": binding.source_field,
             "destination_field": binding.destination_field,
             "lookup_name": binding.lookup_name,
+            "dropped": binding.dropped,
         }
         for binding in field_bindings
     ]

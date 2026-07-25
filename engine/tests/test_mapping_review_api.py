@@ -38,12 +38,15 @@ class FakeAdapter:
 
     def call(self, system: str, user: str, response_model: type[object]):
         self.calls.append(SimpleNamespace(system=system, user=user, response_model=response_model))
-        
+
         bindings_objs = []
         for binding in self.bindings:
             b_data = {"binding_type": "direct", "reference_table_name": None}
             b_data.update(binding)
-            bindings_objs.append(ai_schemas.Binding(**b_data))
+            # Strip keys that aren't part of ai_schemas.Binding (e.g. "required", "dropped")
+            known_keys = set(ai_schemas.Binding.model_fields.keys())
+            clean_data = {k: v for k, v in b_data.items() if k in known_keys}
+            bindings_objs.append(ai_schemas.Binding(**clean_data))
             
         table_mapping = ai_schemas.TableProposal(
             destination_table_name=self.destination_table_name,
@@ -1018,3 +1021,151 @@ def test_destination_columns_in_api_response(
         assert data[0]["destination_columns"][0]["nullable"] is False
         assert data[0]["destination_columns"][1]["name"] == "name"
         assert data[0]["destination_columns"][1]["nullable"] is True
+
+
+def test_patch_toggling_dropped_preserves_sign_off(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+    project_id, source_id = _seed_project()
+    fake = FakeAdapter([
+        {"source_field": "customer_id", "destination_field": "customer_id"},
+    ])
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: fake)
+
+    client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/propose",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    from migrations_engine.db.models import MappingBindingSignOff, MappingSnapshot
+
+    with SessionLocal() as db:
+        snapshot = db.scalar(select(MappingSnapshot).where(MappingSnapshot.project_id == project_id))
+        assert snapshot is not None
+        snapshot_id = snapshot.mapping_snapshot_id
+        admin_user = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
+        assert admin_user is not None
+        db.add(
+            MappingBindingSignOff(
+                mapping_snapshot_id=snapshot_id,
+                destination_object_name=snapshot.destination_object_name,
+                source_field="customer_id",
+                destination_field="customer_id",
+                user_id=admin_user.user_id,
+                role=CENTRAL_TEAM_ROLE,
+            )
+        )
+        db.commit()
+
+    response = client.patch(
+        f"/projects/{project_id}/sources/{source_id}/mapping",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "field_bindings": [
+                {"source_field": "customer_id", "destination_field": "customer_id", "lookup_name": None, "dropped": True},
+            ]
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["field_bindings"][0]["dropped"] is True
+
+    with SessionLocal() as db:
+        remaining = db.scalars(
+            select(MappingBindingSignOff).where(
+                MappingBindingSignOff.mapping_snapshot_id == snapshot_id,
+                MappingBindingSignOff.source_field == "customer_id",
+                MappingBindingSignOff.destination_field == "customer_id",
+            )
+        ).all()
+        assert len(remaining) == 1, "sign-off must survive a dropped=true toggle"
+
+    response2 = client.patch(
+        f"/projects/{project_id}/sources/{source_id}/mapping",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "field_bindings": [
+                {"source_field": "customer_id", "destination_field": "customer_id", "lookup_name": None, "dropped": False},
+            ]
+        },
+    )
+    assert response2.status_code == 200, response2.text
+    assert response2.json()["field_bindings"][0]["dropped"] is False
+
+    with SessionLocal() as db:
+        remaining2 = db.scalars(
+            select(MappingBindingSignOff).where(
+                MappingBindingSignOff.mapping_snapshot_id == snapshot_id,
+                MappingBindingSignOff.source_field == "customer_id",
+                MappingBindingSignOff.destination_field == "customer_id",
+            )
+        ).all()
+        assert len(remaining2) == 1, "sign-off must survive toggling back to dropped=false"
+
+
+def test_repropose_preserves_dropped_flag_for_unsigned_field(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+    project_id, source_id = _seed_project()
+    fake = FakeAdapter([
+        {"source_field": "customer_id", "destination_field": "customer_id"},
+        {"source_field": "full_name", "destination_field": "full_name"},
+    ])
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: fake)
+
+    client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/propose",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    patch = client.patch(
+        f"/projects/{project_id}/sources/{source_id}/mapping",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "field_bindings": [
+                {"source_field": "customer_id", "destination_field": "customer_id", "lookup_name": None, "dropped": False},
+                {"source_field": "full_name", "destination_field": "full_name", "lookup_name": None, "dropped": True},
+            ]
+        },
+    )
+    assert patch.status_code == 200, patch.text
+
+    repropose = client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/propose",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert repropose.status_code == 200, repropose.text
+    bindings_by_pair = {
+        (b["source_field"], b["destination_field"]): b
+        for b in repropose.json()["field_bindings"]
+    }
+    assert bindings_by_pair[("full_name", "full_name")]["dropped"] is True
+
+
+def test_patch_dropped_field_returns_dropped_true(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+    """Dropping a field via PATCH should persist and return dropped=true."""
+    project_id, source_id = _seed_project()
+    fake = FakeAdapter([
+        {"source_field": "customer_id", "destination_field": "customer_id"},
+    ])
+    monkeypatch.setattr(mapping_proposal_module, "get_adapter", lambda task: fake)
+
+    client.post(
+        f"/projects/{project_id}/sources/{source_id}/mapping/propose",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    response = client.patch(
+        f"/projects/{project_id}/sources/{source_id}/mapping",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "field_bindings": [
+                {"source_field": "customer_id", "destination_field": "customer_id", "lookup_name": None, "dropped": True},
+            ]
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["field_bindings"][0]["dropped"] is True
+
+    # GET should also return dropped=true
+    get_response = client.get(
+        f"/projects/{project_id}/sources/{source_id}/mapping",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert get_response.status_code == 200
+    assert get_response.json()["field_bindings"][0]["dropped"] is True

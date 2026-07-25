@@ -263,6 +263,11 @@ def propose_mapping(
                     # Keep old binding for core fields, but overlay new keys for forward compatibility
                     merged_bindings.append({**fresh_b, **old_bindings_map[pair]})
                 else:
+                    # Carry forward the dropped flag even when not signed off — dropped
+                    # (user soft-delete) and signed-off are independent state; a re-propose
+                    # must not silently un-drop a field the user excluded.
+                    if pair in old_bindings_map and "dropped" in old_bindings_map[pair]:
+                        fresh_b = {**fresh_b, "dropped": old_bindings_map[pair]["dropped"]}
                     merged_bindings.append(fresh_b)
             
             # Keep signed-off bindings that the AI dropped

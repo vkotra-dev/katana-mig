@@ -7,7 +7,7 @@ Lookup snapshot version: {{ lookup_snapshot_version or 'none' }}
 Target DB engine: {{ project_config.target_db_engine or 'unknown' }}
 Staging schema: {{ project_config.staging_schema or 'unknown' }}
 Field bindings:
-{% for binding in mapping_snapshot.field_bindings %}
+{% for binding in mapping_snapshot.field_bindings if not binding.get('dropped') %}
 - {{ binding.get('source_field') }} -> {{ binding.get('destination_field') }}{% if binding.get('destination_data_type') %} [{{ binding.get('destination_data_type') }}]{% endif %} (lookup: {{ binding.get('lookup_name') or 'none' }})
 {% endfor %}
 {% if lookup_tables %}
