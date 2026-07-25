@@ -575,11 +575,11 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
     const rKey = role === "project_stakeholder" ? "projectStakeholder" : "centralTeam";
     for (const table of Object.values(signOffStatus.bindings)) {
       for (const binding of Object.values(table)) {
-        if (!binding[rKey]?.signed) return false;
+        if (!binding || !binding[rKey]?.signed) return false;
       }
     }
     for (const lookup of Object.values(signOffStatus.lookups)) {
-      if (!lookup[rKey]?.signed) return false;
+      if (!lookup || !lookup[rKey]?.signed) return false;
     }
     return true;
   })();
@@ -666,7 +666,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
                 <button
                   onClick={handlePushForReview}
                   disabled={!isActorSignOffComplete}
-                  title={!isActorSignOffComplete ? "Sign off all items first" : undefined}
+                  title={!isActorSignOffComplete ? "Not all field bindings and lookups are signed by you yet." : undefined}
                   className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white shadow hover:bg-primary-hover focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                   type="button"
                 >
