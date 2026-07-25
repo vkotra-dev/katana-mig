@@ -204,13 +204,14 @@ def approve_mapping(
         from ..management.sign_offs import get_sign_off_status
         sign_off_status = get_sign_off_status(db, project_id=project_id, source_definition_id=source_definition_id)
         for obj_name, fields in sign_off_status.get("bindings", {}).items():
-            for sf, status in fields.items():
-                if not status["project_stakeholder"]["signed"]:
-                    raise AuthApiError(
-                        "mapping_not_signed_off",
-                        f"Cannot approve: field '{sf}' in '{obj_name}' has not been signed off by the stakeholder.",
-                        400,
-                    )
+            for sf, dests in fields.items():
+                for df, role_status in dests.items():
+                    if not role_status.get("project_stakeholder", {}).get("signed", False):
+                        raise AuthApiError(
+                            "mapping_not_signed_off",
+                            f"Cannot approve: field '{sf}' in '{obj_name}' has not been signed off by the stakeholder.",
+                            400,
+                        )
         for l_map_id, status in sign_off_status.get("lookups", {}).items():
             if not status["project_stakeholder"]["signed"]:
                 raise AuthApiError(
