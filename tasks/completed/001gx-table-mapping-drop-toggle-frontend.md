@@ -1,7 +1,7 @@
 ---
 id: 001gx
 title: Table Mapping "Drop Source Field" as a Soft-Delete Toggle (Frontend) + Autocomplete Dropdown Clip Fix
-status: active
+status: completed
 created: 2026-07-25
 priority: high
 domain: frontend / react / mapping
@@ -69,3 +69,7 @@ Plus manual browser verification (required — no existing test observes CSS cli
 2. Toggle it back on. Confirm strikethrough clears.
 3. As a non-editing viewer (not holding the ball), confirm the icon and strikethrough state are visible but not clickable.
 4. Open the destination-field autocomplete on the *last* row of a table with several rows. Confirm the dropdown renders fully visible (opens upward), and every option is selectable — not clipped behind the table's scrollbar.
+
+---
+Plan: plans/2026-07-25-001gx-table-mapping-drop-toggle-frontend.md
+Summary: tasks/summary/001gx-table-mapping-drop-toggle-frontend.md

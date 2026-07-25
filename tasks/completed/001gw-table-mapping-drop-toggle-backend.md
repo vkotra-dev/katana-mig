@@ -1,7 +1,7 @@
 ---
 id: 001gw
 title: Table Mapping "Drop Source Field" as a Soft-Delete Toggle (Backend)
-status: active
+status: completed
 created: 2026-07-25
 priority: high
 domain: backend / mapping / codegen
@@ -90,3 +90,7 @@ Same as tasks 001gr/001gs/001gu: use `.venv/bin/python` for everything, never ba
 ```
 
 Confirm zero failures, and the count grew by exactly the number of new tests added in Requirement 5 (4, unless the chosen test file's existing patterns require more setup helpers that end up as additional test functions — use judgment, but don't silently add fewer than the 4 scenarios listed).
+
+---
+Plan: plans/2026-07-25-001gw-table-mapping-drop-toggle-backend.md
+Summary: tasks/summary/001gw-table-mapping-drop-toggle-backend.md

@@ -6,8 +6,8 @@
 
 | Task | Summary |
 |---|---|
-| [001gw-table-mapping-drop-toggle-backend](./completed/001gw-table-mapping-drop-toggle-backend.md) | Backend half of converting table-mapping's "drop source field" from a hard delete to a `dropped: bool` soft-delete toggle. Covers 4 codegen blast-radius sites (incl. the Jinja prompt template the SQL-generation AI reads — the critical one), sign-off preservation across a toggle, and carrying `dropped` forward through AI re-propose. Not lookup mapping — table/field mapping only. 4 new tests added, 31/31 backend tests pass. |
-| [001gx-table-mapping-drop-toggle-frontend](./completed/001gx-table-mapping-drop-toggle-frontend.md) | Frontend half (depends on 001gw): checkbox/tick toggle UI replacing the × button in `ReviewGrid.tsx`, always visible/read-only when not editable, strikethrough on the source field name. Also folds in an unrelated but same-file fix: `AutocompleteInput`'s dropdown was clipped by the table's `overflow-x-auto` ancestor (a CSS quirk z-index can't fix) — flip-upward positioning near the viewport bottom. React controlled-input warning fixed via `defaultValue`. |
+| [001gw-table-mapping-drop-toggle-backend](./completed/001gw-table-mapping-drop-toggle-backend.md) | [summary](./summary/001gw-table-mapping-drop-toggle-backend.md) |
+| [001gx-table-mapping-drop-toggle-frontend](./completed/001gx-table-mapping-drop-toggle-frontend.md) | [summary](./summary/001gx-table-mapping-drop-toggle-frontend.md) — see summary's Deviations section for a real, unfixed gap: the `AutocompleteInput` flip-upward fix isn't wired to the chevron button's click path, only to text-field focus. |
 | [001gv-react-readonly-input-value-prop-warning](./completed/001gv-react-readonly-input-value-prop-warning.md) | [summary](./summary/001gv-react-readonly-input-value-prop-warning.md) |
 | [001gp-codegen-lookup-stacked-verification](./completed/001gp-codegen-lookup-stacked-verification.md) | [summary](./summary/001gp-codegen-lookup-stacked-verification.md) |
 | [001go-lookup-review-grid-wiring](./completed/001go-lookup-review-grid-wiring.md) | [summary](./summary/001go-lookup-review-grid-wiring.md) |
