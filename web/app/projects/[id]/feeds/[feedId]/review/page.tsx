@@ -691,8 +691,6 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
               {editingEnabled && (
                 <button
                   onClick={handlePushForReview}
-                  disabled={!isActorSignOffComplete}
-                  title={!isActorSignOffComplete ? "Not all field bindings and lookups are signed by you yet." : undefined}
                   className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white shadow hover:bg-primary-hover focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                   type="button"
                 >
