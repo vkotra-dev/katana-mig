@@ -70,8 +70,6 @@ interface AutocompleteInputProps {
   onChange: (value: string) => void;
   className?: string;
   placeholder?: string;
-  openUpward?: boolean;
-  onOpen?: () => void;
 }
 
 function AutocompleteInput({
@@ -80,13 +78,25 @@ function AutocompleteInput({
   onChange,
   className = "",
   placeholder = "",
-  openUpward = false,
-  onOpen,
 }: AutocompleteInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState(value);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [dropdownUpwardLocal, setDropdownUpwardLocal] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const openDropdown = () => {
+    setIsOpen(true);
+    try {
+      const el = (containerRef.current as HTMLElement | null)?.querySelector('input');
+      const rect = el?.getBoundingClientRect();
+      if (rect) {
+        setDropdownUpwardLocal((window.innerHeight - rect.bottom) <= 192);
+      }
+    } catch {
+      // jsdom or SSR — fall through with default downward
+    }
+  };
 
   useEffect(() => {
     setQuery(value);
@@ -154,10 +164,7 @@ function AutocompleteInput({
             setIsOpen(true);
             setHighlightedIndex(-1);
           }}
-          onFocus={() => {
-            onOpen?.();
-            setIsOpen(true);
-          }}
+          onFocus={openDropdown}
           onBlur={() => {
             onChange(query);
             setIsOpen(false);
@@ -168,7 +175,13 @@ function AutocompleteInput({
         />
         <button
           type="button"
-          onClick={() => setIsOpen((prev) => !prev)}
+          onClick={() => {
+            if (isOpen) {
+              setIsOpen(false);
+            } else {
+              openDropdown();
+            }
+          }}
           className="absolute right-0 top-1/2 -translate-y-1/2 px-2.5 py-1 text-slate-400 hover:text-slate-600 focus:outline-none"
         >
           <svg
@@ -184,7 +197,7 @@ function AutocompleteInput({
 
       {isOpen && filteredOptions.length > 0 && (
         <ul className={`absolute left-0 right-0 z-[100] max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 text-xs shadow-lg ring-1 ring-black/5 focus:outline-none font-mono ${
-          openUpward
+          dropdownUpwardLocal
             ? "bottom-full mb-1"
             : "top-full mt-1"
         }`}>
@@ -243,7 +256,6 @@ export function ReviewGrid({
   const [expandedTables, setExpandedTables] = useState<Record<string, boolean>>({});
   const [revisionOpen, setRevisionOpen] = useState(false);
   const [revisionComment, setRevisionComment] = useState("");
-  const [dropdownUpward, setDropdownUpward] = useState(false);
 
   const allSignedByStakeholder = (() => {
     if (!signOffStatus) return false;
@@ -591,13 +603,6 @@ export function ReviewGrid({
                                               onChange={(newVal) => onDestinationFieldChange?.(table.destinationTableName, binding.sourceField, binding.destinationField, newVal)}
                                               className="rounded border border-slate-200 bg-white px-2 py-1 font-mono text-xs w-full focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
                                               placeholder="destination field..."
-                                              onOpen={() => {
-                                                const el = document.activeElement as HTMLElement;
-                                                const rect = el?.getBoundingClientRect();
-                                                const hasRoomBelow = rect ? (window.innerHeight - rect.bottom) > 192 : true;
-                                                setDropdownUpward(!hasRoomBelow);
-                                              }}
-                                              openUpward={dropdownUpward}
                                             />
                                           ) : (
                                             <div className="flex items-center gap-1.5 py-1 text-slate-700">
