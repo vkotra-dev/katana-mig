@@ -669,7 +669,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                       <button
                         onClick={handleAnalyzeWithAi}
                         disabled={analyzing}
-                        className="w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center justify-center gap-2 transition"
+                        className="w-full rounded-md bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         type="button"
                       >
                         {analyzing ? (
@@ -769,7 +769,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                     <button
                       type="button"
                       onClick={() => router.push(`/projects/${projectId}/feeds/${feedId}/review`)}
-                      className="rounded-lg border border-primary px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5 focus:outline-none"
+                      className="rounded-md border border-outline-variant px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                     >
                       Go to review page
                     </button>
