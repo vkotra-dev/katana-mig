@@ -1013,3 +1013,132 @@ def test_patch_lookup_value_map_resets_approved_snapshots_to_draft(
         snapshot = db.get(LookupSnapshot, snapshot_id)
         assert snapshot.status == "draft"
 
+
+
+def test_patch_add_source_value_rejects_cross_destination_duplicate(admin_token: str) -> None:
+    """Adding a source value that already maps (case-insensitive) to a different
+    destination must return 409, not silently fabricate a new group."""
+    project_id, _source_definition_id = _seed_project()
+
+    create = client.post(
+        f"/projects/{project_id}/lookup-maps",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "lookup_name": "status_code",
+            "destination_table": [
+                {"id": "ACTIVE", "label": "Active"},
+                {"id": "BLOCKED", "label": "Blocked"},
+            ],
+            "source_value_map": {"Active": "ACTIVE"},
+        },
+    )
+    assert create.status_code == 201
+    lookup_map_id = create.json()["lookup_value_map_id"]
+
+    patch = client.patch(
+        f"/projects/{project_id}/lookup-maps/{lookup_map_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"add_source_value": {"dest_id": "BLOCKED", "source_value": "active"}},
+    )
+    assert patch.status_code == 409, patch.text
+    data = patch.json()
+    assert data["error"]["code"] == "duplicate_source_value"
+
+
+def test_patch_add_source_value_no_op_on_same_destination_duplicate(admin_token: str) -> None:
+    """Re-adding the same value (case-insensitive) to the SAME destination is a
+    harmless no-op, not an error."""
+    project_id, _source_definition_id = _seed_project()
+
+    create = client.post(
+        f"/projects/{project_id}/lookup-maps",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "lookup_name": "status_code",
+            "destination_table": [{"id": "ACTIVE", "label": "Active"}],
+            "source_value_map": {"Active": "ACTIVE"},
+        },
+    )
+    assert create.status_code == 201
+    lookup_map_id = create.json()["lookup_value_map_id"]
+
+    patch = client.patch(
+        f"/projects/{project_id}/lookup-maps/{lookup_map_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"add_source_value": {"dest_id": "ACTIVE", "source_value": "active"}},
+    )
+    assert patch.status_code == 200, patch.text
+    data = patch.json()
+    # No-op: source_value_map unchanged — "Active" still maps to ACTIVE,
+    # no extra "active" entry was added
+    assert data["source_value_map"] == {"Active": "ACTIVE"}
+    # destination_mappings untouched (was empty, still is)
+    assert data["destination_mappings"] == []
+
+
+def test_patch_add_source_value_unknown_dest_routes_to_unmapped(admin_token: str) -> None:
+    """Adding a source value with a dest_id that doesn't match any real destination
+    must append to unmapped_source_values, not create a phantom group."""
+    project_id, _source_definition_id = _seed_project()
+
+    create = client.post(
+        f"/projects/{project_id}/lookup-maps",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "lookup_name": "status_code",
+            "destination_table": [{"id": "ACTIVE", "label": "Active"}],
+        },
+    )
+    assert create.status_code == 201
+    lookup_map_id = create.json()["lookup_value_map_id"]
+
+    patch = client.patch(
+        f"/projects/{project_id}/lookup-maps/{lookup_map_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"add_source_value": {"dest_id": "GARBAGE_ID", "source_value": "unknown_val"}},
+    )
+    assert patch.status_code == 200, patch.text
+    data = patch.json()
+    assert data["unmapped_source_values"] == ["unknown_val"]
+    assert len(data["destination_mappings"]) == 0
+
+
+def test_sync_lookup_value_map_wires_unmatched_source_values(admin_token: str) -> None:
+    """_sync_lookup_value_map_from_proposed_mappings must persist
+    unmatched_source_values to both existing and newly created LookupValueMap."""
+    from migrations_engine.management.fibers import _sync_lookup_value_map_from_proposed_mappings
+
+    project_id, _source_definition_id = _seed_project()
+
+    # Create a minimal LookupValueMap
+    create = client.post(
+        f"/projects/{project_id}/lookup-maps",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "lookup_name": "status_code",
+            "destination_table": [{"id": "ACTIVE", "label": "Active"}],
+            "source_value_map": {"A": "ACTIVE"},
+        },
+    )
+    assert create.status_code == 201
+
+    # Directly call the wiring function with unmatched_source_values
+    with SessionLocal() as db:
+        result = _sync_lookup_value_map_from_proposed_mappings(
+            db,
+            project_id=project_id,
+            lookup_name="status_code",
+            proposed_mappings=[],
+            unmatched_source_values=["orphan_val"],
+        )
+        db.commit()
+        assert result.unmapped_source_values == ["orphan_val"]
+
+    # Verify it survived in the API response
+    patch = client.patch(
+        f"/projects/{project_id}/lookup-maps/{create.json()['lookup_value_map_id']}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"source_value_map": {"A": "ACTIVE"}},
+    )
+    assert patch.status_code == 200
+    assert patch.json()["unmapped_source_values"] == ["orphan_val"]

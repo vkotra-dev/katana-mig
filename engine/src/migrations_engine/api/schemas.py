@@ -508,6 +508,7 @@ class LookupValueMapResponse(BaseModel):
     destination_table: list[dict[str, Any]]
     source_value_map: dict[str, str]
     destination_mappings: list[DestinationMappingGroup]
+    unmapped_source_values: list[str] = Field(default_factory=list)
     status: Literal["draft", "approved"]
     unmapped_row_count: int = 0
     created_at: datetime

@@ -15,6 +15,7 @@ export interface LookupValueMapRecord {
   destinationTable: Array<Record<string, unknown>>;
   sourceValueMap: Record<string, string>;
   destinationMappings: DestinationMappingGroup[];
+  unmappedSourceValues?: string[];
   status: "draft" | "approved";
   unmappedRowCount?: number;
   createdAt: string;
@@ -47,6 +48,7 @@ function mapLookupValueMapResponse(response: {
   destination_table: Array<Record<string, unknown>>;
   source_value_map: Record<string, string>;
   destination_mappings?: Array<Record<string, unknown>>;
+  unmapped_source_values?: string[];
   status: "draft" | "approved";
   created_at: string;
 }): LookupValueMapRecord {
@@ -63,6 +65,7 @@ function mapLookupValueMapResponse(response: {
       sourceValues: Array.isArray(g.source_values ?? g.sourceValues) ? g.source_values ?? g.sourceValues : [],
       status: String(g.status ?? "draft"),
     })),
+    unmappedSourceValues: response.unmapped_source_values ?? [],
     status: response.status,
     createdAt: response.created_at,
   };

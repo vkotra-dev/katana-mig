@@ -6,6 +6,7 @@ import { DestinationMappingGroup } from "../../lib/lookup-api";
 interface LookupMappingTableProps {
   groups: DestinationMappingGroup[];
   unmappedRowCount?: number;
+  unmappedSourceValues?: string[];
   editingEnabled?: boolean;
   onAddSourceValue?: (destId: string, sourceValue: string) => void;
   onRemoveSourceValue?: (destId: string, sourceValue: string) => void;
@@ -38,6 +39,7 @@ function getStatusBadge(status: string) {
 export function LookupMappingTable({
   groups,
   unmappedRowCount,
+  unmappedSourceValues,
   editingEnabled,
   onAddSourceValue,
   onRemoveSourceValue,
@@ -169,6 +171,19 @@ export function LookupMappingTable({
           )}
         </tbody>
       </table>
+      {unmappedSourceValues && unmappedSourceValues.length > 0 && (
+        <div className="mt-3 space-y-1">
+          <div className="flex items-center gap-2 text-amber-700 bg-amber-50 rounded-lg px-3 py-1.5 text-xs font-medium">
+            <span className="text-sm">⚠️</span>
+            <span>Unmapped source values</span>
+          </div>
+          <ul className="space-y-0.5 pl-4">
+            {unmappedSourceValues.map((val, idx) => (
+              <li key={idx} className="text-xs text-amber-700 font-mono">{val}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

@@ -104,30 +104,7 @@ def update_lookup_value_map(
         dest_id = body.add_source_value.get("dest_id", "")
         src_val = body.add_source_value.get("source_value", "")
         if dest_id and src_val:
-            mappings = _reconcile_destination_mappings(lookup_map)
-            found = False
-            for group in mappings:
-                if str(group.get("dest_id", "")) == str(dest_id):
-                    svs = group.setdefault("source_values", [])
-                    if src_val not in svs:
-                        svs.append(src_val)
-                    found = True
-                    break
-            if not found:
-                label, dest_row_data = _lookup_dest_label(lookup_map, dest_id)
-                mappings.append({
-                    "dest_id": dest_id,
-                    "dest_label": label,
-                    "dest_row": dest_row_data,
-                    "source_values": [src_val],
-                    "status": "draft",
-                })
-            lookup_map.destination_mappings = mappings
-            flag_modified(lookup_map, "destination_mappings")
-            # Sync flat source_value_map for backward compat
-            svm = dict(lookup_map.source_value_map or {})
-            svm[src_val] = dest_id
-            lookup_map.source_value_map = svm
+            _add_source_value_action(lookup_map, dest_id, src_val)
 
     # Handle remove_source_value action
     if body.remove_source_value:
@@ -596,6 +573,89 @@ def _reconcile_destination_mappings(lookup_map: LookupValueMap) -> list[dict[str
     return mappings
 
 
+def _add_source_value_action(
+    lookup_map: LookupValueMap,
+    dest_id: str,
+    src_val: str,
+) -> None:
+    """Handle add_source_value with case-insensitive duplicate check and dest validation."""
+    # 1. Case-insensitive lookup: find any existing key matching src_val
+    src_lower = src_val.strip().lower()
+    existing_key: str | None = None
+    existing_dest: str | None = None
+    for k, v in (lookup_map.source_value_map or {}).items():
+        if k.strip().lower() == src_lower:
+            existing_key = k
+            existing_dest = str(v)
+            break
+
+    if existing_key:
+        # 2. If same dest_id: harmless no-op, allow through
+        if str(existing_dest) == str(dest_id):
+            return
+        # 2b. Different dest: reject with 409
+        # Find the destination label for the existing mapping
+        existing_label = "unknown"
+        for row in (lookup_map.destination_table or []):
+            rid = row.get("id") or row.get("destination_id")
+            if str(rid) == str(existing_dest):
+                existing_label = _extract_destination_label(row)
+                break
+        raise AuthApiError(
+            "duplicate_source_value",
+            f"'{src_val}' is already mapped to a different destination ({existing_label}).",
+            409,
+        )
+
+    # 3. No case-insensitive match found — validate dest_id against known destinations
+    valid_dest_ids = set()
+    # Check existing destination_mappings groups
+    for g in (lookup_map.destination_mappings or []):
+        did = g.get("dest_id")
+        if did:
+            valid_dest_ids.add(str(did))
+    # Check destination_table rows
+    for row in (lookup_map.destination_table or []):
+        rid = row.get("id") or row.get("destination_id")
+        if rid:
+            valid_dest_ids.add(str(rid))
+
+    if dest_id not in valid_dest_ids:
+        # 3b. Invalid dest_id — route to unmapped_source_values
+        unmapped = list(lookup_map.unmapped_source_values or [])
+        if src_val not in unmapped:
+            unmapped.append(src_val)
+        lookup_map.unmapped_source_values = unmapped
+        flag_modified(lookup_map, "unmapped_source_values")
+        return
+
+    # 4. Valid dest_id — proceed with existing stack-or-create logic
+    mappings = _reconcile_destination_mappings(lookup_map)
+    found = False
+    for group in mappings:
+        if str(group.get("dest_id", "")) == str(dest_id):
+            svs = group.setdefault("source_values", [])
+            if src_val not in svs:
+                svs.append(src_val)
+            found = True
+            break
+    if not found:
+        label, dest_row_data = _lookup_dest_label(lookup_map, dest_id)
+        mappings.append({
+            "dest_id": dest_id,
+            "dest_label": label,
+            "dest_row": dest_row_data,
+            "source_values": [src_val],
+            "status": "draft",
+        })
+    lookup_map.destination_mappings = mappings
+    flag_modified(lookup_map, "destination_mappings")
+    # Sync flat source_value_map for backward compat
+    svm = dict(lookup_map.source_value_map or {})
+    svm[src_val] = dest_id
+    lookup_map.source_value_map = svm
+
+
 def _lookup_value_map_response(row: LookupValueMap, unmapped_row_count: int = 0) -> LookupValueMapResponse:
     dest_mappings = row.destination_mappings or []
     return LookupValueMapResponse(
@@ -605,6 +665,7 @@ def _lookup_value_map_response(row: LookupValueMap, unmapped_row_count: int = 0)
         destination_table=row.destination_table,
         source_value_map=row.source_value_map,
         destination_mappings=dest_mappings,
+        unmapped_source_values=row.unmapped_source_values or [],
         status=row.status,
         unmapped_row_count=unmapped_row_count,
         created_at=row.created_at,

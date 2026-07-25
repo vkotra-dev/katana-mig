@@ -349,6 +349,7 @@ def _sync_lookup_value_map_from_proposed_mappings(
     project_id: str,
     lookup_name: str,
     proposed_mappings: list[dict[str, Any]],
+    unmatched_source_values: list[str] | None = None,
 ) -> LookupValueMap:
     """
     Synchronize or create a draft LookupValueMap from fiber proposed_mappings.
@@ -401,6 +402,8 @@ def _sync_lookup_value_map_from_proposed_mappings(
         val_map.source_value_map = source_value_map
         val_map.destination_table = destination_table
         val_map.destination_mappings = destination_mappings
+        if unmatched_source_values is not None:
+            val_map.unmapped_source_values = unmatched_source_values
     else:
         val_map = LookupValueMap(
             lookup_value_map_id=new_id(),
@@ -409,6 +412,7 @@ def _sync_lookup_value_map_from_proposed_mappings(
             destination_table=destination_table,
             source_value_map=source_value_map,
             destination_mappings=destination_mappings,
+            unmapped_source_values=unmatched_source_values or [],
             status="draft",
         )
         db.add(val_map)
@@ -874,6 +878,7 @@ def submit_lookup_inputs(
         project_id=project_id,
         lookup_name=fiber.fiber_key,
         proposed_mappings=proposals_for_denorm,
+        unmatched_source_values=ai_result.unmatched_source_values,
     )
     db.commit()
     db.refresh(fiber)

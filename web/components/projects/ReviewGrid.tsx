@@ -21,6 +21,7 @@ export interface LookupValueGroup {
   referenceTableName: string;
   lookupValueMapId?: string;
   unmappedRowCount?: number;
+  unmappedSourceValues?: string[];
   fiberStatus?: string;
   pairs?: Array<{
     sourceValue: string;
@@ -138,7 +139,7 @@ function AutocompleteInput({
   };
 
   return (
-    <div ref={containerRef} className="relative w-full max-w-[240px]">
+    <div ref={containerRef} className="relative w-full max-w-60">
       <div className="relative flex items-center">
         <input
           type="text"
@@ -407,7 +408,7 @@ export function ReviewGrid({
         );
       case "lookup_fk":
         return (
-          <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 border border-amber-200/55 bg-amber-500/10">
+          <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 border border-amber-200/55">
             lookup_fk
           </span>
         );
@@ -743,6 +744,7 @@ export function ReviewGrid({
                 <LookupMappingTable
                   groups={group.destinationMappings ?? []}
                   unmappedRowCount={group.unmappedRowCount}
+                  unmappedSourceValues={group.unmappedSourceValues}
                   editingEnabled={editingEnabled}
                   onAddSourceValue={(destId, sourceValue) => onAddLookupSourceValue?.(group.lookupName, destId, sourceValue)}
                   onRemoveSourceValue={(destId, sourceValue) => onRemoveLookupSourceValue?.(group.lookupName, destId, sourceValue)}

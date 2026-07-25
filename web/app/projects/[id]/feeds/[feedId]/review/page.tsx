@@ -541,6 +541,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
           referenceTableName: refTable,
           lookupValueMapId: latestMap?.lookupValueMapId,
           unmappedRowCount: latestMap?.unmappedRowCount,
+          unmappedSourceValues: latestMap?.unmappedSourceValues,
           fiberStatus: fiber?.status,
           destinationTable: latestMap?.destinationTable || [],
           destinationMappings,
