@@ -169,6 +169,12 @@ describe("ReviewPage", () => {
   it("renders review grid and displays approve/reject controls for project_stakeholder", async () => {
     loadUiSessionMock.mockReturnValue(BUSINESS_SESSION);
     approveMappingSnapshotMock.mockResolvedValue({ ...SNAPSHOT, status: "approved" });
+    getSignOffStatusMock.mockResolvedValue({
+      complete: false,
+      currentBallRole: "project_stakeholder",
+      bindings: {},
+      lookups: {},
+    });
 
     await renderPage();
 
@@ -181,8 +187,14 @@ describe("ReviewPage", () => {
     });
   });
 
-  it("hides approve/reject controls for operators", async () => {
+  it("hides approve/reject controls for operators when ball is not with them", async () => {
     loadUiSessionMock.mockReturnValue(OPERATOR_SESSION);
+    getSignOffStatusMock.mockResolvedValue({
+      complete: false,
+      currentBallRole: "project_stakeholder",
+      bindings: {},
+      lookups: {},
+    });
 
     await renderPage();
 
@@ -236,12 +248,18 @@ describe("ReviewPage", () => {
   });
 
 
-  it("renders decision controls for project_stakeholder when any snapshot is draft", async () => {
+  it("renders decision controls for project_stakeholder when any snapshot is draft and ball is with stakeholder", async () => {
     loadUiSessionMock.mockReturnValue(BUSINESS_SESSION);
     getAllApprovedMappingSnapshotsMock.mockResolvedValue([
       { ...SNAPSHOT, destinationObjectName: "table_1", status: "approved" },
       { ...SNAPSHOT, destinationObjectName: "table_2", status: "draft" }
     ]);
+    getSignOffStatusMock.mockResolvedValue({
+      complete: false,
+      currentBallRole: "project_stakeholder",
+      bindings: {},
+      lookups: {},
+    });
     await renderPage();
     expect(await screen.findByText(/Review Mappings & Lookups/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Approve" })).toBeInTheDocument();
@@ -258,7 +276,7 @@ describe("ReviewPage", () => {
     expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
   });
 
-  it("hides decision controls for central_team even when some snapshots are draft", async () => {
+  it("shows decision controls for central_team when they own the ball and some snapshots are draft", async () => {
     loadUiSessionMock.mockReturnValue(OPERATOR_SESSION);
     getAllApprovedMappingSnapshotsMock.mockResolvedValue([
       { ...SNAPSHOT, destinationObjectName: "table_1", status: "approved" },
@@ -266,7 +284,7 @@ describe("ReviewPage", () => {
     ]);
     await renderPage();
     expect(await screen.findByText(/Review Mappings & Lookups/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Approve" })).toBeInTheDocument();
   });
 
   it("renders sample value chips under source fields when approved slice is present", async () => {

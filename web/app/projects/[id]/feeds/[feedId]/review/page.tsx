@@ -597,7 +597,12 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
     }
     return true;
   })();
-  const showStakeholderActionButtons = role === "project_stakeholder" && isAnyDraft;
+  // Decision strip: shown to whoever owns the ball when snapshots are draft
+  // When currentBallRole is null/unset, both stakeholder and operator can act
+  const showStakeholderActionButtons =
+    role === "project_stakeholder" && isAnyDraft && (signOffStatus?.currentBallRole === "project_stakeholder" || !signOffStatus?.currentBallRole);
+  const showOperatorActionButtons =
+    role === "central_team" && isAnyDraft && (signOffStatus?.currentBallRole === "central_team" || !signOffStatus?.currentBallRole);
   const showPokeButton = (role === "pm" || role === "admin") && isAnyDraft;
 
   return (
@@ -731,8 +736,8 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string; f
                       sampleValues={sampleValues}
                       unmappedSourceFields={unmappedSourceFields}
                       unmappedDestinationFields={unmappedDestinationFields}
-                      onApprove={showStakeholderActionButtons ? handleApprove : undefined}
-                      onRequestRevision={showStakeholderActionButtons ? handleRequestRevision : undefined}
+                      onApprove={showStakeholderActionButtons || showOperatorActionButtons ? handleApprove : undefined}
+                      onRequestRevision={showStakeholderActionButtons || showOperatorActionButtons ? handleRequestRevision : undefined}
                       signOffStatus={signOffStatus || undefined}
                       currentUserRole={role}
                       editingEnabled={editingEnabled}
