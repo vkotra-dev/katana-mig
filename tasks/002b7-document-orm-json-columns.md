@@ -1,7 +1,7 @@
 ---
 id: 002b7
 title: Fix 3 MappingBindingSignOff/LookupSignOff/source-model.md contradictions found by 002b6
-status: pending
+status: completed
 created: 2026-07-24
 priority: medium
 domain: docs/domain/

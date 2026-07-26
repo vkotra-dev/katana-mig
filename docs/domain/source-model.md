@@ -311,45 +311,6 @@ Rules:
 - `created_at`
 - `updated_at`
 
-`LookupSourceEntry`:
-
-- `entry_id`
-- `fiber_id`
-- `lookup_name`
-- `source_value`
-- `discovery_type` — `"sample"` (value seen in the feed window) or `"operator"` (value supplied by the operator from the complete production domain, beyond what the feed window contains)
-- `created_at`
-
-`LookupDestFeed`:
-
-- `dest_feed_id`
-- `fiber_id`
-- `lookup_name`
-- `columns`
-- `created_at`
-
-`LookupDestEntry`:
-
-- `entry_id`
-- `dest_feed_id`
-- `row_data`
-- `created_at`
-
-`LookupMapping`:
-
-- `mapping_id`
-- `fiber_id`
-- `lookup_name`
-- `source_entry_id`
-- `source_value`
-- `dest_entry_id`
-- `dest_row`
-- `confidence_score`
-- `status`
-- `mapped_by`
-- `created_at`
-- `updated_at`
-
 ## Source analysis
 
 Source analysis consumes the latest approved feed slice for a source definition
@@ -494,25 +455,29 @@ Mapping and lookup approvals follow a multi-party sign-off model.
 
 `MappingBindingSignOff` — tracks per-binding sign-offs by operator and stakeholder:
 
-- `sign_off_id`
-- `mapping_snapshot_id`
-- `binding_index`
-- `signer_role` — `"operator"` or `"stakeholder"`
-- `signer_id`
-- `status` — `"pending"` | `"approved"` | `"rejected"`
-- `created_at`
-- `updated_at`
+- `id` — primary key
+- `mapping_snapshot_id` — FK → `mapping_snapshots`
+- `destination_object_name` — the destination object this sign-off covers
+- `source_field` — the source field being signed off
+- `destination_field` — the destination field being signed off
+- `user_id` — FK → `users`, who performed the sign-off
+- `role` — signer's role
+- `signed_at` — timestamp of sign-off
 
-`LookupSignOff` — tracks lookup sign-offs:
+A row's existence is the sign-off signal. A unique constraint on
+`(mapping_snapshot_id, destination_object_name, source_field, destination_field, user_id)`
+prevents duplicate sign-offs. There is no status enum.
 
-- `sign_off_id`
-- `fiber_id`
-- `lookup_name`
-- `signer_role`
-- `signer_id`
-- `status`
-- `created_at`
-- `updated_at`
+`LookupSignOff` — tracks lookup sign-offs at the project scope:
+
+- `id` — primary key
+- `lookup_value_map_id` — FK → `lookup_value_maps`
+- `user_id` — FK → `users`, who performed the sign-off
+- `role` — signer's role
+- `signed_at` — timestamp of sign-off
+
+No `fiber_id`, no `lookup_name`, no `status`. A row's existence is the sign-off
+signal. A unique constraint on `(lookup_value_map_id, user_id)` prevents duplicates.
 
 Approval chain (3 steps):
 
@@ -520,9 +485,9 @@ Approval chain (3 steps):
 2. **Stakeholder approves** — stakeholder reviews and signs off on individual bindings or lookup mappings
 3. **Operator triggers** — once all stakeholder sign-offs are collected, operator triggers the downstream stage (codegen)
 
-PM can "poke" for outstanding sign-offs — this sends a notification to assignees with pending sign-off items.
+PM can "poke" for outstanding sign-offs — this sends a notification to assignees whose sign-off rows do not yet exist.
 
-Editing is gated by inbox status: a binding or lookup mapping cannot be modified while its sign-off is in `pending` or `approved` state. The operator must reset the sign-off before editing.
+Editing is gated: a binding or lookup mapping cannot be modified while a sign-off row exists for that user. The operator must clear (delete) the sign-off row before editing.
 
 ## Code generation artifact
 

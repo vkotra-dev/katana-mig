@@ -1,7 +1,7 @@
 ---
 id: 002b7
 title: Fix 3 MappingBindingSignOff/LookupSignOff/source-model.md contradictions
-status: ready
+status: completed
 created: 2026-07-24
 domain: docs/domain/
 task: 002b7
