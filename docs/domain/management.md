@@ -8,7 +8,7 @@ tags:
   - roles
   - membership
   - admin
-timestamp: 2026-07-16
+timestamp: 2026-07-24
 ---
 
 # Management
@@ -80,6 +80,8 @@ Role meaning:
 - `admin` is the user-management role. It can create, edit, soft-delete users
   and assign roles. It can also reassign the PM on any project. Route guard:
   `get_admin_user`.
+- `pm` is also permitted in `require_admin_or_self` checks (self-view of user
+  profiles and admin-or-pm listing).
 - `pm` is the project-lifecycle role. It can create, copy, and edit projects,
   assign project members, and owns projects via `pm_user_id` on
   `ProjectRegistry`. Route guard: `get_pm_user`.
@@ -105,6 +107,7 @@ Relevant fields:
 - `password_hash`
 - `role`
 - `status`
+- `session_version`
 - `soft_deleted_at`
 - `created_at`
 - `updated_at`
@@ -204,13 +207,17 @@ The flow must:
 
 ### Bootstrap admin
 
-The system must support creation of the first `admin` user when the user table
-is empty.
+The system must support creation of the first user (assigned the
+`central_team` role) when the user table is empty.
 
 Bootstrap may occur via:
 
 - startup seed from environment variables
 - CLI bootstrap path
+
+When users already exist, the bootstrap path assigns the `central_team` role
+to an existing user identified by `bootstrap_admin_email` instead of creating
+a new user.
 
 Bootstrap must be idempotent. Once users exist, the seed path must not create
 duplicates.
@@ -231,8 +238,8 @@ duplicates.
 ### User management
 
 - `POST /users` requires `admin`.
-- `GET /users` requires `admin`.
-- `GET /users/{user_id}` requires `admin` or self.
+- `GET /users` requires `admin` or `pm`.
+- `GET /users/{user_id}` requires `admin`, `pm`, or self.
 - `PATCH /users/{user_id}` requires `admin`.
 - `DELETE /users/{user_id}` requires `admin`.
 
@@ -240,9 +247,8 @@ duplicates.
 
 - `GET /projects/{project_id}/members` requires `pm` (project owner) or
   `admin`.
-- `POST /projects/{project_id}/members` requires `pm` (project owner).
-- `DELETE /projects/{project_id}/members/{user_id}` requires `pm` (project
-  owner).
+- `POST /projects/{project_id}/members` requires `pm`.
+- `DELETE /projects/{project_id}/members/{user_id}` requires `pm`.
 - `PATCH /projects/{id}/manager` requires `admin` (reassign PM).
 - A `pm` creating a project is auto-recorded as the project's `pm_user_id`.
 
@@ -298,3 +304,10 @@ duplicates.
   `central_team` scoped to project membership; user CRUD gated by `admin`;
   membership managed by `pm`; PM reassignment flow added; open question on
   membership notifications resolved.
+- 2026-07-24: Synced against codebase. Added missing `session_version` field
+  to User model. Updated `GET /users` enforcement from admin-only to admin
+  or pm. Updated `GET /users/{user_id}` to allow pm (not just admin or self).
+  Clarified membership route guards use `get_pm_user` (role check, not project
+  ownership check). Updated bootstrap admin section: code creates
+  `central_team` role user, not `admin`, and assigns `central_team` in the
+  post-bootstrap role-assignment path.

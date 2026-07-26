@@ -1,7 +1,7 @@
 ---
 id: 002af
 title: Sync docs/domain/launch-gate.md against actual codebase
-status: pending
+status: completed
 created: 2026-07-24
 priority: low
 domain: docs

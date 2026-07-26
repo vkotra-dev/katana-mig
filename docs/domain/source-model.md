@@ -10,7 +10,7 @@ tags:
   - lookup
   - codegen
   - ai
-timestamp: 2026-07-25
+timestamp: 2026-07-24
 ---
 
 # Source Model
@@ -140,6 +140,11 @@ Source-specific fields:
 - fixed-length file: file path or pattern, record length, offsets, widths,
   encoding, header/trailer rules
 - xls / csv: sheet name, delimiter rules, headers, column hints
+
+`source_details` — JSON column storing source-type-specific configuration.
+For database sources this may contain connection string details, query text,
+and filter expressions. For file sources it contains file path, encoding,
+delimiter rules, and record layout metadata.
 
 ### Source contract rules
 
@@ -310,6 +315,31 @@ Rules:
 - `output_sql`
 - `created_at`
 - `updated_at`
+
+### Feed slice row
+
+Each approved feed slice is split into row-level records for downstream processing.
+
+- `id` — primary key
+- `source_slice_id` — FK → `source_slices`
+- `row_index` — zero-based row index within the slice
+- `row_csv` — the raw CSV row data (one source record)
+- `created_at`
+
+`FeedSliceRow` is the granular unit of source data. Each row is stored as a raw
+CSV string so downstream mapping and lookup stages can access the exact source
+value for any column without re-parsing.
+
+### Project schema analysis
+
+When the platform analyzes a source definition, it generates a schema analysis
+record.
+
+- `analysis_id` — primary key
+- `project_id` — FK → `project_registry`
+- `destination_object_sequence` — ordered list of destination object names this source feeds
+- `identified_count` — number of distinct source structures identified
+- `analyzed_at` — timestamp
 
 ## Source analysis
 

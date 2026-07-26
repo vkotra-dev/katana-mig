@@ -8,7 +8,7 @@ tags:
   - invariants
   - workflow
   - conventions
-timestamp: 2026-07-16
+timestamp: 2026-07-24
 ---
 
 # Governance
@@ -57,7 +57,7 @@ When working in this repo:
 ### AI model policy and key management
 
 AI-backed stages resolve their model assignments from `engine/config/engine.yaml`
-through the `migrations_engine.ai` adapter layer.
+through the `migrations_engine.ai` adapter layer (`engine/src/migrations_engine/ai/`).
 
 Rules:
 
@@ -107,41 +107,33 @@ docs/domain/
   runs.md                        ← migration-domain run contract
   source-model.md                ← source declaration and snapshot contract
 
-specs/                           ← historical archive / derivation source
 engine/                          ← Python package (migrations-engine)
   src/migrations_engine/
     app.py                       ← FastAPI lifespan + document catalog
-    platform_api.py              ← REST: plans, runs, approvals, CR lifecycle
-    composition/                 ← bootstrap_composition, platform + migration stages
-    harness/
-      run_manager.py             ← run loop and dispositions
-      context_assembler.py      ← prompt/context assembly
-      model_adapter.py           ← LLM adapter boundary
-      tool_router.py             ← tool dispatch and array fan-out
-      policy_gate.py            ← policy gating
-      sandbox.py                ← sandboxed execution boundary
-      verifier.py               ← final success authority
-      audit_bus.py              ← append-only audit sink
-      failure_taxonomy.py       ← retry/failure classification
-      conductor.py              ← lifecycle baton transitions
-      persistence.py            ← durable run/audit/lease state
-    migration/
-      source_adapter.py          ← source ingestion / physical modeling
-      schema_discovery.py        ← structural analysis
-      pii_classifier.py          ← sensitivity classification
-      domain_object_analyser.py  ← domain object mapping
-      lookup_value_mapper.py      ← lookup resolution and deltas
-      rule_set_generator.py      ← transformation rules
-      migration_code_generator.py← SQL/script generation and freeze
-      reconciliation_engine.py   ← lineage and validation
-      baton_registration.py      ← migration baton routing
-    approval_service/            ← approval record validation and wake bridge
-    infra/                       ← YamlInfraService
-  tests/                         ← unit + integration
+    roles.py                     ← role constants (admin, pm, central_team, …)
+    ai/                          ← LLM adapter layer (factory, adapters, config)
+    api/                         ← route handlers and request/response schemas
+    auth/                        ← JWT, password auth, session management
+    codegen/                     ← SQL/script generation and templates
+    db/                          ← ORM models (SQLAlchemy)
+    execution/                   ← harness core: checkpoints, engine, inner loop, lookup delta
+    intake/                      ← source data ingestion (COBOL, CSV, fixed-width)
+    management/                  ← access control and platform-level services
+    mapping/                     ← analysis pipeline: analysis, lookup, review, proposals
+    routes/                      ← API route definitions (auth, analysis, feeds, fibers, …)
+  migrations/
+    versions/                    ← hand-written Alembic migrations (NNNN_description.py)
+  openapi/                       ← OpenAPI spec output
+  tests/                         ← unit + integration tests
+
+engine/config/
+  engine.yaml                    ← AI model slots, provider keys, PII field names/patterns
 
 web/
   app/                           ← Next.js routes and screens
+  components/                    ← React components (feeds, projects, runs, admin, …)
   lib/                           ← client helpers and auth/API utilities
+  hooks/                         ← custom React hooks
 tasks/                           ← task files, summaries, backlog, completed
 plans/                           ← plan files
 ```
@@ -373,6 +365,11 @@ When a change touches a task or plan:
 
 ## Changelog
 
+- 2026-07-24: Updated repository map to reflect actual directory structure
+  (`execution/`, `mapping/`, `intake/`, `codegen/`, `api/`, `auth/`, `routes/`
+  replacing outdated `harness/`, `migration/`, `composition/`, `approval_service/`,
+  `infra/` references); clarified AI model policy path; refreshed top-level
+  directory listings.
 - 2026-06-29: Added DDL change rule and invariant I18 — every model.py table
   structure change must ship with a hand-written Alembic migration in the same commit.
 - 2026-06-29: Added governance bundle page to consolidate repo operating rules,

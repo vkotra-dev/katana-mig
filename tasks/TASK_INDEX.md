@@ -4,18 +4,6 @@
 
 | Task | Summary |
 |---|---|
-| [002aa-sync-domain-docs-auth](./002aa-sync-domain-docs-auth.md) | Sync docs/domain/auth.md against actual codebase |
-| [002ab-sync-domain-docs-security](./002ab-sync-domain-docs-security.md) | Sync docs/domain/security.md against actual codebase |
-| [002ac-sync-domain-docs-management](./002ac-sync-domain-docs-management.md) | Sync docs/domain/management.md against actual codebase |
-| [002ad-sync-domain-docs-governance](./002ad-sync-domain-docs-governance.md) | Sync docs/domain/governance.md against actual codebase |
-| [002ae-sync-domain-docs-harness](./002ae-sync-domain-docs-harness.md) | Sync docs/domain/harness.md against actual codebase |
-| [002af-sync-domain-docs-launch-gate](./002af-sync-domain-docs-launch-gate.md) | Sync docs/domain/launch-gate.md against actual codebase |
-| [002b0-sync-domain-docs-project](./002b0-sync-domain-docs-project.md) | Sync docs/domain/project.md against actual codebase |
-| [002b1-sync-domain-docs-runs](./002b1-sync-domain-docs-runs.md) | Sync docs/domain/runs.md against actual codebase |
-| [002b2-sync-domain-docs-source-model](./002b2-sync-domain-docs-source-model.md) | Sync docs/domain/source-model.md against actual codebase |
-| [002b3-sync-domain-docs-api](./002b3-sync-domain-docs-api.md) | Sync docs/domain/api.md against actual codebase |
-| [002b4-sync-domain-docs-ui](./002b4-sync-domain-docs-ui.md) | Sync docs/domain/ui.md against actual codebase |
-| [002b5-sync-domain-docs-readme](./002b5-sync-domain-docs-readme.md) | Sync docs/domain/README.md against actual file structure |
 
 ## Completed
 
@@ -23,6 +11,18 @@
 |---|---|
 | [002b6-verify-all-orm-models-documented](./completed/002b6-verify-all-orm-models-documented.md) | Verified 31 ORM models: 23 accurate, 4 partial/gap, 3 gaps (FeedSliceRow, ProjectSchemaAnalysis, ChangeRequest/ApprovalRecord underspecified) |
 | [002b7-fix-mapping-signoff-contradictions](./002b7-document-orm-json-columns.md) | Fixed 3 MappingBindingSignOff/LookupSignOff/source-model.md contradictions |
+| [002aa-sync-domain-docs-auth](./002aa-sync-domain-docs-auth.md) | Synced auth.md — added session_version, updated AuthSession to JWT+table, fixed session invalidation triggers |
+| [002ab-sync-domain-docs-security](./completed/002ab-sync-domain-docs-security.md) | Synced security.md against codebase |
+| [002ac-sync-domain-docs-management](./002ac-sync-domain-docs-management.md) | Synced management.md — already current, verified session_version |
+| [002ad-sync-domain-docs-governance](./completed/002ad-sync-domain-docs-governance.md) | Synced governance.md against codebase |
+| [002ae-sync-domain-docs-harness](./completed/002ae-sync-domain-docs-harness.md) | Synced harness.md — noted code moved from harness/ package to execution/, intake/, management/, etc. |
+| [002af-sync-domain-docs-launch-gate](./002af-sync-domain-docs-launch-gate.md) | Synced launch-gate.md — marked "Domain docs current" as done |
+| [002b0-sync-domain-docs-project](./002b0-sync-domain-docs-project.md) | Synced project.md — added project_resources, removed non-existent environment field |
+| [002b1-sync-domain-docs-runs](./002b1-sync-domain-docs-runs.md) | Synced runs.md against codebase |
+| [002b2-sync-domain-docs-source-model](./002b2-sync-domain-docs-source-model.md) | Synced source-model.md — applied 002b7 fixes, added FeedSliceRow, ProjectSchemaAnalysis, source_details |
+| [002b3-sync-domain-docs-api](./002b3-sync-domain-docs-api.md) | Synced api.md against codebase |
+| [002b4-sync-domain-docs-ui](./002b4-sync-domain-docs-ui.md) | Synced ui.md against codebase |
+| [002b5-sync-domain-docs-readme](./002b5-sync-domain-docs-readme.md) | Synced README.md against file structure |
 | [001gz-reset-codegen-instructions-to-defaults](./completed/001gz-reset-codegen-instructions-to-defaults.md) | Added "Reset to defaults" button to overwrite saved global codegen instructions with merged YAML template. |
 | [001gy-fix-reject-mapping-approved-precondition](./completed/001gy-fix-reject-mapping-approved-precondition.md) | [summary](./summary/001gy-fix-reject-mapping-approved-precondition.md) |
 | [001gw-table-mapping-drop-toggle-backend](./completed/001gw-table-mapping-drop-toggle-backend.md) | [summary](./summary/001gw-table-mapping-drop-toggle-backend.md) |

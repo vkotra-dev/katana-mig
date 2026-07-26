@@ -1,7 +1,7 @@
 ---
 id: 002ad
 title: Sync docs/domain/governance.md against actual codebase
-status: pending
+status: done
 created: 2026-07-24
 priority: medium
 domain: docs
@@ -42,10 +42,10 @@ Update `docs/domain/governance.md` to accurately reflect the current repository 
 
 ## Acceptance criteria
 
-- [ ] All 22 invariants are accurate
-- [ ] Build order stages match actual components
-- [ ] Repository map is current
-- [ ] Task workflow rules match actual convention
-- [ ] DDL change rule matches actual migration pattern
-- [ ] Changelog updated
-- [ ] timestamp updated
+- [x] All 22 invariants are accurate
+- [x] Build order stages match actual components
+- [x] Repository map is current
+- [x] Task workflow rules match actual convention
+- [x] DDL change rule matches actual migration pattern
+- [x] Changelog updated
+- [x] timestamp updated

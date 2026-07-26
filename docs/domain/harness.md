@@ -7,7 +7,7 @@ tags:
   - execution
   - orchestration
   - sandbox
-timestamp: 2026-07-16
+timestamp: 2026-07-24
 ---
 
 # Harness
@@ -42,42 +42,39 @@ Provide the operational contract for:
 
 ## Layer map
 
-### Core harness
+### Core harness (architectural concept)
 
-The core harness is the single-run execution engine:
+The "core harness" is now an architectural concept implemented across these packages:
 
-- Run Manager
-- Context Assembler
-- Model Adapter
-- Tool Router
-- Policy Gate
-- Sandbox
-- Verifier
-- Audit Bus
-- Failure Taxonomy
+- `execution/` — run loop, tool routing, policy gating, sandboxing, verification
+- `ai/` — model adapter, prompt assembly, AI call logging
+- `mapping/` — field mapping, lookup mapping, sign-off logic
+- `codegen/` — SQL generation, coding standards
+- `management/` — intake, planning, lifecycle orchestration
+- `execution/failure/` — failure taxonomy and disposition handling
 
-This layer owns the run loop and the disposition model.
+There is no longer a monolithic `harness/` package. The functional components
+(run_manager, context_assembler, model_adapter, tool_router, policy_gate,
+sandbox, verifier, audit_bus, failure_taxonomy) are distributed across the
+above packages.
 
 ### Platform harness
 
-The platform layer turns the harness into a multi-project operating system:
+The platform layer lives in `management/` and the API routes layer:
 
-- Contract Registry
-- Change Requests
-- Persistence
-- Runtime Orchestrator
-- Planning Orchestrator
-- Domain Lexicon
-- Intake / Project Definition
-- Lifecycle Conductor
-- Project Registry
-- Review Gate
-- Model Router
-- Ingestion Trigger
-- Notification Handler
-
-This layer owns persistence, orchestration, lifecycle handoff, and cross-cutting
-policy surfaces.
+- `management/project_registry.py` — Contract Registry / Project Registry
+- `management/change_requests.py` — Change Requests
+- `management/intake.py` — Intake / Project Definition
+- `management/planning_orchestrator.py` — Planning Orchestrator
+- `management/runtime_orchestrator.py` / `lifecycle_conductor.py` — Runtime Orchestrator / Lifecycle Conductor
+- `api/routes/projects.py` — Project operations
+- `api/routes/feeds.py` — Feed intake
+- `api/routes/gates.py` — Review Gate
+- `api/routes/runs.py` — Run management
+- `api/routes/notifications.py` — Notification Handler
+- `api/routes/reconciliation.py` — Reconciliation
+- `api/routes/dry_run.py` — Dry run execution
+- `api/routes/change_requests.py` — Change request lifecycle
 
 ## Core execution model
 

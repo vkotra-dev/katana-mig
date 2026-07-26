@@ -1,7 +1,7 @@
 ---
 id: 002ab
 title: Sync docs/domain/security.md against actual codebase
-status: pending
+status: completed
 created: 2026-07-24
 priority: medium
 domain: docs
@@ -35,8 +35,8 @@ Update `docs/domain/security.md` to accurately reflect the current security impl
 
 ## Acceptance criteria
 
-- [ ] All security boundaries described match actual enforcement
-- [ ] Threat model is current
-- [ ] Control requirements map to actual code
-- [ ] Changelog updated with sync date
-- [ ] timestamp updated to current date
+- [x] All security boundaries described match actual enforcement
+- [x] Threat model is current
+- [x] Control requirements map to actual code
+- [x] Changelog updated with sync date
+- [x] timestamp updated to current date

@@ -1,7 +1,7 @@
 ---
 id: 002b4
 title: Sync docs/domain/ui.md against actual codebase
-status: pending
+status: completed
 created: 2026-07-24
 priority: medium
 domain: docs

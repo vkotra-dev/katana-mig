@@ -8,7 +8,7 @@ tags:
   - audit
   - isolation
   - boundaries
-timestamp: 2026-07-16
+timestamp: 2026-07-24
 ---
 
 # Security
@@ -182,8 +182,8 @@ The main risks the system must control are:
 - SMTP credentials for notification delivery are treated as secrets and must not appear in logs, artifacts, or API responses.
 - Credentials are not emitted in logs, audit payloads, or generated artifacts.
 - External connections should use the minimum required credential scope.
-- Password changes, role changes, disable events, logout, and secret rotation
-  revoke outstanding sessions.
+- Password changes, disable events, and logout revoke outstanding sessions
+  (session version bump and session revocation).
 
 ### Auditability
 
@@ -240,6 +240,12 @@ The main risks the system must control are:
   threat model, controls, failure modes, and acceptance criteria.
 - 2026-06-29: Added short-lived JWT revocation, explicit session invalidation
   triggers, and audit retention/access policy.
+- 2026-07-24: Synced against actual codebase. Session invalidation triggers
+  corrected to reflect implementation (password change, disable, logout;
+  role changes and secret rotation not yet implemented). Audit boundary
+  references actual `record_management_audit` in management.platform rather
+  than a separate audit_bus module. PII boundary references actual
+  `intake/masking` module.
 - 2026-07-16: Updated for 5-role model (`admin`, `pm` added); `central_team`
   now subject to project boundary enforcement via membership; user
   administration authority moved from `central_team` to `admin`.

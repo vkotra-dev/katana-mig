@@ -1,7 +1,7 @@
 ---
 id: 002b1
 title: Sync docs/domain/runs.md against actual codebase
-status: pending
+status: completed
 created: 2026-07-24
 priority: medium
 domain: docs
@@ -58,11 +58,11 @@ Update `docs/domain/runs.md` to accurately reflect the current run execution mod
 
 ## Acceptance criteria
 
-- [ ] RunRecord fields match ORM exactly
-- [ ] RunCheckpoint fields match ORM exactly
-- [ ] Baton sequence is accurate
-- [ ] Execution flow (outer/inner loops) is accurate
-- [ ] ReconciliationReport schema matches ORM
-- [ ] ReconciliationLineageRow schema matches ORM
-- [ ] Changelog updated
-- [ ] timestamp updated
+- [x] RunRecord fields match ORM exactly
+- [x] RunCheckpoint fields match ORM exactly
+- [x] Baton sequence is accurate
+- [x] Execution flow (outer/inner loops) is accurate
+- [x] ReconciliationReport schema matches ORM
+- [x] ReconciliationLineageRow schema matches ORM
+- [x] Changelog updated
+- [x] timestamp updated

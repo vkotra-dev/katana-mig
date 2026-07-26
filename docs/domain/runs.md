@@ -7,7 +7,7 @@ tags:
   - execution
   - reconciliation
   - lineage
-timestamp: 2026-07-16
+timestamp: 2026-07-24
 ---
 
 # Runs
@@ -68,21 +68,23 @@ Relevant fields:
 
 - `run_id`
 - `project_id`
-- destination object name
-- source definition reference
-- feed slice version
-- mapping snapshot version
-- lookup snapshot versions
-- code-generation input snapshot version
-- knowledge-freeze version
-- status
-- current stage
-- approvals and checkpoints
-- environment
-- start metadata
-- pause metadata
-- resume metadata
-- completion metadata
+- `destination_object_name`
+- `source_definition_reference`
+- `source_slice_version`
+- `mapping_snapshot_version`
+- `lookup_snapshot_version` (singular, the primary lookup version)
+- `lookup_snapshot_versions` (JSON map keyed by lookup name)
+- `code_generation_input_snapshot_version`
+- `codegen_artifact_id`
+- `knowledge_freeze_version`
+- `status`
+- `current_stage`
+- `approvals` (JSON array)
+- `environment`
+- `start_metadata` (JSON)
+- `pause_metadata` (JSON)
+- `resume_metadata` (JSON)
+- `completion_metadata` (JSON)
 
 The exact persisted representation may include more operational fields, but these
 facts are the minimum needed to explain what happened.
@@ -116,11 +118,12 @@ A checkpoint is the exact pinned work position from which the run can resume.
 It should capture enough information to restart without guessing:
 
 - current stage
-- current object
+- current object (destination object name)
 - current environment
 - approved snapshots already selected
-- last completed checkpoint boundary
-- reason for pause, if any
+- last completed checkpoint boundary (string-encoded row offset)
+- pause reason
+- checkpoint payload (arbitrary JSON blob for custom execution state)
 
 ## Execution behavior
 
@@ -394,6 +397,13 @@ artifact.
 
 ## Changelog
 
+- 2026-07-24: Synced domain doc against ORM models (2026-07-24). RunRecord fields now
+  include explicit `lookup_snapshot_version` (singular) and `lookup_snapshot_versions`
+  (JSON map), `codegen_artifact_id`, `environment`, and metadata JSON fields.
+  RunCheckpoint checkpoint section now lists `checkpoint_payload` (JSON blob).
+  ReconciliationReport and ReconciliationLineageRow schemas verified against ORM —
+  no changes needed. Baton sequence, execution flow, and checkpoint boundary rule
+  confirmed accurate.
 - 2026-06-29: Updated baton_4 to reference codegen_artifact_id (CodeGenerationArtifact)
   instead of mapping_artifact_id; added supersession note on code generation run.
 - 2026-06-29: Added run loop section covering outer per-object loop, inner

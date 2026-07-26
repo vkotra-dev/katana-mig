@@ -1,7 +1,7 @@
 ---
 id: 002b2
 title: Sync docs/domain/source-model.md against actual codebase
-status: pending
+status: completed
 created: 2026-07-24
 priority: high
 domain: docs

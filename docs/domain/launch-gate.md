@@ -6,7 +6,7 @@ tags:
   - launch
   - checklist
   - readiness
-timestamp: 2026-07-16
+timestamp: 2026-07-24
 ---
 
 # Launch Gate
@@ -49,7 +49,7 @@ Status legend:
 | AI | AI call logging — `AICallLog` captures every adapter call | x |  |  | Done |
 | Security | 5-role model — admin, pm, central_team, project_stakeholder, read_only_auditor | x |  |  | Done |
 | Governance | Multi-party sign-offs — per-binding operator + stakeholder sign-off chain | x |  |  | Done |
-| Governance | Domain docs current — docs/domain reflects shipped features |  | x |  | Pending |
+| Governance | Domain docs current — docs/domain reflects shipped features | x |  |  | Done by task 002b2+sync tasks |
 
 ## Done Enough Today
 

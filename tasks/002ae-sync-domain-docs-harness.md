@@ -1,7 +1,7 @@
 ---
 id: 002ae
 title: Sync docs/domain/harness.md against actual codebase
-status: pending
+status: completed
 created: 2026-07-24
 priority: medium
 domain: docs

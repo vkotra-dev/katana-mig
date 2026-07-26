@@ -1,7 +1,7 @@
 ---
 id: 002ac
 title: Sync docs/domain/management.md against actual codebase
-status: pending
+status: completed
 created: 2026-07-24
 priority: medium
 domain: docs

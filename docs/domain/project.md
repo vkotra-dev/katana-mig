@@ -78,7 +78,7 @@ Relevant fields:
 - `goal`
 - `repos`
 - `workspace`
-- `environment`
+- `project_resources`
 - `execution_environments`
 - `model_policy`
 - `canonical_terms`
@@ -370,3 +370,5 @@ fresh name, a new PM assignment, and starts with no members or feeds.
   project, source, and run pages.
 - 2026-07 — PM ownership via pm_user_id on ProjectRegistry; codegen_instructions
   on ProjectDefinition; project copy with config carry-forward.
+- 2026-07-24: Synced against codebase. Added `project_resources` field to
+  ProjectDefinition. Removed non-existent `environment` field.

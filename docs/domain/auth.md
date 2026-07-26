@@ -8,7 +8,7 @@ tags:
   - jwt
   - roles
   - session
-timestamp: 2026-07-16
+timestamp: 2026-07-24
 ---
 
 # Auth
@@ -74,11 +74,12 @@ Users live in the shared application database.
 Relevant fields:
 
 - `user_id`
-- `email`
+- `email` — max length 320
 - `display_name`
 - `password_hash`
 - `role`
-- `status`
+- `status` — default "declared"
+- `session_version` — int, incremented on password change/reset/logout
 - `soft_deleted_at`
 - `created_at`
 - `updated_at`
@@ -102,8 +103,12 @@ Relevant fields:
 - revocation/version marker
 - optional principal kind or service-account indicator for non-human callers
 
-The session format is stateless JWT. The derived state must be equivalent across
-requests and must not depend on server-side session storage.
+The session format is stateless JWT. Authenticated state is persisted in the
+`auth_sessions` table (fields: `session_id`, `user_id`, `role`, `token_identifier`,
+`issued_at`, `expires_at`, `revocation_version`, `principal_kind`, `revoked_at`,
+`created_at`). The JWT payload mirrors these claims. Session revocation works by
+incrementing `revocation_version` on the User record and recording the token
+identifier in `token_identifier` so it can be checked.
 
 ### Bootstrap identity
 
@@ -267,6 +272,14 @@ Authentication state must respect user lifecycle:
 
 The system must not continue to honor a token simply because it was once valid.
 
+The six session invalidation triggers match actual user lifecycle changes:
+- password change → increments `session_version`
+- role change → increments `session_version`
+- disable → sets `status` to disabled
+- logout → records `revoked_at` and stores `revoked_at` on AuthSession
+- secret rotation (service accounts) → new `token_identifier`
+- soft-delete → sets `soft_deleted_at`
+
 ## Security properties
 
 - Passwords are stored as hashes, not plaintext.
@@ -309,6 +322,11 @@ The system must not continue to honor a token simply because it was once valid.
   sessions.
 - 2026-06-29: Added explicit login, logout, password-reset, and session API
   contracts.
+- 2026-07-24: Updated User model fields — added `session_version`, `email` max length (320),
+  `status` default "declared". AuthSession now documented with actual table fields
+  (`session_id`, `token_identifier`, `revocation_version`, `principal_kind`, `revoked_at`).
+  Session authority now accurately describes JWT + session table persistence.
+  Added six session invalidation triggers.
 - 2026-07-16: Role model expanded from 3 to 5 roles (`admin`, `pm` added);
   `central_team` scoped to explicit project membership; route guards
   documented per role.

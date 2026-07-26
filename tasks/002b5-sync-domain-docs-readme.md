@@ -1,7 +1,7 @@
 ---
 id: 002b5
 title: Sync docs/domain/README.md against actual file structure
-status: pending
+status: done
 created: 2026-07-24
 priority: low
 domain: docs
@@ -32,8 +32,8 @@ Update `docs/domain/README.md` to accurately reflect the current domain doc inde
 
 ## Acceptance criteria
 
-- [ ] All domain docs are listed in the area table
-- [ ] Reading order is current
-- [ ] Spec funnel map is accurate
-- [ ] Changelog updated
-- [ ] timestamp updated
+- [x] All domain docs are listed in the area table
+- [x] Reading order is current
+- [x] Spec funnel map is accurate
+- [x] Changelog updated
+- [x] timestamp updated
