@@ -15,6 +15,7 @@
 - **Timezone:** Use `from datetime import UTC, datetime` and `datetime.now(UTC)`. Never use `_dt.timezone.utc` (AttributeError).
 - **Entity type values:** `"hints"`, `"transformation"`, `"codegen"`, `"sql"` (all lowercase, no spaces, no underscores beyond the name).
 - **Test database:** `engine/tests/sqlite_test_support.py` provides `Base`, `SessionLocal`, `TEST_ENGINE`. All models must be imported before `_setup_sqlite_db` calls `Base.metadata.create_all()`.
+- **Python path safety:** Always use `.venv/bin/python` (not bare `python`) in the `engine/` directory — bare `python` resolves to a stale global editable install from an unrelated sibling repo. Every `python -c` command in this plan uses `.venv/bin/python`.
 
 ---
 
@@ -76,10 +77,16 @@ def downgrade() -> None:
 - [ ] **Step 3: Run migration and verify**
 
 ```bash
-cd engine && python -c "from migrations_engine.migrations import run_migrations; run_migrations()"
+cd engine && .venv/bin/python -m alembic upgrade head
 ```
 
-Or use the project's existing migration runner. Verify the `version_history` table is created.
+Verify the `version_history` table is created:
+
+```bash
+cd engine && .venv/bin/python -c "from migrations_engine.db.models import VersionHistory; print(VersionHistory.__tablename__)"
+```
+
+Expected: `version_history`
 
 - [ ] **Step 4: Commit**
 
@@ -126,7 +133,7 @@ class VersionHistory(Base):
 - [ ] **Step 2: Verify model compiles**
 
 ```bash
-cd engine && python -c "from migrations_engine.db.models import VersionHistory; print(VersionHistory.__tablename__)"
+cd engine && .venv/bin/python -c "from migrations_engine.db.models import VersionHistory; print(VersionHistory.__tablename__)"
 ```
 
 Expected: `version_history`
@@ -147,9 +154,9 @@ git commit -m "feat(model): add VersionHistory ORM model"
 
 **Interfaces:**
 - Consumes: None
-- Produces: `VersionHistoryResponse` (read-only) and `VersionHistoryCreateRequest` (unused in current API, reserved)
+- Produces: `VersionHistoryResponse` (read-only, for API responses)
 
-- [ ] **Step 1: Append schema models**
+- [ ] **Step 1: Append schema model**
 
 Read the end of `engine/src/migrations_engine/api/schemas.py` to find the last class (`AICallLogResponse`). Append after it:
 
@@ -163,25 +170,19 @@ class VersionHistoryResponse(BaseModel):
     new_value: str | None
     changed_by: str | None
     changed_at: datetime
-
-
-class VersionHistoryCreateRequest(BaseModel):
-    field_name: str
-    old_value: str | None = None
-    new_value: str | None = None
 ```
 
 - [ ] **Step 2: Verify schemas compile**
 
 ```bash
-cd engine && python -c "from migrations_engine.api.schemas import VersionHistoryResponse, VersionHistoryCreateRequest; print('OK')"
+cd engine && .venv/bin/python -c "from migrations_engine.api.schemas import VersionHistoryResponse; print('OK')"
 ```
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git add engine/src/migrations_engine/api/schemas.py
-git commit -m "feat(schema): add VersionHistoryResponse and VersionHistoryCreateRequest"
+git commit -m "feat(schema): add VersionHistoryResponse"
 ```
 
 ---
@@ -264,7 +265,7 @@ app.include_router(versions_router)
 - [ ] **Step 3: Verify the route loads**
 
 ```bash
-cd engine && python -c "from migrations_engine.app import app; print([r.path for r in app.routes if 'versions' in r.path])"
+cd engine && .venv/bin/python -c "from migrations_engine.app import app; print([r.path for r in app.routes if 'versions' in r.path])"
 ```
 
 Expected: list of `/projects/{project_id}/versions/hints/versions` etc.
@@ -386,7 +387,7 @@ With:
 - [ ] **Step 4: Verify syntax**
 
 ```bash
-cd engine && python -c "from migrations_engine.routes.feeds import router; print('OK')"
+cd engine && .venv/bin/python -c "from migrations_engine.routes.feeds import router; print('OK')"
 ```
 
 - [ ] **Step 5: Commit**
@@ -487,7 +488,7 @@ def patch_codegen_instructions(
 - [ ] **Step 4: Verify syntax**
 
 ```bash
-cd engine && python -c "from migrations_engine.routes.projects import router; print('OK')"
+cd engine && .venv/bin/python -c "from migrations_engine.routes.projects import router; print('OK')"
 ```
 
 - [ ] **Step 5: Commit**
@@ -562,7 +563,7 @@ After `db.add(artifact)` (around line 199 in `generate_codegen_artifact`), befor
 - [ ] **Step 3: Verify syntax**
 
 ```bash
-cd engine && python -c "from migrations_engine.codegen.service import generate_codegen_artifact; print('OK')"
+cd engine && .venv/bin/python -c "from migrations_engine.codegen.service import generate_codegen_artifact; print('OK')"
 ```
 
 - [ ] **Step 4: Commit**
@@ -842,7 +843,7 @@ feat(versioning): add version_history table, API, and patch hooks
 
 - Migration 0043: version_history table with indexed (entity_type, entity_id, field_name)
 - VersionHistory SQLAlchemy model
-- VersionHistoryResponse + VersionHistoryCreateRequest schemas
+- VersionHistoryResponse schema
 - GET /projects/{pid}/versions/{entity_type} endpoint with require_project_access
 - Patch hooks in feeds.py (hints, transformation), projects.py (codegen), codegen/service.py (sql)
 - Test suite: 6 tests covering capture, project scoping, and entity types
