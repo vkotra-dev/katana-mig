@@ -10,7 +10,7 @@ tags:
   - lookup
   - codegen
   - ai
-timestamp: 2026-07-24
+timestamp: 2026-07-26
 ---
 
 # Source Model
@@ -738,6 +738,38 @@ replace source analysis.
 - [ ] Downstream work records the exact snapshot versions it used.
 - [ ] Patch generation is downstream of approval and impact analysis.
 - [ ] Snapshot selection is explicit, deterministic, and recorded.
+
+## ProjectSchemaAnalysis model
+
+`ProjectSchemaAnalysis` is a project-scoped record that stores the result of
+AI-driven analysis of a project's `destination_schema_ddl`. The analysis
+extracts destination object names, their FK/REFERENCES dependencies, and
+produces a topologically-sorted execution sequence for code generation.
+
+There is exactly one analysis record per project. Running the analysis again
+overwrites the previous record.
+
+### Fields
+
+`ProjectSchemaAnalysis`:
+
+| Field | Type | Notes |
+|---|---|---|
+| `project_id` | FK → projects | Project this analysis belongs to |
+| `destination_object_sequence` | string array | FK-ordered list of destination objects |
+| `identified_count` | integer | Total destination objects found in the DDL |
+| `processed_count` | integer | Of those, how many have an active codegen artifact |
+| `analyzed_at` | timestamp | When the analysis was last run |
+
+### Behavior
+
+- Triggered by `POST /projects/{project_id}/schema-analysis` (any authenticated
+  user with project access).
+- Returns `422 missing_ddl` if the project has no `destination_schema_ddl` set.
+- Returns `GET /projects/{project_id}/schema-analysis` — `null` if no analysis
+  has been run yet.
+- The `destination_object_sequence` is used by the delivery bundle endpoint to
+  order SQL output blocks by FK dependency.
 
 ## Changelog
 

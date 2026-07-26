@@ -7,7 +7,7 @@ tags:
   - http
   - endpoints
   - contract
-timestamp: 2026-07-24
+timestamp: 2026-07-26
 ---
 
 # API
@@ -1000,6 +1000,743 @@ Response `200`: `RunResponse`
 
 `status` is one of `pending`, `approved`, or `pushed_back`.
 
+## Mapping review endpoints
+
+Mapping review is per-source and tracks the lifecycle of a field mapping
+proposal. Routes are under `POST /projects/{project_id}/sources/{source_definition_id}/mapping`.
+
+### `POST /projects/{project_id}/sources/{source_definition_id}/mapping/propose`
+
+Propose a new mapping review. Requires `central_team`.
+
+Response `201`: `MappingReviewResponse`.
+
+### `GET /projects/{project_id}/sources/{source_definition_id}/mapping`
+
+Get the latest mapping review (snapshot). Query parameter
+`destination_object_name` filters to a specific destination object.
+Any authenticated user with project access.
+
+Response `200`: `MappingReviewResponse`.
+
+### `PATCH /projects/{project_id}/sources/{source_definition_id}/mapping`
+
+Update the mapping review by setting `field_bindings`. Requires
+`central_team`.
+
+Request:
+
+```json
+{
+  "field_bindings": [
+    {
+      "source_field": "cust_id",
+      "destination_field": "customer_id",
+      "lookup_name": null,
+      "binding_type": "direct",
+      "reference_table_name": null
+    }
+  ]
+}
+```
+
+| Field | Type | Required |
+|---|---|---|
+| `field_bindings` | array | yes |
+
+Response `200`: `MappingReviewResponse`.
+
+### `POST /projects/{project_id}/sources/{source_definition_id}/mapping/approve`
+
+Approve the mapping review. Requires a non-auditor user with project access
+and `project_stakeholder` role.
+
+Response `200`: `MappingReviewResponse`.
+
+### `POST /projects/{project_id}/sources/{source_definition_id}/mapping/revision`
+
+Request a revision (push back) on the mapping review. Requires a
+non-auditor user with project access and `project_stakeholder` role.
+
+Request:
+
+```json
+{
+  "reason": "Missing field bindings for PII columns."
+}
+```
+
+Response `200`: `MappingReviewResponse`.
+
+### `POST /projects/{project_id}/sources/{source_definition_id}/mapping/unapprove`
+
+Unapprove a previously approved mapping review. Requires `pm` or `admin` role.
+
+Response `200`: `MappingReviewResponse`.
+
+### `POST /projects/{project_id}/sources/{source_definition_id}/mapping/reject`
+
+Reject the mapping review. Requires `pm` or `admin` role.
+
+Response `200`: `MappingReviewResponse`.
+
+### `MappingReviewResponse`
+
+```json
+{
+  "mapping_snapshot_id": "...",
+  "project_id": "...",
+  "destination_object_name": "Customer",
+  "mapping_snapshot_version": "v2",
+  "field_bindings": [
+    {
+      "source_field": "cust_id",
+      "destination_field": "customer_id",
+      "lookup_name": null,
+      "binding_type": "direct",
+      "reference_table_name": null
+    }
+  ],
+  "status": "approved",
+  "current_ball_role": null,
+  "approved_at": "2026-07-01T12:00:00Z",
+  "approved_by_user_id": "...",
+  "created_at": "2026-07-01T10:00:00Z",
+  "lookup_table_references": [],
+  "destination_fields": ["customer_id", "customer_name"],
+  "destination_columns": [
+    {"name": "customer_id", "destination_data_type": "uuid", "nullable": false}
+  ]
+}
+```
+
+### `MappingRevisionRequest`
+
+```json
+{
+  "reason": "Missing field bindings for PII columns."
+}
+```
+
+## Source analysis endpoints
+
+Source analysis endpoints let operators analyze source contracts for schema,
+value distributions, and data profiles. Routes are under
+`/projects/{project_id}/sources/{source_definition_id}`.
+
+### `POST /projects/{project_id}/sources/{source_definition_id}/analyze`
+
+Analyze a source contract's slices and generate a schema artifact.
+Requires `central_team`.
+
+Response `200`: `SourceAnalysisResponse`.
+
+### `GET /projects/{project_id}/sources/{source_definition_id}/schema`
+
+Return the inferred schema columns for a source contract. Any authenticated
+user with project access.
+
+Response `200`: array of `SourceSchemaColumnResponse`.
+
+### `GET /projects/{project_id}/sources/{source_definition_id}/value-summary`
+
+Return value distribution summary for a source contract. Supports optional
+`field` query parameter to filter to a specific column. Any authenticated
+user with project access.
+
+Response `200`: array of `SourceValueSummaryResponse`.
+
+### `GET /projects/{project_id}/sources/{source_definition_id}/schema-artifact`
+
+Return the latest schema artifact for a source contract. Any authenticated
+user with project access.
+
+Response `200`: `SourceSchemaArtifactResponse`.
+
+### `SourceAnalysisResponse`
+
+```json
+{
+  "schema_artifact_id": "...",
+  "status": "completed",
+  "ai_reuse_score": 85,
+  "destination_ddl": "CREATE TABLE ...",
+  "created_at": "2026-07-01T12:00:00Z"
+}
+```
+
+### `SourceSchemaColumnResponse`
+
+```json
+{
+  "name": "CUST_ID",
+  "inferred_type": "uuid",
+  "nullable": false,
+  "max_length": 36
+}
+```
+
+### `SourceSchemaArtifactResponse`
+
+```json
+{
+  "schema_artifact_id": "...",
+  "source_definition_id": "...",
+  "source_slice_version": "v1",
+  "columns": [
+    {"name": "CUST_ID", "inferred_type": "uuid", "nullable": false, "max_length": 36},
+    {"name": "NAME", "inferred_type": "text", "nullable": true, "max_length": 255}
+  ],
+  "created_at": "2026-07-01T12:00:00Z",
+  "destination_ddl": "CREATE TABLE customers (customer_id uuid NOT NULL, ...)"
+}
+```
+
+### `SourceValueSummaryResponse`
+
+```json
+{
+  "summary_id": "...",
+  "source_definition_id": "...",
+  "source_slice_version": "v1",
+  "field_name": "STATUS",
+  "value_counts": {"ACTV": 800, "INACT": 150, "RETD": 52},
+  "created_at": "2026-07-01T12:00:00Z"
+}
+```
+
+## New sign-off endpoints
+
+These are the newer, per-source sign-off routes (replacing the old
+per-binding-index approach). Routes are under
+`/projects/{project_id}/sources/{source_definition_id}`.
+
+### `POST /projects/{project_id}/sources/{source_definition_id}/mapping/sign-off`
+
+Sign off a field binding. Requires an authenticated user with project access.
+
+Request:
+
+```json
+{
+  "destination_object_name": "Customer",
+  "source_field": "cust_id",
+  "destination_field": "customer_id"
+}
+```
+
+Response `200`: `SignOffStatusResponse`.
+
+### `DELETE /projects/{project_id}/sources/{source_definition_id}/mapping/sign-off`
+
+Unsign a previously signed binding. Requires an authenticated user with
+project access.
+
+Request:
+
+```json
+{
+  "destination_object_name": "Customer",
+  "source_field": "cust_id",
+  "destination_field": "customer_id"
+}
+```
+
+Response `200`: `SignOffStatusResponse`.
+
+### `POST /projects/{project_id}/sources/{source_definition_id}/lookups/{lookup_value_map_id}/sign-off`
+
+Sign off a lookup value map. Requires an authenticated user with project
+access.
+
+Response `200`: `SignOffStatusResponse`.
+
+### `DELETE /projects/{project_id}/sources/{source_definition_id}/lookups/{lookup_value_map_id}/sign-off`
+
+Unsign a lookup sign-off. Requires an authenticated user with project access.
+
+Response `200`: `SignOffStatusResponse`.
+
+### `GET /projects/{project_id}/sources/{source_definition_id}/sign-off-status`
+
+Get the overall sign-off status for a source. Any authenticated user with
+project access.
+
+Response `200`: `SignOffStatusResponse`.
+
+### `POST /projects/{project_id}/sources/{source_definition_id}/push-for-review`
+
+Push a source to review status. Requires an authenticated user with project
+access.
+
+Response `200`: `SignOffStatusResponse`.
+
+### `POST /projects/{project_id}/sources/{source_definition_id}/review/poke`
+
+Poke a specific reviewer role to take action. Requires an authenticated user
+with project access.
+
+Request:
+
+```json
+{
+  "target_role": "central_team"
+}
+```
+
+Response `204`: no content.
+
+## Mapping snapshot endpoints
+
+### `GET /projects/{project_id}/sources/{source_definition_id}/mapping-snapshot`
+
+Get the latest approved mapping snapshot for a source. Query parameter
+`destination_object_name` filters to a specific destination object.
+Any authenticated user with project access.
+
+Response `200`: `MappingSnapshotResponse`.
+
+Returns `404` + `mapping_snapshot_not_found` if no approved snapshot exists
+for the source.
+
+### `GET /projects/{project_id}/sources/{source_definition_id}/mapping-snapshots`
+
+List all approved mapping snapshots for a source. Query parameter
+`any_status=true` returns snapshots of all statuses instead of only approved.
+Any authenticated user with project access.
+
+Response `200`: array of `MappingSnapshotResponse`.
+
+### `MappingSnapshotResponse`
+
+```json
+{
+  "mapping_snapshot_id": "...",
+  "project_id": "...",
+  "destination_object_name": "Customer",
+  "mapping_snapshot_version": "v2",
+  "field_bindings": [
+    {
+      "source_field": "cust_id",
+      "destination_field": "customer_id",
+      "lookup_name": null,
+      "binding_type": "direct",
+      "reference_table_name": null
+    }
+  ],
+  "status": "approved",
+  "current_ball_role": null,
+  "approved_at": "2026-07-01T12:00:00Z",
+  "approved_by_user_id": "...",
+  "created_at": "2026-07-01T10:00:00Z",
+  "lookup_table_references": [],
+  "destination_fields": ["customer_id", "customer_name"],
+  "destination_columns": [
+    {"name": "customer_id", "destination_data_type": "uuid", "nullable": false}
+  ]
+}
+```
+
+## Run endpoints
+
+Runs are project-scoped. All routes require authentication; mutation routes
+require `central_team`.
+
+### `POST /projects/{project_id}/runs`
+
+Create a new run. Requires `central_team`.
+
+Request:
+
+```json
+{
+  "destination_object_name": "Customer",
+  "source_definition_id": "abc-123",
+  "environment": "UAT"
+}
+```
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `destination_object_name` | string (1–255 chars) | yes | Target table name |
+| `source_definition_id` | string (uuid) | yes | Source contract to run |
+| `environment` | string or null | no | Target environment label |
+
+Response `201`: `RunResponse`
+
+### `GET /projects/{project_id}/runs`
+
+List runs for a project. Any authenticated user with project access.
+
+Response `200`: array of `RunResponse`.
+
+### `GET /projects/{project_id}/runs/{run_id}`
+
+Fetch one run. Any authenticated user with project access.
+
+Response `200`: `RunResponse`.
+
+### `POST /projects/{project_id}/runs/{run_id}/launch`
+
+Start execution of a queued run. Requires `central_team`.
+
+Response `200`: `RunResponse`.
+
+### `POST /projects/{project_id}/runs/{run_id}/pause`
+
+Pause a running or queued run. Requires `central_team`.
+
+Response `200`: `RunResponse`.
+
+### `POST /projects/{project_id}/runs/{run_id}/resume`
+
+Resume a paused run from the last checkpoint. Requires `central_team`.
+
+Response `200`: `RunResponse`.
+
+### `GET /projects/{project_id}/runs/{run_id}/checkpoints`
+
+List checkpoints for a run. Any authenticated user with project access.
+
+Response `200`: array of `RunCheckpointResponse`.
+
+### `RunResponse`
+
+```json
+{
+  "run_id": "...",
+  "project_id": "...",
+  "destination_object_name": "Customer",
+  "source_definition_reference": "abc-123",
+  "environment": "UAT",
+  "status": "running",
+  "current_stage": "field_mapping",
+  "source_slice_version": "v1",
+  "mapping_snapshot_version": "v2",
+  "lookup_snapshot_version": null,
+  "lookup_snapshot_versions": {},
+  "code_generation_input_snapshot_version": null,
+  "codegen_artifact_id": null,
+  "knowledge_freeze_version": null,
+  "start_metadata": null,
+  "pause_metadata": null,
+  "resume_metadata": null,
+  "completion_metadata": null,
+  "started_at": "2026-07-01T10:00:00Z",
+  "last_checkpoint_at": "2026-07-01T10:05:00Z",
+  "created_at": "2026-07-01T09:58:00Z",
+  "updated_at": "2026-07-01T10:05:00Z"
+}
+```
+
+### `RunCheckpointResponse`
+
+```json
+{
+  "run_checkpoint_id": "...",
+  "run_id": "...",
+  "current_stage": "field_mapping",
+  "current_object": "Customer",
+  "current_environment": "UAT",
+  "approved_snapshots": {},
+  "last_completed_checkpoint_boundary": null,
+  "last_completed_row": null,
+  "pause_reason": null,
+  "created_at": "2026-07-01T10:05:00Z"
+}
+```
+
+### Run error codes
+
+| Code | Status | When |
+|---|---|---|
+| `source_definition_not_found` | `404` | Source definition not found |
+
+## Gate endpoints
+
+Gate endpoints are run-scoped. Gate 1 (field mapping) requires `central_team`.
+Gate 2 (lookup mapping) requires `central_team`. Evidence queries require
+any authenticated user with project access.
+
+### `GET /projects/{project_id}/runs/{run_id}/gates`
+
+Return gate status for a run. Any authenticated user with project access.
+
+Response `200`: `GateStatusResponse`.
+
+### `GET /projects/{project_id}/runs/{run_id}/gates/gate-1/evidence`
+
+Return Gate 1 (field mapping) evidence. Any authenticated user with project
+access.
+
+Response `200`: `Gate1EvidenceResponse`.
+
+### `GET /projects/{project_id}/runs/{run_id}/gates/gate-2/evidence`
+
+Return Gate 2 (lookup mapping) evidence. Any authenticated user with project
+access.
+
+Response `200`: `Gate2EvidenceResponse`.
+
+### `POST /projects/{project_id}/runs/{run_id}/gates/gate-1/approve`
+
+Approve Gate 1. Requires `central_team`.
+
+Request:
+
+```json
+{
+  "notes": "Field mapping looks correct."
+}
+```
+
+Response `200`: `GateStatusResponse`.
+
+### `POST /projects/{project_id}/runs/{run_id}/gates/gate-1/reject`
+
+Reject Gate 1 with a push-back. Requires `central_team`.
+
+Request:
+
+```json
+{
+  "affected_objects": ["Customer", "Address"],
+  "required_changes": "Missing field bindings for PII columns."
+}
+```
+
+Response `200`: `GateStatusResponse`.
+
+### `POST /projects/{project_id}/runs/{run_id}/gates/gate-2/approve`
+
+Approve Gate 2. Requires `central_team`.
+
+Request:
+
+```json
+{
+  "notes": "Lookup mappings confirmed."
+}
+```
+
+Response `200`: `GateStatusResponse`.
+
+### `POST /projects/{project_id}/runs/{run_id}/gates/gate-2/reject`
+
+Reject Gate 2 with a push-back. Requires `central_team`.
+
+Request:
+
+```json
+{
+  "affected_objects": ["Customer"],
+  "required_changes": "Unmapped lookup values need resolution."
+}
+```
+
+Response `200`: `GateStatusResponse`.
+
+### `GateStatusResponse`
+
+```json
+{
+  "run_id": "...",
+  "gate_1": {
+    "gate": "gate_1",
+    "decision": "approved",
+    "approver_user_id": "...",
+    "decided_at": "2026-07-01T12:00:00Z",
+    "notes": null,
+    "affected_objects": null,
+    "required_changes": null
+  },
+  "gate_2": null
+}
+```
+
+### `Gate1EvidenceResponse`
+
+```json
+{
+  "run_id": "...",
+  "destination_object_name": "Customer",
+  "mapping_snapshot_version": "v2",
+  "field_bindings": [
+    {"source_field": "cust_id", "destination_field": "customer_id", "lookup_name": null},
+    {"source_field": "name", "destination_field": "customer_name", "lookup_name": null}
+  ],
+  "pii_fields": ["SSN", "DOB"],
+  "coverage_gaps": ["MISSING_FIELD_1", "MISSING_FIELD_2"]
+}
+```
+
+### `Gate2EvidenceResponse`
+
+```json
+{
+  "run_id": "...",
+  "lookup_name": "account_type",
+  "rows": [
+    {"source_value": "RETD", "destination_value": null, "state": "unmapped"},
+    {"source_value": "ACTV", "destination_value": "Active", "state": "confirmed"}
+  ],
+  "confirmed_count": 50,
+  "unmapped_count": 3
+}
+```
+
+## Reconciliation endpoints
+
+Reconciliation is run-scoped and tied to a specific run.
+
+### `POST /projects/{project_id}/runs/{run_id}/reconciliation`
+
+Trigger a reconciliation report. Requires `central_team`.
+
+Response `201`: `ReconciliationReportResponse`.
+
+### `GET /projects/{project_id}/runs/{run_id}/reconciliation`
+
+Get the latest reconciliation report for a run. Any authenticated user with
+project access.
+
+Response `200`: `ReconciliationReportResponse`.
+
+### `GET /projects/{project_id}/runs/{run_id}/reconciliation/history`
+
+List reconciliation history for a run. Any authenticated user with project
+access.
+
+Response `200`: array of `ReconciliationReportResponse`.
+
+### `GET /projects/{project_id}/runs/{run_id}/reconciliation/{report_id}/lineage`
+
+Get lineage rows for a reconciliation report. Supports filtering by outcome
+and source row index. Any authenticated user with project access.
+
+Query parameters:
+
+| Parameter | Type | Default | Notes |
+|---|---|---|---|
+| `offset` | integer | `0` | Pagination offset |
+| `limit` | integer | `100` | Max rows to return |
+| `outcome` | string or null | — | Filter by outcome |
+| `source_row_index` | integer or null | — | Filter by source row |
+| `destination_row_id` | string or null | — | Filter by destination row |
+
+Response `200`: `LineageResponse`.
+
+### `GET /projects/{project_id}/runs/{run_id}/reconciliation/{report_id}/export`
+
+Export a reconciliation report. Any authenticated user with project access.
+
+Response `200`: `ReconciliationExportResponse`.
+
+### `ReconciliationReportResponse`
+
+```json
+{
+  "report_id": "...",
+  "run_id": "...",
+  "checks": [
+    {"check_name": "row_count", "status": "pass", "detail": "Matched."},
+    {"check_name": "pii_coverage", "status": "fail", "detail": "2 PII fields unmasked."}
+  ],
+  "overall_status": "fail",
+  "row_count_summary": {
+    "source_rows": 1000,
+    "destination_rows": 998,
+    "rejected": 1,
+    "duplicated": 0,
+    "partially_mapped": 1
+  },
+  "created_at": "2026-07-01T10:00:00Z",
+  "completed_at": "2026-07-01T10:01:00Z"
+}
+```
+
+### `LineageResponse`
+
+```json
+{
+  "rows": [
+    {
+      "lineage_row_id": "...",
+      "source_row_index": 42,
+      "source_row_key": "CUST-100042",
+      "destination_row_id": "dest-123",
+      "mapping_rules_applied": ["rule-001"],
+      "outcome": "confirmed",
+      "outcome_detail": null
+    }
+  ],
+  "total": 1,
+  "offset": 0,
+  "limit": 100
+}
+```
+
+### `ReconciliationExportResponse`
+
+```json
+{
+  "report_id": "...",
+  "run_id": "...",
+  "exported_at": "2026-07-01T10:02:00Z",
+  "checks": [],
+  "overall_status": "pass",
+  "row_count_summary": null,
+  "lineage_rows": []
+}
+```
+
+## Impact endpoints
+
+Impact is run-scoped and tied to a specific run. Used when a gate is rejected
+and the operator needs to review impact before replay.
+
+### `GET /projects/{project_id}/runs/{run_id}/impact`
+
+Return the impact report for a run. Any authenticated user with project
+access.
+
+Response `200`: `ImpactReportResponse`.
+
+### `POST /projects/{project_id}/runs/{run_id}/impact/acknowledge`
+
+Acknowledge the impact report and proceed. Requires `central_team`.
+
+Response `200`: `RunResponse`.
+
+### `ImpactReportResponse`
+
+```json
+{
+  "run_id": "...",
+  "gate_rejection": {
+    "rejected_by": "...",
+    "rejected_at": "2026-07-01T12:00:00Z",
+    "affected_objects": ["Customer"],
+    "required_changes": "Missing field bindings.",
+    "notes": "Gate 1 push-back."
+  },
+  "replay_scope": ["Customer", "Address"],
+  "ai_recommendation": {
+    "recommendation": "Review field bindings for PII columns.",
+    "suggested_fix": "Add SSN and DOB bindings.",
+    "minimal_replay_scope": ["Customer"]
+  }
+}
+```
+
+## Source contract error endpoints
+
+### `DELETE /projects/{project_id}/sources/{source_definition_id}`
+
+Discard a source contract. Requires `admin` or `central_team`.
+
+Response `200`: `FeedResponse`.
+
 ## Change request endpoints
 
 Change requests are project-scoped review records. Lookup delta CRs are opened
@@ -1396,6 +2133,9 @@ feeds (e.g. `["Customer", "Address"]`). Generated SQL artifacts are tracked sepa
 
 ## Changelog
 
+- 2026-07-26: Added Run, Gate, Reconciliation, Impact, Mapping review,
+  Source analysis, New sign-off, and Mapping snapshot endpoint sections;
+  added DELETE source contract route.
 - 2026-06-29: Added project CRUD endpoint contract (create, list, get, update,
   archive) with role-scoped access rules and definition immutability notes.
 - 2026-06-29: Added management HTTP contract for users and project membership.

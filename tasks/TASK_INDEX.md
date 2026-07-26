@@ -20,7 +20,7 @@
 | [002b0-sync-domain-docs-project](./002b0-sync-domain-docs-project.md) | Synced project.md — added project_resources, removed non-existent environment field |
 | [002b1-sync-domain-docs-runs](./002b1-sync-domain-docs-runs.md) | Synced runs.md against codebase |
 | [002b2-sync-domain-docs-source-model](./002b2-sync-domain-docs-source-model.md) | Synced source-model.md — applied 002b7 fixes, added FeedSliceRow, ProjectSchemaAnalysis, source_details |
-| [002b3-sync-domain-docs-api](./002b3-sync-domain-docs-api.md) | Synced api.md against codebase |
+| [002b3-sync-domain-docs-api](./completed/002b3-sync-domain-docs-api.md) | Added missing Run, Gate, Reconciliation, Impact, Mapping review, Source analysis, New sign-off, and Mapping snapshot sections to api.md |
 | [002b4-sync-domain-docs-ui](./002b4-sync-domain-docs-ui.md) | Synced ui.md against codebase |
 | [002b5-sync-domain-docs-readme](./002b5-sync-domain-docs-readme.md) | Synced README.md against file structure |
 | [001gz-reset-codegen-instructions-to-defaults](./completed/001gz-reset-codegen-instructions-to-defaults.md) | Added "Reset to defaults" button to overwrite saved global codegen instructions with merged YAML template. |
