@@ -48,6 +48,10 @@ One file: `docs/domain/governance.md`
 - Some harness/migration components may have moved since the doc was written
 - The invariant numbering (I1-I22) needs to be verified sequentially
 
+## Tests
+
+N/A — documentation-only change, no test suite applies.
+
 ## Commit
 
 ```

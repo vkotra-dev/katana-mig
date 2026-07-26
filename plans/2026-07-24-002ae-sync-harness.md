@@ -43,6 +43,16 @@ One file: `docs/domain/harness.md`
 4. Verify disposition types in `harness/failure_taxonomy.py`
 5. Verify lifecycle stages in `harness/conductor.py`
 
+## Pitfalls
+
+- Harness components may have moved or been renamed since the doc was written
+- The "14 platform harness components" may include files that no longer exist (e.g. runtime_orchestrator, domain_lexicon)
+- Run loop order and disposition types are implementation details that change frequently
+
+## Tests
+
+N/A — documentation-only change, no test suite applies.
+
 ## Commit
 
 ```

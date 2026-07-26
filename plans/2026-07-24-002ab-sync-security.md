@@ -50,6 +50,10 @@ One file: `docs/domain/security.md`
 - The PII boundary references `pii_classifier` — verify the classifier exists and what it actually does.
 - The 365-day audit retention may be aspirational if no retention job exists.
 
+## Tests
+
+N/A — documentation-only change, no test suite applies.
+
 ## Commit
 
 ```

@@ -47,6 +47,10 @@ One file: `docs/domain/management.md`
 - `session_version` field on User is not in the doc but is used for session invalidation
 - `status` field default is "declared", not "active"
 
+## Tests
+
+N/A — documentation-only change, no test suite applies.
+
 ## Commit
 
 ```

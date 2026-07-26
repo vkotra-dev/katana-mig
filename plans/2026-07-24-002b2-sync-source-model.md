@@ -49,6 +49,18 @@ One file: `docs/domain/source-model.md`
 4. Verify sign-off models match actual sign-off workflow
 5. Verify all API endpoints match actual routes
 
+## Pitfalls
+
+- This is the largest doc (760 lines) and most frequently changed — easy to miss a single field drift
+- `ProjectFiber.field_bindings` is a new nullable JSON field that may not be in the doc at all
+- `LookupValueMap.destination_mappings` and `unmapped_source_values` were added after the last sync
+- Fiber state machine states may not match the simplified statuses actually used in code
+- Backward-compatible aliases (`SourceDefinition = Feed`, etc.) are not domain-level concepts and should not be in the doc
+
+## Tests
+
+N/A — documentation-only change, no test suite applies.
+
 ## Commit
 
 ```

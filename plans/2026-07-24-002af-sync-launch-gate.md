@@ -42,6 +42,15 @@ One file: `docs/domain/launch-gate.md`
 3. Mark "Domain docs current" as Done
 4. Update "Done Enough Today" section if needed
 
+## Pitfalls
+
+- The checklist was written with a specific set of features in mind; some Done items may have been refactored or renamed since
+- "Domain docs current" may need to track cumulative sync work across multiple tasks, not just one
+
+## Tests
+
+N/A — documentation-only change, no test suite applies.
+
 ## Commit
 
 ```
