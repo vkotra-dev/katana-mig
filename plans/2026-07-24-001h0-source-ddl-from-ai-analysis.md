@@ -33,7 +33,8 @@ Extend source analysis to also produce a SQL DDL statement (CREATE TABLE) from t
 | `engine/src/migrations_engine/management/source_analysis.py` | modify | Pass `target_db_engine`, save DDL |
 | `engine/src/migrations_engine/api/schemas.py` | modify | Add `destination_ddl` field |
 | `web/lib/feeds-api.ts` | modify | Add `destinationDDL` type |
-| `web/app/projects/[id]/feeds/[feedId]/page.tsx` | modify | Add collapsible DDL section |
+| `web/lib/feeds-api.ts` | add | New `getSourceSchemaArtifact()` API call |
+| `web/app/projects/[id]/feeds/[feedId]/page.tsx` | modify | Add `sourceDDL` state, wire into `loadAllData` and `handleAnalyzeWithAi`, add collapsible DDL section |
 | `docs/domain/source-model.md` | modify | Document new field |
 | `docs/domain/api.md` | modify | Document response change |
 
@@ -74,16 +75,18 @@ class AnalysisResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
     columns: list[ColumnSchema]
     re_use_score: int | None = None
-    ddl: str  # NEW: generated DDL from AI
+    ddl: str = ""  # NEW: generated DDL from AI (default empty so existing tests don't break)
 ```
 
 ### 3. `engine/src/migrations_engine/db/models.py`
 
-Add `destination_ddl` column to `SourceSchemaArtifact` (line ~334):
+Add `destination_ddl` column to `SourceSchemaArtifact` **after `created_at` (line 337)**:
 
 ```python
 destination_ddl: Mapped[str | None] = mapped_column(Text, nullable=True)
 ```
+
+Note: NOT at line 334 — the `columns` field is at line 334. The new column goes after `created_at` at line 337.
 
 ### 4. Migration: `engine/migrations/versions/0042_add_source_ddl_to_source_schema_artifact.py`
 
@@ -129,9 +132,11 @@ schema_artifact = SourceSchemaArtifact(
     source_definition_id=source_definition_id,
     source_slice_version=source_slice.source_slice_version,
     columns=[column.model_dump(mode="python") for column in analysis_result.columns],
-    destination_ddl=analysis_result.ddl if hasattr(analysis_result, "ddl") else None,
+    destination_ddl=getattr(analysis_result, "ddl", "") or None,
 )
 ```
+
+Also in this file: update `_schema_artifact_response` (line ~329) to include `destination_ddl=artifact.destination_ddl`.
 
 ### 6. `engine/src/migrations_engine/api/schemas.py`
 
@@ -145,11 +150,65 @@ class SourceAnalysisResponse(BaseModel):
     destination_ddl: str | None = None  # NEW
 ```
 
-Also update `_schema_artifact_response` to include DDL.
+Add `destination_ddl` to `SourceSchemaArtifactResponse` (line ~417-422):
 
-### 7. `web/lib/feeds-api.ts`
+```python
+class SourceSchemaArtifactResponse(BaseModel):
+    schema_artifact_id: str
+    source_definition_id: str
+    source_slice_version: str
+    columns: list[SourceSchemaColumnResponse]
+    created_at: datetime
+    destination_ddl: str | None = None  # NEW
+```
 
-Update `analyzeFeedSource` return type:
+### 7. `engine/src/migrations_engine/routes/analysis.py`
+
+Add a new GET route for the full artifact (line ~52, after value-summary route):
+
+```python
+# Add SourceSchemaArtifactResponse to the import in routes/analysis.py
+
+@router.get("/{source_definition_id}/schema-artifact", response_model=SourceSchemaArtifactResponse)
+def get_source_schema_artifact(
+    project_id: str,
+    source_definition_id: str,
+    actor: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> SourceSchemaArtifactResponse:
+    require_project_access(db, user=actor, project_id=project_id)
+    return get_latest_source_schema_artifact(
+        db,
+        project_id=project_id,
+        source_definition_id=source_definition_id,
+    )
+```
+
+### 8. `web/lib/feeds-api.ts`
+
+Add `getSourceSchemaArtifact` function:
+
+```typescript
+export async function getSourceSchemaArtifact(
+  token: string,
+  projectId: string,
+  sourceDefinitionId: string,
+): Promise<{ schemaArtifactId: string; destinationDDL: string | null }> {
+  const response = await requestJson<{
+    schema_artifact_id: string;
+    destination_ddl: string | null;
+  }>(`/projects/${projectId}/sources/${sourceDefinitionId}/schema-artifact`, {
+    method: "GET",
+    token,
+  });
+  return {
+    schemaArtifactId: response.schema_artifact_id,
+    destinationDDL: response.destination_ddl ?? null,
+  };
+}
+```
+
+Update `analyzeFeedSource` return type to include `destinationDDL`:
 
 ```typescript
 export async function analyzeFeedSource(
@@ -157,7 +216,10 @@ export async function analyzeFeedSource(
   projectId: string,
   sourceDefinitionId: string,
 ): Promise<{ status: string; schemaArtifactId: string; destinationDDL: string | null }> {
-  // ... same body ...
+  const response = await requestJson<{ status: string; schema_artifact_id: string; destination_ddl: string | null }>(
+    `/projects/${projectId}/sources/${sourceDefinitionId}/analyze`,
+    { method: "POST", token },
+  );
   return {
     status: response.status,
     schemaArtifactId: response.schema_artifact_id,
@@ -166,9 +228,40 @@ export async function analyzeFeedSource(
 }
 ```
 
-### 8. `web/app/projects/[id]/feeds/[feedId]/page.tsx`
+### 9. `web/app/projects/[id]/feeds/[feedId]/page.tsx`
 
-After analysis completes, show a collapsible DDL section:
+**State**: Add `sourceDDL` state:
+
+```tsx
+const [sourceDDL, setSourceDDL] = useState<string | null>(null);
+```
+
+**loadAllData**: After fetching schema, also fetch the artifact to persist DDL across reloads:
+
+```tsx
+let sourceDDLValue: string | null = null;
+try {
+  const artifact = await getSourceSchemaArtifact(token, projectId, feedId);
+  sourceDDLValue = artifact.destinationDDL;
+} catch { /* No artifact yet — DDL stays null */ }
+```
+
+Then pass it to state update:
+
+```tsx
+setFeedSchema(schemaData);
+setSourceDDL(sourceDDLValue);
+```
+
+**handleAnalyzeWithAi**: Capture DDL from the analyze response and update state:
+
+```tsx
+const result = await analyzeFeedSource(session.accessToken, projectId, feedId);
+setSourceDDL(result.destinationDDL ?? null);
+await loadAllData(session.accessToken);
+```
+
+**Render**: Add collapsible DDL section after the mapping table:
 
 ```tsx
 {sourceDDL && (
@@ -193,7 +286,7 @@ After analysis completes, show a collapsible DDL section:
 )}
 ```
 
-Add `sourceDDL` state variable and update it in `handleAnalyzeWithAi` after the analyze call.
+**Import**: Add `getSourceSchemaArtifact` to the import from `feeds-api`.
 
 ## Tests
 
@@ -217,11 +310,10 @@ All 5 existing tests create `AnalysisResult(columns=[...])` without `ddl`. Since
    - Call `analyze_source_slice(db, actor, project_id, source_definition_id)`
    - Query DB for the `SourceSchemaArtifact`
    - Assert `artifact.destination_ddl == "CREATE TABLE customer_extract ..."`
-   - Assert API response `destination_ddl` matches
 
 **`test_source_analysis_api.py` — 1 existing + 1 new:**
 
-4. `test_source_analysis_returns_schema_and_value_summary` — update: the `AnalysisResult` in this test won't break (default `ddl=""`), but the assertion should also verify `destination_ddl` in the API response.
+4. `test_source_analysis_returns_schema_and_value_summary` — update: the `AnalysisResult` in this test won't break (default `ddl=""`). After the existing assertions, assert `response.json()["destination_ddl"] is None` (since empty string `""` is falsy and should be stored as `None` in the model, or `""` if stored as-is — adjust assertion accordingly).
 
 5. **New: `test_source_analysis_api_returns_destination_ddl`** — end-to-end API test:
    - POST to `/projects/{id}/sources/{id}/analyze` with mocked adapter returning a DDL
@@ -252,9 +344,11 @@ cd web && npx tsc --noEmit 2>&1 | head -20
 - The `target_db_engine` may be null in the project config — default to "postgresql"
 - The Alembic migration `down_revision` must point to `0041` (the current head)
 - The `destination_ddl` field must be nullable in both the model and migration (in case old artifacts don't have it)
+- **Page reload gap**: The DDL must survive page reloads. `loadAllData()` must fetch the schema artifact via `getSourceSchemaArtifact()` and populate `sourceDDL` state. The DDL from the one-shot analyze response is also cached in state, but on subsequent mounts only `loadAllData` runs.
+- Model column goes after `created_at` (line 337), not at line 334.
 
 ## Commit
 
 ```
-feat(source-analysis): generate DDL from AI and display on feed page
+feat(source-analysis): generate DDL from AI and persist on feed page
 ```
