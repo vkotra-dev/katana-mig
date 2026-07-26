@@ -1,0 +1,1 @@
+Added 8 missing endpoint sections to api.md: Run, Gate, Reconciliation, Impact, Mapping review, Source analysis, New sign-off, Mapping snapshot, and Delete source contract. Added ProjectSchemaAnalysis model section to source-model.md.

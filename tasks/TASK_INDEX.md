@@ -9,7 +9,6 @@
 
 | Task | Summary |
 |---|---|
-| [002b6-verify-all-orm-models-documented](./completed/002b6-verify-all-orm-models-documented.md) | Verified 31 ORM models: 23 accurate, 4 partial/gap, 3 gaps (FeedSliceRow, ProjectSchemaAnalysis, ChangeRequest/ApprovalRecord underspecified) |
 | [002aa-sync-domain-docs-auth](./completed/002aa-sync-domain-docs-auth.md) | Synced auth.md — added session_version, updated AuthSession to JWT+table, fixed 6 session invalidation triggers |
 | [002ab-sync-domain-docs-security](./completed/002ab-sync-domain-docs-security.md) | Synced security.md — verified all security boundaries, threat model, control requirements |
 | [002ac-sync-domain-docs-management](./completed/002ac-sync-domain-docs-management.md) | Synced management.md — verified session_version, membership model, routes, guards |
