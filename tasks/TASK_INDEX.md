@@ -4,6 +4,7 @@
 
 | Task | Summary |
 |---|---|
+| [002b8-version-history-for-mapping-fields](./002b8-version-history-for-mapping-fields.md) | Add version history table, API endpoints, and version dropdown UI for mapping hints, codegen instructions, transformation instructions, and SQL scripts |
 
 ## Completed
 
