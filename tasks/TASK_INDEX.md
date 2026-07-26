@@ -4,6 +4,18 @@
 
 | Task | Summary |
 |---|---|
+| [002aa-sync-domain-docs-auth](./002aa-sync-domain-docs-auth.md) | Sync docs/domain/auth.md against actual codebase |
+| [002ab-sync-domain-docs-security](./002ab-sync-domain-docs-security.md) | Sync docs/domain/security.md against actual codebase |
+| [002ac-sync-domain-docs-management](./002ac-sync-domain-docs-management.md) | Sync docs/domain/management.md against actual codebase |
+| [002ad-sync-domain-docs-governance](./002ad-sync-domain-docs-governance.md) | Sync docs/domain/governance.md against actual codebase |
+| [002ae-sync-domain-docs-harness](./002ae-sync-domain-docs-harness.md) | Sync docs/domain/harness.md against actual codebase |
+| [002af-sync-domain-docs-launch-gate](./002af-sync-domain-docs-launch-gate.md) | Sync docs/domain/launch-gate.md against actual codebase |
+| [002b0-sync-domain-docs-project](./002b0-sync-domain-docs-project.md) | Sync docs/domain/project.md against actual codebase |
+| [002b1-sync-domain-docs-runs](./002b1-sync-domain-docs-runs.md) | Sync docs/domain/runs.md against actual codebase |
+| [002b2-sync-domain-docs-source-model](./002b2-sync-domain-docs-source-model.md) | Sync docs/domain/source-model.md against actual codebase |
+| [002b3-sync-domain-docs-api](./002b3-sync-domain-docs-api.md) | Sync docs/domain/api.md against actual codebase |
+| [002b4-sync-domain-docs-ui](./002b4-sync-domain-docs-ui.md) | Sync docs/domain/ui.md against actual codebase |
+| [002b5-sync-domain-docs-readme](./002b5-sync-domain-docs-readme.md) | Sync docs/domain/README.md against actual file structure |
 
 ## Completed
 
