@@ -1,0 +1,1 @@
+Synced docs/domain/runs.md against codebase. Verified RunRecord and RunCheckpoint fields match ORM, baton sequence, execution flow (outer/inner loops), and ReconciliationReport/ReconciliationLineageRow schemas.

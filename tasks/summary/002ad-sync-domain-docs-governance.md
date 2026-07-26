@@ -1,0 +1,1 @@
+Synced docs/domain/governance.md against codebase. Verified all 22 safety invariants (I1-I22), build order stages, repository map, task workflow rules, and DDL change convention. Task 002ad fulfills invariant I22 (domain doc currency).

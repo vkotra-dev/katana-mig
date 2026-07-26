@@ -1,0 +1,1 @@
+Synced docs/domain/harness.md against codebase. Updated to note code restructured from monolithic harness/ package to distributed packages: execution/, ai/, mapping/, codegen/, management/. Verified core and platform component paths, run loop order, disposition types, lifecycle stages, sandbox boundary, persistence fields, and observability requirements.

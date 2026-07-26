@@ -1,0 +1,1 @@
+Synced docs/domain/ui.md against codebase. Verified operator screens, role-gated views, per-feed workspaces, multi-party sign-off review, dashboard health, notifications, and approval flows for all 5 platform roles.

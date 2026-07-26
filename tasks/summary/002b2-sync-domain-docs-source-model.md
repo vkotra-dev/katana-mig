@@ -1,0 +1,1 @@
+Synced docs/domain/source-model.md against codebase. Applied fixes from 002b6/002b7: MappingBindingSignOff (existence-based, no status enum), LookupSignOff (project-scoped, no fiber), deleted stale fiber entities. Added FeedSliceRow, ProjectSchemaAnalysis, and source_details model sections.

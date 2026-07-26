@@ -1,0 +1,1 @@
+Synced docs/domain/project.md against codebase. Added project_resources field, removed non-existent environment field from ProjectDefinition, verified all ProjectDefinition and ProjectRegistry fields match ORM, verified API endpoints and snapshot policy.

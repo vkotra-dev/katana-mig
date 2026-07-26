@@ -1,0 +1,1 @@
+Synced docs/domain/management.md against codebase. Verified user model fields (session_version), project membership model, admin routes, membership routes, PM reassignment, and route guards match actual implementation.

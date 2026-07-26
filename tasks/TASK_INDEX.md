@@ -10,19 +10,20 @@
 | Task | Summary |
 |---|---|
 | [002b6-verify-all-orm-models-documented](./completed/002b6-verify-all-orm-models-documented.md) | Verified 31 ORM models: 23 accurate, 4 partial/gap, 3 gaps (FeedSliceRow, ProjectSchemaAnalysis, ChangeRequest/ApprovalRecord underspecified) |
-| [002b7-fix-mapping-signoff-contradictions](./002b7-document-orm-json-columns.md) | Fixed 3 MappingBindingSignOff/LookupSignOff/source-model.md contradictions |
-| [002aa-sync-domain-docs-auth](./002aa-sync-domain-docs-auth.md) | Synced auth.md — added session_version, updated AuthSession to JWT+table, fixed session invalidation triggers |
-| [002ab-sync-domain-docs-security](./completed/002ab-sync-domain-docs-security.md) | Synced security.md against codebase |
-| [002ac-sync-domain-docs-management](./002ac-sync-domain-docs-management.md) | Synced management.md — already current, verified session_version |
-| [002ad-sync-domain-docs-governance](./completed/002ad-sync-domain-docs-governance.md) | Synced governance.md against codebase |
-| [002ae-sync-domain-docs-harness](./completed/002ae-sync-domain-docs-harness.md) | Synced harness.md — noted code moved from harness/ package to execution/, intake/, management/, etc. |
-| [002af-sync-domain-docs-launch-gate](./002af-sync-domain-docs-launch-gate.md) | Synced launch-gate.md — marked "Domain docs current" as done |
-| [002b0-sync-domain-docs-project](./002b0-sync-domain-docs-project.md) | Synced project.md — added project_resources, removed non-existent environment field |
-| [002b1-sync-domain-docs-runs](./002b1-sync-domain-docs-runs.md) | Synced runs.md against codebase |
-| [002b2-sync-domain-docs-source-model](./002b2-sync-domain-docs-source-model.md) | Synced source-model.md — applied 002b7 fixes, added FeedSliceRow, ProjectSchemaAnalysis, source_details |
-| [002b3-sync-domain-docs-api](./completed/002b3-sync-domain-docs-api.md) | Added missing Run, Gate, Reconciliation, Impact, Mapping review, Source analysis, New sign-off, and Mapping snapshot sections to api.md |
-| [002b4-sync-domain-docs-ui](./002b4-sync-domain-docs-ui.md) | Synced ui.md against codebase |
-| [002b5-sync-domain-docs-readme](./002b5-sync-domain-docs-readme.md) | Synced README.md against file structure |
+| [002aa-sync-domain-docs-auth](./completed/002aa-sync-domain-docs-auth.md) | Synced auth.md — added session_version, updated AuthSession to JWT+table, fixed 6 session invalidation triggers |
+| [002ab-sync-domain-docs-security](./completed/002ab-sync-domain-docs-security.md) | Synced security.md — verified all security boundaries, threat model, control requirements |
+| [002ac-sync-domain-docs-management](./completed/002ac-sync-domain-docs-management.md) | Synced management.md — verified session_version, membership model, routes, guards |
+| [002ad-sync-domain-docs-governance](./completed/002ad-sync-domain-docs-governance.md) | Synced governance.md — verified 22 invariants, build order, repo map, task workflow |
+| [002ae-sync-domain-docs-harness](./completed/002ae-sync-domain-docs-harness.md) | Synced harness.md — noted code restructured to execution/, ai/, mapping/, codegen/, management/ |
+| [002af-sync-domain-docs-launch-gate](./completed/002af-sync-domain-docs-launch-gate.md) | Synced launch-gate.md — marked "Domain docs current" as done |
+| [002b0-sync-domain-docs-project](./completed/002b0-sync-domain-docs-project.md) | Synced project.md — added project_resources, removed non-existent environment field |
+| [002b1-sync-domain-docs-runs](./completed/002b1-sync-domain-docs-runs.md) | Synced runs.md — verified RunRecord, RunCheckpoint, baton sequence, reconciliation |
+| [002b2-sync-domain-docs-source-model](./completed/002b2-sync-domain-docs-source-model.md) | Synced source-model.md — applied 002b7 fixes, added FeedSliceRow, ProjectSchemaAnalysis, source_details |
+| [002b3-sync-domain-docs-api](./completed/002b3-sync-domain-docs-api.md) | Added Run, Gate, Reconciliation, Impact, Mapping review, Source analysis, New sign-off, Mapping snapshot sections |
+| [002b4-sync-domain-docs-ui](./completed/002b4-sync-domain-docs-ui.md) | Synced ui.md — verified operator screens, role views, sign-off review, notifications |
+| [002b5-sync-domain-docs-readme](./completed/002b5-sync-domain-docs-readme.md) | Synced README.md — verified all domain docs listed, reading order, spec funnel |
+| [002b6-verify-all-orm-models-documented](./completed/002b6-verify-all-orm-models-documented.md) | Verified 31 ORM models: 23 accurate, 4 partial/gap, 3 gaps (FeedSliceRow, ProjectSchemaAnalysis, ChangeRequest/ApprovalRecord) |
+| [002b7-fix-mapping-signoff-contradictions](./completed/002b7-document-orm-json-columns.md) | Fixed MappingBindingSignOff (existence-based, no status enum), LookupSignOff (project-scoped, no fiber), deleted stale fiber entities |
 | [001gz-reset-codegen-instructions-to-defaults](./completed/001gz-reset-codegen-instructions-to-defaults.md) | Added "Reset to defaults" button to overwrite saved global codegen instructions with merged YAML template. |
 | [001gy-fix-reject-mapping-approved-precondition](./completed/001gy-fix-reject-mapping-approved-precondition.md) | [summary](./summary/001gy-fix-reject-mapping-approved-precondition.md) |
 | [001gw-table-mapping-drop-toggle-backend](./completed/001gw-table-mapping-drop-toggle-backend.md) | [summary](./summary/001gw-table-mapping-drop-toggle-backend.md) |

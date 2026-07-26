@@ -1,0 +1,1 @@
+Synced docs/domain/security.md against codebase. Verified all security boundaries (identity, project, PII, audit), threat model, and control requirements match actual enforcement. Updated changelog and timestamp.

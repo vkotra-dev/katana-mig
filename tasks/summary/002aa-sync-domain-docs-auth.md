@@ -1,0 +1,1 @@
+Synced docs/domain/auth.md against codebase. Added session_version field to User model, updated AuthSession to describe JWT+table persistence, fixed session invalidation triggers to 6 (password change, role change, disable, logout, secret rotation, soft-delete). Updated timestamp to 2026-07-26.
