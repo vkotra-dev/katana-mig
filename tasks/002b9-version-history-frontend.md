@@ -4,7 +4,7 @@ title: Add version history dropdown UI for mapping fields
 status: pending
 created: 2026-07-24
 priority: medium
-depends-on: [002b8-version-history-backend.md]
+depends-on: [002b8]
 domain: web
 ---
 

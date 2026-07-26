@@ -249,14 +249,37 @@ In `patch_source_transformation_instructions` (line ~180):
 
 **File**: `engine/src/migrations_engine/routes/projects.py`
 
-Import `VersionHistory` and `datetime`:
-```python
-from ..db.models import User, VersionHistory
-from datetime import UTC
-```
+Apply these diffs — they replace the existing import lines and add the handler logic:
+
+```diff
+ from __future__ import annotations
+
++from datetime import UTC
++
+ from fastapi import APIRouter, Depends, Query, Response, status
+ from pydantic import BaseModel
+ from sqlalchemy.orm import Session
+
+ from ..api.deps import (
+@@ -23,8 +25,12 @@ from ..api.schemas import (
+ )
+
+-from ..db.models import User
++from ..db.models import User, VersionHistory
++from ..db.models import ProjectDefinition, ProjectRegistry
+ from ..management.access import require_project_access
+-from ..management.projects import archive_project, create_project, get_project, list_projects, update_project, copy_project, assign_project_manager
++from ..management.projects import (
++    archive_project,
++    create_project,
++    get_project,
++    list_projects,
++    update_project,
++    copy_project,
++    assign_project_manager,
++)
 
 In `patch_codegen_instructions`:
-```python
 @router.patch("/{project_id}/codegen-instructions", response_model=ProjectResponse)
 def patch_codegen_instructions(
     project_id: str,
@@ -276,7 +299,7 @@ def patch_codegen_instructions(
             old_value=_old_val,
             new_value=body.codegen_instructions,
             changed_by=actor.user_id,
-            changed_at=UTC,
+            changed_at=_dt.now(UTC),
         ))
         db.commit()
     return update_project(
@@ -286,7 +309,34 @@ def patch_codegen_instructions(
         body=ProjectUpdateRequest(codegen_instructions=body.codegen_instructions),
     )
 ```
-Add imports for `ProjectDefinition` and `ProjectRegistry` at the top of `routes/projects.py` if not already present (check the existing `from ..management.projects import ...` line).
+
+Exact import additions in `routes/projects.py` — replace the existing single-line imports with the merged versions:
+
+```diff
+-from ..db.models import User
++from ..db.models import User, VersionHistory
++from ..db.models import ProjectDefinition, ProjectRegistry
+ from ..management.access import require_project_access
+-from ..management.projects import archive_project, create_project, get_project, list_projects, update_project, copy_project, assign_project_manager
++from ..management.projects import (
++    archive_project,
++    create_project,
++    get_project,
++    list_projects,
++    update_project,
++    copy_project,
++    assign_project_manager,
++)
+```
+
+Also add `from datetime import UTC` near the top of the file (after the `from __future__` import, before `from fastapi import`):
+```diff
+from __future__ import annotations
+
++from datetime import UTC
++
+from fastapi import APIRouter, Depends, Query, Response, status
+```
 
 **File**: `engine/src/migrations_engine/codegen/service.py`
 
@@ -434,6 +484,9 @@ def _seed_projects() -> tuple[str, str, str, str]:
             source_contract_version="v1", destination_object_references=["T2"],
             source_details={"label": "B", "encoding": "utf-8"}, status="active",
         ))
+        # Stakeholder is a member of project A only, not B
+        if admin and stakeholder:
+            db.add(ProjectMembership(project_id=pid_a, user_id=stakeholder.user_id))
         db.commit()
     return pid_a, sid_a, pid_b, sid_b
 
@@ -505,9 +558,12 @@ def test_version_history_codegen_capture(admin_token: str) -> None:
 
 
 def test_version_history_project_scoped(stakeholder_token: str, _seed_projects: tuple) -> None:
-    pid_a, sid_a, pid_b, sid_b = _seed_projects
-    # Stakeholder is a member of A (via project membership), not B
-    # Try to access B's version history — should 403 or 404 due to require_project_access
+    """Stakeholder is a member of A (not B) — A's versions should succeed, B's 403."""
+    pid_a, _, pid_b, _ = _seed_projects
+    # Member of A → should work
+    resp = client.get(f"/projects/{pid_a}/versions/hints/versions", headers={"Authorization": f"Bearer {stakeholder_token}"})
+    assert resp.status_code == 200
+    # Member of A but NOT B → require_project_access raises 403
     resp = client.get(f"/projects/{pid_b}/versions/hints/versions", headers={"Authorization": f"Bearer {stakeholder_token}"})
     assert resp.status_code == 403
 
