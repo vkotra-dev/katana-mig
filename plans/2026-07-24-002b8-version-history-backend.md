@@ -254,7 +254,7 @@ Apply these diffs — they replace the existing import lines and add the handler
 ```diff
  from __future__ import annotations
 
-+from datetime import UTC
++from datetime import UTC, datetime
 +
  from fastapi import APIRouter, Depends, Query, Response, status
  from pydantic import BaseModel
@@ -299,7 +299,7 @@ def patch_codegen_instructions(
             old_value=_old_val,
             new_value=body.codegen_instructions,
             changed_by=actor.user_id,
-            changed_at=_dt.now(UTC),
+            changed_at=datetime.now(UTC),
         ))
         db.commit()
     return update_project(
@@ -333,7 +333,7 @@ Also add `from datetime import UTC` near the top of the file (after the `from __
 ```diff
 from __future__ import annotations
 
-+from datetime import UTC
++from datetime import UTC, datetime
 +
 from fastapi import APIRouter, Depends, Query, Response, status
 ```
