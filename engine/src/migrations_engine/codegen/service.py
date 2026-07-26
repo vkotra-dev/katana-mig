@@ -27,6 +27,7 @@ from ..db.models import (
     FeedComment,
     User,
     new_id,
+    VersionHistory,
 )
 from ..management.platform import record_management_audit
 from ..ai.factory import get_adapter
@@ -197,6 +198,15 @@ def generate_codegen_artifact(
         status="active",
     )
     db.add(artifact)
+    db.add(VersionHistory(
+        entity_type="sql",
+        entity_id=artifact.codegen_artifact_id,
+        field_name="sql_bundle",
+        old_value=None,
+        new_value=sql_bundle,
+        changed_by=actor.user_id,
+        changed_at=datetime.now(UTC),
+    ))
     record_management_audit(
         db,
         project_id=project_id,

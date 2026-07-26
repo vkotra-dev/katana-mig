@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, Float, JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, Float, JSON, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -676,4 +676,23 @@ class AICallLog(Base):
     error_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     called_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class VersionHistory(Base):
+    __tablename__ = "version_history"
+
+    version_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    entity_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    field_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    old_value: Mapped[str | None] = mapped_column(Text)
+    new_value: Mapped[str | None] = mapped_column(Text)
+    changed_by: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    changed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index("ix_version_history_entity", "entity_type", "entity_id", "field_name"),
     )

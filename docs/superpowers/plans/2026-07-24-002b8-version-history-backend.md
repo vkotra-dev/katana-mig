@@ -88,13 +88,6 @@ cd engine && .venv/bin/python -c "from migrations_engine.db.models import Versio
 
 Expected: `version_history`
 
-- [ ] **Step 4: Commit**
-
-```bash
-git add engine/migrations/versions/0043_add_version_history.py
-git commit -m "chore(migration): add version_history table"
-```
-
 ---
 
 ### Task 2: SQLAlchemy Model
@@ -138,13 +131,6 @@ cd engine && .venv/bin/python -c "from migrations_engine.db.models import Versio
 
 Expected: `version_history`
 
-- [ ] **Step 3: Commit**
-
-```bash
-git add engine/src/migrations_engine/db/models.py
-git commit -m "feat(model): add VersionHistory ORM model"
-```
-
 ---
 
 ### Task 3: Pydantic Schemas
@@ -176,13 +162,6 @@ class VersionHistoryResponse(BaseModel):
 
 ```bash
 cd engine && .venv/bin/python -c "from migrations_engine.api.schemas import VersionHistoryResponse; print('OK')"
-```
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add engine/src/migrations_engine/api/schemas.py
-git commit -m "feat(schema): add VersionHistoryResponse"
 ```
 
 ---
@@ -269,13 +248,6 @@ cd engine && .venv/bin/python -c "from migrations_engine.app import app; print([
 ```
 
 Expected: list of `/projects/{project_id}/versions/hints/versions` etc.
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add engine/src/migrations_engine/routes/versions.py engine/src/migrations_engine/app.py
-git commit -m "feat(api): add version history GET endpoint with project scoping"
-```
 
 ---
 
@@ -390,13 +362,6 @@ With:
 cd engine && .venv/bin/python -c "from migrations_engine.routes.feeds import router; print('OK')"
 ```
 
-- [ ] **Step 5: Commit**
-
-```bash
-git add engine/src/migrations_engine/routes/feeds.py
-git commit -m "feat(versioning): add version capture in feeds.py patch handlers"
-```
-
 ---
 
 ### Task 6: Patch Hook — projects.py (codegen-instructions)
@@ -491,13 +456,6 @@ def patch_codegen_instructions(
 cd engine && .venv/bin/python -c "from migrations_engine.routes.projects import router; print('OK')"
 ```
 
-- [ ] **Step 5: Commit**
-
-```bash
-git add engine/src/migrations_engine/routes/projects.py
-git commit -m "feat(versioning): add version capture in projects.py codegen-instructions handler"
-```
-
 ---
 
 ### Task 7: Patch Hook — codegen/service.py (SQL scripts)
@@ -560,17 +518,10 @@ After `db.add(artifact)` (around line 199 in `generate_codegen_artifact`), befor
     ))
 ```
 
-- [ ] **Step 3: Verify syntax**
+- [ ] **Step 2: Verify syntax**
 
 ```bash
 cd engine && .venv/bin/python -c "from migrations_engine.codegen.service import generate_codegen_artifact; print('OK')"
-```
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add engine/src/migrations_engine/codegen/service.py
-git commit -m "feat(versioning): add version capture in codegen/service.py artifact creation"
 ```
 
 ---
@@ -802,26 +753,27 @@ def test_version_history_entity_types(admin_token: str, _seed_projects: tuple) -
 - [ ] **Step 2: Run the full test suite**
 
 ```bash
-cd engine && pytest tests/test_version_history.py -v
+cd engine && .venv/bin/pytest tests/test_version_history.py -v
 ```
 
 Expected: 6 tests, all pass.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Verify**
 
 ```bash
-git add engine/tests/test_version_history.py
-git commit -m "test(versioning): add 6 tests for version capture, scoping, and entity types"
+cd engine && .venv/bin/pytest tests/test_version_history.py -v
 ```
+
+Expected: 6 tests, all pass.
 
 ---
 
 ## Verification
 
-After all 8 tasks are complete:
+After all tasks are complete:
 
 ```bash
-cd engine && pytest tests/test_version_history.py -v
+cd engine && .venv/bin/pytest tests/test_version_history.py -v
 ```
 
 All 6 tests should pass.
@@ -836,15 +788,24 @@ All 6 tests should pass.
 
 ## Commit
 
-After completing all tasks:
+After completing all tasks, ship as a single commit:
 
-```
-feat(versioning): add version_history table, API, and patch hooks
+```bash
+git add engine/migrations/versions/0043_add_version_history.py \
+  engine/src/migrations_engine/db/models.py \
+  engine/src/migrations_engine/api/schemas.py \
+  engine/src/migrations_engine/routes/versions.py \
+  engine/src/migrations_engine/app.py \
+  engine/src/migrations_engine/routes/feeds.py \
+  engine/src/migrations_engine/routes/projects.py \
+  engine/src/migrations_engine/codegen/service.py \
+  engine/tests/test_version_history.py
+git commit -m "feat(versioning): add version_history table, API, and patch hooks (Task 002b8)
 
 - Migration 0043: version_history table with indexed (entity_type, entity_id, field_name)
 - VersionHistory SQLAlchemy model
 - VersionHistoryResponse schema
 - GET /projects/{pid}/versions/{entity_type} endpoint with require_project_access
 - Patch hooks in feeds.py (hints, transformation), projects.py (codegen), codegen/service.py (sql)
-- Test suite: 6 tests covering capture, project scoping, and entity types
+- Test suite: 6 tests covering capture, project scoping, and entity types"
 ```

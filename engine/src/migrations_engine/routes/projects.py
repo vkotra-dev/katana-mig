@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, Query, Response, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -23,7 +25,7 @@ from ..api.schemas import (
     AssignProjectManagerRequest,
     CodegenInstructionsRequest,
 )
-from ..db.models import User
+from ..db.models import User, VersionHistory, ProjectDefinition, ProjectRegistry
 from ..management.access import require_project_access
 from ..management.projects import archive_project, create_project, get_project, list_projects, update_project, copy_project, assign_project_manager
 from ..codegen.coding_standards import render_coding_standards_template
@@ -141,6 +143,24 @@ def patch_codegen_instructions(
     db: Session = Depends(get_db),
 ) -> ProjectResponse:
     require_project_access(db, user=actor, project_id=project_id)
+    # Capture version snapshot before update_project() overwrites the definition
+    current_registry = db.get(ProjectRegistry, project_id)
+    _old_val = None
+    if current_registry:
+        current_def = db.get(ProjectDefinition, current_registry.definition_id)
+        if current_def:
+            _old_val = current_def.codegen_instructions
+    if body.codegen_instructions is not None:
+        db.add(VersionHistory(
+            entity_type="codegen",
+            entity_id=project_id,
+            field_name="codegen_instructions",
+            old_value=_old_val,
+            new_value=body.codegen_instructions,
+            changed_by=actor.user_id,
+            changed_at=datetime.now(UTC),
+        ))
+        db.commit()
     return update_project(
         db,
         actor=actor,

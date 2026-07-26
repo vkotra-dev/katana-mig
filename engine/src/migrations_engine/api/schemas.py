@@ -871,3 +871,14 @@ class AICallLogResponse(BaseModel):
     raw_response: str | None
     error_detail: str | None
     called_at: datetime
+
+
+class VersionHistoryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    version_id: str
+    field_name: str
+    old_value: str | None
+    new_value: str | None
+    changed_by: str | None
+    changed_at: datetime

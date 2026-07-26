@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime as _dt
+
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError, get_central_team_user, get_current_user, get_db
 from ..api.schemas import FeedCreateRequest, FeedResponse, FeedSliceResponse, FeedMappingHintsRequest, TransformationInstructionsRequest
-from ..db.models import User, Feed
+from ..db.models import User, Feed, VersionHistory
 from ..management.access import require_project_access
 from ..management.feeds import (
     create_source_contract,
@@ -160,7 +162,17 @@ def patch_source_hints(
     feed = db.get(Feed, source_definition_id)
     if feed is None or feed.project_id != project_id:
         raise AuthApiError("feed_not_found", "Feed not found.", 404)
+    _old = feed.mapping_hints
     feed.mapping_hints = body.mapping_hints
+    db.add(VersionHistory(
+        entity_type="hints",
+        entity_id=source_definition_id,
+        field_name="mapping_hints",
+        old_value=_old,
+        new_value=body.mapping_hints,
+        changed_by=actor.user_id,
+        changed_at=_dt.now(UTC),
+    ))
     db.commit()
     db.refresh(feed)
     return get_source_contract(db, project_id=project_id, source_definition_id=source_definition_id)
@@ -178,7 +190,17 @@ def patch_source_transformation_instructions(
     feed = db.get(Feed, source_definition_id)
     if feed is None or feed.project_id != project_id:
         raise AuthApiError("feed_not_found", "Feed not found.", 404)
+    _old = feed.transformation_instructions
     feed.transformation_instructions = body.transformation_instructions
+    db.add(VersionHistory(
+        entity_type="transformation",
+        entity_id=source_definition_id,
+        field_name="transformation_instructions",
+        old_value=_old,
+        new_value=body.transformation_instructions,
+        changed_by=actor.user_id,
+        changed_at=_dt.now(UTC),
+    ))
     db.commit()
     db.refresh(feed)
     return get_source_contract(db, project_id=project_id, source_definition_id=source_definition_id)
