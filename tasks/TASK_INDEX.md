@@ -17,6 +17,7 @@
 | [002b4-sync-domain-docs-ui](./002b4-sync-domain-docs-ui.md) | Sync docs/domain/ui.md against actual codebase |
 | [002b5-sync-domain-docs-readme](./002b5-sync-domain-docs-readme.md) | Sync docs/domain/README.md against actual file structure |
 | [002b6-verify-all-orm-models-documented](./002b6-verify-all-orm-models-documented.md) | Verify every ORM model has a documented home across docs/domain |
+| [002b7-document-orm-json-columns](./002b7-document-orm-json-columns.md) | Document all JSON column shapes across 31 ORM models in domain docs |
 
 ## Completed
 
