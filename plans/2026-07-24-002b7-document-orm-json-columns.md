@@ -17,6 +17,16 @@ task: 002b7
 
 Document the exact data shape of every JSON column across all 31 ORM models. Currently ~20 JSON columns are undocumented or only described as "JSON column" without detailing the internal structure.
 
+## Schema fixes from 002b6 verification
+
+These 3 fixes must be applied to source-model.md before or during the JSON documentation work:
+
+1. **MappingBindingSignOff** (line ~495-504): Replace `sign_off_id`, `binding_index`, `signer_role`, `signer_id`, `status` (pending/approved/rejected) with `id`, `mapping_snapshot_id`, `destination_object_name`, `source_field`, `destination_field`, `user_id`, `role`, `signed_at`. No status enum — sign-off is existence-based via unique constraint on `(mapping_snapshot_id, destination_object_name, source_field, destination_field, user_id)`.
+
+2. **LookupSignOff** (line ~506-515): Replace `sign_off_id`, `fiber_id`, `lookup_name`, `signer_role`, `signer_id`, `status` with `id`, `lookup_value_map_id`, `user_id`, `role`, `signed_at`. No `fiber_id`, no `lookup_name`, no `status`.
+
+3. **Stale fiber entities** (lines 314-338): Delete `LookupSourceEntry`/`LookupDestFeed`/`LookupDestEntry`/`LookupMapping` descriptions. Line 452 correctly says they "were removed by tasks 001fg/001fh" — lines 314-338 are stale.
+
 ## Insertion map (by doc, by section)
 
 ### source-model.md

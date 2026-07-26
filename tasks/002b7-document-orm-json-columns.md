@@ -16,6 +16,16 @@ Every ORM model has 20+ JSON columns that store the core data model of the platf
 The domain docs mention "JSON column" but rarely describe the actual data shape stored inside.
 This task fills that gap.
 
+## Schema fixes from 002b6 verification
+
+Three known mismatches discovered by 002b6 must be fixed in source-model.md:
+
+1. **MappingBindingSignOff** (line ~495-504): Replace `binding_index`+`status` (pending/approved/rejected) with `source_field`+`destination_field`. No status enum — sign-off is existence-based via unique constraint on `(mapping_snapshot_id, destination_object_name, source_field, destination_field, user_id)`.
+
+2. **LookupSignOff** (line ~506-515): Replace fiber-based schema (`fiber_id`, `lookup_name`, `status`) with project-scoped model (`lookup_value_map_id`, `user_id`, `role`, `signed_at`). No `fiber_id`, no `lookup_name`, no `status`.
+
+3. **Stale fiber entities** (lines 314-338): Delete `LookupSourceEntry`/`LookupDestFeed`/`LookupDestEntry`/`LookupMapping` descriptions — they contradict line 452 which says they "were removed by tasks 001fg/001fh."
+
 ## What's missing
 
 Out of ~40 JSON columns across 31 ORM models, only ~8 have their data shape described in `docs/domain/*.md`.

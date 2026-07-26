@@ -66,10 +66,50 @@ AuditEvent, Notification, ReconciliationReport, ReconciliationLineageRow, AICall
 
 N/A — documentation-only change, no test suite applies.
 
-## Follow-up Actions
+## Required fixes for source-model.md (to be applied by task 002b2)
 
-The 2 gap models (FeedSliceRow, ProjectSchemaAnalysis) and 4 partial-match models need doc updates.
-These should be addressed in the relevant sync tasks that touch `source-model.md`.
+### Fix 1: MappingBindingSignOff — replace docs schema with ORM schema (line ~495-504)
+
+The docs describe a `status` enum + `binding_index` scheme. The ORM uses existence-based sign-offs with explicit `source_field`/`destination_field`.
+
+**Replace the current MappingBindingSignOff section with:**
+
+```
+MappingBindingSignOff
+- `id` — primary key
+- `mapping_snapshot_id` — FK → mapping_snapshots
+- `destination_object_name` — the destination object this sign-off covers
+- `source_field` — the source field name being signed off
+- `destination_field` — the destination field being signed off
+- `user_id` — FK → users, who performed the sign-off
+- `role` — signer's role
+- `signed_at` — timestamp of sign-off
+```
+
+No `status` enum — a row's existence is the sign-off signal. The unique constraint on
+`(mapping_snapshot_id, destination_object_name, source_field, destination_field, user_id)`
+prevents duplicate sign-offs.
+
+### Fix 2: LookupSignOff — replace fiber-based schema with lookup_value_map schema (line ~506-515)
+
+The docs describe `fiber_id` (non-existent in ORM), `lookup_name`, `status`. The ORM uses a project-scoped model keyed on `lookup_value_map_id`.
+
+**Replace with:**
+
+```
+LookupSignOff
+- `id` — primary key
+- `lookup_value_map_id` — FK → lookup_value_maps
+- `user_id` — FK → users, who performed the sign-off
+- `role` — signer's role
+- `signed_at` — timestamp of sign-off
+```
+
+No `fiber_id`, no `lookup_name`, no `status` — sign-off is existence-based via unique constraint on `(lookup_value_map_id, user_id)`.
+
+### Fix 3: Delete stale fiber entity descriptions (lines 314-338)
+
+Lines 314-338 describe `LookupSourceEntry`, `LookupDestFeed`, `LookupDestEntry`, `LookupMapping` as current tables. Line 452 correctly says they "were removed by tasks 001fg/001fh." This is a self-contradiction — delete lines 314-338 outright.
 
 ## Commit
 
