@@ -9,6 +9,7 @@ import {
   listFeedFibers,
   listFeedSchema,
   analyzeFeedSource,
+  getSourceSchemaArtifact,
   createFiber,
   patchFeedMappingHints,
   uploadFeedSlice,
@@ -57,6 +58,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
   // AI analysis state
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [sourceDDL, setSourceDDL] = useState<string | null>(null);
 
   // Lookup fibers drafts state
   const [lookupDrafts, setLookupDrafts] = useState<Record<string, { sourceText: string; destText: string; analyzing: boolean; error: string | null }>>({});
@@ -161,12 +163,22 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
       }
 
       // Try fetching feed schema (might fail with 404 if no slices/schema parsed yet)
+      let sourceDDLValue: string | null = null;
       try {
         const schemaData = await listFeedSchema(token, projectId, feedId);
         setFeedSchema(schemaData);
-      } catch (err) {
+      } catch {
         setFeedSchema([]);
       }
+
+      // Fetch full schema artifact for destination DDL (persists across reloads)
+      try {
+        const artifact = await getSourceSchemaArtifact(token, projectId, feedId);
+        sourceDDLValue = artifact.destinationDDL;
+      } catch {
+        /* No artifact yet — DDL stays null */
+      }
+      setSourceDDL(sourceDDLValue);
 
       // Try fetching all mapping snapshots (draft or approved)
       try {
@@ -217,7 +229,8 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
     setAnalysisError(null);
     try {
       // Step 1: extract source column schema from the slice
-      await analyzeFeedSource(session.accessToken, projectId, feedId);
+      const analyzeResult = await analyzeFeedSource(session.accessToken, projectId, feedId);
+      setSourceDDL(analyzeResult.destinationDDL ?? null);
       // Step 2: propose field mappings using AI
       try {
         await proposeMappingSnapshot(session.accessToken, projectId, feedId);
@@ -691,6 +704,28 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                         </div>
                       )}
                     </div>
+
+                    {/* Source DDL section — shown after analysis */}
+                    {sourceDDL && (
+                      <div className="pt-4 border-t border-slate-100 space-y-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <h4 className="text-sm font-semibold text-slate-700">Source DDL</h4>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(sourceDDL);
+                              setNotice("DDL copied to clipboard.");
+                            }}
+                            className="text-xs text-primary hover:text-primary-hover font-medium"
+                          >
+                            Copy to clipboard
+                          </button>
+                        </div>
+                        <pre className="text-xs bg-slate-950 text-slate-100 rounded-lg p-3 font-mono whitespace-pre-wrap">
+                          {sourceDDL}
+                        </pre>
+                      </div>
+                    )}
                     {/* Quiet re-upload in Slice panel when approved */}
                     {latestSlice?.status === "approved" && (
                       <div className="border-t border-slate-100 pt-4 mt-4 space-y-2">

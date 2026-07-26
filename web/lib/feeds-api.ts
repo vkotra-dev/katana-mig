@@ -592,8 +592,8 @@ export async function analyzeFeedSource(
   token: string,
   projectId: string,
   sourceDefinitionId: string,
-): Promise<{ status: string; schemaArtifactId: string }> {
-  const response = await requestJson<{ status: string; schema_artifact_id: string }>(
+): Promise<{ status: string; schemaArtifactId: string; destinationDDL: string | null }> {
+  const response = await requestJson<{ status: string; schema_artifact_id: string; destination_ddl: string | null }>(
     `/projects/${projectId}/sources/${sourceDefinitionId}/analyze`,
     {
       method: "POST",
@@ -603,6 +603,22 @@ export async function analyzeFeedSource(
   return {
     status: response.status,
     schemaArtifactId: response.schema_artifact_id,
+    destinationDDL: response.destination_ddl ?? null,
+  };
+}
+
+export async function getSourceSchemaArtifact(
+  token: string,
+  projectId: string,
+  sourceDefinitionId: string,
+): Promise<{ schemaArtifactId: string; destinationDDL: string | null }> {
+  const response = await requestJson<{ schema_artifact_id: string; destination_ddl: string | null }>(
+    `/projects/${projectId}/sources/${sourceDefinitionId}/schema-artifact`,
+    { method: "GET", token },
+  );
+  return {
+    schemaArtifactId: response.schema_artifact_id,
+    destinationDDL: response.destination_ddl ?? null,
   };
 }
 

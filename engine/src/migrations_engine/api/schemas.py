@@ -405,6 +405,7 @@ class SourceAnalysisResponse(BaseModel):
     schema_artifact_id: str
     status: Literal["completed"] = "completed"
     ai_reuse_score: int | None = None
+    destination_ddl: str | None = None
 
 
 class SourceSchemaColumnResponse(BaseModel):
@@ -420,6 +421,7 @@ class SourceSchemaArtifactResponse(BaseModel):
     source_slice_version: str
     columns: list[SourceSchemaColumnResponse]
     created_at: datetime
+    destination_ddl: str | None = None
 
 
 class SourceValueSummaryResponse(BaseModel):

@@ -208,6 +208,7 @@ def test_source_analysis_returns_schema_and_value_summary(monkeypatch: pytest.Mo
     assert analyze.status_code == 200, analyze.text
     assert analyze.json()["status"] == "completed"
     assert analyze.json()["schema_artifact_id"]
+    assert analyze.json()["destination_ddl"] is None
 
     schema = client.get(
         f"/projects/{project_id}/sources/{source_definition_id}/schema",
@@ -223,3 +224,25 @@ def test_source_analysis_returns_schema_and_value_summary(monkeypatch: pytest.Mo
     assert value_summary.status_code == 200, value_summary.text
     assert value_summary.json()[0]["field_name"] == "SURNAME"
     assert value_summary.json()[0]["value_counts"]["***"] == 2
+
+
+def test_source_analysis_api_returns_destination_ddl(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+    """The analyze endpoint must return destination_ddl from the AI-generated DDL."""
+    project_id, source_definition_id = _seed_project_with_slice()
+    fake_adapter = FakeAdapter(
+        analysis_result=AnalysisResult(
+            columns=[
+                ColumnSchema(name="CUST_ID", inferred_type="integer", nullable=False, max_length=8),
+                ColumnSchema(name="SURNAME", inferred_type="text", nullable=True, max_length=40),
+            ],
+            ddl="CREATE TABLE customer (CUST_ID INTEGER NOT NULL, SURNAME TEXT);",
+        )
+    )
+    monkeypatch.setattr("migrations_engine.management.source_analysis.get_adapter", lambda task: fake_adapter)
+
+    analyze = client.post(
+        f"/projects/{project_id}/sources/{source_definition_id}/analyze",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert analyze.status_code == 200, analyze.text
+    assert analyze.json()["destination_ddl"] == "CREATE TABLE customer (CUST_ID INTEGER NOT NULL, SURNAME TEXT);"

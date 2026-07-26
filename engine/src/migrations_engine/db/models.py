@@ -335,6 +335,7 @@ class SourceSchemaArtifact(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+    destination_ddl: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class SourceValueSummary(Base):

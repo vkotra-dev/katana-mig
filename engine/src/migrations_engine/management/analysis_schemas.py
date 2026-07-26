@@ -27,6 +27,7 @@ class AnalysisResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
     columns: list[ColumnSchema]
     re_use_score: int | None = None
+    ddl: str = ""  # AI-generated CREATE TABLE DDL (default empty for backward compatibility)
 
 class HeaderMismatch(Exception):
     pass

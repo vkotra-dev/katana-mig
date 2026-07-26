@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from ..api.deps import get_central_team_user, get_current_user, get_db
 from ..api.schemas import (
     SourceAnalysisResponse,
+    SourceSchemaArtifactResponse,
     SourceSchemaColumnResponse,
     SourceValueSummaryResponse,
 )
@@ -65,4 +66,19 @@ def get_source_value_summary(
         project_id=project_id,
         source_definition_id=source_definition_id,
         field_name=field,
+    )
+
+
+@router.get("/{source_definition_id}/schema-artifact", response_model=SourceSchemaArtifactResponse)
+def get_source_schema_artifact(
+    project_id: str,
+    source_definition_id: str,
+    actor: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> SourceSchemaArtifactResponse:
+    require_project_access(db, user=actor, project_id=project_id)
+    return get_latest_source_schema_artifact(
+        db,
+        project_id=project_id,
+        source_definition_id=source_definition_id,
     )

@@ -348,3 +348,39 @@ def test_analyze_source_slice_returns_none_reuse_score_when_ai_does_not_provide_
 
     assert isinstance(response, SourceAnalysisResponse)
     assert response.ai_reuse_score is None
+
+
+def test_analyze_source_slice_saves_ddl(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The AI-provided DDL must be stored in the artifact and returned in the response."""
+    fake_adapter = FakeAdapter(
+        analysis_result=AnalysisResult(
+            columns=[
+                ColumnSchema(name="CUST_ID", inferred_type="integer", nullable=False, max_length=8),
+                ColumnSchema(name="SURNAME", inferred_type="text", nullable=True, max_length=40),
+            ],
+            ddl="CREATE TABLE customer (CUST_ID INTEGER NOT NULL, SURNAME TEXT);",
+        )
+    )
+    monkeypatch.setattr("migrations_engine.management.source_analysis.get_adapter", lambda task: fake_adapter)
+
+    with SessionLocal() as db:
+        actor, project_id, source_definition_id = _seed_approved_slice(db, row_count=2)
+        response = analyze_source_slice(
+            db,
+            actor=actor,
+            project_id=project_id,
+            source_definition_id=source_definition_id,
+        )
+
+    # Response must include DDL
+    assert response.destination_ddl == "CREATE TABLE customer (CUST_ID INTEGER NOT NULL, SURNAME TEXT);"
+
+    # DB artifact must have DDL
+    with SessionLocal() as db:
+        artifact = db.scalar(
+            select(SourceSchemaArtifact)
+            .where(SourceSchemaArtifact.source_definition_id == source_definition_id)
+            .order_by(SourceSchemaArtifact.created_at.desc())
+        )
+        assert artifact is not None
+        assert artifact.destination_ddl == "CREATE TABLE customer (CUST_ID INTEGER NOT NULL, SURNAME TEXT);"

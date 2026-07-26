@@ -11,7 +11,7 @@ def test_source_analysis_prompt_parity():
     
     expected_system = (
         "You are a data analyst. Given CSV or fixed-length record samples, "
-        "infer column schemas.\n"
+        "infer column schemas and generate a SQL DDL statement.\n"
         "CRITICAL RULES:\n"
         "1. Column Order & Names: You MUST preserve the exact column order. "
         "If a header is provided, copy every column name VERBATIM, character-for-character. "
@@ -21,6 +21,8 @@ def test_source_analysis_prompt_parity():
         "3. Nullability: Set 'nullable' to true if any sample row has an empty/null value for the column.\n"
         "4. Max Length: For text columns, provide 'max_length' as the maximum character count found. "
         "For other types, set max_length to null.\n"
+        "5. SQL DDL Generation: Using the inferred columns and the target database engine '', "
+        "generate a valid CREATE TABLE SQL statement. Use appropriate SQL data types for the target engine (e.g. VARCHAR for text, INT for integer, DECIMAL(p,s) for decimal, DATE for date, BOOLEAN for boolean, CHAR(36) for uuid). Include NOT NULL constraints for non-nullable columns. Return the DDL as a single string with no extra whitespace or markdown formatting.\n"
         "Return a JSON object exactly matching the provided schema, with NO extra keys.\n"
         "Source type: fixed_length_file\nLayout information: []"
     )

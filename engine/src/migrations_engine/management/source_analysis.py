@@ -82,11 +82,14 @@ def analyze_source_slice(
     else:
         source_type_section = f"Source type: {source_definition.source_type}"
 
+    target_db = project_definition.domain_config.get("target_db_engine", "postgresql") if project_definition.domain_config else "postgresql"
+
     from ..ai.prompt import Prompt
     prompt = Prompt("source_analysis")
     prompt.set(
         source_type_section=source_type_section,
         sample_text=sample_text,
+        target_db_engine=target_db,
     )
     system_prompt, user_prompt = prompt.get_prompt()
 
@@ -160,6 +163,7 @@ def analyze_source_slice(
         source_definition_id=source_definition_id,
         source_slice_version=source_slice.source_slice_version,
         columns=[column.model_dump(mode="python") for column in analysis_result.columns],
+        destination_ddl=getattr(analysis_result, "ddl", "") or None,
     )
     db.add(schema_artifact)
     db.flush()
@@ -189,6 +193,7 @@ def analyze_source_slice(
     return SourceAnalysisResponse(
         schema_artifact_id=schema_artifact.schema_artifact_id,
         ai_reuse_score=analysis_result.re_use_score,
+        destination_ddl=schema_artifact.destination_ddl,
     )
 
 
@@ -333,6 +338,7 @@ def _schema_artifact_response(artifact: SourceSchemaArtifact) -> SourceSchemaArt
         source_slice_version=artifact.source_slice_version,
         columns=[SourceSchemaColumnResponse.model_validate(column) for column in artifact.columns],
         created_at=artifact.created_at,
+        destination_ddl=artifact.destination_ddl,
     )
 
 

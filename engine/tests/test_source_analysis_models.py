@@ -49,7 +49,22 @@ def _create_source_definition(db) -> str:
     return source_definition.source_definition_id
 
 
-def test_source_analysis_tables_persist_rows() -> None:
+def test_source_schema_artifact_persists_destination_ddl() -> None:
+    """Destination DDL must survive a DB round-trip."""
+    Base.metadata.create_all(bind=TEST_ENGINE)
+    with SessionLocal() as db:
+        source_definition_id = _create_source_definition(db)
+        artifact = SourceSchemaArtifact(
+            source_definition_id=source_definition_id,
+            source_slice_version="v1",
+            columns=[],
+            destination_ddl="CREATE TABLE t (id INTEGER NOT NULL);",
+        )
+        db.add(artifact)
+        db.commit()
+        stored = db.get(SourceSchemaArtifact, artifact.schema_artifact_id)
+    assert stored is not None
+    assert stored.destination_ddl == "CREATE TABLE t (id INTEGER NOT NULL);"
     Base.metadata.create_all(bind=TEST_ENGINE)
 
     with SessionLocal() as db:
@@ -61,6 +76,7 @@ def test_source_analysis_tables_persist_rows() -> None:
                 {"name": "CUST_ID", "inferred_type": "integer", "nullable": False, "max_length": 8},
                 {"name": "SURNAME", "inferred_type": "text", "nullable": True, "max_length": 40},
             ],
+            destination_ddl=None,
         )
         summary = SourceValueSummary(
             source_definition_id=source_definition_id,
