@@ -136,6 +136,16 @@ schema_artifact = SourceSchemaArtifact(
 )
 ```
 
+Return `destination_ddl` from `analyze_source_slice` (line ~189-192):
+
+```python
+return SourceAnalysisResponse(
+    schema_artifact_id=schema_artifact.schema_artifact_id,
+    ai_reuse_score=analysis_result.re_use_score,
+    destination_ddl=schema_artifact.destination_ddl,  # NEW
+)
+```
+
 Also in this file: update `_schema_artifact_response` (line ~329) to include `destination_ddl=artifact.destination_ddl`.
 
 ### 6. `engine/src/migrations_engine/api/schemas.py`
@@ -313,7 +323,7 @@ All 5 existing tests create `AnalysisResult(columns=[...])` without `ddl`. Since
 
 **`test_source_analysis_api.py` — 1 existing + 1 new:**
 
-4. `test_source_analysis_returns_schema_and_value_summary` — update: the `AnalysisResult` in this test won't break (default `ddl=""`). After the existing assertions, assert `response.json()["destination_ddl"] is None` (since empty string `""` is falsy and should be stored as `None` in the model, or `""` if stored as-is — adjust assertion accordingly).
+4. `test_source_analysis_returns_schema_and_value_summary` — update: the `AnalysisResult` in this test won't break (default `ddl=""`). After the existing assertions, assert `response.json()["destination_ddl"] is None` (since `getattr(analysis_result, "ddl", "") or None` converts `""` to `None`).
 
 5. **New: `test_source_analysis_api_returns_destination_ddl`** — end-to-end API test:
    - POST to `/projects/{id}/sources/{id}/analyze` with mocked adapter returning a DDL
