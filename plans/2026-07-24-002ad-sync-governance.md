@@ -41,6 +41,10 @@ One file: `docs/domain/governance.md`
 2. For each build order stage, verify the file exists at the listed path
 3. For the repository map, verify each file path exists
 4. For the DDL change rule, verify it matches actual migration patterns
+5. Cross-reference `db/models.py` ChangeRequest (line ~134) fields against governance.md and api.md
+6. Cross-reference `db/models.py` ApprovalRecord (line ~154) fields against governance.md and api.md
+7. Cross-reference `db/models.py` AuditEvent (line ~569) fields against security.md and governance.md
+8. Cross-reference `db/models.py` Notification (line ~596) fields against ui.md (notifications section)
 
 ## Pitfalls
 

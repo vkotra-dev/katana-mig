@@ -16,11 +16,13 @@
 | [002b3-sync-domain-docs-api](./002b3-sync-domain-docs-api.md) | Sync docs/domain/api.md against actual codebase |
 | [002b4-sync-domain-docs-ui](./002b4-sync-domain-docs-ui.md) | Sync docs/domain/ui.md against actual codebase |
 | [002b5-sync-domain-docs-readme](./002b5-sync-domain-docs-readme.md) | Sync docs/domain/README.md against actual file structure |
+| [002b6-verify-all-orm-models-documented](./002b6-verify-all-orm-models-documented.md) | Verify every ORM model has a documented home across docs/domain |
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [002b6-verify-all-orm-models-documented](./002b6-verify-all-orm-models-documented.md) | Verified 31 ORM models: 25 accurate, 4 partial matches, 2 gaps (FeedSliceRow, ProjectSchemaAnalysis) |
 | [001gz-reset-codegen-instructions-to-defaults](./completed/001gz-reset-codegen-instructions-to-defaults.md) | Added "Reset to defaults" button to overwrite saved global codegen instructions with merged YAML template. |
 | [001gy-fix-reject-mapping-approved-precondition](./completed/001gy-fix-reject-mapping-approved-precondition.md) | [summary](./summary/001gy-fix-reject-mapping-approved-precondition.md) |
 | [001gw-table-mapping-drop-toggle-backend](./completed/001gw-table-mapping-drop-toggle-backend.md) | [summary](./summary/001gw-table-mapping-drop-toggle-backend.md) |
