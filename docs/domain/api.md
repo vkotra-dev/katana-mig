@@ -7,7 +7,7 @@ tags:
   - http
   - endpoints
   - contract
-timestamp: 2026-07-16
+timestamp: 2026-07-24
 ---
 
 # API
@@ -1159,6 +1159,14 @@ Request:
 ```
 
 Response `200`: `ProjectResponse`
+
+### `POST /projects/{project_id}/codegen-instructions/reset`
+
+Reset project-wide codegen instructions to the YAML template defaults. Renders `codegen_coding_standards.yaml` + `codegen_logging_standards.yaml` via `render_coding_standards_template()` and saves the merged result. Requires `central_team`.
+
+Response `200`: `ProjectResponse` with `codegen_instructions` set to the rendered template.
+
+No request body.
 
 ### `PATCH /projects/{project_id}/sources/{source_id}/transformation-instructions`
 

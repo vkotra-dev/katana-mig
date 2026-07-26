@@ -562,3 +562,17 @@ export async function saveCodegenInstructions(
   );
   return mapProjectRecord(data);
 }
+
+export async function resetCodegenInstructions(
+  token: string,
+  projectId: string,
+): Promise<ProjectRecord> {
+  const data = await requestJson<Parameters<typeof mapProjectRecord>[0]>(
+    `/projects/${projectId}/codegen-instructions/reset`,
+    {
+      method: "POST",
+      token,
+    },
+  );
+  return mapProjectRecord(data);
+}

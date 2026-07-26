@@ -13,7 +13,7 @@ import {
   type SchemaAnalysisRecord,
 } from "../../../../lib/codegen-api";
 import { listFeedContracts, saveTransformationInstructions, listFeedFibers, listFeedSlices, type FeedContractRecord, type FiberRecord } from "../../../../lib/feeds-api";
-import { getProject, saveCodegenInstructions, getCodegenCodingStandardsTemplate, type ProjectRecord } from "../../../../lib/projects-api";
+import { getProject, saveCodegenInstructions, resetCodegenInstructions, getCodegenCodingStandardsTemplate, type ProjectRecord } from "../../../../lib/projects-api";
 import { getAllApprovedMappingSnapshots, type MappingSnapshotRecord } from "../../../../lib/mapping-api";
 import { loadUiSession, type SessionRole, type UiSession } from "../../../../lib/session";
 import { AiLogViewer } from "../../../../components/ai-logs/AiLogViewer";
@@ -384,20 +384,27 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
     }
   };
 
-  const handleSuggestGlobalInstructions = async (): Promise<void> => {
+  const handleResetGlobalInstructions = async (): Promise<void> => {
+    if (!session || !routeParams) return;
     if (
       globalInstructions.trim() &&
-      !window.confirm("This will overwrite your existing global instructions. Are you sure you want to proceed?")
+      !window.confirm("This will overwrite your saved global instructions with the YAML template defaults. Are you sure?")
     ) {
       return;
     }
-    if (!session || !routeParams) return;
 
+    setPageError(null);
+    setStatusMessage(null);
+    setActionLoading("reset");
     try {
-      const template = await getCodegenCodingStandardsTemplate(session.accessToken, routeParams.id);
-      setGlobalInstructions(template.trim());
+      const updated = await resetCodegenInstructions(session.accessToken, routeParams.id);
+      setProject(updated);
+      setGlobalInstructions(updated.codegenInstructions ?? "");
+      setStatusMessage("Global instructions reset to defaults.");
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : "Unable to suggest coding standards.");
+      setPageError(error instanceof Error ? error.message : "Unable to reset global instructions.");
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -560,15 +567,6 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
                   <h2 className="text-xl font-semibold text-slate-900">Coding Standards & Global Instructions</h2>
                   <p className="text-sm text-slate-600">Applied to all feeds in this project during SQL generation.</p>
                 </div>
-                {(role === "central_team" || role === "admin") && (
-                  <button
-                    type="button"
-                    className="rounded-lg border border-outline-variant bg-surface px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    onClick={() => void handleSuggestGlobalInstructions()}
-                  >
-                    Suggest Standards
-                  </button>
-                )}
               </div>
               <div className="space-y-2">
                 <textarea
@@ -580,7 +578,15 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
                   disabled={role !== "central_team" && role !== "admin"}
                 />
                 {(role === "central_team" || role === "admin") && (
-                  <div className="flex justify-end">
+                  <div className="flex justify-between items-center">
+                    <button
+                      type="button"
+                      className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 hover:text-amber-900 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-200"
+                      onClick={() => void handleResetGlobalInstructions()}
+                      disabled={actionLoading === "reset"}
+                    >
+                      {actionLoading === "reset" ? "Resetting..." : "Reset to defaults"}
+                    </button>
                     <button
                       className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:bg-slate-200 disabled:text-slate-400"
                       onClick={handleSaveGlobalInstructions}

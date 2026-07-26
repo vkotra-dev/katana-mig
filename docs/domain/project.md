@@ -148,6 +148,11 @@ injected into the AI codegen system prompt as a `GLOBAL CODING STANDARDS` block.
 Project-wide coding standards, naming conventions, and style rules belong here
 so that every generated artifact in the project follows a consistent contract.
 
+The value is initially populated from the merged YAML templates
+(`codegen_coding_standards.yaml` + `codegen_logging_standards.yaml`).
+The `POST /projects/{project_id}/codegen-instructions/reset` endpoint resets
+the field to the YAML template defaults, overwriting any custom edits.
+
 `target_db_engine`, `staging_schema`, and `destination_schema` are required
 before any code generation run can start. They must be set on the project
 definition before the baton reaches the code generation stage.

@@ -2,6 +2,10 @@
 
 ## Ready
 
+| Task | Summary |
+|---|---|
+| [001gz-reset-codegen-instructions-to-defaults](./001gz-reset-codegen-instructions-to-defaults.md) | Add "Reset to defaults" button to overwrite saved global codegen instructions with merged YAML template. |
+
 ## Completed
 
 | Task | Summary |

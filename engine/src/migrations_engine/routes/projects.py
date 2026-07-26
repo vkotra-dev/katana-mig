@@ -149,6 +149,28 @@ def patch_codegen_instructions(
     )
 
 
+@router.post("/{project_id}/codegen-instructions/reset", response_model=ProjectResponse)
+def reset_codegen_instructions(
+    project_id: str,
+    actor: User = Depends(get_central_team_user),
+    db: Session = Depends(get_db),
+) -> ProjectResponse:
+    require_project_access(db, user=actor, project_id=project_id)
+    project = get_project(db, project_id=project_id)
+    config = project.domain_config
+    template = render_coding_standards_template(
+        db_engine=config.target_db_engine if config else None,
+        staging_schema=config.staging_schema if config else None,
+        destination_schema=config.destination_schema if config else None,
+    )
+    return update_project(
+        db,
+        actor=actor,
+        project_id=project_id,
+        body=ProjectUpdateRequest(codegen_instructions=template),
+    )
+
+
 @router.get("/{project_id}/codegen-coding-standards-template", response_model=CodegenCodingStandardsTemplateResponse)
 def get_codegen_coding_standards_template(
     project_id: str,
