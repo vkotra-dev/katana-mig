@@ -30,11 +30,15 @@ A table: Model | Mentioned In Doc(s) | Accurately Described (Yes/No/NA) | Gap
 
 ## Results (completed during task execution)
 
-### Found (25/31) — accurately described
+### Found (23/31) — accurately described
 User, ProjectDefinition, ProjectRegistry, ProjectMembership, AuthSession, PasswordResetToken,
-ChangeRequest, ApprovalRecord, RunRecord, RunCheckpoint, Feed, FeedSlice, SourceSchemaArtifact,
+RunRecord, RunCheckpoint, Feed, FeedSlice, SourceSchemaArtifact,
 SourceValueSummary, MappingSnapshot, LookupSnapshot, LookupValueMap, CodeGenerationArtifact,
 AuditEvent, Notification, ReconciliationReport, ReconciliationLineageRow, AICallLog
+
+### Partial — mentioned in docs but fields/status not described
+ChangeRequest — one prose sentence in runs.md ("A ChangeRequest of type LookupDeltaCR is raised..."). No field-level description, no status values, no payload shape.
+ApprovalRecord — one prose sentence in ui.md ("It submits an ApprovalRecord to..."). No field-level description, no decision values, no payload shape.
 
 ### Partial matches (4 models need doc updates)
 - **FeedComment** — docs describe `author_id`, ORM uses `user_id`. Also documents non-existent `FeedSliceComment`.
@@ -46,7 +50,7 @@ AuditEvent, Notification, ReconciliationReport, ReconciliationLineageRow, AICall
 - **FeedSliceRow** — stores `source_slice_id`, `row_index`, `row_csv` for copybook data
 - **ProjectSchemaAnalysis** — only referenced via API response names in `api.md`, no domain doc
 
-Follow-up: these should be addressed in the relevant source-model.md and api.md sync tasks.
+Follow-up: ChangeRequest and ApprovalRecord need proper field-level docs in runs.md. FeedSliceRow and ProjectSchemaAnalysis need new model sections. Addressed by 002b2 (source-model.md sync).
 
 ## Out of scope
 

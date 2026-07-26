@@ -16,14 +16,13 @@
 | [002b3-sync-domain-docs-api](./002b3-sync-domain-docs-api.md) | Sync docs/domain/api.md against actual codebase |
 | [002b4-sync-domain-docs-ui](./002b4-sync-domain-docs-ui.md) | Sync docs/domain/ui.md against actual codebase |
 | [002b5-sync-domain-docs-readme](./002b5-sync-domain-docs-readme.md) | Sync docs/domain/README.md against actual file structure |
-| [002b6-verify-all-orm-models-documented](./002b6-verify-all-orm-models-documented.md) | Verify every ORM model has a documented home across docs/domain |
-| [002b7-document-orm-json-columns](./002b7-document-orm-json-columns.md) | Document all JSON column shapes across 31 ORM models in domain docs |
+| [002b7-fix-mapping-signoff-contradictions](./002b7-document-orm-json-columns.md) | Fix 3 MappingBindingSignOff/LookupSignOff/source-model.md contradictions found by 002b6 |
 
 ## Completed
 
 | Task | Summary |
 |---|---|
-| [002b6-verify-all-orm-models-documented](./002b6-verify-all-orm-models-documented.md) | Verified 31 ORM models: 25 accurate, 4 partial matches, 2 gaps (FeedSliceRow, ProjectSchemaAnalysis) |
+| [002b6-verify-all-orm-models-documented](./completed/002b6-verify-all-orm-models-documented.md) | Verified 31 ORM models: 23 accurate, 4 partial/gap, 3 gaps (FeedSliceRow, ProjectSchemaAnalysis, ChangeRequest/ApprovalRecord underspecified) |
 | [001gz-reset-codegen-instructions-to-defaults](./completed/001gz-reset-codegen-instructions-to-defaults.md) | Added "Reset to defaults" button to overwrite saved global codegen instructions with merged YAML template. |
 | [001gy-fix-reject-mapping-approved-precondition](./completed/001gy-fix-reject-mapping-approved-precondition.md) | [summary](./summary/001gy-fix-reject-mapping-approved-precondition.md) |
 | [001gw-table-mapping-drop-toggle-backend](./completed/001gw-table-mapping-drop-toggle-backend.md) | [summary](./summary/001gw-table-mapping-drop-toggle-backend.md) |

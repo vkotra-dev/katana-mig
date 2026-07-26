@@ -1,13 +1,13 @@
 ---
 id: 002b7
-title: Document all JSON column shapes in ORM models
+title: Fix 3 MappingBindingSignOff/LookupSignOff/source-model.md contradictions
 status: ready
 created: 2026-07-24
 domain: docs/domain/
 task: 002b7
 ---
 
-# Plan: Document all JSON column shapes
+# Plan: Fix 3 schema contradictions in source-model.md
 
 ## Task Link
 
@@ -15,94 +15,34 @@ task: 002b7
 
 ## Objective
 
-Document the exact data shape of every JSON column across all 31 ORM models. Currently ~20 JSON columns are undocumented or only described as "JSON column" without detailing the internal structure.
+Apply 3 corrections to `docs/domain/source-model.md` discovered by 002b6 verification.
 
-## Schema fixes from 002b6 verification
+## Changes
 
-These 3 fixes must be applied to source-model.md before or during the JSON documentation work:
+### 1. MappingBindingSignOff (line ~495-504)
 
-1. **MappingBindingSignOff** (line ~495-504): Replace `sign_off_id`, `binding_index`, `signer_role`, `signer_id`, `status` (pending/approved/rejected) with `id`, `mapping_snapshot_id`, `destination_object_name`, `source_field`, `destination_field`, `user_id`, `role`, `signed_at`. No status enum — sign-off is existence-based via unique constraint on `(mapping_snapshot_id, destination_object_name, source_field, destination_field, user_id)`.
+Replace `binding_index`+`status` (enum) with `source_field`+`destination_field` (existence-based via unique constraint).
 
-2. **LookupSignOff** (line ~506-515): Replace `sign_off_id`, `fiber_id`, `lookup_name`, `signer_role`, `signer_id`, `status` with `id`, `lookup_value_map_id`, `user_id`, `role`, `signed_at`. No `fiber_id`, no `lookup_name`, no `status`.
+### 2. LookupSignOff (line ~506-515)
 
-3. **Stale fiber entities** (lines 314-338): Delete `LookupSourceEntry`/`LookupDestFeed`/`LookupDestEntry`/`LookupMapping` descriptions. Line 452 correctly says they "were removed by tasks 001fg/001fh" — lines 314-338 are stale.
+Replace `fiber_id`+`lookup_name`+`status` with `lookup_value_map_id`+`user_id`+`signed_at`.
 
-## Insertion map (by doc, by section)
+### 3. Delete stale fiber entities (lines 314-338)
 
-### source-model.md
-
-| Model | Section | Location | What to add |
-|---|---|---|---|
-| Feed | Source definition | After line 141 | `selection_information`, `layout_information`, `source_details` shapes |
-| FeedSlice | Feed slice model fields | After line 223 | `source_schema_artifact`, `masking_policy`, `slice_payload`, `data_profile` shapes |
-| FeedSliceRow | **New subsection** | Before line 279 | Full model doc (all scalar fields, no JSON) |
-| SourceSchemaArtifact | Source analysis | After line 374 | `columns` array shape |
-| SourceValueSummary | Source analysis | After SVA section | `value_counts` histogram shape |
-| MappingSnapshot | Mapping section | After line 425 | `field_bindings`, `destination_columns` shapes |
-| LookupValueMap | Mapping section | Line 458 | Enrich `destination_table`, `destination_mappings` shapes |
-| MappingArtifact | **New subsection** | After ~line 430 | Full model doc with `mapped_rows` shape |
-| ProjectSchemaAnalysis | **New subsection** | After ~line 590 | Full model doc with `pii_fields`, `sample_rows`, `failures` shapes |
-
-### runs.md
-
-| Model | Section | Location | What to add |
-|---|---|---|---|
-| RunRecord | Data model | After line 111 | `approvals`, `start_metadata`, `pause_metadata`, `resume_metadata`, `completion_metadata` shapes |
-| RunCheckpoint | Data model | After line 124 | `approved_snapshots`, `checkpoint_payload` shapes |
-| DryRunArtifact | Runs section | After ~line 155 | `destination_object_sequence` shape |
-
-### security.md
-
-| Model | Section | Location | What to add |
-|---|---|---|---|
-| AuditEvent | Security boundaries | After ~line 195 | `event_payload` shape |
-
-### ui.md
-
-| Model | Section | Location | What to add |
-|---|---|---|---|
-| Notification | Notifications | After ~line 510 | `payload` shape |
-
-### runs.md (additional)
-
-| Model | Section | Location | What to add |
-|---|---|---|---|
-| ChangeRequest | Change requests | After ~line 207 | `payload` shape |
-| ApprovalRecord | Approval records | After ~line 230 | `decision_payload` shape |
+Remove `LookupSourceEntry`/`LookupDestFeed`/`LookupDestEntry`/`LookupMapping` descriptions.
 
 ## Files changed
 
-- `docs/domain/source-model.md` — 6 insertions + 3 new subsections (FeedSliceRow, MappingArtifact, ProjectSchemaAnalysis)
-- `docs/domain/runs.md` — 5 insertions (RunRecord, RunCheckpoint, DryRunArtifact, ChangeRequest, ApprovalRecord)
-- `docs/domain/security.md` — 1 insertion (AuditEvent)
-- `docs/domain/ui.md` — 1 insertion (Notification)
+- `docs/domain/source-model.md` — 3 corrections
 
-## Verification
+## Tests
 
-Each insertion must:
-1. Match the ORM type exactly (str/int/list/dict/bool)
-2. Use `| null` for nullable fields
-3. Include nested structure for dict/list types
-4. Follow the existing doc convention (backtick field names, dash, description)
-
-## Pitfalls
-
-- Don't invent field names for nested dicts — only document what exists in `models.py`
-- `sample_policy` and `destination_object_references` on Feed are already documented — don't duplicate
-- `checks` and `row_count_summary` on ReconciliationReport are already documented in runs.md — don't duplicate
-- `mapped_rows` on MappingArtifact is mentioned in runs.md (lines 175, 196) but not as a model — document it as a new model section
-- `FieldBindingsSignOff` and `LookupSignOff` have no JSON columns — skip them
+N/A
 
 ## Commit
 
 ```
-docs: document all JSON column shapes in domain docs
-
-Add detailed data shape descriptions for 20+ undocumented JSON columns
-across 12 ORM models: Feed, FeedSlice, FeedSliceRow, SourceSchemaArtifact,
-SourceValueSummary, MappingSnapshot, LookupValueMap, MappingArtifact,
-ReconciliationReport, RunRecord, RunCheckpoint, DryRunArtifact,
-ProjectSchemaAnalysis, AuditEvent, Notification.
+fix(docs): correct MappingBindingSignOff, LookupSignOff, and remove stale fiber entities in source-model.md
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 ```
