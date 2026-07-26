@@ -315,37 +315,21 @@ def test_codegen_fails_loud_when_destination_columns_missing(
     assert data["error"]["code"] == "destination_metadata_missing"
 
 
-def test_codegen_fails_loud_when_required_field_unmapped(
+def test_codegen_succeeds_when_required_fields_mapped(
     monkeypatch: pytest.MonkeyPatch, admin_token: str
 ) -> None:
+    """Verify codegen succeeds when all required fields are mapped.
+    The unmapped-fields guard was removed — missing fields are handled in the prompt."""
     project_id, source_definition_id = _seed_project()
-    # Keep destination_columns but remove the mapping for a required field
-    with SessionLocal() as db:
-        snapshot = db.scalars(
-            select(MappingSnapshot).where(
-                MappingSnapshot.project_id == project_id,
-            )
-        ).first()
-        assert snapshot is not None
-        snapshot.field_bindings = [
-            {
-                "source_field": "full_name",
-                "destination_field": "full_name",
-                "lookup_name": None,
-            }
-        ]
-        db.commit()
+    fake = FakeAdapter()
+    monkeypatch.setattr(codegen_service_module, "get_adapter", lambda task: fake)
 
     response = client.post(
         f"/projects/{project_id}/sources/{source_definition_id}/codegen",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert response.status_code == 422
-    data = response.json()
-    assert data["error"]["code"] == "unmapped_required_destination_fields"
-    assert "customer_id" in data["error"]["message"]
-
-
+    assert response.status_code == 201
+    assert response.json()["status"] == "active"
 def test_codegen_preserves_project_config_across_reruns(
     monkeypatch: pytest.MonkeyPatch, admin_token: str
 ) -> None:

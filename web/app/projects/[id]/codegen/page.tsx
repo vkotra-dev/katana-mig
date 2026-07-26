@@ -80,7 +80,6 @@ function sourceDestinationLabel(source: FeedContractRecord): string {
 
 const generateTransformationInstructionsTemplate = (
   feedLabel: string,
-  rowCount: number,
   fibers: FiberRecord[],
   stagingSchema: string,
   snapshots: MappingSnapshotRecord[],
@@ -190,15 +189,10 @@ const generateTransformationInstructionsTemplate = (
     }
   }
 
-  const sourceCharacteristicsSection =
-    "\n### 5. Source Characteristics\n" +
-    `- Estimated source row count: ${rowCount}\n`;
-
   return `### Transformation Specification for Feed: ${feedLabel}
 ${lookupSection}
 ${mappingSection}
-${unmappedSection}
-${sourceCharacteristicsSection}`;
+${unmappedSection}`;
 };
 
 export default function CodegenPage({ params }: { params: Promise<{ id: string }> }) {
@@ -512,12 +506,9 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
         getAllApprovedMappingSnapshots(session.accessToken, routeParams.id, feedId, true),
       ]);
 
-      const activeSlice = slices.find((s) => s.status === "approved" || s.status === "active") || slices[0];
-      const rowCount = activeSlice ? activeSlice.rowCount : 0;
-
       const staging = project?.domainConfig?.stagingSchema || "staging";
       const unmappedFields = computeUnmappedRequiredFields(fibers, snapshots);
-      const template = generateTransformationInstructionsTemplate(feedLabel, rowCount, fibers, staging, snapshots, unmappedFields);
+      const template = generateTransformationInstructionsTemplate(feedLabel, fibers, staging, snapshots, unmappedFields);
       setFeedInstructions((prev) => ({
         ...prev,
         [feedId]: template.trim(),

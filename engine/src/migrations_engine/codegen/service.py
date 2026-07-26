@@ -82,23 +82,6 @@ def generate_codegen_artifact(
             "Cannot generate code: mapping snapshot is missing destination column metadata. Please re-propose the mapping.",
             422,
         )
-    required_dest_fields = {
-        c["name"] for c in mapping_snapshot.destination_columns
-        if c.get("nullable") is False
-    }
-    mapped_dest_fields = {
-        binding.get("destination_field")
-        for binding in mapping_snapshot.field_bindings
-        if binding.get("destination_field") and not binding.get("dropped")
-    }
-    unmapped_required = required_dest_fields - mapped_dest_fields
-    if unmapped_required:
-        missing = ", ".join(sorted(unmapped_required))
-        raise AuthApiError(
-            "unmapped_required_destination_fields",
-            f"Cannot generate code: Required destination fields are unmapped ({missing}). Please update the mapping first.",
-            422,
-        )
 
     try:
         adapter = get_adapter("script_generation", project_definition.model_policy)
