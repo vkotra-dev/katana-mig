@@ -8,7 +8,7 @@ tags:
   - invariants
   - workflow
   - conventions
-timestamp: 2026-07-24
+timestamp: 2026-07-26
 ---
 
 # Governance
@@ -157,11 +157,13 @@ Source of truth hierarchy:
 Required lifecycle:
 
 1. brainstorm
-2. create task file(s)
+2. create task file(s), including a **Domain Updates Required** list (see below)
 3. create plan per task
 4. execute
-5. update `docs/domain/` if the task changed models, APIs, roles, workflows, or UI
-6. write summary
+5. update every `docs/domain/` page listed in the task's Domain Updates Required
+   list — no more, no less than what actually changed
+6. write summary, and in it confirm each listed page's disposition (updated /
+   not needed) per the checklist below
 7. move task to `tasks/completed/`
 
 Required markers in each plan:
@@ -176,6 +178,40 @@ Required markers in each plan:
 - Verification
 - Pitfalls
 - Commit
+
+### Domain doc update discipline
+
+This closes the gap where a task claims a domain doc was synced but the file
+was never touched, or was touched with a stale/copy-pasted timestamp instead
+of the actual change date — both have happened in this repo.
+
+At task creation (step 2):
+
+- every task file must include a **Domain Updates Required** section listing
+  the specific `docs/domain/*.md` pages the task is expected to touch, decided
+  from reading the current page content — not guessed from the task title
+- if no domain page is expected to change, the section must say so explicitly
+  (`None — no model/API/role/workflow/UI change`), not be omitted
+
+At summary time (step 6), for every page listed in Domain Updates Required,
+the summary must state one of:
+
+- **Updated** — content changed, `timestamp` bumped to the actual date the
+  change was made (never copy-pasted from the task's `created:` field or any
+  other placeholder date)
+- **Verified, no change needed** — the page was read and already matches the
+  new behavior; explain why, don't just skip it
+
+Before moving the task to `tasks/completed/`, run
+`.venv/bin/python scripts/validate_okf.py` (or `python3` if no venv) and
+confirm zero warnings for any page the task touched. A task with an
+outstanding OKF timestamp-staleness warning on a page it just edited is not
+done — this check is a completion gate, not optional cleanup.
+
+A "sync" or "verify" task whose own summary claims a page is current must be
+backed by an actual diff in that commit; a summary asserting a page was
+synced with no corresponding change to that file is a false completion and
+must be treated as a bug (see Failure modes).
 
 Traceability rules:
 
@@ -313,7 +349,12 @@ The invariants are repo-wide guardrails. Do not weaken them.
   same commit; a model edit without a migration is a broken commit.
 - **I22** Every task that adds or changes a DB model, API endpoint, role gate,
   UI screen, or business workflow must update the relevant `docs/domain/` page
-  and bump its OKF `timestamp` field before the task is marked complete.
+  and bump its OKF `timestamp` field to the actual date of change before the
+  task is marked complete. The pages expected to change must be captured in
+  the task's Domain Updates Required list at creation time, and the summary
+  must confirm each one's disposition (updated / verified no change needed).
+  `scripts/validate_okf.py` must report zero warnings for any page touched
+  before the task moves to `tasks/completed/`.
 
 ## Typing and code conventions
 
@@ -349,10 +390,13 @@ When a change touches a task or plan:
 |-----------|----------|
 | Spec and implementation disagree | Spec wins until deliberately changed |
 | Task lacks required markers | Task is not ready |
+| Task lacks a Domain Updates Required list | Task is not ready |
 | Work starts without reading the relevant spec | Re-read before proceeding |
 | A safety invariant would need to weaken to pass a test | Stop and raise it |
 | Harness import reaches into migration code | Refactor; boundary violation |
 | A behavior change lacks a spec change | Treat as a bug |
+| Summary claims a domain page was updated but the page has no corresponding diff | False completion; treat as a bug, reopen the task |
+| A domain page's `timestamp` doesn't match its actual last-change date | I22 violation; run `scripts/validate_okf.py` and fix before completion |
 
 ## Acceptance criteria
 
@@ -365,6 +409,15 @@ When a change touches a task or plan:
 
 ## Changelog
 
+- 2026-07-26: Added "Domain doc update discipline" — tasks must capture a
+  Domain Updates Required list at creation, summaries must confirm each
+  listed page's disposition (updated with a real diff and correct timestamp,
+  or verified no change needed), and `scripts/validate_okf.py` must report
+  zero warnings before a task moves to `tasks/completed/`. Extended I22 and
+  the Failure modes table accordingly. Prompted by a real incident: an api.md
+  sync task was marked complete with zero actual changes to the file, and 8
+  other domain docs got their OKF `timestamp` bumped to a copy-pasted date
+  instead of the actual change date.
 - 2026-07-24: Updated repository map to reflect actual directory structure
   (`execution/`, `mapping/`, `intake/`, `codegen/`, `api/`, `auth/`, `routes/`
   replacing outdated `harness/`, `migration/`, `composition/`, `approval_service/`,

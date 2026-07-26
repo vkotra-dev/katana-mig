@@ -8,7 +8,7 @@ tags:
   - workflow
   - review
   - dashboard
-timestamp: 2026-07-24
+timestamp: 2026-07-26
 ---
 
 # UI

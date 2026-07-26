@@ -67,7 +67,13 @@ After brainstorming produces an approved design:
    - Scan `tasks/` for the highest NNN prefix in filenames (ignore `TASK_INDEX.md` and non-numbered files)
    - If `tasks/` has no numbered files, scan `tasks/completed/`
    - Use that number + 1 (or + next letter for subtasks)
-3. Create `tasks/<slug>.md` using the Task Definition Template below
+3. Create `tasks/<slug>.md` using the Task Definition Template below. It must
+   include a **Domain Updates Required** section listing every
+   `docs/domain/*.md` page the task is expected to touch, determined by
+   reading the page now — not guessed from the task title. If no domain page
+   is expected to change, write that explicitly
+   (`None — no model/API/role/workflow/UI change`) rather than omitting the
+   section.
 4. Add the new task(s) to `tasks/TASK_INDEX.md`
 
 The task file is written first — **before invoking the writing-plans skill**. It has no forward references; it does not yet know its plan or summary paths. Once all task files are created, proceed immediately to Step 2. **No code is written until every task has a plan.**
@@ -259,6 +265,10 @@ Write "Do NOT X" for every known trap.
   public contract changes.
 - Do NOT leave a docs/spec patch out of the blast radius if the task changes behavior,
   terminology, workflow, or review criteria.
+- Do NOT claim a domain page was synced in the summary without a real diff to that
+  file in the same commit — that's a false completion, not a summary.
+- Do NOT bump a domain page's `timestamp` to a copy-pasted or placeholder date
+  (e.g. the task's `created:` field) — it must be the actual date the content changed.
 
 ## Commit
 
@@ -315,9 +325,26 @@ Commits: <sha1>[, <sha2>]
      update the plan to reflect what was actually built BEFORE writing this summary,
      then note here what changed and why. The plan must always reflect reality. -->
 
+## Domain Doc Updates
+<!-- One line per page listed in the task's Domain Updates Required section.
+     "Updated" claims must be backed by a real diff in the commits above —
+     a page listed here with no corresponding file change is a false
+     completion, not a summary. -->
+
+- `docs/domain/<page>.md` — Updated: <what changed>, timestamp bumped to
+  `<actual date of this change>` (not the task's `created:` date or any other
+  placeholder)
+- `docs/domain/<page>.md` — Verified, no change needed: <why the page already
+  matches the new behavior>
+
 ## Tests
 `<repo-specific test command for the changed files>` — N passed, 0 failed
 ```
+
+**Before moving the task**, run `.venv/bin/python scripts/validate_okf.py`
+(or `python3` if there's no venv) and confirm zero warnings for every domain
+page this task touched. A page with a stale-timestamp warning is not done —
+fix it before proceeding, not after.
 
 **3b — Update the task file, then move it**
 
@@ -357,3 +384,10 @@ Every artifact is reachable from every other artifact in at most two hops.
 ## What the Summary Records
 
 `## Changes Made` is a **file-by-file record of changes** — code, tests, migrations, docs, and spec patches all count. Record what was added, removed, or renamed in each file. It is not a re-statement of the task requirements, an explanation of why the feature exists, or a conceptual description of the approach. A reviewer reading the summary should be able to identify exactly which files changed and what the change was, without opening git.
+
+`## Domain Doc Updates` closes the loop against the task's Domain Updates
+Required list from creation time — every page listed there must appear here
+with a real disposition, and "Updated" entries must be traceable to an actual
+diff in the commits listed at the top of the summary. This is what
+`docs/domain/governance.md`'s I22 invariant and OKF timestamp check enforce
+at completion time.
