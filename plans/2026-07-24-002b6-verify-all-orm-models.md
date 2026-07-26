@@ -48,9 +48,9 @@ AuditEvent, Notification, ReconciliationReport, ReconciliationLineageRow, AICall
 
 ### Partial matches (4 models need doc updates)
 - **FeedComment** — docs describe `author_id`, ORM uses `user_id`. Also documents non-existent `FeedSliceComment`.
-- **MappingBindingSignOff** — docs describe different schema than ORM (per-binding vs per-object sign-off)
-- **LookupSignOff** — docs describe fiber-based schema, ORM uses `lookup_value_map_id` (project-scoped)
-- **ProjectFiber** — sub-entities (`LookupSourceEntry`, etc.) removed from ORM but still in docs
+- **MappingBindingSignOff** — docs describe `sign_off_id`, `binding_index`, `status` (pending/approved/rejected). ORM has `id`, `mapping_snapshot_id`, `destination_object_name`, `source_field`, `destination_field`, `user_id`, `role`, `signed_at` (no status — existence-based via unique constraint). Fix: replace `binding_index`+`status` with `source_field`+`destination_field`.
+- **LookupSignOff** — docs describe `sign_off_id`, `fiber_id`, `lookup_name`, `signer_role`, `signer_id`, `status`. ORM has `id`, `lookup_value_map_id`, `user_id`, `role`, `signed_at`. Wrong foreign key entirely — no `fiber_id`, no `lookup_name`, no `status`.
+- **ProjectFiber** — sub-entities (`LookupSourceEntry`, etc.) removed from ORM but still in docs. source-model.md is self-contradictory: lines 314-338 describe them as current tables, line 452 says "removed by tasks 001fg/001fh." Fix: delete lines 314-338.
 
 ### Not found in any doc (2 models need docs)
 - **FeedSliceRow** — stores `source_slice_id`, `row_index`, `row_csv` for copybook data
