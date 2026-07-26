@@ -4,12 +4,12 @@
 
 | Task | Summary |
 |---|---|
-| [001gz-reset-codegen-instructions-to-defaults](./001gz-reset-codegen-instructions-to-defaults.md) | Add "Reset to defaults" button to overwrite saved global codegen instructions with merged YAML template. |
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [001gz-reset-codegen-instructions-to-defaults](./completed/001gz-reset-codegen-instructions-to-defaults.md) | Added "Reset to defaults" button to overwrite saved global codegen instructions with merged YAML template. |
 | [001gy-fix-reject-mapping-approved-precondition](./completed/001gy-fix-reject-mapping-approved-precondition.md) | [summary](./summary/001gy-fix-reject-mapping-approved-precondition.md) |
 | [001gw-table-mapping-drop-toggle-backend](./completed/001gw-table-mapping-drop-toggle-backend.md) | [summary](./summary/001gw-table-mapping-drop-toggle-backend.md) |
 | [001gx-table-mapping-drop-toggle-frontend](./completed/001gx-table-mapping-drop-toggle-frontend.md) | [summary](./summary/001gx-table-mapping-drop-toggle-frontend.md) |
