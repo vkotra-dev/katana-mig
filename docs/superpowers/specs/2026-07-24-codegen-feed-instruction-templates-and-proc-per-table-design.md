@@ -154,29 +154,44 @@ The `GeneratedSQL` model (which already has `stored_procedures: list[str]`) is u
 
 **File:** `engine/src/migrations_engine/codegen/service.py`
 
-**Current behavior:** `_build_lookup_tables()` returns a flat list of all lookup tables across the feed.
+**Current behavior:** `_build_lookup_tables()` returns a flat list of all lookup tables, passing only 5 sample mappings per lookup. The AI cannot reliably write JOIN queries or seed data from samples alone.
 
-**New behavior:** `_build_lookup_tables()` returns lookup tables grouped by `destination_object_name`. The user prompt lists them per-table:
+**New behavior:** `_build_lookup_tables()` returns lookup tables grouped by `destination_object_name`, and passes the **full approved value_map** (not just 5 samples). The user prompt lists them per-table:
 
 ```
 LOOKUP REFERENCE TABLES
 
 Table: policy_claims
   Lookups:
-  - claim_status_ref: source_val -> dest_val (5 sample mappings)
+  - claim_status_ref (12 mappings):
+    source_val -> dest_val
+    APPROVED -> APPROVED
+    PENDING -> PENDING
+    REJECTED -> REJECTED
+    ... (all 12 mappings)
   
 Table: policy_master
   Lookups:
-  - insurance_plan_ref: source_val -> dest_val (5 sample mappings)
+  - insurance_plan_ref (87 mappings):
+    source_val -> dest_val
+    PL -> PLAN_A
+    PN -> PLAN_B
+    ... (all 87 mappings)
 ```
 
-This requires grouping lookups by the destination tables that use them. The lookup name is derived from field bindings in the mapping snapshot.
+**Why full data is required:** The AI needs the complete `source_val -> dest_val` mapping to:
+1. Generate correct `INSERT` seed data statements (one per mapping)
+2. Write reliable `LEFT JOIN` conditions that resolve every source value to its destination FK
+3. Ensure no unmapped values cause join failures at runtime
+
+Without all mappings, the AI writes JOIN queries based on samples, and any unmapped source value silently produces NULL — causing missing FK values in the destination table.
 
 **Implementation:** Extend `_build_lookup_tables()` to:
 1. Group field bindings by `destination_object_name` (from mapping_snapshot)
 2. For each destination table, collect its associated lookup names
 3. For each lookup name, fetch the snapshot and build the lookup table dict
-4. Return a list of dicts: `[{destination_object_name, lookups: [...]}, ...]`
+4. Pass the **full** `value_map` (all key-value pairs, no cap) to the prompt
+5. Return a list of dicts: `[{destination_object_name, lookups: [..., with full value_map]}, ...]`
 
 ### Section 7: Bundle Assembly Order
 
