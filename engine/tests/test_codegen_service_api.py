@@ -14,6 +14,7 @@ from migrations_engine.auth.passwords import hash_password  # noqa: E402
 from migrations_engine.config import get_settings  # noqa: E402
 from migrations_engine.db.models import (  # noqa: E402
     CodeGenerationArtifact,
+    FeedComment,
     MappingSnapshot,
     ProjectDefinition,
     ProjectRegistry,
@@ -697,4 +698,56 @@ def test_generate_codegen_artifact_partial_mappings(monkeypatch: pytest.MonkeyPa
     # Only Customer has a mapping, Product is skipped with a warning
     assert len(data) == 1
     assert data[0]["destination_object_name"] == "Customer"
+
+
+def test_codegen_includes_discussion_comments(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+    """Regression test: verify that feed/slice discussion comments are included in the AI prompt.
+
+    Task 002i3's multi-table refactor accidentally dropped the FeedComment queries,
+    causing all discussion context to be lost. This test ensures comments are restored.
+    """
+    project_id, source_definition_id = _seed_project()
+    fake = FakeAdapter()
+    monkeypatch.setattr(codegen_service_module, "get_adapter", lambda task: fake)
+
+    # Seed a feed-level comment (source_slice_id=None) and a slice-level comment
+    with SessionLocal() as db:
+        source = db.scalar(select(SourceDefinition).where(SourceDefinition.source_definition_id == source_definition_id))
+        source_slice = db.scalar(select(SourceSlice).where(SourceSlice.source_definition_id == source_definition_id))
+        assert source is not None and source_slice is not None
+        assert source_slice.source_slice_id is not None
+
+        admin_user = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
+        assert admin_user is not None
+        comment1 = FeedComment(
+            feed_id=source_definition_id,
+            user_id=admin_user.user_id,
+            source_slice_id=None,  # feed-level
+            body="This feed processes customer records from the main extract.",
+        )
+        comment2 = FeedComment(
+            feed_id=source_definition_id,
+            user_id=admin_user.user_id,
+            source_slice_id=source_slice.source_slice_id,  # slice-level
+            body="Slice-level note: handle null full_name by defaulting to Unknown.",
+        )
+        db.add(comment1)
+        db.add(comment2)
+        db.commit()
+
+    response = client.post(
+        f"/projects/{project_id}/sources/{source_definition_id}/codegen",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert len(data) == 1
+
+    # The FakeAdapter captured the user prompt — verify both comments appear
+    prompt = fake.calls[-1].user
+    assert "This feed processes customer records from the main extract." in prompt
+    assert "handle null full_name by defaulting to Unknown" in prompt
+    assert "Feed discussion (context for mapping intent and business rules)" in prompt
+    assert "Slice discussion (context for schema adjustments and anomalies)" in prompt
 

@@ -81,6 +81,20 @@ def generate_codegen_artifact(
 
     source_slice = _select_latest_approved_source_slice(db, source_definition_id=source_definition_id)
 
+    comments = list(db.execute(
+        select(FeedComment, User.role)
+        .join(User, User.user_id == FeedComment.user_id)
+        .where(FeedComment.feed_id == source_definition_id, FeedComment.source_slice_id.is_(None))
+        .order_by(FeedComment.created_at.asc())
+    ).all())
+
+    slice_comments = list(db.execute(
+        select(FeedComment, User.role)
+        .join(User, User.user_id == FeedComment.user_id)
+        .where(FeedComment.source_slice_id == source_slice.source_slice_id)
+        .order_by(FeedComment.created_at.asc())
+    ).all())
+
     results: list[CodegenTriggerResponse] = []
     for destination_object_name in destination_references:
         destination_object_name = destination_object_name.strip()
@@ -134,8 +148,8 @@ def generate_codegen_artifact(
             lookup_tables=lookup_tables,
             project_config=project_config,
             run_ref=f"{project_id}_{source_definition_id}",
-            comments=[],
-            slice_comments=[],
+            comments=comments,
+            slice_comments=slice_comments,
         )
 
         from ..ai.logging import log_ai_call, backfill_artifact_id
