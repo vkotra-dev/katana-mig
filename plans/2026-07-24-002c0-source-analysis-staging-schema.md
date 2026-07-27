@@ -1,7 +1,7 @@
 # Source Analysis: Inject staging_schema into prompt
 
 **Task:** [002c0](../tasks/002c0-source-analysis-staging-schema-into-prompt.md)
-**Domain:** source-model, project
+**Domain:** source-model
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
