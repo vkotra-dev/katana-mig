@@ -751,3 +751,23 @@ def test_codegen_includes_discussion_comments(monkeypatch: pytest.MonkeyPatch, a
     assert "Feed discussion (context for mapping intent and business rules)" in prompt
     assert "Slice discussion (context for schema adjustments and anomalies)" in prompt
 
+
+def test_render_feed_instructions_template_none() -> None:
+    """Verify None/empty input returns '(none)'."""
+    from migrations_engine.codegen.feed_instructions import render_feed_instructions_template  # noqa: E402
+
+    assert render_feed_instructions_template(None) == "(none)"
+    assert render_feed_instructions_template("") == "(none)"
+    assert render_feed_instructions_template("   ") == "(none)"
+
+
+def test_render_feed_instructions_template_with_content() -> None:
+    """Verify non-empty input is wrapped with template header."""
+    from migrations_engine.codegen.feed_instructions import render_feed_instructions_template  # noqa: E402
+
+    result = render_feed_instructions_template("Use UPPER for status fields")
+    assert "You are generating SQL migration scripts" in result
+    assert "You are a lookup value mapper" not in result
+    assert "Use UPPER for status fields" in result
+    assert result != "(none)"
+

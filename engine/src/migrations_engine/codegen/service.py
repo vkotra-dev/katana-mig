@@ -19,6 +19,8 @@ from ..api.schemas import (
     CodegenTriggerResponse,
     DeliveryBundleResponse,
 )
+from .feed_instructions import render_feed_instructions_template
+
 from ..db.models import (
     CodeGenerationArtifact,
     LookupSnapshot,
@@ -683,6 +685,7 @@ def _build_user_prompt(
         lookup_tables=lookup_tables,
         project_config=project_config,
         run_ref=run_ref,
+        feed_instructions=render_feed_instructions_template(source_definition.transformation_instructions),
         discussion=_format_discussion(comments),
         slice_discussion=_format_slice_discussion(slice_comments),
     ).strip()

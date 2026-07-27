@@ -28,9 +28,9 @@ LOOKUP REFERENCE TABLES
   {% endfor %}
 {% endfor %}
 {% endif %}
-{% if source_definition.transformation_instructions %}
+{% if feed_instructions and feed_instructions != '(none)' %}
 FEED-SPECIFIC TRANSFORMATION INSTRUCTIONS
-{{ source_definition.transformation_instructions.strip() }}
+{{ feed_instructions }}
 {% endif %}
 {% if discussion %}
 {{ discussion }}
