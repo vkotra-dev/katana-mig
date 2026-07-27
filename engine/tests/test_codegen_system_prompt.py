@@ -19,6 +19,7 @@ def test_build_system_prompt_no_longer_appends_run_logging_requirements():
         project_config=config,
         destination_object_name="customer",
         project_definition=project_definition,
+        staging_table_name="stg_customer",
     )
 
     assert "RUN LOGGING REQUIREMENTS" not in result

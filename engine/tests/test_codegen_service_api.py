@@ -812,6 +812,7 @@ def test_system_prompt_has_one_proc_per_table_rule() -> None:
         project_config=config,
         destination_object_name="Customer",
         project_definition=proj,
+        staging_table_name="stg_customer",
     )
     assert "one stored procedure" in prompt.lower() or "one procedure" in prompt.lower()
 
@@ -829,4 +830,123 @@ def test_logging_standards_include_cross_proc_fk_rules() -> None:
         assert "22" in block, f"Engine {engine} missing cross-proc FK rule (item 22)"
         assert "Cross-procedure FK resolution" in block or "Cross-proc" in block, \
             f"Engine {engine} item 22 lacks cross-proc FK resolution description"
+
+
+def test_system_prompt_includes_staging_table_name(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+    """Codegen system prompt must include the real staging table name derived from feed label."""
+    project_id, source_definition_id = _seed_project_with_details(
+        source_details={"label": "My-Orders.csv"},
+    )
+    fake = FakeAdapter()
+    monkeypatch.setattr(codegen_service_module, "get_adapter", lambda task: fake)
+
+    client.post(
+        f"/projects/{project_id}/sources/{source_definition_id}/codegen",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert len(fake.calls) == 1
+    assert "stg_my_orders_csv" in fake.calls[0].system
+
+
+def test_system_prompt_staging_table_name_fallback(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+    """When feed has no label, system prompt must use the 'stg_source' fallback."""
+    project_id, source_definition_id = _seed_project_with_details(
+        source_details={"encoding": "utf-8"},
+    )
+    fake = FakeAdapter()
+    monkeypatch.setattr(codegen_service_module, "get_adapter", lambda task: fake)
+
+    client.post(
+        f"/projects/{project_id}/sources/{source_definition_id}/codegen",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert len(fake.calls) == 1
+    assert "stg_source" in fake.calls[0].system
+
+
+def _seed_project_with_details(*, source_details: dict) -> tuple[str, str]:
+    """Seed a project with custom source_details and return (project_id, source_definition_id)."""
+    project_id = str(uuid.uuid4())
+    definition_id = str(uuid.uuid4())
+    source_definition_id = str(uuid.uuid4())
+    with SessionLocal() as db:
+        admin_user = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
+        assert admin_user is not None
+        db.add(
+            ProjectDefinition(
+                definition_id=definition_id,
+                project_id=project_id,
+                name="Codegen Staging Table Name Test",
+                status="active",
+                domain_config={"target_db_engine": "postgresql", "staging_schema": "stg"},
+            )
+        )
+        db.add(
+            ProjectRegistry(
+                project_id=project_id,
+                name="Codegen Staging Table Name Test",
+                definition_id=definition_id,
+                status="active",
+            )
+        )
+        db.add(
+            SourceDefinition(
+                source_definition_id=source_definition_id,
+                project_id=project_id,
+                source_type="csv",
+                source_contract_version="v1",
+                destination_object_references=["Customer"],
+                source_details=source_details,
+                status="active",
+            )
+        )
+        db.add(
+            SourceSlice(
+                source_slice_id=str(uuid.uuid4()),
+                source_definition_id=source_definition_id,
+                source_contract_version="v1",
+                source_slice_version="v1",
+                source_schema_artifact=None,
+                masking_policy={},
+                header_csv="customer_id,full_name",
+                slice_payload=None,
+                status="approved",
+                parse_warnings=[],
+                file_storage_path="/tmp/customer.csv",
+                approved_at=datetime.now(UTC),
+                approved_by_user_id=admin_user.user_id,
+            )
+        )
+        db.add(
+            SourceSchemaArtifact(
+                schema_artifact_id=str(uuid.uuid4()),
+                source_definition_id=source_definition_id,
+                source_slice_version="v1",
+                columns=[
+                    {"name": "customer_id", "inferred_type": "integer", "nullable": False, "max_length": None},
+                    {"name": "full_name", "inferred_type": "text", "nullable": True, "max_length": 255},
+                ],
+            )
+        )
+        db.add(
+            MappingSnapshot(
+                mapping_snapshot_id=str(uuid.uuid4()),
+                project_id=project_id,
+                destination_object_name="Customer",
+                mapping_snapshot_version="v1",
+                field_bindings=[
+                    {"source_field": "customer_id", "destination_field": "customer_id", "lookup_name": None},
+                    {"source_field": "full_name", "destination_field": "full_name", "lookup_name": None},
+                ],
+                status="approved",
+                approved_at=datetime.now(UTC),
+                approved_by_user_id=admin_user.user_id,
+                destination_columns=[
+                    {"name": "customer_id", "destination_data_type": "integer", "nullable": False},
+                    {"name": "full_name", "destination_data_type": "text", "nullable": True},
+                ],
+            )
+        )
+        db.commit()
+    return project_id, source_definition_id
 

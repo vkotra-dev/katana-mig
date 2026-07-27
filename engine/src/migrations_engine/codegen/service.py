@@ -35,6 +35,7 @@ from ..db.models import (
     VersionHistory,
 )
 from ..management.platform import record_management_audit
+from ..management.feeds import _source_label, _staging_table_name
 from ..ai.factory import get_adapter
 from ..mapping.exceptions import SnapshotNotFoundError
 from ..mapping.snapshots import select_latest_approved_lookup_snapshot
@@ -97,6 +98,8 @@ def generate_codegen_artifact(
         .order_by(FeedComment.created_at.asc())
     ).all())
 
+    staging_table_name = _staging_table_name(_source_label(source_definition.source_details))
+
     results: list[CodegenTriggerResponse] = []
     for destination_object_name in destination_references:
         destination_object_name = destination_object_name.strip()
@@ -135,6 +138,7 @@ def generate_codegen_artifact(
             project_config=project_config,
             destination_object_name=destination_object_name,
             project_definition=project_definition,
+            staging_table_name=staging_table_name,
         )
         lookup_tables = _build_lookup_tables(
             db,
@@ -670,12 +674,14 @@ def _build_system_prompt(
     project_config: MigrationProjectConfig,
     destination_object_name: str,
     project_definition: ProjectDefinition,
+    staging_table_name: str,
 ) -> str:
     template = jinja_env.get_template("system_prompt.txt.j2")
     return template.render(
         project_config=project_config,
         destination_object_name=destination_object_name,
         project_definition=project_definition,
+        staging_table_name=staging_table_name,
     ).strip()
 
 _MAX_COMMENT_CHARS = 400
