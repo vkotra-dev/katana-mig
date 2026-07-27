@@ -203,7 +203,65 @@ No code changes needed. `_assemble_sql_bundle()` already concatenates in the cor
 
 The AI is instructed (via system prompt) to put lookup DDL in `lookup_ddl`, seed data in `seed_data`, and one CREATE PROCEDURE per table in `stored_procedures`.
 
+### Section 8: Cross-Proc FK Resolution via Global Migration Log
+
+**Current behavior:** Each proc has its own `run_ref` (auto-generated per-proc). `mig_upsert_log` entries are scoped to that `run_ref`. Detail procs cannot access master proc's log entries because they run separately with their own `run_ref`.
+
+**New behavior:** `mig_upsert_log` is a **global shared table** across all procs. `source_row_num` stores a **business key** (not the staging `_row_num`) that is meaningful across source tables. This enables detail procs to look up master FKs at runtime.
+
+**How it works:**
+
+1. **Master proc** logs entries with business key:
+   ```sql
+   INSERT INTO $stg.mig_upsert_log (dest_table, source_row_num, dest_row_id, action)
+   VALUES ('policy_master', s.source_policy_number, @new_policy_id, 'INSERT');
+   ```
+
+2. **Detail proc** queries the log to resolve master FK:
+   ```sql
+   SELECT l.dest_row_id
+   FROM $stg.mig_upsert_log l
+   WHERE l.dest_table = 'policy_master'
+     AND l.source_row_num = s.source_policy_number
+   ```
+
+3. **Detail proc** uses resolved `dest_row_id` in its upsert to `claim_detail`.
+
+**Logging standard update:** `codegen_logging_standards.yaml` is updated to specify:
+- `source_row_num` stores a **business key** meaningful across source tables (not staging `_row_num`)
+- Detail procs can query `mig_upsert_log` to resolve FKs to previously-populated destination tables
+- `run_ref` is still generated per-proc (for audit), but the log table itself is shared
+- Procs must be executed in `destination_object_sequence` order (master before detail)
+
+**System prompt rule:** When a field binding references a lookup that maps to another destination table (i.e., a foreign key to a master table), the detail proc must resolve the FK by querying `mig_upsert_log`:
+```
+If a destination table has a FK to another destination table:
+1. Query $stg.mig_upsert_log WHERE dest_table = '<master_table_name>' AND source_row_num = s.<source_field_matching_master>
+2. Use the returned dest_row_id as the resolved FK value
+3. This works because procs execute in destination_object_sequence order
+```
+
+**`source_row_num` semantics change:** Currently stores the staging `_row_num` (per-table unique). After this change, for FK resolution purposes, `source_row_num` stores a business key that is stable and meaningful across source tables. This enables cross-proc FK resolution without shared state.
+
 ## Files Changed
+
+| File | Change |
+|------|--------|
+| `engine/src/migrations_engine/ai/prompts/feed_transformation_instructions.yaml` | **New** — YAML template for feed instruction formatting |
+| `engine/src/migrations_engine/codegen/feed_instructions.py` | **New** — Renderer function |
+| `engine/src/migrations_engine/codegen/service.py` | **Modified** — Bug fix, lookup grouping, service integration |
+| `engine/src/migrations_engine/codegen/templates/user_prompt.txt.j2` | **Modified** — Replace raw injection with `feed_instructions` variable |
+| `engine/src/migrations_engine/codegen/templates/system_prompt.txt.j2` | **Modified** — Add one-proc-per-table rules and cross-proc FK resolution rules |
+| `engine/src/migrations_engine/ai/prompts/codegen_logging_standards.yaml` | **Modified** — Add cross-proc FK resolution via mig_upsert_log |
+
+## Files Not Changed
+
+| File | Reason |
+|------|--------|
+| `coding_standards.yaml` | Stored blob approach kept as-is |
+| `project_definition.codegen_instructions` | Stored blob approach kept as-is |
+| Frontend code | No UI changes needed — users still type free text into transformation instructions textarea |
+| `feed_domain_object_analysis.yaml` / `feed_field_mapping.yaml` | Not affected by these changes |
 
 | File | Change |
 |------|--------|
