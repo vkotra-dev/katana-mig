@@ -21,13 +21,28 @@ Three issues in the codegen system:
 **New behavior:** `generate_codegen_artifact()` iterates over ALL `destination_object_references`, creating one artifact (and one AI call) per table:
 
 ```python
+from logging import getLogger
+_LOGGER = getLogger(__name__)
+
 def generate_codegen_artifact(db, *, actor, project_id, source_definition_id) -> list[CodegenTriggerResponse]:
     source_definition = _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
     dest_tables = [str(r).strip() for r in (source_definition.destination_object_references or []) if r]
     
     results = []
     for dest_table in dest_tables:
-        # ... existing artifact generation logic per table ...
+        try:
+            mapping_snapshot = _select_latest_approved_mapping_snapshot(
+                db, project_id=project_id, source_definition_id=source_definition_id,
+                destination_object_name=dest_table,
+            )
+        except AuthApiError as exc:
+            _LOGGER.warning(
+                "Skipping %s: no approved mapping snapshot for project %s, table %s: %s",
+                dest_table, project_id, dest_table, exc.message,
+            )
+            continue  # No MappingSnapshot for this table — nothing to generate
+        
+        # ... existing artifact generation logic per table (AI call, DB writes, etc.) ...
         results.append(trigger_response)
     
     return results
@@ -35,7 +50,7 @@ def generate_codegen_artifact(db, *, actor, project_id, source_definition_id) ->
 
 **Route handler change:** Return type changes from `CodegenTriggerResponse` to `list[CodegenTriggerResponse]`.
 
-**Per-table failure handling:** If a table has no approved MappingSnapshot, log a warning and skip it (continue to next table). The function returns only artifacts for tables that were successfully generated. Tables without approved mappings are silently skipped — there's nothing to generate for them.
+**Per-table failure handling:** `AuthApiError` (404) from `_select_latest_approved_mapping_snapshot` is caught per-table, logged as a warning with the skipped table name, and the loop continues. Tables without approved mappings produce no artifact and produce no user-facing error — the user sees the count of generated vs. expected tables.
 
 **`_select_latest_approved_mapping_snapshot` impact:** Already queries by `destination_object_name` — no change needed. Each call fetches the correct snapshot for the target table.
 
@@ -49,7 +64,7 @@ def generate_codegen_artifact(db, *, actor, project_id, source_definition_id) ->
 
 **Changes:**
 1. `triggerCodegen()` return type changes to `Promise<CodegenTriggerRecord[]>`
-2. `mapTriggerResponse()` is replaced or augmented with `mapTriggerResponseList()` that handles arrays
+2. `mapTriggerResponse()` is **replaced** by `mapTriggerResponseList()` — there are no other callers of the single-object mapper, so it is fully removed. `mapTriggerResponseList()` iterates the response array and returns a flat `CodegenTriggerRecord[]`.
 3. The codegen page displays the count of generated procedures: "Generated N procedure(s) — X table(s) had no approved mapping"
 4. The UI uses the response count to show a summary badge or text after codegen completes
 
