@@ -11,6 +11,11 @@ Domain: `source-model.md`
 
 Extend `_build_lookup_tables()` to group lookups by destination table, pass full `value_map` (no cap).
 
+## Deviations from original plan
+
+- **Grouping by destination table is obsolete.** Task 002i3 introduces an outer loop in `generate_codegen_artifact()` that processes one destination table at a time. `_build_lookup_tables()` is called per-table, so it never sees lookups from multiple tables in a single invocation. Grouping was written into the spec before this architecture was discovered.
+- Only the full `value_map` change was implemented — passing all rows instead of `[:5]` samples.
+
 ## Out of Scope
 
 - Multi-table codegen loop (task 002i3)

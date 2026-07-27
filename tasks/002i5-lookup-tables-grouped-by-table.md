@@ -26,10 +26,16 @@ domain: engine
 
 ## Objective
 
-1. Extend `_build_lookup_tables()` to group lookups by `destination_object_name`
-2. Pass the **full** `value_map` (all key-value pairs, no cap) per lookup
-3. Update `user_prompt.txt.j2` to list lookups grouped by table
+1. Extend `_build_lookup_tables()` to group lookups by `destination_object_name` — **obsolete**: see note below
+2. Pass the **full** `value_map` (all key-value pairs, no cap) per lookup — **done**
+3. Update `user_prompt.txt.j2` to list lookups grouped by table — **obsolete** (see note)
 4. Update `GeneratedSQL` model if needed (no change needed — `stored_procedures: list[str]` already supports multiple entries)
+
+### Note on grouping (items 1 and 3)
+
+Grouping by `destination_object_name` is structurally obsolete. Task 002i3 introduces an outer loop in `generate_codegen_artifact()` that processes one destination table at a time, calling `_build_lookup_tables()` with a mapping_snapshot already scoped to one table. This means `_build_lookup_tables()` can never receive lookups for multiple tables in a single call — there is nothing to group. The original grouping requirement in the spec was written before this architecture was discovered and became moot once 002i3 was designed.
+
+The full `value_map` change (item 2) is the substantive part of this task and has been implemented.
 
 ## Files Changed
 
@@ -40,8 +46,8 @@ domain: engine
 
 ## Tests
 
-- Seed feed with 2 lookups, each with 10+ mappings → verify prompt contains all 20 mappings
-- Feed with lookup used by multiple tables → lookup appears under both tables
+- Seed feed with 2 lookups, each with 10+ mappings → verify prompt contains all 20 mappings per lookup (full value_map, not just 5)
+- Existing codegen tests pass (415/415) — no regression on lookup handling
 
 ## Verification
 
