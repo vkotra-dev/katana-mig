@@ -18,7 +18,7 @@ The source analysis AI generates a `CREATE TABLE` DDL for the source schema base
 
 Both `target_db_engine` and `staging_schema` live in `project_definition.domain_config`. The code already extracts `target_db_engine` but does not extract or pass `staging_schema` to the prompt.
 
-**Open question — table naming convention:** This codebase uses `stg_{destination_object_name}` for staging table names (documented in `docs/domain/project.md:112`). The plan's proposed DDL uses the raw inferred source table name (not the `stg_` convention). This is informational-only — shown to the operator via copy-to-clipboard, never auto-applied — so it's not a functional bug. But showing an example that looks inconsistent with what "Generate SQL Bundle" produces later could confuse operators. **Decision needed:** should the generated DDL adopt the `stg_` naming convention to match, or is a plain source name intentional here since this describes the source shape, not the staging table?
+**Table naming convention:** This codebase uses `<schema>.<table>` globally for fully-qualified references. The DDL should follow this convention: when `staging_schema` is present, generate `CREATE TABLE staging_schema.source_table_name (...)`. The table name itself is the raw inferred source table name — no `stg_` prefix is added. This is consistent with how fully-qualified references work globally in the pipeline.
 
 ## Current State
 
@@ -42,7 +42,6 @@ Both `target_db_engine` and `staging_schema` live in `project_definition.domain_
 - Per-feed staging schema — this task uses the project-level `domain_config.staging_schema`.
 - Changing how `destination_schema` is handled — that's a separate concern.
 - Any frontend changes to the source analysis UI.
-- Resolving the `stg_` naming convention question — surfaced above as an open decision point.
 
 ## Domain Updates Required
 
