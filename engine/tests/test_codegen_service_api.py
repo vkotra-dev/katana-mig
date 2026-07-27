@@ -544,3 +544,81 @@ def test_select_lookup_snapshot_version_empty_on_no_lookups() -> None:
 
         assert result == []
 
+
+def test_build_lookup_tables_passes_full_value_map() -> None:
+    """Verify _build_lookup_tables passes ALL value_map entries, not just 5 samples.
+
+    This is the core regression test for the :5 cap removal.
+    """
+    from migrations_engine.db.models import MappingSnapshot  # noqa: E402
+    from migrations_engine.db.models import LookupSnapshot  # noqa: E402
+    from migrations_engine.codegen.service import _build_lookup_tables  # noqa: E402
+
+    Base.metadata.create_all(bind=TEST_ENGINE)
+
+    with SessionLocal() as db:
+        admin_user = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
+        assert admin_user is not None
+        project = ProjectDefinition(
+            definition_id=str(uuid.uuid4()),
+            project_id=str(uuid.uuid4()),
+            name="Full Value Map Test Project",
+            status="active",
+            domain_config={"target_db_engine": "postgresql", "staging_schema": "stg"},
+        )
+        db.add(project)
+        db.commit()
+
+        source = SourceDefinition(
+            source_definition_id=str(uuid.uuid4()),
+            project_id=project.project_id,
+            source_type="csv",
+            source_contract_version="v1",
+        )
+        db.add(source)
+        db.flush()
+
+        # Create 12 value pairs in the lookup snapshot
+        value_map = {f"src_{i}": f"dest_{i}" for i in range(12)}
+        mapping_snap = MappingSnapshot(
+            mapping_snapshot_id=str(uuid.uuid4()),
+            project_id=project.project_id,
+            source_definition_id=source.source_definition_id,
+            destination_object_name="test_table",
+            mapping_snapshot_version="snap_v1",
+            field_bindings=[
+                {"source_field": "src1", "destination_field": "dest1", "lookup_name": "big_lookup", "lookup_snapshot_version": "v1"},
+            ],
+            destination_columns=[{"column_name": "id", "data_type": "INT"}],
+            status="approved",
+            approved_at=datetime.now(UTC),
+        )
+        db.add(mapping_snap)
+
+        snap = LookupSnapshot(
+            lookup_snapshot_id=str(uuid.uuid4()),
+            project_id=project.project_id,
+            lookup_name="big_lookup",
+            lookup_snapshot_version="snap_big_v1",
+            value_map=value_map,
+            status="approved",
+            approved_at=datetime.now(UTC),
+        )
+        db.add(snap)
+        db.commit()
+
+        result = _build_lookup_tables(
+            db,
+            project_id=project.project_id,
+            mapping_snapshot=mapping_snap,
+        )
+
+        assert len(result) == 1
+        lookup_entry = result[0]
+        assert lookup_entry["lookup_name"] == "big_lookup"
+        # Core assertion: all 12 mappings present, not capped at 5
+        assert len(lookup_entry["sample_mappings"]) == 12
+        for i in range(12):
+            assert f"src_{i}" in [m["source_val"] for m in lookup_entry["sample_mappings"]]
+            assert f"dest_{i}" in [m["dest_val"] for m in lookup_entry["sample_mappings"]]
+
