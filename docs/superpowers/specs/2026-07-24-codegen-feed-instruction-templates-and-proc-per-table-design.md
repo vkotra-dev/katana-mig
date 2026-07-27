@@ -303,13 +303,19 @@ If a destination table has a FK to another destination table:
 
 **`source_row_num` semantics change:** Currently stores the staging `_row_num` (per-table unique). After this change, for FK resolution purposes, `source_row_num` stores a business key that is stable and meaningful across source tables. This enables cross-proc FK resolution without shared state.
 
+**`mig_upsert_log` DDL change:** The `_mig_upsert_log_ddl()` function declares `source_row_num` as a numeric type (`BIGINT` / `NUMBER` / `NVARCHAR(255)` for MSSQL / `BIGINT` for MySQL) in every engine variant. After this change it must be a string type (`VARCHAR(255)` / `NVARCHAR(255)` / `VARCHAR2(255)`) in all four engine branches, since business keys can be alphanumeric. For existing projects whose log table was created with the old numeric column, the generated script must include a guarded `ALTER TABLE` (e.g., `IF EXISTS SELECT column_name FROM information_schema.columns WHERE ... AND column_name = 'source_row_num' AND data_type != 'varchar'` patterns per engine) to alter the column type. This ensures the column type change applies on the next run without breaking existing projects.
+
+**Composite business keys:** When a destination table's natural key is multi-column (e.g., `policy_number` + `effective_date`), the master proc concatenates parts into a single string using a deterministic separator. The same concatenation is used by the detail proc in its `mig_upsert_log` lookup WHERE clause. The system prompt rule requires the AI to state the concatenation formula in a comment above both the master INSERT and the detail SELECT.
+
+**FK resolution failure handling:** If a detail proc's `mig_upsert_log` lookup finds no matching master row (the master row was skipped or hasn't run yet), the detail proc hard-aborts its transaction. The error message is descriptive: it includes the business key value that failed to resolve, the master `dest_table` name being queried, and the detail table that was blocked. This mirrors the existing rule-21 pattern for unresolved lookup-table FKs — one missing master row blocks its dependent detail batch rather than silently producing an incomplete table.
+
 ## Files Changed
 
 | File | Change |
 |------|--------|
 | `engine/src/migrations_engine/ai/prompts/feed_transformation_instructions.yaml` | **New** — YAML template for feed instruction formatting |
 | `engine/src/migrations_engine/codegen/feed_instructions.py` | **New** — Renderer function |
-| `engine/src/migrations_engine/codegen/service.py` | **Modified** — Multi-table loop, bug fix, lookup grouping, service integration |
+| `engine/src/migrations_engine/codegen/service.py` | **Modified** — Multi-table loop, bug fix, lookup grouping, service integration; `_mig_upsert_log_ddl()` column type change (`source_row_num` numeric→string) across all 4 engine branches, plus an `ALTER TABLE` guard for existing projects' log tables |
 | `engine/src/migrations_engine/codegen/templates/user_prompt.txt.j2` | **Modified** — Replace raw injection with `feed_instructions` variable |
 | `engine/src/migrations_engine/codegen/templates/system_prompt.txt.j2` | **Modified** — Add one-proc-per-table rules and cross-proc FK resolution rules |
 | `engine/src/migrations_engine/ai/prompts/codegen_logging_standards.yaml` | **Modified** — Add cross-proc FK resolution via mig_upsert_log |
