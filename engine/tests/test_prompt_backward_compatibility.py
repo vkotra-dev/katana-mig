@@ -8,6 +8,7 @@ def test_source_analysis_prompt_parity():
         sample_text="a,b\n1,2",
         target_db_engine="",
         staging_schema="",
+        staging_table_name="",
     )
     system, user = prompt.get_prompt()
     
@@ -23,8 +24,8 @@ def test_source_analysis_prompt_parity():
         "3. Nullability: Set 'nullable' to true if any sample row has an empty/null value for the column.\n"
         "4. Max Length: For text columns, provide 'max_length' as the maximum character count found. "
         "For other types, set max_length to null.\n"
-        "5. Schema Qualification: If a staging schema name is provided (''), qualify ALL table names in the DDL with this schema (e.g. CREATE TABLE .my_table (...)). If no schema is provided ('' is empty), use bare table names.\n"
-        "6. SQL DDL Generation: Using the inferred columns, the target database engine '', and the schema name '', generate a valid CREATE TABLE SQL statement. Use appropriate SQL data types for the target engine (e.g. VARCHAR for text, INT for integer, DECIMAL(p,s) for decimal, DATE for date, BOOLEAN for boolean, CHAR(36) for uuid). Include NOT NULL constraints for non-nullable columns. Return the DDL as a single string with no extra whitespace or markdown formatting.\n"
+        "5. Schema Qualification: If a staging schema name is provided (''), qualify the table name with this schema (e.g. CREATE TABLE . (...)). If no schema is provided ('' is empty), use the bare table name ().\n"
+        "6. SQL DDL Generation: Using the inferred columns, the target database engine '', the schema name '', and the EXACT table name '' (do NOT invent or randomize the table name), generate a valid CREATE TABLE SQL statement. Use appropriate SQL data types for the target engine (e.g. VARCHAR for text, INT for integer, DECIMAL(p,s) for decimal, DATE for date, BOOLEAN for boolean, CHAR(36) for uuid). Include NOT NULL constraints for non-nullable columns. Return the DDL as a single string with no extra whitespace or markdown formatting.\n"
         "Return a JSON object exactly matching the provided schema, with NO extra keys.\n"
         "Source type: fixed_length_file\nLayout information: []"
     )

@@ -24,6 +24,7 @@ from ..db.models import (
     SourceValueSummary,
     User,
 )
+from ..management.feeds import _source_label, _staging_table_name
 from ..management.platform import record_management_audit
 
 try:
@@ -84,6 +85,8 @@ def analyze_source_slice(
 
     target_db = project_definition.domain_config.get("target_db_engine", "postgresql") if project_definition.domain_config else "postgresql"
     staging_schema = project_definition.domain_config.get("staging_schema") if project_definition.domain_config else None
+    feed_label = _source_label(source_definition.source_details)
+    staging_table_name = _staging_table_name(feed_label)
 
     from ..ai.prompt import Prompt
     prompt = Prompt("source_analysis")
@@ -92,6 +95,7 @@ def analyze_source_slice(
         sample_text=sample_text,
         target_db_engine=target_db,
         staging_schema=staging_schema or "",
+        staging_table_name=staging_table_name,
     )
     system_prompt, user_prompt = prompt.get_prompt()
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 from typing import Any, cast
 
@@ -601,6 +602,11 @@ def _source_label(source_details: dict[str, Any] | None) -> str:
         if isinstance(label, str) and label:
             return label
     return "Source"
+
+
+def _staging_table_name(feed_label: str) -> str:
+    sanitized = re.sub(r'[^a-z0-9_]', '_', feed_label.lower())[:59]
+    return f"stg_{sanitized if sanitized else 'source'}"
 
 
 def _read_retained_file(file_storage_path: str) -> bytes:
