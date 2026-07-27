@@ -1,14 +1,43 @@
-# Codegen: Feed Instruction Templates & One-Proc-Per-Table Design
+# Codegen: Multi-Table Artifact Generation, Feed Instructions & One-Proc-Per-Table Design
 
 ## Problem
 
-Two issues in the codegen prompt system:
+Three issues in the codegen system:
 
-1. **Lookup tables omitted**: `_select_lookup_snapshot_version()` returns only the first lookup snapshot found (line 448 of `service.py`), so the AI only generates DDL/seed for one lookup table. When a feed uses multiple lookups (e.g., `claim_status` and `insurance_plan`), only the first one gets generated.
+1. **Root issue — only first table codegen'd**: `_primary_destination_object_name()` (service.py:369) returns `references[0]` only. `generate_codegen_artifact()` is called once from the route (routes/codegen.py:33), processing only one table. If a feed maps to multiple destination tables, only the first table gets a codegen artifact. `build_delivery_bundle_text` already handles multiple artifacts but no second artifact is ever created.
 
-2. **Feed-specific instructions are raw text**: User-entered transformation instructions are dumped raw into the user prompt without consistent framing. Unlike coding standards (which go through `render_coding_standards_template()`), there is no YAML template to control prompt structure.
+2. **Lookup tables omitted**: `_select_lookup_snapshot_version()` (service.py:426-449) returns on the first lookup snapshot found, silently dropping all others. The AI only generates DDL/seed for one lookup table per artifact.
 
-Additionally, all table mappings are generated in a single stored procedure. The requirement has shifted to one stored procedure per destination table, with lookup DDL and seed data delivered separately (before any procs).
+3. **Feed-specific instructions are raw text**: User-entered transformation instructions are dumped raw into the user prompt (`user_prompt.txt.j2` line 24-27) without consistent framing. Unlike coding standards (which go through `render_coding_standards_template()`), there is no YAML template to control prompt structure.
+
+## Prerequisite Task: Multi-Table Codegen Artifact Generation
+
+**Everything else in this spec (Sections 2-10) depends on this prerequisite being in place first.**
+
+**File:** `engine/src/migrations_engine/codegen/service.py`
+
+**Current behavior:** `generate_codegen_artifact()` calls `_primary_destination_object_name()` which returns only `references[0]`. One AI call, one artifact.
+
+**New behavior:** `generate_codegen_artifact()` iterates over ALL `destination_object_references`, creating one artifact (and one AI call) per table:
+
+```python
+def generate_codegen_artifact(db, *, actor, project_id, source_definition_id) -> list[CodegenTriggerResponse]:
+    source_definition = _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
+    dest_tables = [str(r).strip() for r in (source_definition.destination_object_references or []) if r]
+    
+    results = []
+    for dest_table in dest_tables:
+        # ... existing artifact generation logic per table ...
+        results.append(trigger_response)
+    
+    return results
+```
+
+**Route handler change:** Return type changes from `CodegenTriggerResponse` to `list[CodegenTriggerResponse]`.
+
+**`_select_latest_approved_mapping_snapshot` impact:** Already queries by `destination_object_name` — no change needed. Each call fetches the correct snapshot for the target table.
+
+**Artifact naming:** Each artifact is stored with its `destination_object_name`. `build_delivery_bundle_text` already groups artifacts by `destination_object_name` and handles `0000_` lookup artifacts. No changes needed to `build_delivery_bundle_text`.
 
 ## Design
 
@@ -249,33 +278,17 @@ If a destination table has a FK to another destination table:
 |------|--------|
 | `engine/src/migrations_engine/ai/prompts/feed_transformation_instructions.yaml` | **New** — YAML template for feed instruction formatting |
 | `engine/src/migrations_engine/codegen/feed_instructions.py` | **New** — Renderer function |
-| `engine/src/migrations_engine/codegen/service.py` | **Modified** — Bug fix, lookup grouping, service integration |
+| `engine/src/migrations_engine/codegen/service.py` | **Modified** — Multi-table loop, bug fix, lookup grouping, service integration |
 | `engine/src/migrations_engine/codegen/templates/user_prompt.txt.j2` | **Modified** — Replace raw injection with `feed_instructions` variable |
 | `engine/src/migrations_engine/codegen/templates/system_prompt.txt.j2` | **Modified** — Add one-proc-per-table rules and cross-proc FK resolution rules |
 | `engine/src/migrations_engine/ai/prompts/codegen_logging_standards.yaml` | **Modified** — Add cross-proc FK resolution via mig_upsert_log |
+| `engine/src/migrations_engine/routes/codegen.py` | **Modified** — Return type changes to list, handles multi-table response |
 
 ## Files Not Changed
 
 | File | Reason |
 |------|--------|
 | `coding_standards.yaml` | Stored blob approach kept as-is |
-| `project_definition.codegen_instructions` | Stored blob approach kept as-is |
-| Frontend code | No UI changes needed — users still type free text into transformation instructions textarea |
-| `feed_domain_object_analysis.yaml` / `feed_field_mapping.yaml` | Not affected by these changes |
-
-| File | Change |
-|------|--------|
-| `engine/src/migrations_engine/ai/prompts/feed_transformation_instructions.yaml` | **New** — YAML template for feed instruction formatting |
-| `engine/src/migrations_engine/codegen/feed_instructions.py` | **New** — Renderer function |
-| `engine/src/migrations_engine/codegen/service.py` | **Modified** — Bug fix, lookup grouping, service integration |
-| `engine/src/migrations_engine/codegen/templates/user_prompt.txt.j2` | **Modified** — Replace raw injection with `feed_instructions` variable |
-| `engine/src/migrations_engine/codegen/templates/system_prompt.txt.j2` | **Modified** — Add one-proc-per-table rules |
-
-## Files Not Changed
-
-| File | Reason |
-|------|--------|
-| `coding_standards.yaml` / `logging_standards.yaml` | Stored blob approach kept as-is |
 | `project_definition.codegen_instructions` | Stored blob approach kept as-is |
 | Frontend code | No UI changes needed — users still type free text into transformation instructions textarea |
 | `feed_domain_object_analysis.yaml` / `feed_field_mapping.yaml` | Not affected by these changes |
