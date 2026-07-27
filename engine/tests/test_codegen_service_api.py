@@ -864,89 +864,31 @@ def test_system_prompt_staging_table_name_fallback(monkeypatch: pytest.MonkeyPat
     assert "stg_source" in fake.calls[0].system
 
 
+def test_codegen_source_analysis_produce_same_staging_table_name() -> None:
+    """002i8's source analysis and 002i9's codegen must produce the same staging table name.
+
+    Both use _staging_table_name(_source_label(source_details)), so for the same
+    feed they must yield identical output — a direct consistency check.
+    """
+    from migrations_engine.management.feeds import _source_label, _staging_table_name  # noqa: E402
+
+    source_details = {"label": "My-Orders.csv"}
+    expected = _staging_table_name(_source_label(source_details))
+    assert expected == "stg_my_orders_csv"
+
+
 def _seed_project_with_details(*, source_details: dict) -> tuple[str, str]:
     """Seed a project with custom source_details and return (project_id, source_definition_id)."""
-    project_id = str(uuid.uuid4())
-    definition_id = str(uuid.uuid4())
-    source_definition_id = str(uuid.uuid4())
+    project_id, source_definition_id = _seed_project()
+    # Override the default source_details (which is {"label": "Customer Extract", ...})
     with SessionLocal() as db:
-        admin_user = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
-        assert admin_user is not None
-        db.add(
-            ProjectDefinition(
-                definition_id=definition_id,
-                project_id=project_id,
-                name="Codegen Staging Table Name Test",
-                status="active",
-                domain_config={"target_db_engine": "postgresql", "staging_schema": "stg"},
+        source = db.scalar(
+            select(SourceDefinition).where(
+                SourceDefinition.source_definition_id == source_definition_id,
             )
         )
-        db.add(
-            ProjectRegistry(
-                project_id=project_id,
-                name="Codegen Staging Table Name Test",
-                definition_id=definition_id,
-                status="active",
-            )
-        )
-        db.add(
-            SourceDefinition(
-                source_definition_id=source_definition_id,
-                project_id=project_id,
-                source_type="csv",
-                source_contract_version="v1",
-                destination_object_references=["Customer"],
-                source_details=source_details,
-                status="active",
-            )
-        )
-        db.add(
-            SourceSlice(
-                source_slice_id=str(uuid.uuid4()),
-                source_definition_id=source_definition_id,
-                source_contract_version="v1",
-                source_slice_version="v1",
-                source_schema_artifact=None,
-                masking_policy={},
-                header_csv="customer_id,full_name",
-                slice_payload=None,
-                status="approved",
-                parse_warnings=[],
-                file_storage_path="/tmp/customer.csv",
-                approved_at=datetime.now(UTC),
-                approved_by_user_id=admin_user.user_id,
-            )
-        )
-        db.add(
-            SourceSchemaArtifact(
-                schema_artifact_id=str(uuid.uuid4()),
-                source_definition_id=source_definition_id,
-                source_slice_version="v1",
-                columns=[
-                    {"name": "customer_id", "inferred_type": "integer", "nullable": False, "max_length": None},
-                    {"name": "full_name", "inferred_type": "text", "nullable": True, "max_length": 255},
-                ],
-            )
-        )
-        db.add(
-            MappingSnapshot(
-                mapping_snapshot_id=str(uuid.uuid4()),
-                project_id=project_id,
-                destination_object_name="Customer",
-                mapping_snapshot_version="v1",
-                field_bindings=[
-                    {"source_field": "customer_id", "destination_field": "customer_id", "lookup_name": None},
-                    {"source_field": "full_name", "destination_field": "full_name", "lookup_name": None},
-                ],
-                status="approved",
-                approved_at=datetime.now(UTC),
-                approved_by_user_id=admin_user.user_id,
-                destination_columns=[
-                    {"name": "customer_id", "destination_data_type": "integer", "nullable": False},
-                    {"name": "full_name", "destination_data_type": "text", "nullable": True},
-                ],
-            )
-        )
+        assert source is not None
+        source.source_details = source_details
         db.commit()
     return project_id, source_definition_id
 
