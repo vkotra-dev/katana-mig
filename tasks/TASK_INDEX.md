@@ -6,6 +6,7 @@
 |---|---|
 | [002b8-version-history-backend](./002b8-version-history-backend.md) | Add version_history table, API endpoints, and patch hooks — backend only (requires 002b9) |
 | [002b9-version-history-frontend](./002b9-version-history-frontend.md) | Add version history dropdown UI near editable fields — depends on 002b8 |
+| [002h0-ui-slice-ddl-collapse-and-lookup-lock](./002h0-ui-slice-ddl-collapse-and-lookup-lock.md) | Add expand/collapse for Source DDL in Slice section, move to bottom, lock lookup mappings when signed off (OR logic) |
 | [002c0-source-analysis-staging-schema](./002c0-source-analysis-staging-schema-into-prompt.md) | Inject staging_schema from domain_config into source analysis prompt so AI generates schema-qualified CREATE TABLE DDL |
 
 ## Completed

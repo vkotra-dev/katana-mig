@@ -769,14 +769,23 @@ export function ReviewGrid({
                   </div>
                 </div>
 
-                <LookupMappingTable
-                  groups={group.destinationMappings ?? []}
-                  unmappedRowCount={group.unmappedRowCount}
-                  unmappedSourceValues={group.unmappedSourceValues}
-                  editingEnabled={editingEnabled}
-                  onAddSourceValue={(destId, sourceValue) => onAddLookupSourceValue?.(group.lookupName, destId, sourceValue)}
-                  onRemoveSourceValue={(destId, sourceValue) => onRemoveLookupSourceValue?.(group.lookupName, destId, sourceValue)}
-                />
+                {(() => {
+                  const lookupStatus = group.lookupValueMapId
+                    ? signOffStatus?.lookups?.[group.lookupValueMapId]
+                    : undefined;
+                  const isLocked = lookupStatus && (lookupStatus.centralTeam?.signed || lookupStatus.projectStakeholder?.signed);
+                  return (
+                    <LookupMappingTable
+                      locked={isLocked}
+                      groups={group.destinationMappings ?? []}
+                      unmappedRowCount={group.unmappedRowCount}
+                      unmappedSourceValues={group.unmappedSourceValues}
+                      editingEnabled={editingEnabled}
+                      onAddSourceValue={(destId, sourceValue) => onAddLookupSourceValue?.(group.lookupName, destId, sourceValue)}
+                      onRemoveSourceValue={(destId, sourceValue) => onRemoveLookupSourceValue?.(group.lookupName, destId, sourceValue)}
+                    />
+                  );
+                })()}
               </div>
             ))}
           </div>

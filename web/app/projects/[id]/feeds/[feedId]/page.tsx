@@ -59,6 +59,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [sourceDDL, setSourceDDL] = useState<string | null>(null);
+  const [sourceDdlExpanded, setSourceDdlExpanded] = useState(false);
 
   // Lookup fibers drafts state
   const [lookupDrafts, setLookupDrafts] = useState<Record<string, { sourceText: string; destText: string; analyzing: boolean; error: string | null }>>({});
@@ -705,27 +706,6 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                       )}
                     </div>
 
-                    {/* Source DDL section — shown after analysis */}
-                    {sourceDDL && (
-                      <div className="pt-4 border-t border-slate-100 space-y-2">
-                        <div className="flex items-center justify-between mb-1">
-                          <h4 className="text-sm font-semibold text-slate-700">Source DDL</h4>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard.writeText(sourceDDL);
-                              setNotice("DDL copied to clipboard.");
-                            }}
-                            className="text-xs text-primary hover:text-primary-hover font-medium"
-                          >
-                            Copy to clipboard
-                          </button>
-                        </div>
-                        <pre className="text-xs bg-slate-950 text-slate-100 rounded-lg p-3 font-mono whitespace-pre-wrap">
-                          {sourceDDL}
-                        </pre>
-                      </div>
-                    )}
                     {/* Quiet re-upload in Slice panel when approved */}
                     {latestSlice?.status === "approved" && (
                       <div className="border-t border-slate-100 pt-4 mt-4 space-y-2">
@@ -746,6 +726,47 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                             {uploadingReplacement ? "Uploading…" : "Upload new slice"}
                           </button>
                         </div>
+                      </div>
+                    )}
+
+                    {/* Source DDL section — collapsible, shown at bottom of Slice panel */}
+                    {sourceDDL && (
+                      <div className="pt-4 border-t border-slate-100 space-y-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <h4 className="text-sm font-semibold text-slate-700">Source DDL</h4>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(sourceDDL);
+                              setNotice("DDL copied to clipboard.");
+                            }}
+                            className="text-xs text-primary hover:text-primary-hover font-medium"
+                          >
+                            Copy to clipboard
+                          </button>
+                        </div>
+                        {!sourceDdlExpanded ? (
+                          <button
+                            type="button"
+                            onClick={() => setSourceDdlExpanded(true)}
+                            className="w-full text-left text-xs text-slate-500 hover:text-slate-700 font-medium py-1"
+                          >
+                            Show Source DDL
+                          </button>
+                        ) : (
+                          <div className="space-y-2">
+                            <pre className="text-xs bg-slate-950 text-slate-100 rounded-lg p-3 font-mono whitespace-pre-wrap max-h-64 overflow-auto">
+                              {sourceDDL}
+                            </pre>
+                            <button
+                              type="button"
+                              onClick={() => setSourceDdlExpanded(false)}
+                              className="text-xs text-slate-500 hover:text-slate-700 font-medium"
+                            >
+                              Hide Source DDL
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

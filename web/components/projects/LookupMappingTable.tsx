@@ -8,6 +8,7 @@ interface LookupMappingTableProps {
   unmappedRowCount?: number;
   unmappedSourceValues?: string[];
   editingEnabled?: boolean;
+  locked?: boolean;
   onAddSourceValue?: (destId: string, sourceValue: string) => void;
   onRemoveSourceValue?: (destId: string, sourceValue: string) => void;
 }
@@ -35,6 +36,7 @@ export function LookupMappingTable({
   unmappedRowCount,
   unmappedSourceValues,
   editingEnabled,
+  locked,
   onAddSourceValue,
   onRemoveSourceValue,
 }: LookupMappingTableProps) {
@@ -98,7 +100,7 @@ export function LookupMappingTable({
                         value={srcVal}
                         className="px-2.5 py-1 text-sm border rounded bg-slate-50 border-slate-200 text-slate-800 focus:outline-none focus:bg-white focus:border-indigo-500 w-full max-w-sm font-mono"
                       />
-                      {editingEnabled && onRemoveSourceValue && group.destId && (
+                      {!locked && editingEnabled && onRemoveSourceValue && group.destId && (
                         <button
                           type="button"
                           onClick={() => onRemoveSourceValue(group.destId, srcVal)}
@@ -110,7 +112,7 @@ export function LookupMappingTable({
                       )}
                     </div>
                   ))}
-                  {editingEnabled && onAddSourceValue && group.destId && (
+                  {!locked && editingEnabled && onAddSourceValue && group.destId && (
                     addingDestId === group.destId ? (
                       <div className="flex items-center gap-2 mt-1">
                         <input
