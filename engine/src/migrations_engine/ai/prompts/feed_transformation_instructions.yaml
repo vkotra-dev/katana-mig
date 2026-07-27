@@ -1,8 +1,7 @@
-shared_header: |
+system: |
   You are generating SQL migration scripts for a data migration project.
   Below are feed-specific transformation instructions that define business rules
   for this particular data feed. These rules override generic mapping behavior.
 
   FEED-SPECIFIC TRANSFORMATION RULES
-  {{ feed_instructions }}
-shared_footer: ""
+  $payload

@@ -762,7 +762,7 @@ def test_render_feed_instructions_template_none() -> None:
 
 
 def test_render_feed_instructions_template_with_content() -> None:
-    """Verify non-empty input is wrapped with template header."""
+    """Verify non-empty input is wrapped with template header and placeholder is substituted."""
     from migrations_engine.codegen.feed_instructions import render_feed_instructions_template  # noqa: E402
 
     result = render_feed_instructions_template("Use UPPER for status fields")
@@ -770,4 +770,7 @@ def test_render_feed_instructions_template_with_content() -> None:
     assert "You are a lookup value mapper" not in result
     assert "Use UPPER for status fields" in result
     assert result != "(none)"
+    # The Jinja-style placeholder must NOT leak into output
+    assert "{{" not in result
+    assert "}}}" not in result
 
