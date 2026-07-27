@@ -1,7 +1,7 @@
 ---
 id: 002i5
 title: Lookup tables grouped by destination table with full value_map
-status: pending
+status: completed
 created: 2026-07-24
 priority: high
 depends-on: [002i1]

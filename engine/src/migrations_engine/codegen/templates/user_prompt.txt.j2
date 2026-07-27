@@ -22,7 +22,7 @@ LOOKUP REFERENCE TABLES
 {% for lt in lookup_tables %}
 - Table: {{ lt.ref_table_name }} (snapshot: {{ lt.snapshot_version }})
   Columns: {{ ", ".join(lt.columns) }}
-  Sample mappings (up to 5 rows):
+  All mappings:
   {% for m in lt.sample_mappings %}
   - {{ m.source_val }} -> {{ m.dest_val }}
   {% endfor %}

@@ -468,7 +468,7 @@ def _build_lookup_tables(
     """Build structured lookup reference table info for prompt embedding.
 
     Returns a list of dicts with keys: lookup_name, ref_table_name, columns,
-    sample_mappings (up to 5 rows), and snapshot_version.
+    sample_mappings (all rows from value_map), and snapshot_version.
     """
     lookup_names = sorted(
         {
@@ -490,10 +490,9 @@ def _build_lookup_tables(
 
         value_map = snapshot.value_map or {}
         ref_table = f"{lookup_name}_ref" if not lookup_name.endswith("_ref") else lookup_name
-        sample = list(value_map.items())[:5]
         sample_mappings = [
             {"source_val": src, "dest_val": dst}
-            for src, dst in sample
+            for src, dst in value_map.items()
         ]
 
         results.append({
