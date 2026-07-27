@@ -329,9 +329,14 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
     setPageError(null);
     setStatusMessage(null);
     try {
-      await triggerCodegen(session.accessToken, routeParams.id, sourceDefinitionId);
+      const results = await triggerCodegen(session.accessToken, routeParams.id, sourceDefinitionId);
       await refreshArtifacts();
-      setStatusMessage("Code generation completed.");
+      const generatedCount = results.length;
+      if (generatedCount > 0) {
+        setStatusMessage(`Generated ${generatedCount} procedure(s).`);
+      } else {
+        setStatusMessage("Code generation completed — no tables had approved mapping.");
+      }
     } catch (error) {
       setPageError(error instanceof Error ? error.message : "Unable to generate code.");
     } finally {

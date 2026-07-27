@@ -19,17 +19,19 @@ describe("codegen-api", () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 201,
-      json: async () => ({
-        codegen_artifact_id: "cga-1",
-        project_id: "project-1",
-        destination_object_name: "Customer",
-        status: "active",
-        sql_bundle_preview: "CREATE TABLE stg_customer (",
-        source_slice_version: "v1",
-        mapping_snapshot_version: "v1",
-        lookup_snapshot_version: null,
-        created_at: "2026-06-30T00:00:00Z",
-      }),
+      json: async () => [
+        {
+          codegen_artifact_id: "cga-1",
+          project_id: "project-1",
+          destination_object_name: "Customer",
+          status: "active",
+          sql_bundle_preview: "CREATE TABLE stg_customer (",
+          source_slice_version: "v1",
+          mapping_snapshot_version: "v1",
+          lookup_snapshot_version: null,
+          created_at: "2026-06-30T00:00:00Z",
+        },
+      ],
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -44,8 +46,48 @@ describe("codegen-api", () => {
         }),
       }),
     );
-    expect(result.codegenArtifactId).toBe("cga-1");
-    expect(result.sqlBundlePreview).toContain("CREATE TABLE");
+    expect(Array.isArray(result)).toBe(true);
+    expect(result[0].codegenArtifactId).toBe("cga-1");
+    expect(result[0].sqlBundlePreview).toContain("CREATE TABLE");
+  });
+
+  it("mapTriggerResponseList maps multiple items", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => [
+        {
+          codegen_artifact_id: "cga-1",
+          project_id: "project-1",
+          destination_object_name: "Customer",
+          status: "active",
+          sql_bundle_preview: "CREATE TABLE stg_customer (",
+          source_slice_version: "v1",
+          mapping_snapshot_version: "v1",
+          lookup_snapshot_version: null,
+          created_at: "2026-06-30T00:00:00Z",
+        },
+        {
+          codegen_artifact_id: "cga-2",
+          project_id: "project-1",
+          destination_object_name: "Order",
+          status: "active",
+          sql_bundle_preview: "CREATE TABLE stg_order (",
+          source_slice_version: "v1",
+          mapping_snapshot_version: "v1",
+          lookup_snapshot_version: null,
+          created_at: "2026-06-30T00:01:00Z",
+        },
+      ],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await triggerCodegen("token-1", "project-1", "source-1");
+
+    expect(result).toHaveLength(2);
+    expect(result[0].codegenArtifactId).toBe("cga-1");
+    expect(result[1].codegenArtifactId).toBe("cga-2");
+    expect(result[1].destinationObjectName).toBe("Order");
   });
 
   it("lists codegen artifacts and fetches full artifacts", async () => {

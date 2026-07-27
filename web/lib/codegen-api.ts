@@ -123,32 +123,34 @@ async function parseApiError(response: Response): Promise<CodegenApiError> {
   }
 }
 
-function mapTriggerResponse(response: {
-  codegen_artifact_id: string;
-  project_id: string;
-  feed_id?: string | null;
-  destination_object_name: string;
-  status: "active" | "superseded";
-  sql_bundle_preview: string;
-  source_slice_version: string | null;
-  mapping_snapshot_version: string | null;
-  lookup_snapshot_version: string | null;
+function mapTriggerResponseList(
+  items: Array<{
+    codegen_artifact_id: string;
+    project_id: string;
+    feed_id?: string | null;
+    destination_object_name: string;
+    status: "active" | "superseded";
+    sql_bundle_preview: string;
+    source_slice_version: string | null;
+    mapping_snapshot_version: string | null;
+    lookup_snapshot_version: string | null;
 
-  created_at: string;
-}): CodegenTriggerRecord {
-  return {
-    codegenArtifactId: response.codegen_artifact_id,
-    projectId: response.project_id,
-    feedId: response.feed_id,
-    destinationObjectName: response.destination_object_name,
-    status: response.status,
-    sqlBundlePreview: response.sql_bundle_preview,
-    sourceSliceVersion: response.source_slice_version,
-    mappingSnapshotVersion: response.mapping_snapshot_version,
-    lookupSnapshotVersion: response.lookup_snapshot_version,
+    created_at: string;
+  }>,
+): CodegenTriggerRecord[] {
+  return items.map((r) => ({
+    codegenArtifactId: r.codegen_artifact_id,
+    projectId: r.project_id,
+    feedId: r.feed_id,
+    destinationObjectName: r.destination_object_name,
+    status: r.status,
+    sqlBundlePreview: r.sql_bundle_preview,
+    sourceSliceVersion: r.source_slice_version,
+    mappingSnapshotVersion: r.mapping_snapshot_version,
+    lookupSnapshotVersion: r.lookup_snapshot_version,
 
-    createdAt: response.created_at,
-  };
+    createdAt: r.created_at,
+  }));
 }
 
 function mapArtifactResponse(response: {
@@ -205,12 +207,12 @@ export async function triggerCodegen(
   token: string,
   projectId: string,
   sourceDefinitionId: string,
-): Promise<CodegenTriggerRecord> {
-  const response = await requestJson<Parameters<typeof mapTriggerResponse>[0]>(
+): Promise<CodegenTriggerRecord[]> {
+  const response = await requestJson<Parameters<typeof mapTriggerResponseList>[0]>(
     `/projects/${projectId}/sources/${sourceDefinitionId}/codegen`,
     { method: "POST", token },
   );
-  return mapTriggerResponse(response);
+  return mapTriggerResponseList(response);
 }
 
 export async function listCodegenArtifacts(

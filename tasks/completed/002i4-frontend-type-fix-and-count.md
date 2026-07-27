@@ -1,7 +1,8 @@
 ---
 id: 002i4
 title: Frontend type/mapper fix + count display for multi-table codegen
-status: pending
+status: completed
+completed: 2026-07-24
 created: 2026-07-24
 priority: medium
 depends-on: [002i3]

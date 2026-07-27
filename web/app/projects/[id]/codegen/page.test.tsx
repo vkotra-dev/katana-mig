@@ -136,17 +136,19 @@ describe("CodegenPage", () => {
       processedCount: 1,
       analyzedAt: "2026-06-30T00:00:00Z",
     });
-    triggerCodegenMock.mockResolvedValue({
-      codegenArtifactId: "cga-2",
-      projectId: "project-1",
-      destinationObjectName: "Customer",
-      status: "active",
-      sqlBundlePreview: "CREATE TABLE stg_customer (",
-      sourceSliceVersion: "v1",
-      mappingSnapshotVersion: "v1",
-      lookupSnapshotVersion: null,
-      createdAt: "2026-06-30T01:00:00Z",
-    });
+    triggerCodegenMock.mockResolvedValue([
+      {
+        codegenArtifactId: "cga-2",
+        projectId: "project-1",
+        destinationObjectName: "Customer",
+        status: "active",
+        sqlBundlePreview: "CREATE TABLE stg_customer (",
+        sourceSliceVersion: "v1",
+        mappingSnapshotVersion: "v1",
+        lookupSnapshotVersion: null,
+        createdAt: "2026-06-30T01:00:00Z",
+      },
+    ]);
     downloadCodegenDeliveryBundleMock.mockResolvedValue("-- Customer\n\nCREATE TABLE stg_customer (customer_id INT);");
     triggerSchemaAnalysisMock.mockResolvedValue({
       analysisId: "analysis-2",

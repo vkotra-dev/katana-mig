@@ -1,6 +1,6 @@
 # Plan 002i4 — Frontend Type/Mapper Fix + Count Display
 
-Task: [002i4](../tasks/002i4-frontend-type-fix-and-count.md)
+Task: [002i4](../tasks/completed/002i4-frontend-type-fix-and-count.md)
 Domain: (none)
 
 ## Current State
