@@ -10,7 +10,7 @@ tags:
   - lookup
   - codegen
   - ai
-timestamp: 2026-07-26
+timestamp: 2026-07-27
 ---
 
 # Source Model
@@ -586,6 +586,14 @@ audit trail. Only `active` artifacts are included in the delivery bundle.
 The run record for the code generation stage carries `codegen_artifact_id` pointing to the
 `CodeGenerationArtifact` it produced. This is the baton_4 artifact reference.
 
+A single codegen trigger (`POST .../codegen`) generates **one artifact per destination table**
+the feed maps to, not one artifact total — `generate_codegen_artifact()` loops over every entry
+in `Feed.destination_object_references`, running a separate AI call and creating a separate
+`CodeGenerationArtifact` for each. Destination tables with no approved `MappingSnapshot` (or
+missing destination column metadata) are skipped with a logged warning rather than failing the
+whole request. The endpoint's response is `list[CodegenTriggerResponse]`, one entry per artifact
+actually created.
+
 ### Delivery bundle
 
 The complete delivery bundle is assembled by collecting all `status = "active"`
@@ -773,6 +781,10 @@ overwrites the previous record.
 
 ## Changelog
 
+- 2026-07-27: Clarified "Run reference" — a single codegen trigger now produces one
+  `CodeGenerationArtifact` per destination table (task 002i3's multi-table loop), not one
+  artifact total. Documented the per-table skip behavior and the `list[CodegenTriggerResponse]`
+  response shape.
 - 2026-07-25: Rewrote the "Lookup mapping" section — it still described the transient `LookupSourceEntry`/`LookupDestFeed`/`LookupDestEntry`/`LookupMapping` tables that tasks 001fg/001fh removed in favor of the JSON-based `LookupValueMap` model, never patched at the time (I22 retroactively applied). Documented the current `submit_lookup_inputs` → `_sync_lookup_value_map_from_proposed_mappings` flow, the `add_source_value` case-insensitive-duplicate/reject/unmapped-routing rules (task 001gu), and the known CSV-quoting gap in `_parse_destination_csv`.
 - 2026-07-21: AI re-analysis safely upserts and preserves existing approved mappings without throwing AuthApiError.
 - 2026-07 — AI-driven multi-table mapping extraction with binding type classification; multi-party sign-off model; LookupValueMap promoted to project scope; feed/slice comments with codegen injection; mapping hints and AI trace; codegen instructions (project-wide + per-feed); migration run logging (mig_upsert_log); AI call logging; feed slice immutability and workflow overhaul

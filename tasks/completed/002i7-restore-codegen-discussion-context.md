@@ -1,7 +1,7 @@
 ---
 id: 002i7
 title: Restore feed/slice discussion comments dropped by the multi-table codegen loop
-status: pending
+status: completed
 created: 2026-07-24
 priority: high
 depends-on: [002i3]
