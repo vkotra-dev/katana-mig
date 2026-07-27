@@ -6,7 +6,8 @@ Destination schema: {{ project_config.destination_schema or 'unknown' }}
 
 INSTRUCTIONS FOR SQL BUNDLE GENERATION:
 1. Generate DDL to create any required lookup tables and seed/populate them with the approved mapping values.
-2. Script/create the stored procedure or SQL migration script that performs the actual data migration/upsert from source/staging tables to destination tables using the field mappings.
+2. Generate EXACTLY ONE stored procedure for {{ destination_object_name }}. Each destination table gets its own stored procedure. Do NOT combine multiple destination tables into a single procedure.
+3. Create the stored procedure that performs the data migration/upsert for {{ destination_object_name }} only.
    - Destination tables already exist — do NOT create them.
    - Source/staging tables already exist — do NOT create them.
 LOOKUP RESOLUTION RULES (apply when a field uses a lookup table):
@@ -20,6 +21,11 @@ LOOKUP RESOLUTION RULES (apply when a field uses a lookup table):
    - Use the resolved variable directly in INSERT/UPDATE — do NOT use inline subqueries or CAST to NVARCHAR
    - Wrap lookup resolution and upsert logic in TRY...CATCH (SQL Server) / BEGIN...EXCEPTION (PostgreSQL) for transaction atomicity
    - Log errors to mig_upsert_log on failure
+CROSS-PROC FK RESOLUTION:
+   - When this table has foreign keys to master tables populated by earlier procedures, resolve those FKs by querying $stg.mig_upsert_log for the source_row_num written by the master proc, then joining to the destination table's dest_row_id column.
+   - The source_row_num column in mig_upsert_log stores the business key as a string (VARCHAR/TEXT), not a numeric row counter.
+   - If a required FK cannot be resolved (no matching row in mig_upsert_log or the reference table), RAISE / THROW / SIGNAL a hard abort — do NOT silently skip the row.
+   - For composite natural keys, concatenate the key columns with a delimiter (e.g., col1||':'||col2) to create a single string value stored in source_row_num.
 3. Return your output as JSON with these fields:
    - staging_ddl: use a SQL comment (e.g. "-- No new tables required") — do not generate CREATE TABLE for source or destination tables
    - lookup_ddl: list of CREATE TABLE statements for lookup/reference tables (empty list if none)

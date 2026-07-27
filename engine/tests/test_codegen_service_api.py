@@ -201,7 +201,7 @@ def test_post_codegen_creates_active_artifact_and_preview(monkeypatch: pytest.Mo
     data = response.json()[0]
     assert data["status"] == "active"
     assert data["lookup_snapshot_version"] is None
-    assert "IF OBJECT_ID" in data["sql_bundle_preview"] or "stg_cu" in data["sql_bundle_preview"]
+    assert "mig_upsert_log" in data["sql_bundle_preview"]
     assert len(data["sql_bundle_preview"]) <= 1500
 
     with SessionLocal() as db:
@@ -773,4 +773,60 @@ def test_render_feed_instructions_template_with_content() -> None:
     # The Jinja-style placeholder must NOT leak into output
     assert "{{" not in result
     assert "}}}" not in result
+
+
+def test_mig_upsert_log_ddl_uses_string_source_row_num() -> None:
+    """Verify _mig_upsert_log_ddl returns VARCHAR/TEXT for source_row_num in all 4 engines."""
+    from migrations_engine.codegen.service import _mig_upsert_log_ddl  # noqa: E402
+
+    pg = _mig_upsert_log_ddl("stg", "postgresql")
+    assert "source_row_num VARCHAR(255)" in pg
+
+    mysql = _mig_upsert_log_ddl("stg", "mysql")
+    assert "source_row_num VARCHAR(255)" in mysql
+
+    oracle = _mig_upsert_log_ddl("stg", "oracle")
+    assert "source_row_num VARCHAR2(255)" in oracle
+
+    mssql = _mig_upsert_log_ddl("stg", "mssql")
+    assert "[source_row_num] NVARCHAR(255)" in mssql
+
+
+def test_system_prompt_has_one_proc_per_table_rule() -> None:
+    """Verify system prompt explicitly instructs one stored procedure per destination table."""
+    from migrations_engine.codegen.service import _build_system_prompt  # noqa: E402
+    from migrations_engine.api.schemas import MigrationProjectConfig  # noqa: E402
+    from migrations_engine.db.models import ProjectDefinition  # noqa: E402
+
+    config = MigrationProjectConfig.model_validate({
+        "target_db_engine": "postgresql",
+        "staging_schema": "stg",
+    })
+    proj = ProjectDefinition(
+        definition_id=str(uuid.uuid4()),
+        project_id=str(uuid.uuid4()),
+        name="Test",
+        status="active",
+    )
+    prompt = _build_system_prompt(
+        project_config=config,
+        destination_object_name="Customer",
+        project_definition=proj,
+    )
+    assert "one stored procedure" in prompt.lower() or "one procedure" in prompt.lower()
+
+
+def test_logging_standards_include_cross_proc_fk_rules() -> None:
+    """Verify codegen_logging_standards.yaml includes cross-proc FK resolution (item 22)."""
+    import yaml  # noqa: E402
+    from pathlib import Path  # noqa: E402
+
+    yaml_path = Path(__file__).parents[1] / "src" / "migrations_engine" / "ai" / "prompts" / "codegen_logging_standards.yaml"
+    data = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+
+    for engine in ("postgresql", "mssql", "oracle", "mysql"):
+        block = data[engine]
+        assert "22" in block, f"Engine {engine} missing cross-proc FK rule (item 22)"
+        assert "Cross-procedure FK resolution" in block or "Cross-proc" in block, \
+            f"Engine {engine} item 22 lacks cross-proc FK resolution description"
 

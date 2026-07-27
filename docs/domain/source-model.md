@@ -548,12 +548,31 @@ Both fields are editable via their respective PATCH endpoints.
 
 #### Migration run logging
 
-Every SQL bundle is prepended with a `CREATE TABLE IF NOT EXISTS mig_upsert_log` DDL statement.
+Every SQL bundle is prepended with a `CREATE TABLE IF NOT EXISTS mig_upsert_log` DDL statement,
+plus an optional `ALTER TABLE` migration guard that converts existing `source_row_num` columns
+from numeric types to string (VARCHAR/NVARCHAR/VARCHAR2) for compatibility with projects that
+were created before task 002i6.
+
+The `source_row_num` column stores the source row's business key as a string (VARCHAR/TEXT/NVARCHAR(255)),
+not a numeric row counter. For composite natural keys, the keys are concatenated with a ':' delimiter.
+
 The AI system prompt instructs codegen to emit `MERGE` + `OUTPUT INTO mig_upsert_log` for every
 upsert operation, producing a row-level audit trail.
 
 The `run_ref` literal is baked into the SQL as `'{project_id}_{source_definition_id}'`, uniquely
 identifying the migration run context.
+
+Cross-procedure FK resolution: when a detail table's procedure needs to resolve foreign keys to
+master tables populated by earlier procedures, it queries `$stg.mig_upsert_log` using the master's
+`source_row_num` (business key as string) to find the corresponding `dest_row_id`. If a required
+FK cannot be resolved, the procedure hard-aborts rather than silently skipping.
+
+#### Code generation artifact
+
+Each codegen call produces exactly one stored procedure per destination table. The AI system
+prompt explicitly instructs one-proc-per-table: each `CodeGenerationArtifact` corresponds to one
+`destination_object_name` and contains one stored procedure for that table's migration logic,
+alongside any lookup DDL, seed data, and staging DDL needed for that specific table.
 
 ### Model fields
 

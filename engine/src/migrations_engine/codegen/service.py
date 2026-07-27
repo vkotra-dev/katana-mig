@@ -533,6 +533,57 @@ def _build_lookup_tables(
     return results
 
 
+def _mig_upsert_log_ddl_schema_change(staging_schema: str, db_engine: str | None = None) -> str:
+    """Return ALTER TABLE to migrate existing mig_upsert_log.source_row_num from numeric to string."""
+    lower_engine = (db_engine or "").lower()
+    engine_key = "mssql" if lower_engine == "sqlserver" else lower_engine
+
+    if engine_key == "postgresql":
+        return (
+            f"DO $$\n"
+            f"BEGIN\n"
+            f"    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = '{staging_schema}' AND table_name = 'mig_upsert_log' AND column_name = 'source_row_num' AND data_type != 'character varying') THEN\n"
+            f"        ALTER TABLE {staging_schema}.mig_upsert_log ALTER COLUMN source_row_num TYPE VARCHAR(255);\n"
+            f"    END IF;\n"
+            f"END $$;"
+        )
+    if engine_key == "mysql":
+        return (
+            f"ALTER TABLE `{staging_schema}`.`mig_upsert_log`\n"
+            f"    MODIFY COLUMN `source_row_num` VARCHAR(255) COMMENT 'column-alter-if-numeric';"
+        )
+    if engine_key == "oracle":
+        return (
+            f"DECLARE\n"
+            f"    v_data_type VARCHAR2(30);\n"
+            f"BEGIN\n"
+            f"    SELECT data_type INTO v_data_type FROM all_tab_columns\n"
+            f"        WHERE owner = UPPER('{staging_schema}') AND table_name = 'MIG_UPsert_log' AND column_name = 'SOURCE_ROW_NUM';\n"
+            f"    IF v_data_type IN ('NUMBER', 'DECIMAL', 'FLOAT', 'REAL') THEN\n"
+            f"        EXECUTE IMMEDIATE 'ALTER TABLE {staging_schema}.mig_upsert_log MODIFY source_row_num VARCHAR2(255)';\n"
+            f"    END IF;\n"
+            f"EXCEPTION WHEN NO_DATA_FOUND THEN NULL;\n"
+            f"END;"
+        )
+    # mssql / default
+    return (
+        f"IF EXISTS (SELECT 1 FROM sys.columns c JOIN sys.tables t ON c.object_id = t.object_id "
+        f"JOIN sys.schemas s ON t.schema_id = s.schema_id "
+        f"WHERE s.name = '{staging_schema}' AND t.name = 'mig_upsert_log' AND c.name = 'source_row_num') "
+        f"BEGIN\n"
+        f"    IF EXISTS (SELECT 1 FROM sys.types ty JOIN sys.types ty2 ON ty.system_type_id = ty2.system_type_id "
+        f"        JOIN sys.columns c ON c.user_type_id = ty.user_type_id "
+        f"        JOIN sys.tables tbl ON c.object_id = tbl.object_id "
+        f"        JOIN sys.schemas s ON tbl.schema_id = s.schema_id "
+        f"        WHERE s.name = '{staging_schema}' AND tbl.name = 'mig_upsert_log' AND c.name = 'source_row_num' "
+        f"        AND ty.name IN ('bigint', 'int', 'smallint', 'tinyint', 'decimal', 'numeric', 'float', 'real'))\n"
+        f"    BEGIN\n"
+        f"        ALTER TABLE [{staging_schema}].[mig_upsert_log] ALTER COLUMN [source_row_num] NVARCHAR(255);\n"
+        f"    END\n"
+        f"END;"
+    )
+
+
 def _mig_upsert_log_ddl(staging_schema: str, db_engine: str | None = None) -> str:
     lower_engine = (db_engine or "").lower()
     engine_key = "mssql" if lower_engine == "sqlserver" else lower_engine
@@ -543,7 +594,7 @@ def _mig_upsert_log_ddl(staging_schema: str, db_engine: str | None = None) -> st
             f"    log_id         BIGSERIAL PRIMARY KEY,\n"
             f"    run_ref        VARCHAR(255) NOT NULL,\n"
             f"    dest_table     VARCHAR(255) NOT NULL,\n"
-            f"    source_row_num BIGINT,\n"
+            f"    source_row_num VARCHAR(255),\n"
             f"    dest_row_id    VARCHAR(255),\n"
             f"    action         VARCHAR(10) NOT NULL,\n"
             f"    logged_at      TIMESTAMP NOT NULL DEFAULT clock_timestamp()\n"
@@ -555,7 +606,7 @@ def _mig_upsert_log_ddl(staging_schema: str, db_engine: str | None = None) -> st
             f"    log_id         BIGINT AUTO_INCREMENT PRIMARY KEY,\n"
             f"    run_ref        VARCHAR(255) NOT NULL,\n"
             f"    dest_table     VARCHAR(255) NOT NULL,\n"
-            f"    source_row_num BIGINT,\n"
+            f"    source_row_num VARCHAR(255),\n"
             f"    dest_row_id    VARCHAR(255),\n"
             f"    action         VARCHAR(10) NOT NULL,\n"
             f"    logged_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP\n"
@@ -568,7 +619,7 @@ def _mig_upsert_log_ddl(staging_schema: str, db_engine: str | None = None) -> st
             f"        log_id         NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,\n"
             f"        run_ref        VARCHAR2(255) NOT NULL,\n"
             f"        dest_table     VARCHAR2(255) NOT NULL,\n"
-            f"        source_row_num NUMBER,\n"
+            f"        source_row_num VARCHAR2(255),\n"
             f"        dest_row_id    VARCHAR2(255),\n"
             f"        action         VARCHAR2(10) NOT NULL,\n"
             f"        logged_at      TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL\n"
@@ -587,7 +638,7 @@ def _mig_upsert_log_ddl(staging_schema: str, db_engine: str | None = None) -> st
         f"        [log_id]         BIGINT IDENTITY(1,1) PRIMARY KEY,\n"
         f"        [run_ref]        NVARCHAR(255) NOT NULL,\n"
         f"        [dest_table]     NVARCHAR(255) NOT NULL,\n"
-        f"        [source_row_num] BIGINT        NULL,\n"
+        f"        [source_row_num] NVARCHAR(255)  NULL,\n"
         f"        [dest_row_id]    NVARCHAR(255) NULL,\n"
         f"        [action]         NVARCHAR(10)  NOT NULL,\n"
         f"        [logged_at]      DATETIME2(0)  NOT NULL DEFAULT GETDATE()\n"
@@ -601,6 +652,7 @@ def _assemble_sql_bundle(
 ) -> str:
     parts: list[str] = []
     if staging_schema:
+        parts.append(_mig_upsert_log_ddl_schema_change(staging_schema, db_engine))
         parts.append(_mig_upsert_log_ddl(staging_schema, db_engine))
     parts.append(generated_sql.staging_ddl.strip())
     parts.extend(s.strip() for s in generated_sql.lookup_ddl if s.strip())
