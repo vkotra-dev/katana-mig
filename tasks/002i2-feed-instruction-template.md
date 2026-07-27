@@ -1,7 +1,7 @@
 ---
 id: 002i2
 title: Create YAML template for feed-specific transformation instructions
-status: pending
+status: completed
 created: 2026-07-24
 priority: medium
 depends-on: []
