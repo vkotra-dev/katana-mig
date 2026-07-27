@@ -8,6 +8,12 @@
 | [002b9-version-history-frontend](./002b9-version-history-frontend.md) | Add version history dropdown UI near editable fields — depends on 002b8 |
 | [002h0-ui-slice-ddl-collapse-and-lookup-lock](./002h0-ui-slice-ddl-collapse-and-lookup-lock.md) | Add expand/collapse for Source DDL in Slice section, move to bottom, lock lookup mappings when signed off (OR logic) |
 | [002c0-source-analysis-staging-schema](./002c0-source-analysis-staging-schema-into-prompt.md) | Inject staging_schema from domain_config into source analysis prompt so AI generates schema-qualified CREATE TABLE DDL |
+| [002i1-lookup-snapshot-collect-bug-fix](./002i1-lookup-snapshot-collect-bug-fix.md) | Fix `_select_lookup_snapshot_version()` to return all matching lookup snapshots (not just first) — changes return type to `list[dict[str, str]]`, updates `_build_user_prompt()` |
+| [002i2-feed-instruction-template](./002i2-feed-instruction-template.md) | Create YAML template file for feed-specific instructions, renderer loads from YAML |
+| [002i3-multi-table-codegen-loop](./002i3-multi-table-codegen-loop.md) | Enable `build_delivery_bundle_text` for multiple artifacts + `generate_codegen_artifact` multi-table loop |
+| [002i4-frontend-type-fix-and-count](./002i4-frontend-type-fix-and-count.md) | Fix `mapTriggerResponse` type, `mapTriggerResponseList` mapper, add codegen count display |
+| [002i5-lookup-tables-grouped-by-table](./002i5-lookup-tables-grouped-by-table.md) | Group lookup tables by destination table in prompt, inject all rows (no 5-sample cap) |
+| [002i6-one-proc-per-table-cross-proc-fk](./002i6-one-proc-per-table-cross-proc-fk.md) | One-proc-per-table prompt rules + cross-proc FK resolution via mig_upsert_log |
 
 ## Completed
 

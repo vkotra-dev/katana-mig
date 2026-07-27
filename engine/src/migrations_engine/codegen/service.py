@@ -71,11 +71,13 @@ def generate_codegen_artifact(
         source_definition_id=source_definition_id,
         destination_object_name=destination_object_name,
     )
-    lookup_snapshot_version = _select_lookup_snapshot_version(
+    lookup_snapshot_versions = _select_lookup_snapshot_version(
         db,
         project_id=project_id,
         mapping_snapshot=mapping_snapshot,
     )
+    # Keep the first snapshot version for backward-compatible artifact storage
+    first_version = lookup_snapshot_versions[0]["snapshot_version"] if lookup_snapshot_versions else None
 
     if mapping_snapshot.destination_columns is None:
         raise AuthApiError(
@@ -117,7 +119,7 @@ def generate_codegen_artifact(
         source_definition=source_definition,
         source_slice=source_slice,
         mapping_snapshot=mapping_snapshot,
-        lookup_snapshot_version=lookup_snapshot_version,
+        lookup_snapshot_versions=lookup_snapshot_versions,
         lookup_tables=lookup_tables,
         project_config=project_config,
         run_ref=f"{project_id}_{source_definition_id}",
@@ -192,7 +194,7 @@ def generate_codegen_artifact(
         run_id=None,
         source_slice_version=source_slice.source_slice_version,
         mapping_snapshot_version=mapping_snapshot.mapping_snapshot_version,
-        lookup_snapshot_version=lookup_snapshot_version,
+        lookup_snapshot_version=first_version,
         sql_bundle=sql_bundle,
 
         status="active",
@@ -428,7 +430,11 @@ def _select_lookup_snapshot_version(
     *,
     project_id: str,
     mapping_snapshot: MappingSnapshot,
-) -> str | None:
+) -> list[dict[str, str]]:
+    """Collect ALL matching lookup snapshots.
+
+    Returns a list of dicts with keys "lookup_name" and "snapshot_version".
+    """
     lookup_names = sorted(
         {
             str(binding.get("lookup_name"))
@@ -436,6 +442,7 @@ def _select_lookup_snapshot_version(
             if binding.get("lookup_name") and not binding.get("dropped")
         }
     )
+    results: list[dict[str, str]] = []
     for lookup_name in lookup_names:
         try:
             snapshot = select_latest_approved_lookup_snapshot(
@@ -445,8 +452,11 @@ def _select_lookup_snapshot_version(
             )
         except SnapshotNotFoundError:
             continue
-        return snapshot.lookup_snapshot_version
-    return None
+        results.append({
+            "lookup_name": lookup_name,
+            "snapshot_version": snapshot.lookup_snapshot_version,
+        })
+    return results
 
 
 def _build_lookup_tables(
@@ -632,7 +642,7 @@ def _build_user_prompt(
     source_definition: Feed,
     source_slice: FeedSlice,
     mapping_snapshot: MappingSnapshot,
-    lookup_snapshot_version: str | None,
+    lookup_snapshot_versions: list[dict[str, str]],
     lookup_tables: list[dict],
     project_config: MigrationProjectConfig,
     run_ref: str,
@@ -644,7 +654,7 @@ def _build_user_prompt(
         source_definition=source_definition,
         source_slice=source_slice,
         mapping_snapshot=mapping_snapshot,
-        lookup_snapshot_version=lookup_snapshot_version,
+        lookup_snapshot_versions=lookup_snapshot_versions,
         lookup_tables=lookup_tables,
         project_config=project_config,
         run_ref=run_ref,

@@ -3,7 +3,14 @@ Run ref (use as literal string in mig_upsert_log): {{ run_ref }}
 Source slice version: {{ source_slice.source_slice_version }}
 Destination object: {{ mapping_snapshot.destination_object_name }}
 Mapping snapshot version: {{ mapping_snapshot.mapping_snapshot_version }}
-Lookup snapshot version: {{ lookup_snapshot_version or 'none' }}
+Lookup snapshots:
+{% if lookup_snapshot_versions %}
+{% for snap in lookup_snapshot_versions %}
+- {{ snap.lookup_name }}: {{ snap.snapshot_version }}
+{% endfor %}
+{% else %}
+none
+{% endif %}
 Target DB engine: {{ project_config.target_db_engine or 'unknown' }}
 Staging schema: {{ project_config.staging_schema or 'unknown' }}
 Field bindings:

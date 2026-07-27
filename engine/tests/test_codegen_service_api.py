@@ -425,3 +425,122 @@ def test_codegen_skips_dropped_bindings() -> None:
     assert "active_lookup" in lookup_names
     assert "dropped_lookup" not in lookup_names
 
+
+def test_select_lookup_snapshot_version_collects_all() -> None:
+    """Verify _select_lookup_snapshot_version returns ALL matching lookups, not just the first."""
+    from migrations_engine.db.models import MappingSnapshot  # noqa: E402
+    from migrations_engine.db.models import LookupSnapshot  # noqa: E402
+    from migrations_engine.codegen.service import _select_lookup_snapshot_version  # noqa: E402
+
+    Base.metadata.create_all(bind=TEST_ENGINE)
+
+    with SessionLocal() as db:
+        admin_user = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
+        assert admin_user is not None
+        project = ProjectDefinition(
+            definition_id=str(uuid.uuid4()),
+            project_id=str(uuid.uuid4()),
+            name="Multi-Lookup Test Project",
+            status="active",
+            domain_config={"target_db_engine": "postgresql", "staging_schema": "stg"},
+        )
+        db.add(project)
+        db.commit()
+
+        source = SourceDefinition(
+            source_definition_id=str(uuid.uuid4()),
+            project_id=project.project_id,
+            source_type="csv",
+            source_contract_version="v1",
+        )
+        db.add(source)
+        db.flush()
+
+        mapping_snap = MappingSnapshot(
+            mapping_snapshot_id=str(uuid.uuid4()),
+            project_id=project.project_id,
+            source_definition_id=source.source_definition_id,
+            destination_object_name="test_table",
+            mapping_snapshot_version="snap_v1",
+            field_bindings=[
+                {"source_field": "src1", "destination_field": "dest1", "lookup_name": "lookup_a", "lookup_snapshot_version": "v1"},
+                {"source_field": "src2", "destination_field": "dest2", "lookup_name": "lookup_b", "lookup_snapshot_version": "v2"},
+                {"source_field": "src3", "destination_field": "dest3", "lookup_name": "lookup_c", "lookup_snapshot_version": "v3"},
+            ],
+            destination_columns=[{"column_name": "id", "data_type": "INT"}],
+            status="approved",
+            approved_at=datetime.now(UTC),
+        )
+        db.add(mapping_snap)
+        db.flush()
+
+        for name, version in [("lookup_a", "snap_a_v1"), ("lookup_b", "snap_b_v2"), ("lookup_c", "snap_c_v3")]:
+            snap = LookupSnapshot(
+                lookup_snapshot_id=str(uuid.uuid4()),
+                project_id=project.project_id,
+                lookup_name=name,
+                lookup_snapshot_version=version,
+                value_map={},
+                status="approved",
+                approved_at=datetime.now(UTC),
+            )
+            db.add(snap)
+        db.commit()
+
+        result = _select_lookup_snapshot_version(
+            db,
+            project_id=project.project_id,
+            mapping_snapshot=mapping_snap,
+        )
+
+        assert len(result) == 3, f"Expected 3 lookup snapshots, got {len(result)}"
+        names = {entry["lookup_name"] for entry in result}
+        assert names == {"lookup_a", "lookup_b", "lookup_c"}
+        versions = {entry["lookup_name"]: entry["snapshot_version"] for entry in result}
+        assert versions == {"lookup_a": "snap_a_v1", "lookup_b": "snap_b_v2", "lookup_c": "snap_c_v3"}
+
+
+def test_select_lookup_snapshot_version_empty_on_no_lookups() -> None:
+    """Verify _select_lookup_snapshot_version returns empty list when no lookups are defined."""
+    from migrations_engine.db.models import MappingSnapshot  # noqa: E402
+    from migrations_engine.codegen.service import _select_lookup_snapshot_version  # noqa: E402
+
+    Base.metadata.create_all(bind=TEST_ENGINE)
+
+    with SessionLocal() as db:
+        admin_user = db.scalar(select(User).where(User.role == CENTRAL_TEAM_ROLE))
+        assert admin_user is not None
+        project = ProjectDefinition(
+            definition_id=str(uuid.uuid4()),
+            project_id=str(uuid.uuid4()),
+            name="No-Lookup Test Project",
+            status="active",
+            domain_config={"target_db_engine": "postgresql", "staging_schema": "stg"},
+        )
+        db.add(project)
+        db.flush()
+
+        mapping_snap = MappingSnapshot(
+            mapping_snapshot_id=str(uuid.uuid4()),
+            project_id=project.project_id,
+            source_definition_id=str(uuid.uuid4()),
+            destination_object_name="no_lookups_table",
+            mapping_snapshot_version="snap_v1",
+            field_bindings=[
+                {"source_field": "src1", "destination_field": "dest1", "lookup_name": None},
+            ],
+            destination_columns=[{"column_name": "id", "data_type": "INT"}],
+            status="approved",
+            approved_at=datetime.now(UTC),
+        )
+        db.add(mapping_snap)
+        db.commit()
+
+        result = _select_lookup_snapshot_version(
+            db,
+            project_id=project.project_id,
+            mapping_snapshot=mapping_snap,
+        )
+
+        assert result == []
+
