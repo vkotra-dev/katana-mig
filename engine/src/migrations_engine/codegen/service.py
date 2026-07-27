@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import logging
 import os
 from jinja2 import Environment, FileSystemLoader
+
+logger = logging.getLogger(__name__)
 
 
 from pydantic import BaseModel, Field
@@ -58,175 +61,184 @@ def generate_codegen_artifact(
     actor: User,
     project_id: str,
     source_definition_id: str,
-) -> CodegenTriggerResponse:
+) -> list[CodegenTriggerResponse]:
     source_definition = _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
-    destination_object_name = _primary_destination_object_name(source_definition)
+    destination_references = source_definition.destination_object_references or []
+    if not destination_references:
+        raise AuthApiError(
+            "codegen_destination_object_missing",
+            "Source contract has no destination object reference.",
+            409,
+        )
+
     project_definition = _get_project_definition(db, project_id=project_id)
     project_config = MigrationProjectConfig.model_validate(project_definition.domain_config or {})
-
-    source_slice = _select_latest_approved_source_slice(db, source_definition_id=source_definition_id)
-    mapping_snapshot = _select_latest_approved_mapping_snapshot(
-        db,
-        project_id=project_id,
-        source_definition_id=source_definition_id,
-        destination_object_name=destination_object_name,
-    )
-    lookup_snapshot_versions = _select_lookup_snapshot_version(
-        db,
-        project_id=project_id,
-        mapping_snapshot=mapping_snapshot,
-    )
-    # Keep the first snapshot version for backward-compatible artifact storage
-    first_version = lookup_snapshot_versions[0]["snapshot_version"] if lookup_snapshot_versions else None
-
-    if mapping_snapshot.destination_columns is None:
-        raise AuthApiError(
-            "destination_metadata_missing",
-            "Cannot generate code: mapping snapshot is missing destination column metadata. Please re-propose the mapping.",
-            422,
-        )
 
     try:
         adapter = get_adapter("script_generation", project_definition.model_policy)
     except TypeError:
         adapter = get_adapter("script_generation")
-    comments = list(db.execute(
-        select(FeedComment, User.role)
-        .join(User, User.user_id == FeedComment.user_id)
-        .where(FeedComment.feed_id == source_definition_id, FeedComment.source_slice_id.is_(None))
-        .order_by(FeedComment.created_at.asc())
-    ).all())
 
-    slice_comments = list(db.execute(
-        select(FeedComment, User.role)
-        .join(User, User.user_id == FeedComment.user_id)
-        .where(FeedComment.source_slice_id == source_slice.source_slice_id)
-        .order_by(FeedComment.created_at.asc())
-    ).all())
+    source_slice = _select_latest_approved_source_slice(db, source_definition_id=source_definition_id)
 
-    system_prompt = _build_system_prompt(
-        project_config=project_config,
-        destination_object_name=destination_object_name,
-        project_definition=project_definition,
-    )
-    lookup_tables = _build_lookup_tables(
-        db,
-        project_id=project_id,
-        mapping_snapshot=mapping_snapshot,
-    )
+    results: list[CodegenTriggerResponse] = []
+    for destination_object_name in destination_references:
+        destination_object_name = destination_object_name.strip()
+        if not destination_object_name:
+            continue
 
-    user_prompt = _build_user_prompt(
-        source_definition=source_definition,
-        source_slice=source_slice,
-        mapping_snapshot=mapping_snapshot,
-        lookup_snapshot_versions=lookup_snapshot_versions,
-        lookup_tables=lookup_tables,
-        project_config=project_config,
-        run_ref=f"{project_id}_{source_definition_id}",
-        comments=comments,
-        slice_comments=slice_comments,
-    )
+        try:
+            mapping_snapshot = _select_latest_approved_mapping_snapshot(
+                db,
+                project_id=project_id,
+                source_definition_id=source_definition_id,
+                destination_object_name=destination_object_name,
+            )
+        except AuthApiError:
+            logger.warning(
+                "Skipping destination %s: no approved mapping snapshot",
+                destination_object_name,
+            )
+            continue
 
-    from ..ai.logging import log_ai_call, backfill_artifact_id
-    from ..ai.adapter import AIResponseValidationError
+        if mapping_snapshot.destination_columns is None:
+            logger.warning(
+                "Skipping destination %s: missing destination column metadata",
+                destination_object_name,
+            )
+            continue
 
-    try:
-        result = adapter.call(
-            system=system_prompt,
-            user=user_prompt,
-            response_model=GeneratedSQL,
-        )
-        call_log = log_ai_call(
+        lookup_snapshot_versions = _select_lookup_snapshot_version(
             db,
             project_id=project_id,
-            feature="codegen",
-            call_type="codegen",
-            model_id=adapter.model_id,
-            system=system_prompt,
-            user=user_prompt,
-            raw_response=result.raw_response,
+            mapping_snapshot=mapping_snapshot,
         )
-        generated_sql = result.parsed
-    except AIResponseValidationError as exc:
-        log_ai_call(
+        first_version = lookup_snapshot_versions[0]["snapshot_version"] if lookup_snapshot_versions else None
+
+        system_prompt = _build_system_prompt(
+            project_config=project_config,
+            destination_object_name=destination_object_name,
+            project_definition=project_definition,
+        )
+        lookup_tables = _build_lookup_tables(
             db,
             project_id=project_id,
-            feature="codegen",
-            call_type="codegen",
-            model_id=adapter.model_id,
-            system=system_prompt,
-            user=user_prompt,
-            raw_response=exc.raw_response,
-            error_detail=f"ValidationError: {exc.original}",
+            mapping_snapshot=mapping_snapshot,
+        )
+
+        user_prompt = _build_user_prompt(
+            source_definition=source_definition,
+            source_slice=source_slice,
+            mapping_snapshot=mapping_snapshot,
+            lookup_snapshot_versions=lookup_snapshot_versions,
+            lookup_tables=lookup_tables,
+            project_config=project_config,
+            run_ref=f"{project_id}_{source_definition_id}",
+            comments=[],
+            slice_comments=[],
+        )
+
+        from ..ai.logging import log_ai_call, backfill_artifact_id
+        from ..ai.adapter import AIResponseValidationError
+
+        try:
+            result = adapter.call(
+                system=system_prompt,
+                user=user_prompt,
+                response_model=GeneratedSQL,
+            )
+            call_log = log_ai_call(
+                db,
+                project_id=project_id,
+                feature="codegen",
+                call_type="codegen",
+                model_id=adapter.model_id,
+                system=system_prompt,
+                user=user_prompt,
+                raw_response=result.raw_response,
+            )
+            generated_sql = result.parsed
+        except AIResponseValidationError as exc:
+            log_ai_call(
+                db,
+                project_id=project_id,
+                feature="codegen",
+                call_type="codegen",
+                model_id=adapter.model_id,
+                system=system_prompt,
+                user=user_prompt,
+                raw_response=exc.raw_response,
+                error_detail=f"ValidationError: {exc.original}",
+            )
+            db.commit()
+            raise
+        except Exception as exc:
+            log_ai_call(
+                db,
+                project_id=project_id,
+                feature="codegen",
+                call_type="codegen",
+                model_id=adapter.model_id,
+                system=system_prompt,
+                user=user_prompt,
+                raw_response=None,
+                error_detail=str(exc),
+            )
+            db.commit()
+            raise
+
+        sql_bundle = _assemble_sql_bundle(
+            generated_sql, staging_schema=project_config.staging_schema, db_engine=project_config.target_db_engine
+        )
+        _supersede_previous_artifacts(
+            db,
+            project_id=project_id,
+            destination_object_name=destination_object_name,
+        )
+
+        codegen_artifact_id = new_id()
+        artifact = CodeGenerationArtifact(
+            codegen_artifact_id=codegen_artifact_id,
+            project_id=project_id,
+            source_definition_id=source_definition_id,
+            destination_object_name=destination_object_name,
+            run_id=None,
+            source_slice_version=source_slice.source_slice_version,
+            mapping_snapshot_version=mapping_snapshot.mapping_snapshot_version,
+            lookup_snapshot_version=first_version,
+            sql_bundle=sql_bundle,
+            status="active",
+        )
+        db.add(artifact)
+        db.add(VersionHistory(
+            entity_type="sql",
+            entity_id=artifact.codegen_artifact_id,
+            field_name="sql_bundle",
+            old_value=None,
+            new_value=sql_bundle,
+            changed_by=actor.user_id,
+            changed_at=datetime.now(UTC),
+        ))
+        record_management_audit(
+            db,
+            project_id=project_id,
+            actor_user_id=actor.user_id,
+            event_type="codegen_artifact.generated",
+            payload={
+                "codegen_artifact_id": codegen_artifact_id,
+                "source_definition_id": source_definition_id,
+                "destination_object_name": destination_object_name,
+                "source_slice_version": artifact.source_slice_version,
+                "mapping_snapshot_version": artifact.mapping_snapshot_version,
+                "lookup_snapshot_version": artifact.lookup_snapshot_version,
+            },
         )
         db.commit()
-        raise
-    except Exception as exc:
-        log_ai_call(
-            db,
-            project_id=project_id,
-            feature="codegen",
-            call_type="codegen",
-            model_id=adapter.model_id,
-            system=system_prompt,
-            user=user_prompt,
-            raw_response=None,
-            error_detail=str(exc),
-        )
-        db.commit()
-        raise
+        backfill_artifact_id(db, call_log.call_id, artifact.codegen_artifact_id)
+        db.refresh(artifact)
+        results.append(_trigger_response(artifact))
 
-    sql_bundle = _assemble_sql_bundle(
-        generated_sql, staging_schema=project_config.staging_schema, db_engine=project_config.target_db_engine
-    )
-    _supersede_previous_artifacts(
-        db,
-        project_id=project_id,
-        destination_object_name=destination_object_name,
-    )
-
-    codegen_artifact_id = new_id()
-    artifact = CodeGenerationArtifact(
-        codegen_artifact_id=codegen_artifact_id,
-        project_id=project_id,
-        source_definition_id=source_definition_id,
-        destination_object_name=destination_object_name,
-        run_id=None,
-        source_slice_version=source_slice.source_slice_version,
-        mapping_snapshot_version=mapping_snapshot.mapping_snapshot_version,
-        lookup_snapshot_version=first_version,
-        sql_bundle=sql_bundle,
-
-        status="active",
-    )
-    db.add(artifact)
-    db.add(VersionHistory(
-        entity_type="sql",
-        entity_id=artifact.codegen_artifact_id,
-        field_name="sql_bundle",
-        old_value=None,
-        new_value=sql_bundle,
-        changed_by=actor.user_id,
-        changed_at=datetime.now(UTC),
-    ))
-    record_management_audit(
-        db,
-        project_id=project_id,
-        actor_user_id=actor.user_id,
-        event_type="codegen_artifact.generated",
-        payload={
-            "codegen_artifact_id": codegen_artifact_id,
-            "source_definition_id": source_definition_id,
-            "destination_object_name": destination_object_name,
-            "source_slice_version": artifact.source_slice_version,
-            "mapping_snapshot_version": artifact.mapping_snapshot_version,
-            "lookup_snapshot_version": artifact.lookup_snapshot_version,
-        },
-    )
-    db.commit()
-    backfill_artifact_id(db, call_log.call_id, artifact.codegen_artifact_id)
-    db.refresh(artifact)
-    return _trigger_response(artifact)
+    return results
 
 
 def list_codegen_artifacts(

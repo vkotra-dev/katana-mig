@@ -1,7 +1,7 @@
 ---
 id: 002i3
 title: Multi-table codegen artifact generation loop
-status: pending
+status: completed
 created: 2026-07-24
 priority: high
 depends-on: []

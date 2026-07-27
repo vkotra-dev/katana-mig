@@ -20,7 +20,7 @@ router = APIRouter(tags=["codegen"])
 
 @router.post(
     "/projects/{project_id}/sources/{source_definition_id}/codegen",
-    response_model=CodegenTriggerResponse,
+    response_model=list[CodegenTriggerResponse],
     status_code=status.HTTP_201_CREATED,
 )
 def post_codegen(
@@ -28,7 +28,7 @@ def post_codegen(
     source_definition_id: str,
     actor: User = Depends(get_central_team_user),
     db: Session = Depends(get_db),
-) -> CodegenTriggerResponse:
+) -> list[CodegenTriggerResponse]:
     require_project_access(db, user=actor, project_id=project_id)
     return generate_codegen_artifact(
         db,

@@ -197,7 +197,7 @@ def test_post_codegen_creates_active_artifact_and_preview(monkeypatch: pytest.Mo
     )
 
     assert response.status_code == 201, response.text
-    data = response.json()
+    data = response.json()[0]
     assert data["status"] == "active"
     assert data["lookup_snapshot_version"] is None
     assert "IF OBJECT_ID" in data["sql_bundle_preview"] or "stg_cu" in data["sql_bundle_preview"]
@@ -219,13 +219,17 @@ def test_delivery_bundle_returns_active_artifacts(monkeypatch: pytest.MonkeyPatc
         f"/projects/{project_id}/sources/{source_definition_id}/codegen",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert first.status_code == 201, first.text
+    assert first.status_code == 201
+    assert len(first.json()) == 1
+    first_data = first.json()[0]
 
     second = client.post(
         f"/projects/{project_id}/sources/{source_definition_id}/codegen",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert second.status_code == 201, second.text
+    assert second.status_code == 201
+    assert len(second.json()) == 1
+    second_data = second.json()[0]
 
     with SessionLocal() as db:
         active = db.scalars(
@@ -291,9 +295,10 @@ def test_codegen_preserves_raw_response_on_validation_error(monkeypatch: pytest.
         assert "ValidationError: Failed" in log.error_detail
 
 
-def test_codegen_fails_loud_when_destination_columns_missing(
+def test_codegen_skips_when_destination_columns_missing(
     monkeypatch: pytest.MonkeyPatch, admin_token: str
 ) -> None:
+    """With multi-table loop, missing destination_columns is a skip (logged warning), not a hard error."""
     project_id, source_definition_id = _seed_project()
     # Clear destination_columns so the snapshot has NULL
     with SessionLocal() as db:
@@ -310,9 +315,10 @@ def test_codegen_fails_loud_when_destination_columns_missing(
         f"/projects/{project_id}/sources/{source_definition_id}/codegen",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert response.status_code == 422
+    # Multi-table loop skips tables with missing metadata instead of failing
+    assert response.status_code == 201
     data = response.json()
-    assert data["error"]["code"] == "destination_metadata_missing"
+    assert data == []
 
 
 def test_codegen_succeeds_when_required_fields_mapped(
@@ -329,7 +335,7 @@ def test_codegen_succeeds_when_required_fields_mapped(
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert response.status_code == 201
-    assert response.json()["status"] == "active"
+    assert response.json()[0]["status"] == "active"
 def test_codegen_preserves_project_config_across_reruns(
     monkeypatch: pytest.MonkeyPatch, admin_token: str
 ) -> None:
@@ -351,8 +357,8 @@ def test_codegen_preserves_project_config_across_reruns(
     )
     assert second.status_code == 201
 
-    first_data = first.json()
-    second_data = second.json()
+    first_data = first.json()[0]
+    second_data = second.json()[0]
     assert first_data["codegen_artifact_id"] != second_data["codegen_artifact_id"]
     assert first_data["source_slice_version"] == second_data["source_slice_version"]
     assert first_data["mapping_snapshot_version"] == second_data["mapping_snapshot_version"]
@@ -387,7 +393,7 @@ def test_codegen_includes_source_slice_version_in_response(
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert response.status_code == 201
-    data = response.json()
+    data = response.json()[0]
     assert data["source_slice_version"] == "v1"
     assert data["mapping_snapshot_version"] == "v1"
 
@@ -621,4 +627,74 @@ def test_build_lookup_tables_passes_full_value_map() -> None:
         for i in range(12):
             assert f"src_{i}" in [m["source_val"] for m in lookup_entry["sample_mappings"]]
             assert f"dest_{i}" in [m["dest_val"] for m in lookup_entry["sample_mappings"]]
+
+
+def test_generate_codegen_artifact_multi_table(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+    """Verify that a feed with 2 destination tables produces 2 artifacts."""
+    project_id, source_definition_id = _seed_project()
+    fake = FakeAdapter()
+    monkeypatch.setattr(codegen_service_module, "get_adapter", lambda task: fake)
+
+    # Add an approved mapping snapshot for Product (Customer already exists from _seed_project)
+    with SessionLocal() as db:
+        source = db.scalar(select(SourceDefinition).where(SourceDefinition.source_definition_id == source_definition_id))
+        assert source is not None
+        source.destination_object_references = ["Customer", "Product"]
+        db.commit()
+
+        # Create a mapping snapshot for the Product table
+        db.add(
+            MappingSnapshot(
+                mapping_snapshot_id=str(uuid.uuid4()),
+                project_id=project_id,
+                source_definition_id=source_definition_id,
+                destination_object_name="Product",
+                mapping_snapshot_version="v1",
+                field_bindings=[
+                    {"source_field": "product_id", "destination_field": "product_id", "lookup_name": None},
+                    {"source_field": "name", "destination_field": "name", "lookup_name": None},
+                ],
+                destination_columns=[{"column_name": "product_id", "data_type": "INT"}],
+                status="approved",
+                approved_at=datetime.now(UTC),
+            )
+        )
+        db.commit()
+
+    response = client.post(
+        f"/projects/{project_id}/sources/{source_definition_id}/codegen",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert len(data) == 2
+    dest_names = {entry["destination_object_name"] for entry in data}
+    assert dest_names == {"Customer", "Product"}
+
+
+def test_generate_codegen_artifact_partial_mappings(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
+    """Verify that a feed with 2 destination tables but only 1 mapping produces 1 artifact."""
+    project_id, source_definition_id = _seed_project()
+    fake = FakeAdapter()
+    monkeypatch.setattr(codegen_service_module, "get_adapter", lambda task: fake)
+
+    # Update the source to have 2 destination references
+    with SessionLocal() as db:
+        source = db.scalar(select(SourceDefinition).where(SourceDefinition.source_definition_id == source_definition_id))
+        assert source is not None
+        source.destination_object_references = ["Customer", "Product"]
+        db.commit()
+
+    # Only "Customer" has an approved mapping snapshot — "Product" has none
+    response = client.post(
+        f"/projects/{project_id}/sources/{source_definition_id}/codegen",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    # Only Customer has a mapping, Product is skipped with a warning
+    assert len(data) == 1
+    assert data[0]["destination_object_name"] == "Customer"
 
