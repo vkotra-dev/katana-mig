@@ -35,9 +35,25 @@ def generate_codegen_artifact(db, *, actor, project_id, source_definition_id) ->
 
 **Route handler change:** Return type changes from `CodegenTriggerResponse` to `list[CodegenTriggerResponse]`.
 
+**Per-table failure handling:** If a table has no approved MappingSnapshot, log a warning and skip it (continue to next table). The function returns only artifacts for tables that were successfully generated. Tables without approved mappings are silently skipped — there's nothing to generate for them.
+
 **`_select_latest_approved_mapping_snapshot` impact:** Already queries by `destination_object_name` — no change needed. Each call fetches the correct snapshot for the target table.
 
 **Artifact naming:** Each artifact is stored with its `destination_object_name`. `build_delivery_bundle_text` already groups artifacts by `destination_object_name` and handles `0000_` lookup artifacts. No changes needed to `build_delivery_bundle_text`.
+
+### Frontend: Type/Mapper Fix & Count Display
+
+**File:** `web/lib/codegen-api.ts`, `web/app/projects/[id]/codegen/page.tsx`
+
+**Current state:** `codegen-api.ts` defines `triggerCodegen()` returning `Promise<CodegenTriggerRecord>` (singular). The page component (`codegen/page.tsx:332`) discards the return value and calls `refreshArtifacts()` to re-fetch.
+
+**Changes:**
+1. `triggerCodegen()` return type changes to `Promise<CodegenTriggerRecord[]>`
+2. `mapTriggerResponse()` is replaced or augmented with `mapTriggerResponseList()` that handles arrays
+3. The codegen page displays the count of generated procedures: "Generated N procedure(s) — X table(s) had no approved mapping"
+4. The UI uses the response count to show a summary badge or text after codegen completes
+
+**Files Changed:** `web/lib/codegen-api.ts`, `web/app/projects/[id]/codegen/page.tsx`
 
 ## Design
 
@@ -283,6 +299,8 @@ If a destination table has a FK to another destination table:
 | `engine/src/migrations_engine/codegen/templates/system_prompt.txt.j2` | **Modified** — Add one-proc-per-table rules and cross-proc FK resolution rules |
 | `engine/src/migrations_engine/ai/prompts/codegen_logging_standards.yaml` | **Modified** — Add cross-proc FK resolution via mig_upsert_log |
 | `engine/src/migrations_engine/routes/codegen.py` | **Modified** — Return type changes to list, handles multi-table response |
+| `web/lib/codegen-api.ts` | **Modified** — Return type changes to list, array mapper |
+| `web/app/projects/[id]/codegen/page.tsx` | **Modified** — Display count of generated procedures |
 
 ## Files Not Changed
 
