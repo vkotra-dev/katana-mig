@@ -83,6 +83,7 @@ def analyze_source_slice(
         source_type_section = f"Source type: {source_definition.source_type}"
 
     target_db = project_definition.domain_config.get("target_db_engine", "postgresql") if project_definition.domain_config else "postgresql"
+    staging_schema = project_definition.domain_config.get("staging_schema") if project_definition.domain_config else None
 
     from ..ai.prompt import Prompt
     prompt = Prompt("source_analysis")
@@ -90,6 +91,7 @@ def analyze_source_slice(
         source_type_section=source_type_section,
         sample_text=sample_text,
         target_db_engine=target_db,
+        staging_schema=staging_schema or "",
     )
     system_prompt, user_prompt = prompt.get_prompt()
 
