@@ -6,6 +6,8 @@ created: 2026-07-24
 priority: medium
 depends-on: []
 domain: engine
+task: tasks/002c0-source-analysis-staging-schema-into-prompt.md
+plan: plans/2026-07-24-002c0-source-analysis-staging-schema.md
 ---
 
 # Task 002c0 — Source Analysis: Inject staging_schema into prompt
@@ -15,6 +17,8 @@ domain: engine
 The source analysis AI generates a `CREATE TABLE` DDL for the source schema based on CSV sample data. Currently, the prompt receives `target_db_engine` (for SQL type selection) but NOT `staging_schema` (for schema-qualified table names). The DDL uses bare table names (e.g. `CREATE TABLE my_table (...)`) instead of qualified names (e.g. `CREATE TABLE staging.my_table (...)`).
 
 Both `target_db_engine` and `staging_schema` live in `project_definition.domain_config`. The code already extracts `target_db_engine` but does not extract or pass `staging_schema` to the prompt.
+
+**Open question — table naming convention:** This codebase uses `stg_{destination_object_name}` for staging table names (documented in `docs/domain/project.md:112`). The plan's proposed DDL uses the raw inferred source table name (not the `stg_` convention). This is informational-only — shown to the operator via copy-to-clipboard, never auto-applied — so it's not a functional bug. But showing an example that looks inconsistent with what "Generate SQL Bundle" produces later could confuse operators. **Decision needed:** should the generated DDL adopt the `stg_` naming convention to match, or is a plain source name intentional here since this describes the source shape, not the staging table?
 
 ## Current State
 
@@ -38,10 +42,11 @@ Both `target_db_engine` and `staging_schema` live in `project_definition.domain_
 - Per-feed staging schema — this task uses the project-level `domain_config.staging_schema`.
 - Changing how `destination_schema` is handled — that's a separate concern.
 - Any frontend changes to the source analysis UI.
+- Resolving the `stg_` naming convention question — surfaced above as an open decision point.
 
 ## Domain Updates Required
 
-- `docs/domain/` — update source analysis documentation to note staging schema injection.
+- `docs/domain/source-model.md` — update `SourceSchemaArtifact.destination_ddl` section to note that DDL now includes schema-qualified table names when `staging_schema` is configured.
 
 ## Pitfalls
 
@@ -63,6 +68,6 @@ feat(source-analysis): inject staging_schema into prompt for qualified DDL
 
 - Add $staging_schema placeholder to source_analysis prompt template
 - Extract staging_schema from domain_config in analyze_source_slice
-- When present, AI generates CREATE TABLE schema.table_name (CREATE TABLE)
+- When present, AI generates CREATE TABLE schema.table_name
 - When absent, DDL generation is unchanged (backwards compatible)
 ```

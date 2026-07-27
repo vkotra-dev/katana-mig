@@ -1,5 +1,8 @@
 # Source Analysis: Inject staging_schema into prompt
 
+**Task:** [002c0](../tasks/002c0-source-analysis-staging-schema-into-prompt.md)
+**Domain:** source-model, project
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Inject both `staging_schema` and `target_db_engine` from `project_definition.domain_config` into the source analysis AI prompt so it generates schema-qualified, target-engine-appropriate `CREATE TABLE` DDL (e.g. `CREATE TABLE staging.my_table (policy_id VARCHAR(20) NOT NULL)` for PostgreSQL).
