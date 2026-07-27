@@ -548,9 +548,14 @@ def _mig_upsert_log_ddl_schema_change(staging_schema: str, db_engine: str | None
             f"END $$;"
         )
     if engine_key == "mysql":
+        # MySQL does not support conditional DDL or anonymous code blocks
+        # in plain scripts. For new projects the CREATE TABLE below creates
+        # the column with the correct type. For existing projects the ALTER
+        # must be applied manually or via a separate migration script.
         return (
-            f"ALTER TABLE `{staging_schema}`.`mig_upsert_log`\n"
-            f"    MODIFY COLUMN `source_row_num` VARCHAR(255) COMMENT 'column-alter-if-numeric';"
+            f"-- MySQL: manual ALTER TABLE required to change mig_upsert_log.source_row_num\n"
+            f"-- from BIGINT to VARCHAR(255) if it already exists with the wrong type.\n"
+            f"-- Run: ALTER TABLE `{staging_schema}`.`mig_upsert_log` MODIFY COLUMN `source_row_num` VARCHAR(255);"
         )
     if engine_key == "oracle":
         return (
