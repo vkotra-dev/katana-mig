@@ -865,7 +865,6 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
               )}
 
               {/* A. Mapping Tables Accordions */}
-              {allMappingSnapshots.length > 0 && (
               <div className="rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
@@ -959,7 +958,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                   </div>
                 )}
 
-                {unmappedSourceFields.length > 0 && allMappingSnapshots.length > 0 && (
+                {unmappedSourceFields.length > 0 && (
                   <div className="rounded-xl border border-amber-300 bg-amber-50/50 p-4 space-y-2 mt-4">
                     <p className="text-xs font-semibold text-amber-800">
                       Unmapped source fields — data in these columns will not be migrated
@@ -974,7 +973,6 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                   </div>
                 )}
               </div>
-              )}
 
               {/* B. Lookup Fibers cards */}
               <div className="rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm space-y-4">
