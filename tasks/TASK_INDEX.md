@@ -2,10 +2,6 @@
 
 ## Ready
 
-| Task | Summary |
-|---|---|
-| [002b9-version-history-frontend](./002b9-version-history-frontend.md) | Add version history dropdown UI near editable fields — depends on 002b8 (done). No plan file yet; not implemented. |
-
 ## Completed
 
 | Task | Summary |

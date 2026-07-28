@@ -1,7 +1,7 @@
 ---
 id: 002b9
 title: Add version history dropdown UI for mapping fields
-status: pending
+status: completed
 created: 2026-07-24
 priority: medium
 depends-on: [002b8]
