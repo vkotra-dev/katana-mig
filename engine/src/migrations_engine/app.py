@@ -101,11 +101,10 @@ def _cors_response(request: Request, status_code: int, content: dict) -> JSONRes
 
 @app.exception_handler(AuthApiError)
 async def auth_api_error_handler(request: Request, exc: AuthApiError) -> JSONResponse:
-    return _cors_response(
-        request,
-        status_code=exc.status_code,
-        content={"error": {"code": exc.code, "message": exc.message}},
-    )
+    content: dict = {"error": {"code": exc.code, "message": exc.message}}
+    if exc.detail:
+        content["error"]["detail"] = exc.detail
+    return _cors_response(request, status_code=exc.status_code, content=content)
 
 
 

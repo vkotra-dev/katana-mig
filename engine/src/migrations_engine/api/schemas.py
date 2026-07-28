@@ -270,6 +270,7 @@ class FeedResponse(BaseModel):
     created_at: datetime
     mapping_hints: str | None = None
     transformation_instructions: str | None = None
+    mapping_status: Literal["draft", "partial", "approved"] | None = None
 
 
 class FeedMappingHintsRequest(BaseModel):

@@ -314,7 +314,21 @@ def propose_mapping(
         db.flush()
     except IntegrityError:
         db.rollback()
-        raise AuthApiError("mapping_already_proposed", "Mapping has already been proposed for this feed.", 409)
+        existing = db.scalars(
+            select(MappingSnapshot).where(
+                MappingSnapshot.project_id == project_id,
+                MappingSnapshot.source_definition_id == source_definition_id,
+            ).order_by(MappingSnapshot.destination_object_name)
+        ).all()
+        per_table: dict[str, list[str]] = {}
+        for s in existing:
+            per_table.setdefault(s.destination_object_name, []).append(s.status)
+        raise AuthApiError(
+            "mapping_already_proposed",
+            "Mapping has already been proposed for this feed.",
+            409,
+            {"per_table_status": {k: list(set(v)) for k, v in per_table.items()}},
+        )
 
     for snapshot in snapshots:
         record_management_audit(
@@ -330,7 +344,11 @@ def propose_mapping(
         )
         
     if not snapshots:
-        raise AuthApiError("mapping_already_proposed", "Mapping has already been proposed for this feed.", 409)
+        raise AuthApiError(
+            "mapping_already_proposed",
+            "All proposed tables already have approved mappings. No changes to apply.",
+            409,
+        )
 
     db.commit()
     for snapshot in snapshots:

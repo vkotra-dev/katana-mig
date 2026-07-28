@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
+from typing import Any
 
 from fastapi import Depends, Header
 from sqlalchemy import select
@@ -13,11 +14,12 @@ from ..auth.jwt import SessionClaims, TokenValidationError, decode_access_token
 
 
 class AuthApiError(Exception):
-    def __init__(self, code: str, message: str, status_code: int) -> None:
+    def __init__(self, code: str, message: str, status_code: int, detail: dict[str, Any] | None = None) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
         self.status_code = status_code
+        self.detail = detail
 
 
 def get_db() -> Generator[Session, None, None]:

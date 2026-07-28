@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -58,7 +58,7 @@ def create_source_contract(
     )
     db.commit()
     db.refresh(source_definition)
-    return _source_contract_response(source_definition)
+    return _source_contract_response(source_definition, db=db)
 
 
 def list_source_contracts(
@@ -72,7 +72,31 @@ def list_source_contracts(
         stmt = stmt.where(Feed.status != "discarded")
     stmt = stmt.order_by(Feed.created_at.asc())
     rows = db.scalars(stmt).all()
-    return [_source_contract_response(row) for row in rows]
+
+    feed_ids = {f.source_definition_id for f in rows}
+    status_map = _batch_mapping_status(db, project_id, feed_ids)
+
+    result: list[FeedResponse] = []
+    for feed in rows:
+        details = feed.source_details or {}
+        label = cast(str, details.get("label", feed.source_type))
+        encoding = cast(str, details.get("encoding", "utf-8"))
+        result.append(FeedResponse(
+            source_definition_id=feed.source_definition_id,
+            project_id=feed.project_id,
+            source_type=feed.source_type,
+            label=label,
+            encoding=encoding,
+            destination_object_references=feed.destination_object_references,
+            layout_information=cast(list[dict[str, Any]] | None, feed.layout_information),
+            copybook_text=feed.copybook_text,
+            status=feed.status,
+            created_at=feed.created_at,
+            mapping_hints=feed.mapping_hints,
+            transformation_instructions=feed.transformation_instructions,
+            mapping_status=status_map.get(feed.source_definition_id),
+        ))
+    return result
 
 
 def discard_feed(
@@ -147,7 +171,7 @@ def discard_feed(
     )
     db.commit()
     db.refresh(feed)
-    return _source_contract_response(feed)
+    return _source_contract_response(feed, db=db)
 
 
 def _lookup_names_for_feed(snapshots: list[MappingSnapshot]) -> set[str]:
@@ -190,7 +214,7 @@ def _shared_lookup_names(
 
 def get_source_contract(db: Session, *, project_id: str, source_definition_id: str) -> FeedResponse:
     source_definition = _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
-    return _source_contract_response(source_definition)
+    return _source_contract_response(source_definition, db=db)
 
 
 def upload_copybook(
@@ -232,7 +256,7 @@ def upload_copybook(
     )
     db.commit()
     db.refresh(source_definition)
-    return _source_contract_response(source_definition)
+    return _source_contract_response(source_definition, db=db)
 
 
 def upload_source_slice(
@@ -447,10 +471,99 @@ def resubmit_source_slice(
     return _source_slice_response(db, result.source_slice)
 
 
-def _source_contract_response(source_definition: Feed) -> FeedResponse:
+def _dedup_snapshots(
+    snapshots: list[MappingSnapshot],
+) -> list[MappingSnapshot]:
+    """Dedup to latest snapshot per (source_definition_id, destination_object_name).
+
+    Caller must ORDER BY destination_object_name ASC, created_at DESC.
+    Mirrors the pattern in review.py:189 and sign_offs.py:185.
+
+    Keys on both source_definition_id and destination_object_name so it's safe
+    to call with snapshots from multiple feeds at once (batch mode).
+    """
+    seen: set[tuple[str, str]] = set()
+    unique: list[MappingSnapshot] = []
+    for s in snapshots:
+        key = (s.source_definition_id, s.destination_object_name)
+        if key not in seen:
+            seen.add(key)
+            unique.append(s)
+    return unique
+
+
+def _compute_status_from_snapshots(
+    deduped: list[MappingSnapshot],
+) -> Literal["draft", "partial", "approved"] | None:
+    """Compute summary from deduped snapshots.
+
+    "rejected" pulls toward "partial" — a rejected table needs rework and
+    should not be silently ignored. Dedup already drops stale history,
+    so this function only sees one row per table.
+    """
+    if not deduped:
+        return None
+    statuses: set[str] = {s.status for s in deduped}
+    if statuses == {"approved"}:
+        return "approved"
+    if statuses == {"draft"}:
+        return "draft"
+    if statuses == {"rejected"}:
+        return "draft"
+    return "partial"
+
+
+def _compute_mapping_status(
+    db: Session, project_id: str, feed_id: str
+) -> Literal["draft", "partial", "approved"] | None:
+    snapshots = db.scalars(
+        select(MappingSnapshot)
+        .where(
+            MappingSnapshot.project_id == project_id,
+            MappingSnapshot.source_definition_id == feed_id,
+        )
+        .order_by(MappingSnapshot.destination_object_name.asc(), MappingSnapshot.created_at.desc())
+    ).all()
+    deduped = _dedup_snapshots(snapshots)
+    return _compute_status_from_snapshots(deduped)
+
+
+def _batch_mapping_status(
+    db: Session, project_id: str, feed_ids: set[str]
+) -> dict[str, Literal["draft", "partial", "approved"] | None]:
+    if not feed_ids:
+        return {}
+    snapshots = db.scalars(
+        select(MappingSnapshot)
+        .where(
+            MappingSnapshot.project_id == project_id,
+            MappingSnapshot.source_definition_id.in_(feed_ids),
+        )
+        .order_by(MappingSnapshot.destination_object_name.asc(), MappingSnapshot.created_at.desc())
+    ).all()
+    deduped = _dedup_snapshots(snapshots)
+    per_feed: dict[str, list[MappingSnapshot]] = {}
+    for s in deduped:
+        per_feed.setdefault(s.source_definition_id, []).append(s)
+    result: dict[str, Literal["draft", "partial", "approved"] | None] = {}
+    for fid, snaps in per_feed.items():
+        result[fid] = _compute_status_from_snapshots(snaps)
+    return result
+
+
+def _source_contract_response(
+    source_definition: Feed, db: Session | None = None
+) -> FeedResponse:
     details = source_definition.source_details or {}
     label = cast(str, details.get("label", source_definition.source_type))
     encoding = cast(str, details.get("encoding", "utf-8"))
+    mapping_status = None
+    if db is not None:
+        mapping_status = _compute_mapping_status(
+            db,
+            project_id=source_definition.project_id,
+            feed_id=source_definition.source_definition_id,
+        )
     return FeedResponse(
         source_definition_id=source_definition.source_definition_id,
         project_id=source_definition.project_id,
@@ -464,6 +577,7 @@ def _source_contract_response(source_definition: Feed) -> FeedResponse:
         created_at=source_definition.created_at,
         mapping_hints=source_definition.mapping_hints,
         transformation_instructions=source_definition.transformation_instructions,
+        mapping_status=mapping_status,
     )
 
 
