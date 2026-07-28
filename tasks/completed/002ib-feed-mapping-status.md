@@ -1,7 +1,7 @@
 ---
 id: 002ib
 title: Show mapping status on every feed view; include snapshot context in 409 errors
-status: pending
+status: completed
 created: 2026-07-28
 priority: medium
 depends-on: []

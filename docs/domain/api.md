@@ -1011,9 +1011,15 @@ Propose a new mapping review. Requires `central_team`.
 
 Response `200`: `MappingReviewResponse`.
 
-409: `mapping_already_proposed` — all proposed tables already have approved mappings.
-Detail includes `per_table_ownership` keyed by `destination_object_name`, each with
-`source_definition_id`, `status`, `mapping_snapshot_id`, and `destination_object_name`.
+409: `mapping_already_proposed`, raised in two distinct cases:
+- Concurrent duplicate proposal (unique-constraint conflict on flush) — `detail.per_table_status`
+  maps each `destination_object_name` to the list of distinct statuses currently on file for it.
+- All AI-proposed tables already have an approved mapping elsewhere in the project — today this
+  case has no `detail` payload, just the message "All proposed tables already have approved
+  mappings. No changes to apply." (task 002ic, not yet implemented, plans to add a
+  `per_table_ownership` detail — keyed by `destination_object_name`, each with
+  `source_definition_id`, `status`, `mapping_snapshot_id` — to this specific case; don't treat that
+  shape as live until 002ic ships).
 
 ### `GET /projects/{project_id}/sources/{source_definition_id}/mapping`
 
