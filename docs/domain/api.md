@@ -1014,12 +1014,11 @@ Response `200`: `MappingReviewResponse`.
 409: `mapping_already_proposed`, raised in two distinct cases:
 - Concurrent duplicate proposal (unique-constraint conflict on flush) — `detail.per_table_status`
   maps each `destination_object_name` to the list of distinct statuses currently on file for it.
-- All AI-proposed tables already have an approved mapping elsewhere in the project — today this
-  case has no `detail` payload, just the message "All proposed tables already have approved
-  mappings. No changes to apply." (task 002ic, not yet implemented, plans to add a
-  `per_table_ownership` detail — keyed by `destination_object_name`, each with
-  `source_definition_id`, `status`, `mapping_snapshot_id` — to this specific case; don't treat that
-  shape as live until 002ic ships).
+- All AI-proposed tables already have an approved mapping elsewhere in the project —
+  `detail.per_table_ownership` is keyed by `destination_object_name`, each entry containing
+  `source_definition_id` (the feed owning the mapping, or `null` for project-scoped),
+  `status` (always `"approved"`), `mapping_snapshot_id` (the approved snapshot ID),
+  and `destination_object_name`.
 
 ### `GET /projects/{project_id}/sources/{source_definition_id}/mapping`
 
@@ -2069,7 +2068,8 @@ Response `200`: array of row objects.
   "created_at": "...",
   "mapping_hints": null,
   "transformation_instructions": null,
-  "mapping_status": null
+  "mapping_status": null,
+  "mapping_ownership_warnings": null
 }
 ```
 
@@ -2083,6 +2083,55 @@ snapshots exist), `"draft"` (all snapshots are draft), `"approved"` (all snapsho
 approved), or `"partial"` (mixed — some approved, some not). Rejected snapshots are
 deduped to the latest per table; a rejected table that has not yet been resubmitted is
 treated as `"draft"`. The fiber list endpoint provides per-table status detail.
+
+`mapping_ownership_warnings` is present (non-null) when another feed in the project holds an approved
+`MappingSnapshot` for one or more destination tables that this feed also maps. Each entry is
+keyed by `destination_object_name` and contains:
+
+- `source_definition_id` — the feed ID that owns the approved mapping (or `null` for a
+  project-scoped mapping with `NULL` `source_definition_id`)
+- `feed_label` — human-readable feed label from the feed's `source_details.label`, or the
+  first 8 characters of `source_definition_id` when no label exists; both `feed_label` and
+  `feed_source_type` are `null` for the project-scoped case (when
+  `source_definition_id` is `null`)
+- `feed_source_type` — the feed's `source_type` (e.g. `"csv"`, `"fixed_length_file"`)
+- `status` — always `"approved"`
+- `destination_object_name` — the destination table name
+- `mapping_snapshot_id` — the approved snapshot ID
+
+### `MappingOwnership`
+
+```json
+{
+  "source_definition_id": "a1b2c3d4-...",
+  "feed_label": "Customer Extract",
+  "feed_source_type": "csv",
+  "status": "approved",
+  "destination_object_name": "Customer",
+  "mapping_snapshot_id": "snap-789"
+}
+```
+
+(Same fields as described above in the `mapping_ownership_warnings` list.)
+
+**UI render contract (frontend):** The frontend SHALL render `mapping_ownership_warnings` as an
+amber warning card placed at the top of the Field Mappings section (above the table list, below
+the "Field Mappings" header). For each entry, display:
+
+```
+<table_name> is already mapped on <feed_label> (<feed_source_type>) →
+```
+
+- `<table_name>` — bold
+- `<feed_label>` — underlined, clickable link to `/projects/{projectId}/feeds/{sourceDefinitionId}`
+- `(<feed_source_type>)` — muted, in parentheses; **omit the entire parenthetical** (do not
+  show "(null)") when `feed_source_type` is `null` (project-scoped case)
+- The arrow (`→`) is a chevron or unicode `→`
+- If `source_definition_id` is `null` (project-scoped mapping), show "this project" instead of a link
+  and omit the `(feed_source_type)` parenthetical
+
+If the entire `mapping_ownership_warnings` field is `null` or the dict is empty, render nothing
+(no warning card).
 
 ### `FeedSliceResponse`
 

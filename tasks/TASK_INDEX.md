@@ -2,6 +2,11 @@
 
 ## Ready
 
+| Task | Summary |
+|---|---|
+| [002ie-mapping-ownership-warnings](./002ie-mapping-ownership-warnings.md) | Add persistent `mapping_ownership_warnings` to `FeedResponse` — warns on every feed load (not just a failed propose/approve reaction) when another feed already owns one of this feed's destination tables. Ready for implementation. |
+| [002if-feed-source-type-hints](./002if-feed-source-type-hints.md) | Surface feed source-side inferred type hints (from source analysis) in the codegen prompt's field bindings. Backlog — open scope question (every binding vs. lookup-only) not yet resolved; not ready for implementation. |
+
 ## Completed
 
 | Task | Summary |

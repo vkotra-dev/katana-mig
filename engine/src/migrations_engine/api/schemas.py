@@ -257,6 +257,15 @@ class FeedCreateRequest(BaseModel):
     encoding: str = Field(default="utf-8", max_length=32)
 
 
+class MappingOwnership(BaseModel):
+    source_definition_id: str | None
+    feed_label: str | None
+    feed_source_type: str | None
+    status: str
+    destination_object_name: str
+    mapping_snapshot_id: str
+
+
 class FeedResponse(BaseModel):
     source_definition_id: str
     project_id: str
@@ -271,6 +280,7 @@ class FeedResponse(BaseModel):
     mapping_hints: str | None = None
     transformation_instructions: str | None = None
     mapping_status: Literal["draft", "partial", "approved"] | None = None
+    mapping_ownership_warnings: dict[str, MappingOwnership] | None = None
 
 
 class FeedMappingHintsRequest(BaseModel):

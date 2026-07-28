@@ -4,7 +4,7 @@ import re
 from datetime import UTC, datetime
 from typing import Any, Literal, cast
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
@@ -75,6 +75,8 @@ def list_source_contracts(
 
     feed_ids = {f.source_definition_id for f in rows}
     status_map = _batch_mapping_status(db, project_id, feed_ids)
+    feed_tables = {f.source_definition_id: (f.destination_object_references or []) for f in rows}
+    ownership_map = _batch_ownership_warnings(db, project_id, feed_tables)
 
     result: list[FeedResponse] = []
     for feed in rows:
@@ -95,6 +97,7 @@ def list_source_contracts(
             mapping_hints=feed.mapping_hints,
             transformation_instructions=feed.transformation_instructions,
             mapping_status=status_map.get(feed.source_definition_id),
+            mapping_ownership_warnings=ownership_map.get(feed.source_definition_id),
         ))
     return result
 
@@ -551,6 +554,89 @@ def _batch_mapping_status(
     return result
 
 
+def _compute_ownership_warnings(
+    db: Session, project_id: str, feed_id: str, own_tables: list[str] | None,
+) -> dict[str, dict[str, Any]] | None:
+    if not own_tables:
+        return None
+    rows = db.execute(
+        select(MappingSnapshot, Feed.source_details, Feed.source_type)
+        .outerjoin(Feed, Feed.source_definition_id == MappingSnapshot.source_definition_id)
+        .where(
+            MappingSnapshot.project_id == project_id,
+            MappingSnapshot.destination_object_name.in_(own_tables),
+            MappingSnapshot.status == "approved",
+            or_(
+                MappingSnapshot.source_definition_id.is_(None),
+                and_(
+                    MappingSnapshot.source_definition_id != feed_id,
+                    Feed.status != "discarded",
+                ),
+            ),
+        )
+        .order_by(MappingSnapshot.created_at.desc())
+    ).all()
+    warnings: dict[str, dict[str, Any]] = {}
+    for snap, source_details, source_type in rows:
+        tbl = snap.destination_object_name
+        if tbl in warnings:
+            continue
+        label = (source_details or {}).get("label") if snap.source_definition_id else None
+        warnings[tbl] = {
+            "source_definition_id": snap.source_definition_id,
+            "feed_label": label or (snap.source_definition_id[:8] if snap.source_definition_id else None),
+            "feed_source_type": source_type,
+            "status": "approved",
+            "destination_object_name": tbl,
+            "mapping_snapshot_id": snap.mapping_snapshot_id,
+        }
+    return warnings or None
+
+
+def _batch_ownership_warnings(
+    db: Session, project_id: str, feed_tables: dict[str, list[str]],
+) -> dict[str, dict[str, dict[str, Any]] | None]:
+    all_tables = {t for tables in feed_tables.values() for t in tables}
+    if not all_tables:
+        return {fid: None for fid in feed_tables}
+    rows = db.execute(
+        select(MappingSnapshot, Feed.source_details, Feed.source_type)
+        .outerjoin(Feed, Feed.source_definition_id == MappingSnapshot.source_definition_id)
+        .where(
+            MappingSnapshot.project_id == project_id,
+            MappingSnapshot.destination_object_name.in_(all_tables),
+            MappingSnapshot.status == "approved",
+            or_(
+                MappingSnapshot.source_definition_id.is_(None),
+                Feed.status != "discarded",
+            ),
+        )
+        .order_by(MappingSnapshot.created_at.desc())
+    ).all()
+    by_table: dict[str, list[tuple]] = {}
+    for snap, source_details, source_type in rows:
+        by_table.setdefault(snap.destination_object_name, []).append((snap, source_details, source_type))
+
+    result: dict[str, dict[str, dict[str, Any]] | None] = {}
+    for fid, tables in feed_tables.items():
+        warnings: dict[str, dict[str, Any]] = {}
+        for tbl in tables:
+            other = next((c for c in by_table.get(tbl, []) if c[0].source_definition_id != fid), None)
+            if other:
+                snap, source_details, source_type = other
+                label = (source_details or {}).get("label") if snap.source_definition_id else None
+                warnings[tbl] = {
+                    "source_definition_id": snap.source_definition_id,
+                    "feed_label": label or (snap.source_definition_id[:8] if snap.source_definition_id else None),
+                    "feed_source_type": source_type,
+                    "status": "approved",
+                    "destination_object_name": tbl,
+                    "mapping_snapshot_id": snap.mapping_snapshot_id,
+                }
+        result[fid] = warnings or None
+    return result
+
+
 def _source_contract_response(
     source_definition: Feed, db: Session | None = None
 ) -> FeedResponse:
@@ -558,11 +644,19 @@ def _source_contract_response(
     label = cast(str, details.get("label", source_definition.source_type))
     encoding = cast(str, details.get("encoding", "utf-8"))
     mapping_status = None
+    mapping_ownership_warnings = None
     if db is not None:
         mapping_status = _compute_mapping_status(
             db,
             project_id=source_definition.project_id,
             feed_id=source_definition.source_definition_id,
+        )
+        own_tables = source_definition.destination_object_references
+        mapping_ownership_warnings = _compute_ownership_warnings(
+            db,
+            project_id=source_definition.project_id,
+            feed_id=source_definition.source_definition_id,
+            own_tables=own_tables,
         )
     return FeedResponse(
         source_definition_id=source_definition.source_definition_id,
@@ -578,6 +672,7 @@ def _source_contract_response(
         mapping_hints=source_definition.mapping_hints,
         transformation_instructions=source_definition.transformation_instructions,
         mapping_status=mapping_status,
+        mapping_ownership_warnings=mapping_ownership_warnings,
     )
 
 

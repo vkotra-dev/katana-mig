@@ -2,6 +2,15 @@ import { API_BASE_URL } from "./api-base";
 
 export type FeedType = "csv" | "fixed_length_file";
 
+export interface MappingOwnershipRecord {
+  sourceDefinitionId: string | null;
+  feedLabel: string | null;
+  feedSourceType: string | null;
+  status: string;
+  destinationObjectName: string;
+  mappingSnapshotId: string;
+}
+
 export interface FeedContractRecord {
   sourceDefinitionId: string;
   projectId: string;
@@ -13,6 +22,8 @@ export interface FeedContractRecord {
   copybookText: string | null;
   status: string;
   createdAt: string;
+  mappingStatus: "draft" | "partial" | "approved" | null;
+  mappingOwnershipWarnings: Record<string, MappingOwnershipRecord> | null;
   mappingHints?: string | null;
   transformationInstructions?: string | null;
 }
@@ -160,6 +171,15 @@ function mapFeedContractResponse(response: {
   copybook_text: string | null;
   status: string;
   created_at: string;
+  mapping_status?: "draft" | "partial" | "approved" | null;
+  mapping_ownership_warnings?: Record<string, {
+    source_definition_id: string | null;
+    feed_label: string | null;
+    feed_source_type: string | null;
+    status: string;
+    destination_object_name: string;
+    mapping_snapshot_id: string;
+  }> | null;
   mapping_hints?: string | null;
   transformation_instructions?: string | null;
 }): FeedContractRecord {
@@ -174,6 +194,23 @@ function mapFeedContractResponse(response: {
     copybookText: response.copybook_text,
     status: response.status,
     createdAt: response.created_at,
+    mappingStatus: response.mapping_status ?? null,
+    mappingOwnershipWarnings: (() => {
+      const raw = response.mapping_ownership_warnings;
+      if (!raw) return null;
+      const result: Record<string, MappingOwnershipRecord> = {};
+      for (const [key, val] of Object.entries(raw)) {
+        result[key] = {
+          sourceDefinitionId: val.source_definition_id,
+          feedLabel: val.feed_label,
+          feedSourceType: val.feed_source_type,
+          status: val.status,
+          destinationObjectName: val.destination_object_name,
+          mappingSnapshotId: val.mapping_snapshot_id,
+        };
+      }
+      return result;
+    })(),
     mappingHints: response.mapping_hints ?? null,
     transformationInstructions: response.transformation_instructions ?? null,
   };

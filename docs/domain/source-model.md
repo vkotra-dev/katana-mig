@@ -431,6 +431,13 @@ one feed (or a project-scoped, `NULL`-`source_definition_id` snapshot) may hold 
 `MappingSnapshot` for a given destination table at a time; approving a second one is rejected with
 a 409 (`mapping_table_conflict`).
 
+`mapping_ownership_warnings` on `FeedResponse` (API) / `FeedContractRecord.mappingOwnershipWarnings`
+(frontend) is the persistent, load-time counterpart to this gate. Every time a feed is loaded or
+listed, the backend queries approved `MappingSnapshot` rows for the feed's destination tables and
+returns ownership details keyed by `destination_object_name`. The frontend renders these as amber
+warning cards in the Field Mappings section so operators always see the current ownership state,
+not just what a failed propose/approve call reported at one moment.
+
 The propose API response also returns `lookup_table_references` — one entry per `lookup_fk` binding across all tables — so the UI knows which reference table backs each lookup field without re-parsing the DDL.
 
 #### Mapping hints

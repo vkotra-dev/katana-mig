@@ -16,6 +16,7 @@ import {
   resubmitFeedSlice,
   discardFeed,
   type FeedContractRecord,
+  type MappingOwnershipRecord,
   type FeedSliceRecord,
   type FiberRecord,
   type FeedSchemaColumnRecord,
@@ -247,10 +248,10 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
         const status = (err as any).status || 0;
         const isConflict = err instanceof Error && (err.message.includes("conflict") || err.message.includes("409"));
         if (status !== 409 && !isConflict) throw err;
-        // 409 is expected when mapping already exists — load data to show the existing state
+        // Table already owned elsewhere — no separate message here; loadAllData() below
+        // refreshes mapping_ownership_warnings, the single canonical place this shows.
       }
       await loadAllData(session.accessToken);
-
     } catch (err) {
       setAnalysisError(err instanceof Error ? err.message : "Unable to trigger AI analysis.");
     } finally {
@@ -738,6 +739,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                           {analysisError}
                         </div>
                       )}
+
                     </div>
 
                     {/* Quiet re-upload in Slice panel when approved */}
@@ -882,6 +884,29 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                   )}
                 </div>
 
+
+                {feed?.mappingOwnershipWarnings && Object.keys(feed.mappingOwnershipWarnings).length > 0 && (
+                  <div className="rounded-xl border border-amber-300 bg-amber-50/50 p-4 space-y-2">
+                    <p className="text-xs font-semibold text-amber-800">
+                      Table ownership conflicts
+                    </p>
+                    <ul className="space-y-1.5">
+                      {Object.entries(feed.mappingOwnershipWarnings).map(([table, ownership]) => {
+                        return (
+                          <li key={table} className="text-xs text-amber-900">
+                            <b>{table}</b> is already mapped on{" "}
+                            {ownership.sourceDefinitionId
+                              ? <button onClick={() => router.push(`/projects/${projectId}/feeds/${ownership.sourceDefinitionId}`)} className="text-primary hover:underline font-semibold">{ownership.feedLabel || ownership.sourceDefinitionId.slice(0, 8)}</button>
+                              : "this project"
+                            }
+                            {ownership.feedSourceType && <> ({ownership.feedSourceType})</>}
+                            {" "}→
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
 
                 {mappingTables.length === 0 ? (
                   <div className="text-sm text-slate-500">No mapping proposals generated yet.</div>

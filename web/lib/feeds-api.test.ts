@@ -33,6 +33,7 @@ const contractResponse = {
   copybook_text: null,
   status: "declared",
   created_at: "2026-06-30T00:00:00Z",
+  mapping_ownership_warnings: null,
 };
 
 const contract: FeedContractRecord = {
@@ -46,6 +47,8 @@ const contract: FeedContractRecord = {
   copybookText: null,
   status: "declared",
   createdAt: "2026-06-30T00:00:00Z",
+  mappingStatus: null,
+  mappingOwnershipWarnings: null,
 };
 
 const sliceResponse = {

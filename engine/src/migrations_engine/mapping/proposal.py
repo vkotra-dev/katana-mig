@@ -346,10 +346,40 @@ def propose_mapping(
         )
         
     if not snapshots:
+        # All AI-proposed tables already have approved mappings.
+        # Attach ownership detail so the frontend can tell the user where
+        # the existing mappings live.
+        proposed_tables = {t.destination_table_name for t in proposal.tables}
+        conflicting_tables = already_mapped_tables & proposed_tables
+        per_table_ownership: dict[str, dict[str, str | None]] = {}
+        for tbl_name in conflicting_tables:
+            approved_snap = db.scalar(
+                select(MappingSnapshot)
+                .outerjoin(Feed, Feed.source_definition_id == MappingSnapshot.source_definition_id)
+                .where(
+                    MappingSnapshot.project_id == project_id,
+                    MappingSnapshot.destination_object_name == tbl_name,
+                    MappingSnapshot.status == "approved",
+                    or_(
+                        MappingSnapshot.source_definition_id.is_(None),
+                        Feed.status != "discarded",
+                    ),
+                )
+                .order_by(MappingSnapshot.created_at.desc())
+                .limit(1)
+            )
+            if approved_snap is not None:
+                per_table_ownership[tbl_name] = {
+                    "source_definition_id": approved_snap.source_definition_id,
+                    "status": "approved",
+                    "destination_object_name": tbl_name,
+                    "mapping_snapshot_id": approved_snap.mapping_snapshot_id,
+                }
         raise AuthApiError(
             "mapping_already_proposed",
             "All proposed tables already have approved mappings. No changes to apply.",
             409,
+            {"per_table_ownership": per_table_ownership},
         )
 
     db.commit()

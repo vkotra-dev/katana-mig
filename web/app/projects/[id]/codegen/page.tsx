@@ -661,6 +661,7 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
                         <th className="px-4 py-3">Destination</th>
                         <th className="px-4 py-3">Encoding</th>
                         <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">Mapping</th>
                         <th className="px-4 py-3">Action</th>
                       </tr>
                     </thead>
@@ -696,6 +697,14 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
                             <td className="px-4 py-3 text-sm text-slate-700">{source.encoding}</td>
                             <td className="px-4 py-3 text-sm text-slate-700">{source.status}</td>
                             <td className="px-4 py-3">
+                              {(() => {
+                                const ms = source.mappingStatus;
+                                if (!ms) return <span className="text-sm text-slate-400">—</span>;
+                                const color = ms === "approved" ? "text-emerald-700" : ms === "partial" ? "text-amber-700" : "text-slate-500";
+                                return <span className={`text-sm font-medium ${color}`}>{ms}</span>;
+                              })()}
+                            </td>
+                            <td className="px-4 py-3">
                               {role === "central_team" ? (
                                 <button
                                   className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
@@ -712,7 +721,7 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
                           </tr>
                           {expandedFeed === source.sourceDefinitionId && (
                             <tr className="bg-slate-50 border-t border-outline-variant">
-                              <td colSpan={5} className="px-8 py-4">
+                              <td colSpan={6} className="px-8 py-4">
                                 <div className="space-y-2">
                                   {(() => {
                                     const unmapped = feedUnmappedFields[source.sourceDefinitionId];
