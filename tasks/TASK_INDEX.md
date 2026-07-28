@@ -6,6 +6,7 @@
 
 | Task | Summary |
 |---|---|
+| [002b9-version-history-frontend](./completed/002b9-version-history-frontend.md) | [summary](./summary/002b9-version-history-frontend.md) |
 | [002ib-feed-mapping-status](./completed/002ib-feed-mapping-status.md) | [summary](./summary/002ib-feed-mapping-status.md) |
 | [002id-approve-mapping-cross-feed-guard](./completed/002id-approve-mapping-cross-feed-guard.md) | [summary](./summary/002id-approve-mapping-cross-feed-guard.md) |
 | [002h0-ui-slice-ddl-collapse-and-lookup-lock](./completed/002h0-ui-slice-ddl-collapse-and-lookup-lock.md) | [summary](./summary/002h0-ui-slice-ddl-collapse-and-lookup-lock.md) |
