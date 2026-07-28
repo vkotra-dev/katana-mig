@@ -125,6 +125,7 @@ def propose_mapping(
             system=system_prompt,
             user=user_prompt,
             raw_response=result.raw_response,
+            artifact_id=source_definition_id,
         )
         db.commit()
         proposal = result.parsed
