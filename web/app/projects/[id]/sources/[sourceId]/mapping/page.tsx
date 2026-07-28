@@ -135,7 +135,16 @@ export default function MappingPage() {
       setPageState("draft");
       setStatusMessage("Mapping proposal generated.");
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Unable to propose a mapping.");
+      const msg = error instanceof Error ? error.message : "Unable to propose a mapping.";
+      const perTable = (error as { detail?: { per_table_status?: Record<string, string[]> } }).detail?.per_table_status;
+      if (perTable && Object.keys(perTable).length > 0) {
+        const details = Object.entries(perTable)
+          .map(([table, statuses]) => `${table}: ${statuses.join(", ")}`)
+          .join("; ");
+        setErrorMessage(`${msg} (${details})`);
+      } else {
+        setErrorMessage(msg);
+      }
     } finally {
       setProposing(false);
     }

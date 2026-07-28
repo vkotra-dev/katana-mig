@@ -239,6 +239,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
         const status = (err as any).status || 0;
         const isConflict = err instanceof Error && (err.message.includes("conflict") || err.message.includes("409"));
         if (status !== 409 && !isConflict) throw err;
+        // 409 is expected when mapping already exists — load data to show the existing state
       }
       await loadAllData(session.accessToken);
 

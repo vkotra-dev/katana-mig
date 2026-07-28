@@ -43,12 +43,14 @@ export interface MappingReviewRecord extends MappingSnapshotRecord {}
 export class MappingApiError extends Error {
   code: string;
   status: number;
+  detail: Record<string, unknown> | undefined;
 
-  constructor(code: string, message: string, status: number) {
+  constructor(code: string, message: string, status: number, detail?: Record<string, unknown>) {
     super(message || code);
     this.name = "MappingApiError";
     this.code = code;
     this.status = status;
+    this.detail = detail;
   }
 }
 
@@ -141,11 +143,12 @@ async function requestMappingJson<T>(
 
   if (!response.ok) {
     try {
-      const body = (await response.json()) as { error?: { code?: string; message?: string } };
+      const body = (await response.json()) as { error?: { code?: string; message?: string; detail?: Record<string, unknown> } };
       throw new MappingApiError(
         body.error?.code ?? "api_error",
         body.error?.message ?? "api_error",
         response.status,
+        body.error?.detail,
       );
     } catch (error) {
       if (error instanceof MappingApiError) {
