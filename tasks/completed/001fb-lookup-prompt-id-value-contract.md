@@ -1,7 +1,7 @@
 ---
 id: 001fb
 title: Fix lookup fiber AI prompt — output id, source_value, dest_value
-status: active
+status: completed
 created: 2026-07-23
 priority: high
 domain: lookup-fiber / ai-prompt / fibers.py / feed-page / review-page
@@ -49,6 +49,11 @@ destination CSV and extracts the business key (`id`) and the human-readable labe
    patching a mapping from the feed page also saves a wrong `dest_row`.
 7. **Both feed page and review page** display from `dest_row.label` and `dest_row.id`, so both
    pages show garbled values.
+
+## Domain Updates Required
+
+- `docs/domain/source-model.md` ("Lookup mapping" section) — describe the fixed AI proposal
+  contract (`dest_id`/`dest_value`/`source_value`/`confidence_score`) if not already accurate.
 
 ## Correct Output Contract
 
