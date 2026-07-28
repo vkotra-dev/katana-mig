@@ -5,12 +5,12 @@
 | Task | Summary |
 |---|---|
 | [002b9-version-history-frontend](./002b9-version-history-frontend.md) | Add version history dropdown UI near editable fields — depends on 002b8 (done). No plan file yet; not implemented. |
-| [002h0-ui-slice-ddl-collapse-and-lookup-lock](./002h0-ui-slice-ddl-collapse-and-lookup-lock.md) | Add expand/collapse for Source DDL in Slice section, move to bottom, lock lookup mappings when signed off (OR logic). DDL collapse is implemented; lookup-lock half is not. |
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [002h0-ui-slice-ddl-collapse-and-lookup-lock](./completed/002h0-ui-slice-ddl-collapse-and-lookup-lock.md) | [summary](./summary/002h0-ui-slice-ddl-collapse-and-lookup-lock.md) |
 | [001fb-lookup-prompt-id-value-contract](./completed/001fb-lookup-prompt-id-value-contract.md) | [summary](./summary/001fb-lookup-prompt-id-value-contract.md) |
 | [002c0-source-analysis-staging-schema](./completed/002c0-source-analysis-staging-schema-into-prompt.md) | [summary](./summary/002c0-source-analysis-staging-schema-into-prompt.md) |
 | [002b8-version-history-backend](./completed/002b8-version-history-backend.md) | [summary](./summary/002b8-version-history-backend.md) |

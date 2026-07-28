@@ -1,7 +1,7 @@
 ---
 id: 002h0
 title: Add expand/collapse for Source DDL, move it to bottom of Slice, and lock lookup mappings when approved
-status: pending
+status: completed
 created: 2026-07-24
 priority: medium
 depends-on: []
