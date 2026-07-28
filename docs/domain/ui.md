@@ -243,7 +243,7 @@ Audience: role-gated. `central_team` sees the full Feed Detail workspace. `proje
 
 **Feed Detail** (`central_team` workspace) — vertical sections:
 
-1. **Slice status panel** — current slice status chip (`pending_approval` / `approved` / `rejected`). Feed slices are immutable post-creation — the upload card is removed once a slice exists (task 001bj). The former slice approval gate overlay is replaced with a slice preview and an 'Analyze with AI' button (task 001bl). Rejection triggers a replacement upload flow with status banners: amber = pending, red = rejected (task 001bu).
+1. **Slice status panel** — current slice status chip (`pending_approval` / `approved` / `rejected`). Feed slices are immutable post-creation — the upload card is removed once a slice exists (task 001bj). The former slice approval gate overlay is replaced with a slice preview and an 'Analyze with AI' button (task 001bl). Rejection triggers a replacement upload flow with status banners: amber = pending, red = rejected (task 001bu). The AI-generated Source DDL is shown as a collapsible block at the bottom of this section (collapsed by default, session-persisted toggle state) rather than a static always-visible block (task 002h0).
 2. **Data profile review card** — dedicated card for stakeholders showing a stats strip (row count, column count, null percentages), client-side PII scan results, and an unmasked sample table (task 001cc).
 3. **Copybook display-time masking** — copybook values are masked at display time. `admin` and `pm` roles see a 'Show original' toggle to reveal unmasked values (task 001ck).
 4. **Field mapping section (multi-table)** — AI-identified destination tables displayed as expandable cards (one per table). Each card shows field bindings with binding type badges:
@@ -262,7 +262,7 @@ Sections:
 - **Feed slice sample data** — feed slice sample values displayed alongside binding rows so reviewers can see real data in context (task 001bs).
 - **Unmapped source fields warning** — amber warning panel listing source columns that have no binding to any destination field (task 001bv).
 - **Operator mapping edit** — `central_team` operators can edit the destination field selector per binding, then 'Save mapping' and 'Submit for review' (task 001bq).
-- **Lookup value mapping grids** — one section per lookup field. Columns: Source value | Destination row | Confidence | Status.
+- **Lookup value mapping grids** — one section per lookup field. Columns: Source value | Destination row | Confidence | Status. Source-value edit controls (add/remove) are locked (hidden) once either `central_team` or `project_stakeholder` signs off that lookup — OR logic, the same pattern as the table binding lock. This is a per-lookup, additive check on top of the grid's global `editingEnabled` (ball-holder) gate, not a replacement for it (task 002h0).
 - **Per-binding sign-off** — operator and stakeholder each sign off per binding; PM can poke either party via a nudge mechanism (task 001cl).
 - **Bulk approve/reject** — single action to approve or reject all draft snapshots for a feed (task 001bp).
 - **Approval strip** — Approve and Request revision controls, visible to `project_stakeholder` only. Request revision requires a comment.
@@ -516,6 +516,33 @@ UI surfaces receive notification events for:
 Notifications deep-link to the relevant project or artifact view.
 Polling is used for in-app; WebSockets are not required.
 
+## Feed page — Source DDL (collapsible)
+
+The Slice section of the feed detail page includes a collapsible **Source DDL** panel.
+It is collapsed by default and revealed by clicking "Show Source DDL". When expanded it
+displays the AI-generated `CREATE TABLE` DDL in a syntax-highlighted code block with
+a **Copy to clipboard** button. Collapsing shows a "Hide Source DDL" link.
+
+The Source DDL section sits at the **bottom** of the Slice panel, below the "Analyze
+with AI" button and the upload-new-slice section. It only renders when DDL is available
+(i.e., after a successful feed analysis).
+
+## Review page — Lookup mapping lock
+
+Lookup mapping groups on the review page are locked for editing once either the
+`centralTeam` **or** the `projectStakeholder` signs off (OR logic, consistent with
+the table binding lock pattern at `ReviewGrid` line 589).
+
+When a lookup is locked:
+- The "×" remove button next to each source value disappears
+- The "+ Add another source value" button disappears
+- The inline add form cannot be opened
+- Source value inputs remain visible and read-only (unchanged)
+
+The lock is keyed by `lookupValueMapId` from the `signOffStatus.lookups` map, matching
+the `lookupValueMapId` stored on each `LookupValueGroup`. If the lookup status is
+absent (no sign-off record yet), the lookup remains editable.
+
 ## Technical shape
 
 - Server-rendered or simple SPA is acceptable.
@@ -552,7 +579,8 @@ Polling is used for in-app; WebSockets are not required.
 
 ## Changelog
 
-- 2026-07 — Feeds rename; 5-role capabilities; removed global approvals; admin dropdown nav; feed slice immutability and workflow overhaul; multi-table review with sign-offs; bulk approve/reject; operator edit; sample data; unmapped fields warning; dashboard health view; notifications; project copy UI; AI reasoning panel; codegen instructions panels
+- 2026-07 — Feeds rename; 5-role capabilities; removed global approvals; admin dropdown nav; feed slice immutability and workflow overhaul; multi-table review with sign-offs; bulk approve/reject; operator edit; sample data; unmapped fields warning; dashboard health view; notifications; project copy UI; AI reasoning panel; codegen instructions panels; Source DDL collapse/move; lookup mapping lock on sign-off
+- 2026-07-27: Added Source DDL collapsible section (collapsed by default, moved to bottom of Slice panel); added lookup mapping lock — edit controls hidden when either centralTeam or projectStakeholder signs (OR logic)
 - 2026-07-04: Removed global Approvals nav item and inbox; added per-feed workspace and role-gated review grid; updated mapping review to reflect AI-driven binding type detection (direct/detail_fk/lookup_fk) and reference table names; updated role table and SQL bundle delivery to use Feeds terminology.
 - 2026-07-03: Clarified notification email delivery as SMTP-backed instead of a logging stub.
 - 2026-07-01: Added Feed/FeedSlice/Fiber vocabulary; Feed intake screen; Fiber
