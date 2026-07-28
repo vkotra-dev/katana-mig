@@ -580,7 +580,7 @@ absent (no sign-off record yet), the lookup remains editable.
 ## Changelog
 
 - 2026-07 — Feeds rename; 5-role capabilities; removed global approvals; admin dropdown nav; feed slice immutability and workflow overhaul; multi-table review with sign-offs; bulk approve/reject; operator edit; sample data; unmapped fields warning; dashboard health view; notifications; project copy UI; AI reasoning panel; codegen instructions panels; Source DDL collapse/move; lookup mapping lock on sign-off
-- 2026-07-27: Added Source DDL collapsible section (collapsed by default, moved to bottom of Slice panel); added lookup mapping lock — edit controls hidden when either centralTeam or projectStakeholder signs (OR logic)
+- 2026-07-27: Added Source DDL collapsible section (collapsed by default, moved to bottom of Slice panel); added lookup mapping lock — edit controls hidden when either centralTeam or projectStakeholder signs (OR logic); added "View History" toggle near mapping hints editor (feed page) and codegen instructions editor — shows collapsible panel with version history entries (old/new value diffs, timestamps, author)
 - 2026-07-04: Removed global Approvals nav item and inbox; added per-feed workspace and role-gated review grid; updated mapping review to reflect AI-driven binding type detection (direct/detail_fk/lookup_fk) and reference table names; updated role table and SQL bundle delivery to use Feeds terminology.
 - 2026-07-03: Clarified notification email delivery as SMTP-backed instead of a logging stub.
 - 2026-07-01: Added Feed/FeedSlice/Fiber vocabulary; Feed intake screen; Fiber

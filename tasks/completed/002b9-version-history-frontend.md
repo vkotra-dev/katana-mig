@@ -33,13 +33,12 @@ Follow-up to [[002b8]] — once the backend version history API exists, add a "V
 
 ## Out of Scope
 
-- No editor for transformation_instructions in the UI
 - No version comparison/diff highlighting (just show old/new side by side as text)
 - No pagination UI — fetch all versions (limited to 50 by backend) at once
 
 ## Domain Updates Required
 
-- None — no domain doc changes for this frontend-only task
+- `docs/domain/ui.md` — add changelog line noting version history UI feature (View History toggle + diff panel on mapping hints and codegen instructions editors)
 
 ## Tests
 
