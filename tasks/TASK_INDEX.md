@@ -14,6 +14,7 @@
 
 | Task | Summary |
 |---|---|
+| [002ia-artifact-history-order-and-lookup-id-rename](./completed/002ia-artifact-history-order-and-lookup-id-rename.md) | Fixed `list_codegen_artifacts()` to order by `created_at` only (was grouped by table); renamed `dest_val` → `id` across lookup reference-table prompt/schema/seed-SQL — value was already the business id, just mislabeled downstream |
 | [002i9-codegen-staging-table-name](./completed/002i9-codegen-staging-table-name.md) | Wire staging table name into codegen system prompt using shared helper from 002i8 — deterministic `stg_{label}` convention for codegen |
 | [002i8-source-analysis-staging-table-name](./completed/002i8-source-analysis-staging-table-name.md) | Specify staging table name in source analysis prompt using feed label — deterministic table naming (stg_{label} convention, shared helper for 002i9) |
 | [002i1-lookup-snapshot-collect-bug-fix](./completed/002i1-lookup-snapshot-collect-bug-fix.md) | Fix `_select_lookup_snapshot_version()` to return all matching lookup snapshots (not just first) — changes return type to `list[dict[str, str]]`, updates `_build_user_prompt()` |

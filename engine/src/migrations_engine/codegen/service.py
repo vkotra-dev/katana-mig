@@ -271,7 +271,7 @@ def list_codegen_artifacts(
     if status is not None:
         stmt = stmt.where(CodeGenerationArtifact.status == status)
     rows = db.scalars(
-        stmt.order_by(CodeGenerationArtifact.destination_object_name.asc(), CodeGenerationArtifact.created_at.desc())
+        stmt.order_by(CodeGenerationArtifact.created_at.desc())
     ).all()
     return [_artifact_response(row) for row in rows]
 
@@ -340,6 +340,15 @@ def build_delivery_bundle_text(
     )
 
 
+def _ensure_tz(dt: datetime | None, *, default=UTC) -> datetime | None:
+    """Normalize a datetime to UTC if it is naive."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=default)
+    return dt
+
+
 def _trigger_response(artifact: CodeGenerationArtifact) -> CodegenTriggerResponse:
     preview = (artifact.sql_bundle or "")[:500]
     return CodegenTriggerResponse(
@@ -353,7 +362,7 @@ def _trigger_response(artifact: CodeGenerationArtifact) -> CodegenTriggerRespons
         mapping_snapshot_version=artifact.mapping_snapshot_version,
         lookup_snapshot_version=artifact.lookup_snapshot_version,
 
-        created_at=artifact.created_at,
+        created_at=_ensure_tz(artifact.created_at),
     )
 
 
@@ -370,8 +379,8 @@ def _artifact_response(artifact: CodeGenerationArtifact) -> CodegenArtifactRespo
         sql_bundle=artifact.sql_bundle,
 
         status=artifact.status,  # type: ignore
-        created_at=artifact.created_at,
-        superseded_at=artifact.superseded_at,
+        created_at=_ensure_tz(artifact.created_at),
+        superseded_at=_ensure_tz(artifact.superseded_at),
     )
 
 
@@ -523,14 +532,14 @@ def _build_lookup_tables(
         value_map = snapshot.value_map or {}
         ref_table = f"{lookup_name}_ref" if not lookup_name.endswith("_ref") else lookup_name
         sample_mappings = [
-            {"source_val": src, "dest_val": dst}
+            {"source_val": src, "id": dst}
             for src, dst in value_map.items()
         ]
 
         results.append({
             "lookup_name": lookup_name,
             "ref_table_name": ref_table,
-            "columns": ["source_val VARCHAR(255) PRIMARY KEY", "dest_val VARCHAR(255) NOT NULL"],
+            "columns": ["source_val VARCHAR(255) PRIMARY KEY", "id VARCHAR(255) NOT NULL"],
             "sample_mappings": sample_mappings,
             "snapshot_version": snapshot.lookup_snapshot_version,
         })

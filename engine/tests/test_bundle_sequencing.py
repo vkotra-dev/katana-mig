@@ -162,7 +162,7 @@ def _seed_lookup_project(
 def test_postgresql_generates_on_conflict() -> None:
     sql = generate_lookup_upsert_sql("account_type", VALUE_MAP, "postgresql")
     assert "CREATE TABLE IF NOT EXISTS account_type_ref" in sql
-    assert "ON CONFLICT (source_val) DO UPDATE SET dest_val = EXCLUDED.dest_val" in sql
+    assert "ON CONFLICT (source_val) DO UPDATE SET id = EXCLUDED.id" in sql
     assert "'DB'" in sql
     assert "'Savings Account'" in sql
 
@@ -170,14 +170,14 @@ def test_postgresql_generates_on_conflict() -> None:
 def test_mysql_generates_on_duplicate_key() -> None:
     sql = generate_lookup_upsert_sql("account_type", VALUE_MAP, "mysql")
     assert "CREATE TABLE IF NOT EXISTS account_type_ref" in sql
-    assert "ON DUPLICATE KEY UPDATE dest_val = VALUES(dest_val)" in sql
+    assert "ON DUPLICATE KEY UPDATE id = VALUES(id)" in sql
 
 
 def test_mssql_generates_merge() -> None:
     sql = generate_lookup_upsert_sql("account_type", VALUE_MAP, "mssql")
     assert "IF OBJECT_ID('account_type_ref', 'U') IS NULL" in sql
     assert "MERGE account_type_ref AS target" in sql
-    assert "WHEN MATCHED THEN UPDATE SET target.dest_val = source.dest_val" in sql
+    assert "WHEN MATCHED THEN UPDATE SET target.id = source.id" in sql
     assert "WHEN NOT MATCHED THEN INSERT" in sql
 
 
@@ -737,13 +737,13 @@ def test_generate_lookup_upsert_sql_handles_one_to_many_stacked_mappings() -> No
     assert "('A', 'ACTIVE')" in pg_sql
     assert "('B', 'ACTIVE')" in pg_sql
     assert "('C', 'BLOCKED')" in pg_sql
-    assert "ON CONFLICT (source_val) DO UPDATE SET dest_val = EXCLUDED.dest_val;" in pg_sql
+    assert "ON CONFLICT (source_val) DO UPDATE SET id = EXCLUDED.id;" in pg_sql
 
     mysql_sql = generate_lookup_upsert_sql("status_code", stacked_map, "mysql")
     assert "('A', 'ACTIVE')" in mysql_sql
     assert "('B', 'ACTIVE')" in mysql_sql
     assert "('C', 'BLOCKED')" in mysql_sql
-    assert "ON DUPLICATE KEY UPDATE dest_val = VALUES(dest_val);" in mysql_sql
+    assert "ON DUPLICATE KEY UPDATE id = VALUES(id);" in mysql_sql
 
     mssql_sql = generate_lookup_upsert_sql("status_code", stacked_map, "mssql")
     assert "('A', 'ACTIVE')" in mssql_sql

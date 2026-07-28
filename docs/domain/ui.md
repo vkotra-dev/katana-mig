@@ -8,7 +8,7 @@ tags:
   - workflow
   - review
   - dashboard
-timestamp: 2026-07-26
+timestamp: 2026-07-28
 ---
 
 # UI
@@ -159,7 +159,7 @@ Panels:
 - **Latest active artifact** — destination name, artifact ID, created date, feed slice version; "Copy SQL" and "Download delivery bundle" buttons; full SQL preview in a scrollable code block
 - **Delivery bundle sidebar** — active artifact count; note that the download saves as `delivery-bundle.sql`
 - **Schema dependency analysis** — shows identified / processed / pending counts for destination objects; "Re-analyze DDL" button to re-run AI analysis; "analyzed at" timestamp. Empty state if no analysis has been run.
-- **Artifact history** — all artifacts (active and superseded) with timestamps
+- **Artifact history** — all artifacts (active and superseded) with timestamps, ordered chronologically (created_at desc) across all destination tables — not grouped by table
 
 Delivery bundle sequencing:
 

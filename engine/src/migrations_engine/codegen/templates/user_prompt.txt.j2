@@ -24,7 +24,7 @@ LOOKUP REFERENCE TABLES
   Columns: {{ ", ".join(lt.columns) }}
   All mappings:
   {% for m in lt.sample_mappings %}
-  - {{ m.source_val }} -> {{ m.dest_val }}
+  - {{ m.source_val }} -> {{ m.id }}
   {% endfor %}
 {% endfor %}
 {% endif %}

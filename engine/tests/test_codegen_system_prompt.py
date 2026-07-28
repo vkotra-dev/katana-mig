@@ -51,8 +51,8 @@ def test_build_lookup_tables_builds_structured_lookup_info():
     assert entry["ref_table_name"] == "status_code_ref"
     assert entry["snapshot_version"] == "snap-123"
     assert len(entry["sample_mappings"]) == 3
-    assert entry["sample_mappings"][0] == {"source_val": "APPROVED", "dest_val": "3"}
-    assert entry["columns"] == ["source_val VARCHAR(255) PRIMARY KEY", "dest_val VARCHAR(255) NOT NULL"]
+    assert entry["sample_mappings"][0] == {"source_val": "APPROVED", "id": "3"}
+    assert entry["columns"] == ["source_val VARCHAR(255) PRIMARY KEY", "id VARCHAR(255) NOT NULL"]
 
 
 def test_build_lookup_tables_skips_missing_snapshots():

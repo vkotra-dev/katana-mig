@@ -30,7 +30,7 @@ def _table_ddl(ref_table: str, *, use_if_not_exists: bool) -> str:
         return (
             f"CREATE TABLE IF NOT EXISTS {ref_table} (\n"
             f"    source_val VARCHAR(255) PRIMARY KEY,\n"
-            f"    dest_val VARCHAR(255) NOT NULL\n"
+            f"    id VARCHAR(255) NOT NULL\n"
             f");"
         )
 
@@ -38,7 +38,7 @@ def _table_ddl(ref_table: str, *, use_if_not_exists: bool) -> str:
         f"IF OBJECT_ID('{ref_table}', 'U') IS NULL\n"
         f"CREATE TABLE {ref_table} (\n"
         f"    source_val NVARCHAR(255) PRIMARY KEY,\n"
-        f"    dest_val NVARCHAR(255) NOT NULL\n"
+        f"    id NVARCHAR(255) NOT NULL\n"
         f");"
     )
 
@@ -51,9 +51,9 @@ def _pg_sql(lookup_name: str, ref_table: str, value_map: dict[str, str]) -> str:
 
     values = _values_clause(value_map)
     dml = (
-        f"INSERT INTO {ref_table} (source_val, dest_val)\n"
+        f"INSERT INTO {ref_table} (source_val, id)\n"
         f"VALUES {values}\n"
-        f"ON CONFLICT (source_val) DO UPDATE SET dest_val = EXCLUDED.dest_val;"
+        f"ON CONFLICT (source_val) DO UPDATE SET id = EXCLUDED.id;"
     )
     return f"{header}\n{ddl}\n{dml}"
 
@@ -66,9 +66,9 @@ def _mysql_sql(lookup_name: str, ref_table: str, value_map: dict[str, str]) -> s
 
     values = _values_clause(value_map)
     dml = (
-        f"INSERT INTO {ref_table} (source_val, dest_val)\n"
+        f"INSERT INTO {ref_table} (source_val, id)\n"
         f"VALUES {values}\n"
-        f"ON DUPLICATE KEY UPDATE dest_val = VALUES(dest_val);"
+        f"ON DUPLICATE KEY UPDATE id = VALUES(id);"
     )
     return f"{header}\n{ddl}\n{dml}"
 
@@ -82,11 +82,11 @@ def _mssql_sql(lookup_name: str, ref_table: str, value_map: dict[str, str]) -> s
     values = _values_clause(value_map)
     merge = (
         f"MERGE {ref_table} AS target\n"
-        f"USING (VALUES {values}) AS source (source_val, dest_val)\n"
+        f"USING (VALUES {values}) AS source (source_val, id)\n"
         f"ON target.source_val = source.source_val\n"
-        f"WHEN MATCHED THEN UPDATE SET target.dest_val = source.dest_val\n"
-        f"WHEN NOT MATCHED THEN INSERT (source_val, dest_val)\n"
-        f"VALUES (source.source_val, source.dest_val);"
+        f"WHEN MATCHED THEN UPDATE SET target.id = source.id\n"
+        f"WHEN NOT MATCHED THEN INSERT (source_val, id)\n"
+        f"VALUES (source.source_val, source.id);"
     )
     return f"{header}\n{ddl}\n\n{merge}"
 
@@ -100,11 +100,11 @@ def _oracle_sql(lookup_name: str, ref_table: str, value_map: dict[str, str]) -> 
     values = _values_clause(value_map)
     merge = (
         f"MERGE {ref_table} AS target\n"
-        f"USING (VALUES {values}) AS source (source_val, dest_val)\n"
+        f"USING (VALUES {values}) AS source (source_val, id)\n"
         f"ON target.source_val = source.source_val\n"
-        f"WHEN MATCHED THEN UPDATE SET target.dest_val = source.dest_val\n"
-        f"WHEN NOT MATCHED THEN INSERT (source_val, dest_val)\n"
-        f"VALUES (source.source_val, source.dest_val);"
+        f"WHEN MATCHED THEN UPDATE SET target.id = source.id\n"
+        f"WHEN NOT MATCHED THEN INSERT (source_val, id)\n"
+        f"VALUES (source.source_val, source.id);"
     )
     return f"{header}\n{ddl}\n\n{merge}"
 

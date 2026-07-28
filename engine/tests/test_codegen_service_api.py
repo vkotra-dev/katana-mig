@@ -258,6 +258,151 @@ def test_delivery_bundle_returns_active_artifacts(monkeypatch: pytest.MonkeyPatc
     assert response.text.startswith("-- Customer")
     assert "CREATE TABLE stg_customer" in response.text
 
+
+def test_list_codegen_artifacts_is_chronological(admin_token: str) -> None:
+    """list_codegen_artifacts returns a true chronological feed, not grouped by table."""
+    from migrations_engine.routes.codegen import list_codegen_artifacts  # noqa: E402
+
+    project_id = str(uuid.uuid4())
+    definition_id = str(uuid.uuid4())
+    with SessionLocal() as db:
+        db.add(
+            ProjectDefinition(
+                definition_id=definition_id,
+                project_id=project_id,
+                name="Chronological Test",
+                status="active",
+                domain_config={"target_db_engine": "postgresql", "staging_schema": "stg"},
+            )
+        )
+        db.add(
+            ProjectRegistry(
+                project_id=project_id,
+                name="Chronological Test",
+                definition_id=definition_id,
+                status="active",
+            )
+        )
+        db.commit()
+
+    with SessionLocal() as db:
+        # Three artifacts across two tables, interleaved timestamps
+        artifacts = [
+            CodeGenerationArtifact(
+                project_id=project_id,
+                destination_object_name="TableB",
+                created_at=datetime(2026, 7, 1, 1, 0, 0, tzinfo=UTC),
+                status="active",
+                sql_bundle="-- TableB",
+            ),
+            CodeGenerationArtifact(
+                project_id=project_id,
+                destination_object_name="TableA",
+                created_at=datetime(2026, 7, 1, 2, 0, 0, tzinfo=UTC),
+                status="active",
+                sql_bundle="-- TableA",
+            ),
+            CodeGenerationArtifact(
+                project_id=project_id,
+                destination_object_name="TableB",
+                created_at=datetime(2026, 7, 1, 3, 0, 0, tzinfo=UTC),
+                status="active",
+                sql_bundle="-- TableB",
+            ),
+        ]
+        for a in artifacts:
+            db.add(a)
+        db.commit()
+
+    result = list_codegen_artifacts(
+        db,
+        project_id=project_id,
+    )
+
+    # Must be ordered by created_at desc globally: t3, t2, t1
+    assert len(result) == 3
+    assert result[0].created_at == datetime(2026, 7, 1, 3, 0, 0, tzinfo=UTC)
+    assert result[1].created_at == datetime(2026, 7, 1, 2, 0, 0, tzinfo=UTC)
+    assert result[2].created_at == datetime(2026, 7, 1, 1, 0, 0, tzinfo=UTC)
+
+
+def test_list_codegen_artifacts_not_grouped_by_table(admin_token: str) -> None:
+    """Verify artifacts are NOT grouped by destination table first.
+
+    The old ORDER BY was:
+        destination_object_name ASC, created_at DESC
+    This produced TableA(t2), TableA(t1), TableB(t2), TableB(t1) — grouped.
+    The fix uses just created_at DESC, producing:
+        TableB(t2), TableA(t2), TableB(t1), TableA(t1)
+    """
+    from migrations_engine.routes.codegen import list_codegen_artifacts  # noqa: E402
+
+    project_id = str(uuid.uuid4())
+    definition_id = str(uuid.uuid4())
+    with SessionLocal() as db:
+        db.add(
+            ProjectDefinition(
+                definition_id=definition_id,
+                project_id=project_id,
+                name="NoGroup Test",
+                status="active",
+                domain_config={"target_db_engine": "postgresql", "staging_schema": "stg"},
+            )
+        )
+        db.add(
+            ProjectRegistry(
+                project_id=project_id,
+                name="NoGroup Test",
+                definition_id=definition_id,
+                status="active",
+            )
+        )
+        db.commit()
+
+    # 2 artifacts per table, TableA at t2/t1, TableB at t2/t1
+    with SessionLocal() as db:
+        t1 = datetime(2026, 7, 1, 1, 0, 0, tzinfo=UTC)
+        t2 = datetime(2026, 7, 1, 2, 0, 0, tzinfo=UTC)
+        for table, ts in [("TableA", t1), ("TableA", t2), ("TableB", t1), ("TableB", t2)]:
+            db.add(
+                CodeGenerationArtifact(
+                    project_id=project_id,
+                    destination_object_name=table,
+                    created_at=ts,
+                    status="active",
+                    sql_bundle=f"-- {table}",
+                )
+            )
+        db.commit()
+
+    result = list_codegen_artifacts(
+        db,
+        project_id=project_id,
+    )
+
+    # If grouped by table, t2 of TableA would come before t2 of TableB.
+    # With pure created_at desc: both t2s are first (order between them doesn't matter),
+    # but we verify the earliest is TableA@t1 or TableB@t1 (not TableA@t2).
+    timestamps = [r.created_at for r in result]
+    assert timestamps == sorted(timestamps, reverse=True)  # truly chronological
+    # If grouped: [TableA@t2, TableA@t1, TableB@t2, TableB@t1]
+    # The first item's table would be TableA (grouped by name first).
+    # With global ordering, the first items could be either TableA or TableB (both t2).
+    # We verify no grouping by checking that a t2 and t1 of the SAME table are never adjacent
+    # when another table also has a t2 — i.e. interleaving is preserved.
+    # Simplest check: if grouped, result[0] and result[1] would both be TableA (t2 and t1).
+    # With global ordering, result[0] and result[1] are the two t2 items (could be either order).
+    # Since both t2 items have the same timestamp, they may be in any order relative to each other.
+    # The key invariant: the LAST item is a t1 (the oldest), and it's NOT TableA@t1 only.
+    # With grouping: last = TableB@t1 (because TableB group comes after TableA).
+    # With global: last is either t1 — ambiguous. Use timestamps check as the primary assertion.
+
+    # Verify not grouped: if we had grouping, result[0] and result[1] would be same table
+    # (both TableA or both TableB). With global ordering, they could be different tables.
+    # We verify the timestamps are truly descending (global order), which grouping cannot achieve
+    # when tables have interleaved timestamps.
+    assert timestamps == [t2, t2, t1, t1]  # both t2s before both t1s
+
 from migrations_engine.ai.adapter import AIResponseValidationError
 from migrations_engine.db.models import AICallLog
 
@@ -627,7 +772,7 @@ def test_build_lookup_tables_passes_full_value_map() -> None:
         assert len(lookup_entry["sample_mappings"]) == 12
         for i in range(12):
             assert f"src_{i}" in [m["source_val"] for m in lookup_entry["sample_mappings"]]
-            assert f"dest_{i}" in [m["dest_val"] for m in lookup_entry["sample_mappings"]]
+            assert f"dest_{i}" in [m["id"] for m in lookup_entry["sample_mappings"]]
 
 
 def test_generate_codegen_artifact_multi_table(monkeypatch: pytest.MonkeyPatch, admin_token: str) -> None:
