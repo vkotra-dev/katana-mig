@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from ..api.deps import AuthApiError
 from ..api.schemas import MappingFieldBindingResponse, MappingReviewResponse
-from ..db.models import MappingSnapshot, LookupValueMap
+from ..db.models import Feed, MappingSnapshot, LookupValueMap
 from ..management.platform import record_management_audit
 
 try:
@@ -219,6 +219,42 @@ def approve_mapping(
                     "Cannot approve: all lookup mappings must be signed off by the stakeholder first.",
                     400,
                 )
+
+    # Cross-feed conflict guard: at most one feed may hold an approved MappingSnapshot
+    # for a given destination_object_name project-wide, otherwise codegen generates
+    # duplicate stored procedures that independently migrate the same destination data.
+    for draft in drafts:
+        if draft.status != "draft":
+            continue
+        conflict = db.scalar(
+            select(MappingSnapshot)
+            .outerjoin(Feed, Feed.source_definition_id == MappingSnapshot.source_definition_id)
+            .where(
+                MappingSnapshot.project_id == project_id,
+                MappingSnapshot.destination_object_name == draft.destination_object_name,
+                MappingSnapshot.status == "approved",
+                or_(
+                    MappingSnapshot.source_definition_id.is_(None),
+                    and_(
+                        MappingSnapshot.source_definition_id != source_definition_id,
+                        Feed.status != "discarded",
+                    ),
+                ),
+            )
+        )
+        if conflict is not None:
+            raise AuthApiError(
+                "mapping_table_conflict",
+                f"'{draft.destination_object_name}' already has an approved mapping on "
+                "another feed. Approving here would generate a duplicate migration procedure "
+                "for the same destination table.",
+                409,
+                {
+                    "destination_object_name": draft.destination_object_name,
+                    "conflicting_source_definition_id": conflict.source_definition_id,
+                    "conflicting_mapping_snapshot_id": conflict.mapping_snapshot_id,
+                },
+            )
 
     now = datetime.now(UTC)
     approved_tables: list[str] = []

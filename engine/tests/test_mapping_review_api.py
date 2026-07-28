@@ -1270,3 +1270,353 @@ def test_patch_dropped_field_returns_dropped_true(monkeypatch: pytest.MonkeyPatc
     )
     assert get_response.status_code == 200
     assert get_response.json()["field_bindings"][0]["dropped"] is True
+
+
+# ---- Cross-feed conflict guard tests ----
+
+
+def _seed_two_feeds_with_same_destination() -> tuple[str, str, str]:
+    """Create a project with two feeds that reference the same destination table.
+
+    Returns (project_id, feed_a_id, feed_b_id).
+    """
+    project_id = str(uuid.uuid4())
+    definition_id = str(uuid.uuid4())
+    source_id_a = str(uuid.uuid4())
+    source_id_b = str(uuid.uuid4())
+    with SessionLocal() as db:
+        stakeholder_user = db.scalar(select(User).where(User.email == "stakeholder@example.com"))
+        assert stakeholder_user is not None
+        db.add(
+            ProjectDefinition(
+                definition_id=definition_id,
+                project_id=project_id,
+                name="CrossFeed Test Project",
+                status="active",
+                domain_config={"destination_schema_ddl": SAMPLE_DDL},
+            )
+        )
+        db.add(
+            ProjectRegistry(
+                project_id=project_id,
+                name="CrossFeed Test Project",
+                definition_id=definition_id,
+                status="active",
+            )
+        )
+        db.flush()
+        db.add(ProjectMembership(project_id=project_id, user_id=stakeholder_user.user_id))
+        # Feed A — references "Customer"
+        db.add(
+            SourceDefinition(
+                source_definition_id=source_id_a,
+                project_id=project_id,
+                source_type="csv",
+                source_contract_version="v1",
+                destination_object_references=["Customer"],
+                source_details={"label": "Feed A", "encoding": "utf-8"},
+                status="active",
+            )
+        )
+        # Feed B — also references "Customer"
+        db.add(
+            SourceDefinition(
+                source_definition_id=source_id_b,
+                project_id=project_id,
+                source_type="csv",
+                source_contract_version="v1",
+                destination_object_references=["Customer"],
+                source_details={"label": "Feed B", "encoding": "utf-8"},
+                status="active",
+            )
+        )
+        db.commit()
+    return project_id, source_id_a, source_id_b
+
+
+def test_approve_succeeds_for_feed_without_conflict(admin_token: str) -> None:
+    """Feed A approves 'Customer' when no other feed has it approved."""
+    from migrations_engine.db.models import MappingSnapshot  # noqa: E402
+
+    project_id, source_id_a, _ = _seed_two_feeds_with_same_destination()
+
+    snap_a_id = str(uuid.uuid4())
+    # Manually create a draft snapshot for Feed A
+    with SessionLocal() as db:
+        db.add(MappingSnapshot(
+            mapping_snapshot_id=snap_a_id,
+            project_id=project_id,
+            source_definition_id=source_id_a,
+            destination_object_name="Customer",
+            mapping_snapshot_version="v1",
+            field_bindings=[
+                {"source_field": "customer_id", "destination_field": "customer_id"},
+            ],
+            status="draft",
+        ))
+        db.commit()
+
+    response = client.post(
+        f"/projects/{project_id}/sources/{source_id_a}/mapping/approve",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "approved"
+
+    # Verify the snapshot was actually flipped
+    with SessionLocal() as db:
+        snap = db.get(MappingSnapshot, snap_a_id)
+        assert snap.status == "approved"
+
+
+def test_approve_rejected_when_another_feed_has_approved(admin_token: str) -> None:
+    """Feed B cannot approve 'Customer' when Feed A already has it approved."""
+    from migrations_engine.db.models import MappingSnapshot  # noqa: E402
+
+    project_id, source_id_a, source_id_b = _seed_two_feeds_with_same_destination()
+
+    snap_a_id = str(uuid.uuid4())
+    snap_b_id = str(uuid.uuid4())
+    # Approve Feed A's snapshot
+    with SessionLocal() as db:
+        db.add(MappingSnapshot(
+            mapping_snapshot_id=snap_a_id,
+            project_id=project_id,
+            source_definition_id=source_id_a,
+            destination_object_name="Customer",
+            mapping_snapshot_version="v1",
+            field_bindings=[{"source_field": "customer_id", "destination_field": "customer_id"}],
+            status="approved",
+            approved_at=datetime(2026, 7, 1, tzinfo=UTC),
+        ))
+        db.commit()
+
+    # Feed B has its own draft for the same table
+    with SessionLocal() as db:
+        db.add(MappingSnapshot(
+            mapping_snapshot_id=snap_b_id,
+            project_id=project_id,
+            source_definition_id=source_id_b,
+            destination_object_name="Customer",
+            mapping_snapshot_version="v1",
+            field_bindings=[{"source_field": "customer_id", "destination_field": "customer_id"}],
+            status="draft",
+        ))
+        db.commit()
+
+    # Approve should fail with 409
+    response = client.post(
+        f"/projects/{project_id}/sources/{source_id_b}/mapping/approve",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 409
+    data = response.json()
+    assert data["error"]["code"] == "mapping_table_conflict"
+    assert data["error"]["detail"]["conflicting_source_definition_id"] == source_id_a
+    assert data["error"]["detail"]["destination_object_name"] == "Customer"
+
+    # Verify Feed B's snapshot was NOT mutated
+    with SessionLocal() as db:
+        snap = db.get(MappingSnapshot, snap_b_id)
+        assert snap.status == "draft"
+
+
+def test_approve_blocked_by_null_scoped_approved_snapshot(admin_token: str) -> None:
+    """A NULL-scoped approved MappingSnapshot blocks other feeds from approving the same table."""
+    from migrations_engine.db.models import MappingSnapshot  # noqa: E402
+
+    project_id, source_id_a, source_id_b = _seed_two_feeds_with_same_destination()
+
+    # Create a NULL-scoped approved snapshot for "Customer"
+    snap_null_id = str(uuid.uuid4())
+    with SessionLocal() as db:
+        db.add(MappingSnapshot(
+            mapping_snapshot_id=snap_null_id,
+            project_id=project_id,
+            source_definition_id=None,  # project-scoped
+            destination_object_name="Customer",
+            mapping_snapshot_version="v1",
+            field_bindings=[{"source_field": "customer_id", "destination_field": "customer_id"}],
+            status="approved",
+            approved_at=datetime(2026, 7, 1, tzinfo=UTC),
+        ))
+        db.commit()
+
+    # Feed B's draft should be blocked
+    snap_b_id = str(uuid.uuid4())
+    with SessionLocal() as db:
+        db.add(MappingSnapshot(
+            mapping_snapshot_id=snap_b_id,
+            project_id=project_id,
+            source_definition_id=source_id_b,
+            destination_object_name="Customer",
+            mapping_snapshot_version="v1",
+            field_bindings=[{"source_field": "customer_id", "destination_field": "customer_id"}],
+            status="draft",
+        ))
+        db.commit()
+
+    response = client.post(
+        f"/projects/{project_id}/sources/{source_id_b}/mapping/approve",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 409
+    data = response.json()
+    assert data["error"]["code"] == "mapping_table_conflict"
+
+    # Verify Feed B's snapshot was NOT mutated
+    with SessionLocal() as db:
+        snap = db.get(MappingSnapshot, snap_b_id)
+        assert snap.status == "draft"
+
+
+def test_discarded_feed_approved_snapshot_does_not_block(admin_token: str) -> None:
+    """An approved snapshot on a discarded feed does not block approval on an active feed."""
+    from migrations_engine.db.models import MappingSnapshot  # noqa: E402
+
+    project_id, source_id_a, source_id_b = _seed_two_feeds_with_same_destination()
+
+    source_c_id = str(uuid.uuid4())
+    # Create a discarded feed
+    with SessionLocal() as db:
+        db.add(SourceDefinition(
+            source_definition_id=source_c_id,
+            project_id=project_id,
+            source_type="csv",
+            source_contract_version="v1",
+            destination_object_references=["Customer"],
+            source_details={"label": "Discarded Feed", "encoding": "utf-8"},
+            status="discarded",
+        ))
+        db.commit()
+
+    # The discarded feed has an approved "Customer" snapshot
+    snap_discarded_id = str(uuid.uuid4())
+    with SessionLocal() as db:
+        db.add(MappingSnapshot(
+            mapping_snapshot_id=snap_discarded_id,
+            project_id=project_id,
+            source_definition_id=source_c_id,
+            destination_object_name="Customer",
+            mapping_snapshot_version="v1",
+            field_bindings=[{"source_field": "customer_id", "destination_field": "customer_id"}],
+            status="approved",
+            approved_at=datetime(2026, 7, 1, tzinfo=UTC),
+        ))
+        db.commit()
+
+    # Feed A should still be able to approve "Customer" (discarded feed is excluded)
+    snap_a_id = str(uuid.uuid4())
+    with SessionLocal() as db:
+        db.add(MappingSnapshot(
+            mapping_snapshot_id=snap_a_id,
+            project_id=project_id,
+            source_definition_id=source_id_a,
+            destination_object_name="Customer",
+            mapping_snapshot_version="v1",
+            field_bindings=[{"source_field": "customer_id", "destination_field": "customer_id"}],
+            status="draft",
+        ))
+        db.commit()
+
+    response = client.post(
+        f"/projects/{project_id}/sources/{source_id_a}/mapping/approve",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "approved"
+
+
+def test_bulk_approve_two_distinct_tables_no_conflict(admin_token: str) -> None:
+    """Bulk approving two non-conflicting tables succeeds — regression guard."""
+    from migrations_engine.db.models import MappingSnapshot  # noqa: E402
+
+    project_id, source_id_a, _ = _seed_two_feeds_with_same_destination()
+
+    # Create drafts for two different tables
+    with SessionLocal() as db:
+        snap_a1 = MappingSnapshot(
+            mapping_snapshot_id=str(uuid.uuid4()),
+            project_id=project_id,
+            source_definition_id=source_id_a,
+            destination_object_name="Customer",
+            mapping_snapshot_version="v1",
+            field_bindings=[{"source_field": "customer_id", "destination_field": "customer_id"}],
+            status="draft",
+        )
+        snap_a2 = MappingSnapshot(
+            mapping_snapshot_id=str(uuid.uuid4()),
+            project_id=project_id,
+            source_definition_id=source_id_a,
+            destination_object_name="Orders",
+            mapping_snapshot_version="v1",
+            field_bindings=[{"source_field": "order_id", "destination_field": "order_id"}],
+            status="draft",
+        )
+        db.add(snap_a1)
+        db.add(snap_a2)
+        db.commit()
+
+    response = client.post(
+        f"/projects/{project_id}/sources/{source_id_a}/mapping/approve",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 200, response.text
+
+
+def test_bulk_approve_one_conflicting_table_rejects_no_partial_mutation(admin_token: str) -> None:
+    """Bulk approve where one table conflicts rejects entirely — no partial mutation."""
+    from migrations_engine.db.models import MappingSnapshot  # noqa: E402
+
+    project_id, source_id_a, source_id_b = _seed_two_feeds_with_same_destination()
+
+    # Feed A approves "Customer"
+    with SessionLocal() as db:
+        snap_a = MappingSnapshot(
+            mapping_snapshot_id=str(uuid.uuid4()),
+            project_id=project_id,
+            source_definition_id=source_id_a,
+            destination_object_name="Customer",
+            mapping_snapshot_version="v1",
+            field_bindings=[{"source_field": "customer_id", "destination_field": "customer_id"}],
+            status="approved",
+            approved_at=datetime(2026, 7, 1, tzinfo=UTC),
+        )
+        db.add(snap_a)
+        db.commit()
+
+    # Feed B drafts both "Customer" (conflicting) and "Orders" (clean)
+    snap_b1_id = str(uuid.uuid4())
+    snap_b2_id = str(uuid.uuid4())
+    with SessionLocal() as db:
+        db.add(MappingSnapshot(
+            mapping_snapshot_id=snap_b1_id,
+            project_id=project_id,
+            source_definition_id=source_id_b,
+            destination_object_name="Customer",
+            mapping_snapshot_version="v1",
+            field_bindings=[{"source_field": "customer_id", "destination_field": "customer_id"}],
+            status="draft",
+        ))
+        db.add(MappingSnapshot(
+            mapping_snapshot_id=snap_b2_id,
+            project_id=project_id,
+            source_definition_id=source_id_b,
+            destination_object_name="Orders",
+            mapping_snapshot_version="v1",
+            field_bindings=[{"source_field": "order_id", "destination_field": "order_id"}],
+            status="draft",
+        ))
+        db.commit()
+
+    # Bulk approve should fail because "Customer" conflicts
+    response = client.post(
+        f"/projects/{project_id}/sources/{source_id_b}/mapping/approve",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 409
+
+    # Verify neither snapshot was mutated
+    with SessionLocal() as db:
+        assert db.get(MappingSnapshot, snap_b1_id).status == "draft"
+        assert db.get(MappingSnapshot, snap_b2_id).status == "draft"

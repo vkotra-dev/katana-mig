@@ -422,6 +422,15 @@ The backend creates one `MappingSnapshot` per identified destination table in a 
 
 The unique index on `MappingSnapshot` is feed-scoped: `(project_id, source_definition_id, destination_object_name, version)`.
 
+That index only prevents duplicate *rows* within one feed. A separate runtime check in
+`approve_mapping()` prevents a different failure mode: two different feeds each independently
+approving their own `MappingSnapshot` for the same `destination_object_name`. Since codegen is
+triggered per feed and would otherwise generate one stored procedure per approved snapshot, two
+approved snapshots for the same destination table would migrate that table's data twice. At most
+one feed (or a project-scoped, `NULL`-`source_definition_id` snapshot) may hold an `approved`
+`MappingSnapshot` for a given destination table at a time; approving a second one is rejected with
+a 409 (`mapping_table_conflict`).
+
 The propose API response also returns `lookup_table_references` — one entry per `lookup_fk` binding across all tables — so the UI knows which reference table backs each lookup field without re-parsing the DDL.
 
 #### Mapping hints
