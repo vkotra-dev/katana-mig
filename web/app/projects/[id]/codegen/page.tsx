@@ -13,10 +13,11 @@ import {
   type SchemaAnalysisRecord,
 } from "../../../../lib/codegen-api";
 import { listFeedContracts, saveTransformationInstructions, listFeedFibers, listFeedSlices, type FeedContractRecord, type FiberRecord } from "../../../../lib/feeds-api";
-import { getProject, saveCodegenInstructions, resetCodegenInstructions, getCodegenCodingStandardsTemplate, type ProjectRecord } from "../../../../lib/projects-api";
+import { getProject, saveCodegenInstructions, resetCodegenInstructions, getCodegenCodingStandardsTemplate, listCodegenVersionHistory, type ProjectRecord } from "../../../../lib/projects-api";
 import { getAllApprovedMappingSnapshots, type MappingSnapshotRecord } from "../../../../lib/mapping-api";
 import { loadUiSession, type SessionRole, type UiSession } from "../../../../lib/session";
 import { AiLogViewer } from "../../../../components/ai-logs/AiLogViewer";
+import { VersionHistoryPanel } from "../../../../components/projects/VersionHistoryPanel";
 
 interface UnmappedRequiredField {
   objectName: string;
@@ -209,6 +210,10 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
   const [analysisActionLoading, setAnalysisActionLoading] = useState(false);
   const [globalInstructions, setGlobalInstructions] = useState("");
   const [saveLoading, setSaveLoading] = useState(false);
+  const [codegenHistory, setCodegenHistory] = useState<any[]>([]);
+  const [codegenHistoryLoading, setCodegenHistoryLoading] = useState(false);
+  const [codegenHistoryError, setCodegenHistoryError] = useState<string | null>(null);
+  const [showCodegenHistory, setShowCodegenHistory] = useState(false);
   const [expandedFeed, setExpandedFeed] = useState<string | null>(null);
   const [feedInstructions, setFeedInstructions] = useState<Record<string, string>>({});
   const [feedSaveLoading, setFeedSaveLoading] = useState<Record<string, boolean>>({});
@@ -421,10 +426,36 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
       setProject(updated);
       setGlobalInstructions(updated.codegenInstructions ?? "");
       setStatusMessage("Coding standards and global instructions saved.");
+      if (showCodegenHistory) {
+        await loadCodegenHistory(session.accessToken, routeParams.id);
+      }
     } catch (error) {
       setPageError(error instanceof Error ? error.message : "Unable to save coding standards.");
     } finally {
       setSaveLoading(false);
+    }
+  };
+
+  const loadCodegenHistory = async (token: string, projectId: string) => {
+    setCodegenHistoryLoading(true);
+    setCodegenHistoryError(null);
+    try {
+      const history = await listCodegenVersionHistory(token, projectId);
+      setCodegenHistory(history);
+    } catch (error) {
+      setCodegenHistoryError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setCodegenHistoryLoading(false);
+    }
+  };
+
+  const handleViewCodegenHistory = () => {
+    if (!session || !routeParams) return;
+    if (!showCodegenHistory) {
+      setShowCodegenHistory(true);
+      loadCodegenHistory(session.accessToken, routeParams.id);
+    } else {
+      setShowCodegenHistory(false);
     }
   };
 
@@ -574,23 +605,39 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
                   disabled={role !== "central_team" && role !== "admin"}
                 />
                 {(role === "central_team" || role === "admin") && (
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <button
                       type="button"
-                      className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 hover:text-amber-900 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-200"
-                      onClick={() => void handleResetGlobalInstructions()}
-                      disabled={actionLoading === "reset"}
+                      onClick={handleViewCodegenHistory}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
                     >
-                      {actionLoading === "reset" ? "Resetting..." : "Reset to defaults"}
+                      {showCodegenHistory ? "Hide History" : "View History"}
                     </button>
-                    <button
-                      className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:bg-slate-200 disabled:text-slate-400"
-                      onClick={handleSaveGlobalInstructions}
-                      disabled={saveLoading}
-                    >
-                      {saveLoading ? "Saving..." : "Save"}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 hover:text-amber-900 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-200"
+                        onClick={() => void handleResetGlobalInstructions()}
+                        disabled={actionLoading === "reset"}
+                      >
+                        {actionLoading === "reset" ? "Resetting..." : "Reset to defaults"}
+                      </button>
+                      <button
+                        className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:bg-slate-200 disabled:text-slate-400"
+                        onClick={handleSaveGlobalInstructions}
+                        disabled={saveLoading}
+                      >
+                        {saveLoading ? "Saving..." : "Save"}
+                      </button>
+                    </div>
                   </div>
+                )}
+                {showCodegenHistory && (
+                  <VersionHistoryPanel
+                    entries={codegenHistory}
+                    loading={codegenHistoryLoading}
+                    error={codegenHistoryError}
+                  />
                 )}
               </div>
             </section>

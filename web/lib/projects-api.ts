@@ -576,3 +576,21 @@ export async function resetCodegenInstructions(
   );
   return mapProjectRecord(data);
 }
+
+export async function listCodegenVersionHistory(
+  token: string,
+  projectId: string,
+): Promise<Array<{ versionId: string; fieldName: string; oldValue: string | null; newValue: string | null; changedBy: string | null; changedAt: string }>> {
+  const raw = await requestJson<{ version_id: string; field_name: string; old_value: string | null; new_value: string | null; changed_by: string | null; changed_at: string }[]>(
+    `/projects/${projectId}/versions/codegen/versions`,
+    { method: "GET", token },
+  );
+  return raw.map((r) => ({
+    versionId: r.version_id,
+    fieldName: r.field_name,
+    oldValue: r.old_value ?? null,
+    newValue: r.new_value ?? null,
+    changedBy: r.changed_by ?? null,
+    changedAt: r.changed_at,
+  }));
+}

@@ -25,6 +25,8 @@ import {
   proposeMappingSnapshot,
   type MappingSnapshotRecord,
 } from "../../../../../lib/mapping-api";
+import { listVersionHistory, type VersionHistoryEntry } from "../../../../../lib/feeds-api";
+import { VersionHistoryPanel } from "../../../../../components/projects/VersionHistoryPanel";
 import {
   listLookupValueMaps,
   createLookupValueMap,
@@ -70,6 +72,12 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
   // Hints state
   const [mappingHints, setMappingHints] = useState<string>("");
   const [savingHints, setSavingHints] = useState(false);
+
+  // Version history state
+  const [hintsHistory, setHintsHistory] = useState<VersionHistoryEntry[]>([]);
+  const [hintsHistoryLoading, setHintsHistoryLoading] = useState(false);
+  const [hintsHistoryError, setHintsHistoryError] = useState<string | null>(null);
+  const [showHintsHistory, setShowHintsHistory] = useState(false);
 
   const [replacementFile, setReplacementFile] = useState<string | null>(null);
   const [uploadingReplacement, setUploadingReplacement] = useState(false);
@@ -258,10 +266,35 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
     try {
       await patchFeedMappingHints(session.accessToken, projectId, feedId, mappingHints);
       setNotice("Mapping hints saved successfully.");
+      // Refresh history after save
+      if (showHintsHistory) await loadHintsHistory(session.accessToken);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSavingHints(false);
+    }
+  };
+
+  const loadHintsHistory = async (token: string) => {
+    setHintsHistoryLoading(true);
+    setHintsHistoryError(null);
+    try {
+      const history = await listVersionHistory(token, projectId, "hints");
+      setHintsHistory(history);
+    } catch (err) {
+      setHintsHistoryError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setHintsHistoryLoading(false);
+    }
+  };
+
+  const handleViewHintsHistory = async () => {
+    if (!session) return;
+    if (!showHintsHistory) {
+      setShowHintsHistory(true);
+      await loadHintsHistory(session.accessToken);
+    } else {
+      setShowHintsHistory(false);
     }
   };
 
@@ -792,17 +825,26 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
 
               {/* AI Mapping Hints (central_team only) */}
               {session?.role === "central_team" && (
-                <div className="rounded-2xl border border-outline-variant bg-surface-container p-5 shadow-sm space-y-4">
+                <div className="rounded-2xl border border-outline-variant bg-surface-container p-5 shadow-sm space-y-3">
                   <div className="flex items-center justify-between">
                     <label htmlFor="mapping-hints-textarea" className="text-base font-bold text-slate-900">AI Mapping Hints</label>
-                    <button
-                      type="button"
-                      disabled={savingHints}
-                      onClick={handleSaveMappingHints}
-                      className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-200 disabled:opacity-50"
-                    >
-                      {savingHints ? "Saving..." : "Save Hints"}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleViewHintsHistory}
+                        className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 hover:bg-slate-200"
+                      >
+                        {showHintsHistory ? "Hide History" : "View History"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={savingHints}
+                        onClick={handleSaveMappingHints}
+                        className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-200 disabled:opacity-50"
+                      >
+                        {savingHints ? "Saving..." : "Save Hints"}
+                      </button>
+                    </div>
                   </div>
                   <textarea
                     id="mapping-hints-textarea"
@@ -812,6 +854,13 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                     placeholder="Provide hints for field matching, formatting, or target columns..."
                     className="w-full rounded-lg border border-slate-200 bg-white p-2.5 font-sans text-xs text-slate-800 placeholder-slate-400 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
                   />
+                  {showHintsHistory && (
+                    <VersionHistoryPanel
+                      entries={hintsHistory}
+                      loading={hintsHistoryLoading}
+                      error={hintsHistoryError}
+                    />
+                  )}
                 </div>
               )}
 
