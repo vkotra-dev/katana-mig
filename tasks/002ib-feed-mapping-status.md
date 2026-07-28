@@ -45,3 +45,8 @@ Key changes:
 - Key test: approved+rejected → "partial" (rejected pulls toward partial, doesn't get silently ignored)
 - Feed response includes `mapping_status`
 - 409 error includes `per_table_status`
+
+## Domain Updates Required
+
+- `docs/domain/api.md:2046` — `SourceContractResponse` JSON example must include the new `mapping_status` field and updated field list
+- The `SourceContractResponse` type (documented at docs/domain/api.md:2046) maps directly to the `FeedResponse` schema; the example JSON at lines 2048-2061 needs `mapping_status` added to match the new schema

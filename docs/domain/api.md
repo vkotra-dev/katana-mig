@@ -2056,7 +2056,10 @@ Response `200`: array of row objects.
   "layout_information": null,
   "copybook_text": null,
   "status": "declared",
-  "created_at": "..."
+  "created_at": "...",
+  "mapping_hints": null,
+  "transformation_instructions": null,
+  "mapping_status": null
 }
 ```
 
@@ -2064,6 +2067,12 @@ Response `200`: array of row objects.
 stage when field mapping is approved, and contains the destination object names this source
 feeds (e.g. `["Customer", "Address"]`). Generated SQL artifacts are tracked separately as
 `CodeGenerationArtifact` records linked to the run, not stored on the source contract.
+
+`mapping_status` reflects the feed's current field mapping state: `null` (no mapping
+snapshots exist), `"draft"` (all snapshots are draft), `"approved"` (all snapshots are
+approved), or `"partial"` (mixed — some approved, some not). Rejected snapshots are
+deduped to the latest per table; a rejected table that has not yet been resubmitted is
+treated as `"draft"`. The fiber list endpoint provides per-table status detail.
 
 ### `FeedSliceResponse`
 
