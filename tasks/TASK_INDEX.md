@@ -11,6 +11,7 @@
 
 | Task | Summary |
 |---|---|
+| [001fb-lookup-prompt-id-value-contract](./completed/001fb-lookup-prompt-id-value-contract.md) | [summary](./summary/001fb-lookup-prompt-id-value-contract.md) |
 | [002c0-source-analysis-staging-schema](./completed/002c0-source-analysis-staging-schema-into-prompt.md) | [summary](./summary/002c0-source-analysis-staging-schema-into-prompt.md) |
 | [002b8-version-history-backend](./completed/002b8-version-history-backend.md) | [summary](./summary/002b8-version-history-backend.md) |
 | [002ia-artifact-history-order-and-lookup-id-rename](./completed/002ia-artifact-history-order-and-lookup-id-rename.md) | Fixed `list_codegen_artifacts()` to order by `created_at` only (was grouped by table); renamed `dest_val` → `id` across lookup reference-table prompt/schema/seed-SQL — value was already the business id, just mislabeled downstream |
