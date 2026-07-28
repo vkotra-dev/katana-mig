@@ -126,12 +126,12 @@ def propose_mapping(
             user=user_prompt,
             raw_response=result.raw_response,
         )
+        db.commit()
         proposal = result.parsed
         unknown_sources = proposal.validate_source_fields(source_columns)
         if unknown_sources:
             err_msg = f"AI generated invalid source fields: {', '.join(unknown_sources)}"
             call_log.error_detail = err_msg
-            db.commit()
             raise AuthApiError("ai_schema_mismatch", err_msg, 422)
     except AIResponseValidationError as exc:
         log_ai_call(
@@ -314,9 +314,6 @@ def propose_mapping(
         db.flush()
     except IntegrityError:
         db.rollback()
-        # Ensure call_log was committed before rollback consumed it
-        # (log_ai_call at line 119 was called in a separate session scope,
-        #  but if the same db session was used, the insert is still pending)
         existing = db.scalars(
             select(MappingSnapshot).where(
                 MappingSnapshot.project_id == project_id,
@@ -347,7 +344,6 @@ def propose_mapping(
         )
         
     if not snapshots:
-        db.commit()
         raise AuthApiError(
             "mapping_already_proposed",
             "All proposed tables already have approved mappings. No changes to apply.",
