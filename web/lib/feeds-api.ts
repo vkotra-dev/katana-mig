@@ -98,12 +98,14 @@ export interface FeedFileUploadInput {
 export class FeedApiError extends Error {
   code: string;
   status: number;
+  detail: unknown;
 
-  constructor(code: string, message: string, status: number) {
+  constructor(code: string, message: string, status: number, detail?: unknown) {
     super(message || code);
     this.name = "FeedApiError";
     this.code = code;
     this.status = status;
+    this.detail = detail ?? null;
   }
 }
 
@@ -136,7 +138,7 @@ async function parseApiError(response: Response): Promise<FeedApiError> {
   try {
     const body = (await response.json()) as {
       error?: { code?: string; message?: string };
-      detail?: string | { code?: string; message?: string };
+      detail?: unknown;
     };
     let code = "api_error";
     let message = "api_error";
@@ -144,16 +146,11 @@ async function parseApiError(response: Response): Promise<FeedApiError> {
     if (body.error) {
       code = body.error.code ?? "api_error";
       message = body.error.message ?? code;
-    } else if (body.detail) {
-      if (typeof body.detail === "string") {
-        message = body.detail;
-      } else {
-        code = body.detail.code ?? "api_error";
-        message = body.detail.message ?? code;
-      }
+    } else if (typeof body.detail === "string") {
+      message = body.detail;
     }
 
-    return new FeedApiError(code, message, response.status);
+    return new FeedApiError(code, message, response.status, body.detail);
   } catch {
     const message = await response.text();
     return new FeedApiError("api_error", message || "api_error", response.status);

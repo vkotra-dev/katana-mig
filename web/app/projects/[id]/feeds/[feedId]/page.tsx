@@ -61,6 +61,8 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
   // AI analysis state
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  // 002ic: per-table ownership detail from 409 on propose
+  const [perTableOwnership, setPerTableOwnership] = useState<Record<string, { sourceDefinitionId: string; status: string; destinationObjectName: string; mappingSnapshotId: string }> | null>(null);
   const [sourceDDL, setSourceDDL] = useState<string | null>(null);
   const [sourceDdlExpanded, setSourceDdlExpanded] = useState(false);
 
@@ -237,6 +239,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
     if (!session) return;
     setAnalyzing(true);
     setAnalysisError(null);
+    setPerTableOwnership(null);
     try {
       // Step 1: extract source column schema from the slice
       const analyzeResult = await analyzeFeedSource(session.accessToken, projectId, feedId);
@@ -248,8 +251,21 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
         const status = (err as any).status || 0;
         const isConflict = err instanceof Error && (err.message.includes("conflict") || err.message.includes("409"));
         if (status !== 409 && !isConflict) throw err;
-        // Table already owned elsewhere — no separate message here; loadAllData() below
-        // refreshes mapping_ownership_warnings, the single canonical place this shows.
+        // 409 = table already owned elsewhere — extract per_table_ownership from error detail
+        const detail = (err as any).detail as { per_table_ownership?: Record<string, { source_definition_id: string; status: string; destination_object_name: string; mapping_snapshot_id: string }> } | undefined;
+        if (detail?.per_table_ownership) {
+          const ownership: Record<string, { sourceDefinitionId: string; status: string; destinationObjectName: string; mappingSnapshotId: string }> = {};
+          for (const [key, val] of Object.entries(detail.per_table_ownership)) {
+            ownership[key] = {
+              sourceDefinitionId: val.source_definition_id,
+              status: val.status,
+              destinationObjectName: val.destination_object_name,
+              mappingSnapshotId: val.mapping_snapshot_id,
+            };
+          }
+          setPerTableOwnership(ownership);
+        }
+        // Also refresh feed data (mapping_ownership_warnings will show the same info persistently)
       }
       await loadAllData(session.accessToken);
     } catch (err) {
@@ -558,6 +574,24 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
         {notice && (
           <div role="alert" className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700">
             {notice}
+          </div>
+        )}
+
+        {/* 002ic: per-table ownership conflict card from 409 */}
+        {perTableOwnership && Object.keys(perTableOwnership).length > 0 && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50/50 p-4 space-y-2">
+            <p className="text-sm font-semibold text-amber-800">Duplicate mappings found</p>
+            <ul className="space-y-1">
+              {Object.entries(perTableOwnership).map(([table, ownership]) => (
+                <li key={table} className="text-xs text-amber-900">
+                  <b>{table}</b> is already mapped on{" "}
+                  {ownership.sourceDefinitionId
+                    ? <a key={table} href={`/projects/${projectId}/sources/${ownership.sourceDefinitionId}`} className="text-primary hover:underline font-semibold">feed {ownership.sourceDefinitionId.slice(0, 8)}</a>
+                    : "this project"
+                  }
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
