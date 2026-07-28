@@ -7,7 +7,7 @@ tags:
   - http
   - endpoints
   - contract
-timestamp: 2026-07-26
+timestamp: 2026-07-28
 ---
 
 # API
@@ -1009,7 +1009,11 @@ proposal. Routes are under `POST /projects/{project_id}/sources/{source_definiti
 
 Propose a new mapping review. Requires `central_team`.
 
-Response `201`: `MappingReviewResponse`.
+Response `200`: `MappingReviewResponse`.
+
+409: `mapping_already_proposed` — all proposed tables already have approved mappings.
+Detail includes `per_table_ownership` keyed by `destination_object_name`, each with
+`source_definition_id`, `status`, `mapping_snapshot_id`, and `destination_object_name`.
 
 ### `GET /projects/{project_id}/sources/{source_definition_id}/mapping`
 
@@ -2139,6 +2143,51 @@ treated as `"draft"`. The fiber list endpoint provides per-table status detail.
 | `file_not_retained` | 422 | Resubmit attempted but the retained upload path is missing |
 | `parse_failed` | 422 | Retained file could not be re-parsed |
 | `slice_not_found` | 404 | Slice does not belong to the requested project / source |
+
+## Version history endpoints
+
+Four concrete routes, one per captured field — not a single dynamic `{entity_type}` route.
+Each requires only project membership (`require_project_access`) and is scoped so a caller can
+never see another project's history. See `docs/domain/source-model.md` ("Field-level version
+history") for the `VersionHistory` table shape.
+
+### `GET /projects/{project_id}/versions/hints/versions`
+
+Version history for `source_definitions.mapping_hints`, scoped via the project's feeds.
+
+### `GET /projects/{project_id}/versions/transformation/versions`
+
+Version history for `source_definitions.transformation_instructions`, scoped via the project's feeds.
+
+### `GET /projects/{project_id}/versions/codegen/versions`
+
+Version history for `project_definitions.codegen_instructions`, scoped directly by `project_id`.
+
+### `GET /projects/{project_id}/versions/sql/versions`
+
+Version history for `code_generation_artifacts.sql_bundle`, scoped via the project's codegen artifacts.
+
+All four share the same query parameters and response shape:
+
+| Parameter | Type | Default | Notes |
+|---|---|---|---|
+| `limit` | integer | 50 | Max 200 |
+| `offset` | integer | 0 | |
+
+Response `200`: array of `VersionHistoryResponse`:
+
+```json
+{
+  "version_id": "...",
+  "field_name": "transformation_instructions",
+  "old_value": "...",
+  "new_value": "...",
+  "changed_by": "...",
+  "changed_at": "..."
+}
+```
+
+There is no UI consumer of these endpoints yet (planned in a follow-up task).
 
 ## Changelog
 

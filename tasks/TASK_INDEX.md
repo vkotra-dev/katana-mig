@@ -4,16 +4,15 @@
 
 | Task | Summary |
 |---|---|
-| [002b8-version-history-backend](./002b8-version-history-backend.md) | Add version_history table, API endpoints, and patch hooks — backend only (requires 002b9) |
-| [002b9-version-history-frontend](./002b9-version-history-frontend.md) | Add version history dropdown UI near editable fields — depends on 002b8 |
-| [002h0-ui-slice-ddl-collapse-and-lookup-lock](./002h0-ui-slice-ddl-collapse-and-lookup-lock.md) | Add expand/collapse for Source DDL in Slice section, move to bottom, lock lookup mappings when signed off (OR logic) |
-| [002c0-source-analysis-staging-schema](./002c0-source-analysis-staging-schema-into-prompt.md) | Inject staging_schema from domain_config into source analysis prompt so AI generates schema-qualified CREATE TABLE DDL |
-| [002i6-one-proc-per-table-cross-proc-fk](./completed/002i6-one-proc-per-table-cross-proc-fk.md) | One-proc-per-table prompt rules + cross-proc FK resolution via mig_upsert_log |
+| [002b9-version-history-frontend](./002b9-version-history-frontend.md) | Add version history dropdown UI near editable fields — depends on 002b8 (done). No plan file yet; not implemented. |
+| [002h0-ui-slice-ddl-collapse-and-lookup-lock](./002h0-ui-slice-ddl-collapse-and-lookup-lock.md) | Add expand/collapse for Source DDL in Slice section, move to bottom, lock lookup mappings when signed off (OR logic). DDL collapse is implemented; lookup-lock half is not. |
 
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [002c0-source-analysis-staging-schema](./completed/002c0-source-analysis-staging-schema-into-prompt.md) | [summary](./summary/002c0-source-analysis-staging-schema-into-prompt.md) |
+| [002b8-version-history-backend](./completed/002b8-version-history-backend.md) | [summary](./summary/002b8-version-history-backend.md) |
 | [002ia-artifact-history-order-and-lookup-id-rename](./completed/002ia-artifact-history-order-and-lookup-id-rename.md) | Fixed `list_codegen_artifacts()` to order by `created_at` only (was grouped by table); renamed `dest_val` → `id` across lookup reference-table prompt/schema/seed-SQL — value was already the business id, just mislabeled downstream |
 | [002i9-codegen-staging-table-name](./completed/002i9-codegen-staging-table-name.md) | Wire staging table name into codegen system prompt using shared helper from 002i8 — deterministic `stg_{label}` convention for codegen |
 | [002i8-source-analysis-staging-table-name](./completed/002i8-source-analysis-staging-table-name.md) | Specify staging table name in source analysis prompt using feed label — deterministic table naming (stg_{label} convention, shared helper for 002i9) |

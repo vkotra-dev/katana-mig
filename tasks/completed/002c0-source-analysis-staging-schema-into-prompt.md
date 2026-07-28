@@ -1,7 +1,7 @@
 ---
 id: 002c0
 title: Inject staging_schema into source analysis prompt for qualified DDL generation
-status: pending
+status: completed
 created: 2026-07-24
 priority: medium
 depends-on: []

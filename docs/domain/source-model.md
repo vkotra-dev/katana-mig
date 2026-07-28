@@ -10,7 +10,7 @@ tags:
   - lookup
   - codegen
   - ai
-timestamp: 2026-07-27
+timestamp: 2026-07-28
 ---
 
 # Source Model
@@ -364,6 +364,11 @@ Rules:
 - `source_slice_version`
 - `columns`
 - `created_at`
+- `destination_ddl` — AI-generated `CREATE TABLE` DDL for the source schema. When the project's
+  `domain_config.staging_schema` is configured, the prompt receives it and the AI generates a
+  schema-qualified table name (`CREATE TABLE staging.my_table (...)`); when absent, the DDL uses a
+  bare table name (backwards compatible). Existing artifacts analyzed before this behavior shipped
+  retain their original bare-table DDL — the change only affects new analyses.
 
 `SourceValueSummary`:
 
@@ -643,6 +648,45 @@ created_at        timestamp
 After artifact creation, `backfill_artifact_id()` is called to link the log entry to the
 produced artifact. This enables tracing from any artifact back to the exact AI call that
 generated it.
+
+## Field-level version history
+
+Four writable text fields capture their edit history via a shared `VersionHistory` table, so a
+previous value is never silently lost when an operator changes it:
+
+| Entity type | Source table.column | Captured in |
+|---|---|---|
+| `hints` | `source_definitions.mapping_hints` | `PATCH /projects/{pid}/sources/{sid}/hints` (`routes/feeds.py`) |
+| `transformation` | `source_definitions.transformation_instructions` | `PATCH /projects/{pid}/sources/{sid}/transformation-instructions` (`routes/feeds.py`) |
+| `codegen` | `project_definitions.codegen_instructions` | `PATCH /projects/{pid}/codegen-instructions` (`routes/projects.py`) |
+| `sql` | `code_generation_artifacts.sql_bundle` | `generate_codegen_artifact()` (`codegen/service.py`), captured on every new artifact |
+
+`VersionHistory`:
+
+```
+version_id     UUID — primary key
+entity_type    string — "hints" | "transformation" | "codegen" | "sql"
+entity_id      UUID — the owning row's primary key (source_definition_id, project_id, or
+               codegen_artifact_id, depending on entity_type)
+field_name     string — the field captured
+old_value      Text | null
+new_value      Text | null
+changed_by     UUID | null — FK to users
+changed_at     timestamp
+```
+
+Indexed on `(entity_type, entity_id, field_name)`.
+
+Read via `GET /projects/{project_id}/versions/{entity_type}/versions` — one concrete route per
+entity type (`hints`, `transformation`, `codegen`, `sql`), not a single dynamic-`entity_type`
+route. Each is project-scoped via `require_project_access` plus a join back to the owning
+entity (`Feed` for `hints`/`transformation`, direct `project_id` equality for `codegen`,
+`CodeGenerationArtifact` for `sql`) so a caller can never see another project's history.
+Paginated via `limit`/`offset` query params (default 50, max 200).
+
+No diff-generation, notification, or purge/soft-delete exists — `old_value`/`new_value` are stored
+as full text and diffing is left to the UI layer. There is no UI consumer of this API yet (planned
+in a follow-up task).
 
 ## Feed and slice comments
 

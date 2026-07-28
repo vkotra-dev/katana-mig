@@ -133,6 +133,7 @@ def propose_mapping(
         if unknown_sources:
             err_msg = f"AI generated invalid source fields: {', '.join(unknown_sources)}"
             call_log.error_detail = err_msg
+            db.commit()
             raise AuthApiError("ai_schema_mismatch", err_msg, 422)
     except AIResponseValidationError as exc:
         log_ai_call(

@@ -1,7 +1,7 @@
 ---
 id: 002b8
 title: Add version history table, API, and patch hooks (backend)
-status: pending
+status: completed
 created: 2026-07-24
 priority: medium
 depends-on: []
