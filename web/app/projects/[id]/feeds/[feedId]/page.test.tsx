@@ -376,4 +376,45 @@ describe("FeedDetailPage", () => {
     expect(uploadBtn).toBeInTheDocument();
     expect(uploadBtn).toBeDisabled();
   });
+
+  it("suppresses 'No mapping proposals generated yet.' when mappingOwnershipWarnings exists", async () => {
+    listFeedSlicesMock.mockResolvedValue([]);
+    // Override FEED to include ownership warnings, and return no snapshots
+    getFeedContractMock.mockResolvedValue({
+      ...FEED,
+      mappingOwnershipWarnings: {
+        "Customer": {
+          sourceDefinitionId: "other-feed",
+          feedLabel: "Other Feed",
+          feedSourceType: "csv",
+          status: "approved",
+          destinationObjectName: "Customer",
+          mappingSnapshotId: "snap-1",
+        },
+      },
+    });
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([]);
+
+    await renderPage();
+
+    // Warning card should render
+    expect(screen.getByText("Table ownership conflicts")).toBeInTheDocument();
+    expect(screen.getByText("Customer")).toBeInTheDocument();
+    // Empty message should NOT render
+    expect(screen.queryByText("No mapping proposals generated yet.")).not.toBeInTheDocument();
+  });
+
+  it("still shows 'No mapping proposals generated yet.' when no ownership warnings", async () => {
+    listFeedSlicesMock.mockResolvedValue([]);
+    getFeedContractMock.mockResolvedValue({
+      ...FEED,
+      mappingOwnershipWarnings: null,
+    });
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([]);
+
+    await renderPage();
+
+    expect(screen.queryByText("Table ownership conflicts")).not.toBeInTheDocument();
+    expect(screen.getByText("No mapping proposals generated yet.")).toBeInTheDocument();
+  });
 });

@@ -16,9 +16,11 @@ Surfaced `mapping_ownership_warnings` at the two points where it explains why th
 
 ## Verification
 
-- 336/338 frontend tests pass (2 pre-existing failures in `codegen/page.test.tsx` unchanged, pre-existing).
+- 340/342 frontend tests pass (2 pre-existing failures in `codegen/page.test.tsx` unchanged); 2 new tests added:
+  - Feed page: warning present + empty message suppressed when `mappingOwnershipWarnings` has entries
+  - Codegen page: button hidden + warning shown when ownership conflict exists, button visible when no conflict
 - Zero new TypeScript errors from these changes.
 
-## Note
+## Domain Updates
 
-Domain doc update (`ui.md`) deferred — not blocking functionality.
+`docs/domain/ui.md` updated — Feeds screen note documents button replacement on ownership conflict.

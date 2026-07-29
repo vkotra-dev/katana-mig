@@ -4,7 +4,7 @@
 
 | Task | Summary |
 |---|---|
-| [002ig-surface-ownership-warning-in-ui](./002ig-surface-ownership-warning-in-ui.md) | Fixed two spots where `mapping_ownership_warnings` was fetched but not surfaced: feed page empty-state no longer stacks with warning card; codegen page "Generate SQL" button replaced by warning when ownership conflict exists. 336/338 frontend tests pass. |
+| [002ig-surface-ownership-warning-in-ui](./002ig-surface-ownership-warning-in-ui.md) | Fixed two spots where `mapping_ownership_warnings` was fetched but not surfaced: feed page empty-state no longer stacks with warning card; codegen page "Generate SQL" button replaced by warning when ownership conflict exists. 340/342 tests pass (2 new tests added for ownership warning behavior). |
 | [002if-feed-source-type-hints](./002if-feed-source-type-hints.md) | Added source-side type hints to codegen prompt field bindings — `[integer]` next to source field names so the AI knows what to CAST. 28/28 codegen tests pass. [summary](../summary/002if-codegen-source-type-hints.md) |
 | [002ie-mapping-ownership-warnings](./002ie-mapping-ownership-warnings.md) | Added persistent `mapping_ownership_warnings` to `FeedResponse` — cross-feed ownership warnings rendered as amber cards on feed load. 6 tests, 462 backend tests, 15 frontend tests pass. [summary](../summary/002ie-mapping-ownership-warnings.md) |
 | [002b9-version-history-frontend](./completed/002b9-version-history-frontend.md) | [summary](./summary/002b9-version-history-frontend.md) |

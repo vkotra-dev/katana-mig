@@ -155,7 +155,7 @@ Route: `/projects/{id}/codegen`
 
 Panels:
 
-- **Feeds** — list of feed contracts with "Generate SQL" action per row (`central_team` only)
+- **Feeds** — list of feed contracts with "Generate SQL" action per row (`central_team` only); button is replaced by a "⚠ Table ownership conflict" warning when the feed has an active `mappingOwnershipWarnings` entry, preventing codegen against a conflicting table
 - **Latest active artifact** — destination name, artifact ID, created date, feed slice version; "Copy SQL" and "Download delivery bundle" buttons; full SQL preview in a scrollable code block
 - **Delivery bundle sidebar** — active artifact count; note that the download saves as `delivery-bundle.sql`
 - **Schema dependency analysis** — shows identified / processed / pending counts for destination objects; "Re-analyze DDL" button to re-run AI analysis; "analyzed at" timestamp. Empty state if no analysis has been run.

@@ -390,4 +390,89 @@ describe("CodegenPage", () => {
     fireEvent.click(hideBtn);
     expect(screen.queryByText("Call Type")).not.toBeInTheDocument();
   });
+
+  it("replaces Generate SQL button with warning when source has mappingOwnershipWarnings", async () => {
+    listFeedContractsMock.mockResolvedValue([
+      {
+        sourceDefinitionId: "source-1",
+        projectId: "project-1",
+        sourceType: "csv",
+        label: "Customer extract",
+        encoding: "utf-8",
+        destinationObjectReferences: ["Customer"],
+        layoutInformation: null,
+        copybookText: null,
+        status: "active",
+        createdAt: "2026-06-30T00:00:00Z",
+        mappingOwnershipWarnings: {
+          "Customer": {
+            sourceDefinitionId: "other-feed",
+            feedLabel: "Other Feed",
+            feedSourceType: "csv",
+            status: "approved",
+            destinationObjectName: "Customer",
+            mappingSnapshotId: "snap-1",
+          },
+        },
+      },
+    ]);
+    listCodegenArtifactsMock.mockResolvedValue([]);
+    getSchemaAnalysisMock.mockResolvedValue({
+      analysisId: "analysis-1",
+      projectId: "project-1",
+      destinationObjectSequence: ["Customer"],
+      identifiedCount: 1,
+      processedCount: 1,
+      analyzedAt: "2026-06-30T00:00:00Z",
+    });
+    triggerCodegenMock.mockResolvedValue([]);
+    listFeedFibersMock.mockResolvedValue([]);
+    listFeedSlicesMock.mockResolvedValue([]);
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([]);
+
+    render(<CodegenPage params={Promise.resolve({ id: "project-1" })} />);
+
+    // Button should NOT be present
+    expect(screen.queryByText("Generate SQL")).not.toBeInTheDocument();
+    // Warning text should be present
+    expect(await screen.findByText("⚠ Table ownership conflict")).toBeInTheDocument();
+  });
+
+  it("shows Generate SQL button when source has no mappingOwnershipWarnings", async () => {
+    listFeedContractsMock.mockResolvedValue([
+      {
+        sourceDefinitionId: "source-1",
+        projectId: "project-1",
+        sourceType: "csv",
+        label: "Customer extract",
+        encoding: "utf-8",
+        destinationObjectReferences: ["Customer"],
+        layoutInformation: null,
+        copybookText: null,
+        status: "active",
+        createdAt: "2026-06-30T00:00:00Z",
+        mappingOwnershipWarnings: null,
+      },
+    ]);
+    listCodegenArtifactsMock.mockResolvedValue([]);
+    getSchemaAnalysisMock.mockResolvedValue({
+      analysisId: "analysis-1",
+      projectId: "project-1",
+      destinationObjectSequence: ["Customer"],
+      identifiedCount: 1,
+      processedCount: 1,
+      analyzedAt: "2026-06-30T00:00:00Z",
+    });
+    triggerCodegenMock.mockResolvedValue([]);
+    listFeedFibersMock.mockResolvedValue([]);
+    listFeedSlicesMock.mockResolvedValue([]);
+    getAllApprovedMappingSnapshotsMock.mockResolvedValue([]);
+
+    render(<CodegenPage params={Promise.resolve({ id: "project-1" })} />);
+
+    // Button should be present
+    expect(await screen.findByText("Generate SQL")).toBeInTheDocument();
+    // Warning should NOT be present
+    expect(screen.queryByText("⚠ Table ownership conflict")).not.toBeInTheDocument();
+  });
 });

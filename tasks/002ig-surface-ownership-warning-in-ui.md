@@ -88,4 +88,4 @@ Implemented two fixes to surface `mapping_ownership_warnings` where it blocks th
 
 **Verification:** 336/338 frontend tests pass (2 pre-existing failures in `codegen/page.test.tsx` unchanged). Zero new TypeScript errors.
 
-**Note:** Domain doc update (`ui.md`) deferred — not blocking functionality.
+**Domain doc update (`ui.md`):** Updated — Feeds screen note now documents the button is replaced by a warning on ownership conflict.
