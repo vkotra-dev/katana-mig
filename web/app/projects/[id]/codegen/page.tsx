@@ -5,6 +5,7 @@ import { Topbar } from "../../../../components/Topbar";
 import { ProjectNavigationTabs } from "../../../../components/projects/ProjectNavigationTabs";
 import {
   downloadCodegenDeliveryBundle,
+  generateTransformationSpec,
   getSchemaAnalysis,
   listCodegenArtifacts,
   triggerSchemaAnalysis,
@@ -12,47 +13,12 @@ import {
   type CodegenArtifactRecord,
   type SchemaAnalysisRecord,
 } from "../../../../lib/codegen-api";
-import { listFeedContracts, saveTransformationInstructions, listFeedFibers, listFeedSlices, type FeedContractRecord, type FiberRecord } from "../../../../lib/feeds-api";
+import { listFeedContracts, saveTransformationInstructions, listFeedFibers, type FeedContractRecord } from "../../../../lib/feeds-api";
 import { getProject, saveCodegenInstructions, resetCodegenInstructions, getCodegenCodingStandardsTemplate, listCodegenVersionHistory, type ProjectRecord } from "../../../../lib/projects-api";
-import { getAllApprovedMappingSnapshots, type MappingSnapshotRecord } from "../../../../lib/mapping-api";
+import { getAllApprovedMappingSnapshots } from "../../../../lib/mapping-api";
 import { loadUiSession, type SessionRole, type UiSession } from "../../../../lib/session";
 import { AiLogViewer } from "../../../../components/ai-logs/AiLogViewer";
 import { VersionHistoryPanel } from "../../../../components/projects/VersionHistoryPanel";
-
-interface UnmappedRequiredField {
-  objectName: string;
-  fields: string[];
-}
-
-function computeUnmappedRequiredFields(
-  _fibers: FiberRecord[],
-  snapshots: MappingSnapshotRecord[],
-): UnmappedRequiredField[] {
-  const result: UnmappedRequiredField[] = [];
-
-  for (const snap of snapshots) {
-    if (snap.status !== "approved") continue;
-
-    const destColumns = snap.destinationColumns;
-    if (!destColumns || destColumns.length === 0) continue;
-
-    const mappedDestFields = new Set(
-      snap.fieldBindings
-        .filter(b => b.destinationField)
-        .map(b => b.destinationField)
-    );
-
-    const unmapped = destColumns
-      .filter(c => c.nullable === false && !mappedDestFields.has(c.name))
-      .map(c => c.name);
-
-    if (unmapped.length > 0) {
-      result.push({ objectName: snap.destinationObjectName, fields: unmapped });
-    }
-  }
-
-  return result;
-}
 
 function formatDate(value: string): string {
   return value.slice(0, 16).replace("T", " ");
@@ -79,123 +45,6 @@ function sourceDestinationLabel(source: FeedContractRecord): string {
   return refs.length > 0 ? refs.join(", ") : "Unassigned";
 }
 
-const generateTransformationInstructionsTemplate = (
-  feedLabel: string,
-  fibers: FiberRecord[],
-  stagingSchema: string,
-  snapshots: MappingSnapshotRecord[],
-  unmappedFields: UnmappedRequiredField[]
-): string => {
-  const approvedFibers = fibers.filter(
-    f =>
-      f.status === "business_approved" ||
-      f.status === "operator_triggered" ||
-      f.status === "codegen_complete" ||
-      f.status === "active" ||
-      f.status === "approved"
-  );
-
-  const lookupFibers = approvedFibers.filter(
-    f => f.fiberType === "lookup"
-  );
-
-  const domainFibers = approvedFibers.filter(
-    f => f.fiberType === "domain_object"
-  );
-
-  const schema = stagingSchema || "staging";
-
-  let lookupSection = "\n### 1. Approved Lookup Data\n";
-
-  if (lookupFibers.length === 0) {
-    lookupSection +=
-      "- No approved lookup data was identified for this feed.\n";
-  } else {
-    lookupFibers.forEach(fiber => {
-      lookupSection += `- Approved lookup: "${fiber.fiberKey}"\n`;
-
-      const mappings = fiber.proposedMappings ?? [];
-
-      if (mappings.length === 0) {
-        lookupSection += "  Approved mappings: none\n";
-        return;
-      }
-
-      lookupSection += "  Approved mappings:\n";
-
-      mappings.forEach(mapping => {
-        const sourceValue = JSON.stringify(mapping.sourceValue);
-
-        const destinationValue = mapping.destRow
-          ? JSON.stringify(mapping.destRow)
-          : (mapping.destEntryId ?? "null");
-
-        lookupSection +=
-          `    * Source value: ${sourceValue}` +
-          ` -> Destination: ${destinationValue}\n`;
-      });
-    });
-  }
-
-  let mappingSection = "\n### 2. Approved Destination Mappings\n";
-
-  mappingSection += `- Source table: "${schema}.${feedLabel}"\n`;
-
-  if (domainFibers.length === 0) {
-    mappingSection +=
-      "- No approved destination mappings were identified for this feed.\n";
-  } else {
-    domainFibers.forEach(fiber => {
-      const snapshot = snapshots.find(
-        snap =>
-          snap.destinationObjectName === fiber.fiberKey
-      );
-
-      const bindings =
-        snapshot?.fieldBindings ?? fiber.fieldBindings ?? [];
-
-      mappingSection +=
-        `\n- Destination object: "${fiber.fiberKey}"\n`;
-
-      if (bindings.length === 0) {
-        mappingSection += "  Field bindings: none\n";
-        return;
-      }
-
-      mappingSection += "  Field bindings:\n";
-
-      bindings.forEach(binding => {
-        const lookupText = binding.lookupName
-          ? ` (Lookup: ${binding.lookupName})`
-          : "";
-
-        mappingSection +=
-          `    * Source field "${binding.sourceField}"` +
-          ` -> Destination column "${binding.destinationField}"` +
-          `${lookupText}\n`;
-      });
-    });
-  }
-
-  let unmappedSection = "\n### 4. Unmapped Required Destination Fields\n";
-
-  if (unmappedFields.length === 0) {
-    unmappedSection += "- No unmapped required fields detected.\n";
-  } else {
-    for (const { objectName, fields } of unmappedFields) {
-      unmappedSection += `\n- **${objectName}**: ${fields.length} required field(s) not yet mapped:\n`;
-      for (const fieldName of fields) {
-        unmappedSection += `  - \`${fieldName}\` — add a source binding or type a default value\n`;
-      }
-    }
-  }
-
-  return `### Transformation Specification for Feed: ${feedLabel}
-${lookupSection}
-${mappingSection}
-${unmappedSection}`;
-};
-
 export default function CodegenPage({ params }: { params: Promise<{ id: string }> }) {
   const [routeParams, setRouteParams] = useState<{ id: string } | null>(null);
   const [session, setSession] = useState<UiSession | null>(null);
@@ -221,9 +70,9 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
 
   const [expandedArtifactId, setExpandedArtifactId] = useState<string | null>(null);
   const [selectedFeedId, setSelectedFeedId] = useState<string>("all");
-  // Maps feedId -> the last fetch result. Always stored (even empty []), so
-  // the presence of a key means "we've already fetched this feed".
-  const [feedUnmappedFields, setFeedUnmappedFields] = useState<Record<string, UnmappedRequiredField[]>>({});
+  // Maps feedId -> unmapped required fields for the expanded-row warning card.
+  // Always stored (even empty []), so the presence of a key means "already fetched".
+  const [feedUnmappedFields, setFeedUnmappedFields] = useState<Record<string, Array<{ objectName: string; fields: string[] }>>>({});
 
   useEffect(() => {
     setSession(loadUiSession());
@@ -472,21 +321,35 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
         }));
       }
       // Load unmapped fields data when expanding (once per feed).
-      // Cache is keyed by feedId; presence means "already fetched", not just
-      // "has unmapped fields", so the guard works for clean and problem cases.
+      // Cache is keyed by feedId; presence means "already fetched".
       if (session && routeParams && !feedUnmappedFields[feedId]) {
         Promise.all([
           listFeedFibers(session.accessToken, routeParams.id, feedId),
           getAllApprovedMappingSnapshots(session.accessToken, routeParams.id, feedId, true),
         ])
           .then(([fibers, snapshots]) => {
-            const unmapped = computeUnmappedRequiredFields(fibers, snapshots);
-            // Always store the result (even []) so the guard above skips re-fetches.
+            // Inline unmapped fields computation (previously computeUnmappedRequiredFields)
+            const unmapped: Array<{ objectName: string; fields: string[] }> = [];
+            for (const snap of snapshots) {
+              if (snap.status !== "approved") continue;
+              const destColumns = snap.destinationColumns;
+              if (!destColumns || destColumns.length === 0) continue;
+              const mappedDestFields = new Set(
+                snap.fieldBindings
+                  .filter(b => b.destinationField)
+                  .map(b => b.destinationField),
+              );
+              const unmappedFields = destColumns
+                .filter(c => c.nullable === false && !mappedDestFields.has(c.name))
+                .map(c => c.name);
+              if (unmappedFields.length > 0) {
+                unmapped.push({ objectName: snap.destinationObjectName, fields: unmappedFields });
+              }
+            }
             setFeedUnmappedFields((prev) => ({ ...prev, [feedId]: unmapped }));
           })
           .catch((error) => {
             console.error("Failed to load unmapped fields data:", error);
-            // Mark as fetched even on failure so we don't retry every expand.
             setFeedUnmappedFields((prev) => ({ ...prev, [feedId]: [] }));
           });
       }
@@ -536,22 +399,14 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
     setPageError(null);
     setStatusMessage(null);
     try {
-      const [fibers, slices, snapshots] = await Promise.all([
-        listFeedFibers(session.accessToken, routeParams.id, feedId),
-        listFeedSlices(session.accessToken, routeParams.id, feedId),
-        getAllApprovedMappingSnapshots(session.accessToken, routeParams.id, feedId, true),
-      ]);
-
-      const staging = project?.domainConfig?.stagingSchema || "staging";
-      const unmappedFields = computeUnmappedRequiredFields(fibers, snapshots);
-      const template = generateTransformationInstructionsTemplate(feedLabel, fibers, staging, snapshots, unmappedFields);
+      const spec = await generateTransformationSpec(session.accessToken, routeParams.id, feedId);
       setFeedInstructions((prev) => ({
         ...prev,
-        [feedId]: template.trim(),
+        [feedId]: spec,
       }));
-      setStatusMessage("Suggested transformation instructions generated based on fiber mappings and row count.");
+      setStatusMessage("Suggested transformation instructions generated.");
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : "Unable to suggest transformation instructions.");
+      setPageError(error instanceof Error ? error.message : "Unable to generate transformation instructions.");
     } finally {
       setFeedSuggestLoading((prev) => ({ ...prev, [feedId]: false }));
     }

@@ -1928,6 +1928,29 @@ Request:
 
 Response `200`: `SourceContractResponse`
 
+### `POST /projects/{project_id}/sources/{source_id}/transformation-spec`
+
+Generate a transformation specification for a feed's approved mappings.
+Returns a pre-built spec string with source type hints.
+
+Response `200`: `TransformationSpecResponse`
+
+```json
+{
+  "spec": "### Transformation Specification for Feed: Customer Extract\n### 1. Approved Lookup Data\n..."
+}
+```
+
+### `TransformationSpecResponse`
+
+```json
+{
+  "spec": "string"
+}
+```
+
+- `spec` — the assembled transformation specification string with type hints
+
 ### `GET /projects/{project_id}/knowledge-freezes`
 
 List runs for this project where a knowledge freeze was recorded

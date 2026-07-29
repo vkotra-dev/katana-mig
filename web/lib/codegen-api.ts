@@ -280,3 +280,36 @@ export async function triggerSchemaAnalysis(
   );
   return mapSchemaAnalysisResponse(response);
 }
+
+export interface TransformationSpecRecord {
+  spec: string;
+}
+
+export async function generateTransformationSpec(
+  token: string,
+  projectId: string,
+  sourceDefinitionId: string,
+): Promise<string> {
+  const response = await fetch(
+    `${API_BASE_URL}/projects/${projectId}/sources/${sourceDefinitionId}/transformation-spec`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new CodegenApiError(
+      "transformation_spec_failed",
+      text,
+      response.status,
+    );
+  }
+
+  const data = (await response.json()) as TransformationSpecRecord;
+  return data.spec;
+}

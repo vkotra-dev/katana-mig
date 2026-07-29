@@ -4,12 +4,13 @@ from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from ..api.deps import get_central_team_user, get_current_user, get_db
-from ..api.schemas import CodegenArtifactResponse, CodegenTriggerResponse, ProjectSchemaAnalysisResponse
+from ..api.schemas import CodegenArtifactResponse, CodegenTriggerResponse, ProjectSchemaAnalysisResponse, TransformationSpecResponse
 from ..db.models import User
 from ..management.access import require_project_access
 from ..codegen.service import (
     build_delivery_bundle_text,
     generate_codegen_artifact,
+    generate_transformation_spec,
     get_codegen_artifact,
     list_codegen_artifacts,
 )
@@ -92,3 +93,18 @@ def get_schema_analysis_route(
 ) -> ProjectSchemaAnalysisResponse | None:
     require_project_access(db, user=actor, project_id=project_id)
     return get_schema_analysis(db, project_id=project_id)
+
+
+@router.post(
+    "/projects/{project_id}/sources/{source_definition_id}/transformation-spec",
+    response_model=TransformationSpecResponse,
+)
+def post_transformation_spec(
+    project_id: str,
+    source_definition_id: str,
+    actor: User = Depends(get_central_team_user),
+    db: Session = Depends(get_db),
+) -> TransformationSpecResponse:
+    require_project_access(db, user=actor, project_id=project_id)
+    spec = generate_transformation_spec(db, project_id=project_id, source_definition_id=source_definition_id)
+    return TransformationSpecResponse(spec=spec)

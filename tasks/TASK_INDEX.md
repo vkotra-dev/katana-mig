@@ -5,6 +5,7 @@
 | Task | Summary |
 |---|---|
 | [002ig-surface-ownership-warning-in-ui](./002ig-surface-ownership-warning-in-ui.md) | Fixed two spots where `mapping_ownership_warnings` was fetched but not surfaced: feed page empty-state no longer stacks with warning card; codegen page "Generate SQL" button replaced by warning when ownership conflict exists. 340/342 tests pass (4 new tests added for ownership warning behavior). [summary](../summary/002ig-surface-ownership-warning-in-ui.md) |
+| [002ii-generate-instructions-api](./002ii-generate-instructions-api.md) | Replaced client-side ~115-line template assembly with backend `POST /transformation-spec` endpoint that returns pre-built spec with inline type hints ([integer], [text]). Removed dead code from page.tsx. 468 backend tests pass, 8/9 frontend tests pass (1 pre-existing failure). [summary](../summary/002ii-generate-instructions-api.md) |
 | [002if-feed-source-type-hints](./002if-feed-source-type-hints.md) | Added source-side type hints to codegen prompt field bindings — `[integer]` next to source field names so the AI knows what to CAST. 28/28 codegen tests pass. [summary](../summary/002if-codegen-source-type-hints.md) |
 | [002ie-mapping-ownership-warnings](./002ie-mapping-ownership-warnings.md) | Added persistent `mapping_ownership_warnings` to `FeedResponse` — cross-feed ownership warnings rendered as amber cards on feed load. 6 tests, 462 backend tests, 15 frontend tests pass. [summary](../summary/002ie-mapping-ownership-warnings.md) |
 | [002b9-version-history-frontend](./completed/002b9-version-history-frontend.md) | [summary](./summary/002b9-version-history-frontend.md) |
@@ -66,3 +67,9 @@
 | [001ev-codegen-logging-prompt-extraction](./completed/001ev-codegen-logging-prompt-extraction.md) | Extracted rules 17–21 (mig_upsert_log audit logging instructions) from each platform block in `codegen_coding_standards.yaml` into new `codegen_logging_standards.yaml`. Renderer updated to load and append both with same `$stg/$dest` substitutions. 6 new tests (17/17). 364/364 full suite. |
 | [001es-wire-suggest-standards-button-to-backend-endpoint](./completed/001es-wire-suggest-standards-button-to-backend-endpoint.md) | Wired the "Suggest Standards" button to the new codegen-coding-standards-template endpoint; deleted the old local generateCodingStandardsTemplate function (~100 lines). No behavior change. Verified: 311/311 frontend tests pass. |
 | [001eu-engine-aware-mig-upsert-log-ddl](./completed/001eu-engine-aware-mig-upsert-log-ddl.md) | `_mig_upsert_log_ddl`/`_assemble_sql_bundle` used to hardcode MSSQL-only DDL and inject it into every generated bundle regardless of target_db_engine. Now engine-aware (mssql/postgresql/mysql/oracle), defaults to mssql when unset for backward compat. Verified: 358/358 backend tests pass. |
+
+## Abandoned
+
+| Task | Summary |
+|---|---|
+| [002ih-persist-ownership-warnings](./002ih-persist-ownership-warnings.md) | The feeds.py in-memory computation for `mapping_ownership_warnings` already existed in HEAD — the proposed DB column persistence was abandoned when the persistence logic (in a dropped stash) couldn't be recovered. Orphan column removed from models.py. |

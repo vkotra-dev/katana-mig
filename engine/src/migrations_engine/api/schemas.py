@@ -480,6 +480,10 @@ class DeliveryBundleResponse(BaseModel):
     artifact_count: int
 
 
+class TransformationSpecResponse(BaseModel):
+    spec: str
+
+
 class ProjectSchemaAnalysisResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -26,6 +26,7 @@ from ..db.models import (
     LookupSnapshot,
     MappingSnapshot,
     ProjectDefinition,
+    ProjectFiber,
     ProjectRegistry,
     Feed,
     FeedSlice,
@@ -354,6 +355,204 @@ def build_delivery_bundle_text(
         sql_bundle="\n\n".join(bundle_parts).strip(),
         artifact_count=len(lookup_artifacts) + len(domain_artifacts),
     )
+
+
+def generate_transformation_spec(
+    db: Session,
+    *,
+    project_id: str,
+    source_definition_id: str,
+) -> str:
+    source_definition = _get_source_definition(db, project_id=project_id, source_definition_id=source_definition_id)
+    details = source_definition.source_details or {}
+    feed_label = _source_label(details)
+    project_config = MigrationProjectConfig.model_validate(
+        _get_project_definition(db, project_id=project_id).domain_config or {}
+    )
+    staging_schema = project_config.staging_schema or "staging"
+
+    approved_statuses = {"business_approved", "operator_triggered", "codegen_complete", "active", "approved"}
+
+    # Fetch all approved fibers for this feed
+    all_fibers = db.scalars(
+        select(ProjectFiber)
+        .where(
+            ProjectFiber.feed_id == source_definition_id,
+            ProjectFiber.fiber_type.in_(("lookup", "domain_object")),
+            ProjectFiber.status.in_(approved_statuses),
+        )
+    ).all()
+
+    lookup_fibers = [f for f in all_fibers if f.fiber_type == "lookup"]
+    domain_fibers = [f for f in all_fibers if f.fiber_type == "domain_object"]
+
+    # Fetch source schema artifact for type hints
+    artifact = db.scalar(
+        select(SourceSchemaArtifact)
+        .where(SourceSchemaArtifact.source_definition_id == source_definition_id)
+        .order_by(SourceSchemaArtifact.created_at.desc())
+        .limit(1)
+    )
+    source_type_map: dict[str, str] | None = None
+    if artifact is not None and artifact.columns:
+        source_type_map = {col["name"].lower(): col["inferred_type"] for col in artifact.columns}
+
+    # Build lookup section
+    lookup_lines: list[str] = ["\n### 1. Approved Lookup Data\n"]
+    if not lookup_fibers:
+        lookup_lines.append("- No approved lookup data was identified for this feed.\n")
+    else:
+        for fiber in lookup_fibers:
+            lookup_lines.append(f'- Approved lookup: "{fiber.fiber_key}"\n')
+            mappings = fiber.proposed_mappings or []
+            if not mappings:
+                lookup_lines.append("  Approved mappings: none\n")
+            else:
+                lookup_lines.append("  Approved mappings:\n")
+                for mapping in mappings:
+                    source_val = _json_value(mapping.get("sourceValue"))
+                    dest_val = _json_value(mapping.get("destRow")) if mapping.get("destRow") else (mapping.get("destEntryId") or "null")
+                    lookup_lines.append(f'    * Source value: {source_val} -> Destination: {dest_val}\n')
+
+    # Build domain mapping section
+    domain_lines: list[str] = []
+    domain_lines.append("\n### 2. Approved Destination Mappings\n")
+    domain_lines.append(f'- Source table: "{staging_schema}.{feed_label}"\n')
+
+    if not domain_fibers:
+        domain_lines.append("- No approved destination mappings were identified for this feed.\n")
+    else:
+        for fiber in domain_fibers:
+            domain_lines.append(f'\n- Destination object: "{fiber.fiber_key}"\n')
+
+            # Look up approved mapping snapshot first
+            snapshot = db.scalar(
+                select(MappingSnapshot)
+                .where(
+                    MappingSnapshot.project_id == project_id,
+                    or_(
+                        MappingSnapshot.source_definition_id == source_definition_id,
+                        MappingSnapshot.source_definition_id.is_(None),
+                    ),
+                    MappingSnapshot.destination_object_name == fiber.fiber_key,
+                    MappingSnapshot.status == "approved",
+                )
+            )
+
+            # Get field bindings: snapshot bindings, fall back to fiber bindings
+            bindings: list[dict] = []
+            has_snapshot = False
+            if snapshot is not None and snapshot.field_bindings:
+                bindings = [
+                    {
+                        "source_field": b.get("source_field", ""),
+                        "destination_field": b.get("destination_field", ""),
+                        "lookup_name": b.get("lookup_name"),
+                    }
+                    for b in snapshot.field_bindings
+                ]
+                has_snapshot = True
+            elif fiber.field_bindings:
+                bindings = [
+                    {
+                        "source_field": b.get("source_field", ""),
+                        "destination_field": b.get("destination_field", ""),
+                        "lookup_name": b.get("lookup_name"),
+                    }
+                    for b in fiber.field_bindings
+                ]
+
+            if not bindings:
+                domain_lines.append("  Field bindings: none\n")
+            else:
+                # Augment bindings with type hints from source schema
+                display_bindings = []
+                for b in bindings:
+                    src_field = b.get("source_field", "")
+                    type_hint = None
+                    if source_type_map:
+                        type_hint = source_type_map.get(src_field.lower())
+                    display_bindings.append((src_field, type_hint, b))
+
+                domain_lines.append("  Field bindings:\n")
+                for src_field, type_hint, b in display_bindings:
+                    dest_field = b.get("destination_field", "")
+                    lookup_name = b.get("lookup_name")
+                    lookup_text = f" (Lookup: {lookup_name})" if lookup_name else ""
+                    type_str = f" [{type_hint}]" if type_hint else ""
+                    domain_lines.append(
+                        f'  * Source field "{src_field}"{type_str} -> Destination column "{dest_field}"{lookup_text}\n'
+                    )
+
+    # Build unmapped required fields section
+    unmapped_lines: list[str] = ["\n### 3. Unmapped Required Destination Fields\n"]
+    unmapped_entries: list[tuple[str, list[str]]] = []
+
+    for fiber in domain_fibers:
+        # Need an approved snapshot for unmapped field computation
+        snap = db.scalar(
+            select(MappingSnapshot)
+            .where(
+                MappingSnapshot.project_id == project_id,
+                or_(
+                    MappingSnapshot.source_definition_id == source_definition_id,
+                    MappingSnapshot.source_definition_id.is_(None),
+                ),
+                MappingSnapshot.destination_object_name == fiber.fiber_key,
+                MappingSnapshot.status == "approved",
+            )
+        )
+        if snap is None:
+            continue
+        dest_cols = snap.destination_columns or []
+        if not dest_cols:
+            continue
+
+        # Get all bound destination fields (from snapshot or fiber)
+        bound_fields: set[str] = set()
+        if snap.field_bindings:
+            for b in snap.field_bindings:
+                df = b.get("destination_field")
+                if df:
+                    bound_fields.add(df)
+        elif fiber.field_bindings:
+            for b in fiber.field_bindings:
+                df = b.get("destination_field")
+                if df:
+                    bound_fields.add(df)
+
+        unmapped_cols = [
+            col["name"] for col in dest_cols
+            if not col.get("nullable", True) and col["name"] not in bound_fields
+        ]
+        if unmapped_cols:
+            unmapped_entries.append((fiber.fiber_key, unmapped_cols))
+
+    if not unmapped_entries:
+        unmapped_lines.append("- No unmapped required fields detected.\n")
+    else:
+        for obj_name, fields in unmapped_entries:
+            unmapped_lines.append(f'\n- **{obj_name}**: {len(fields)} required field(s) not yet mapped:\n')
+            for field in fields:
+                unmapped_lines.append(f"  - `{field}` — add a source binding or type a default value\n")
+
+    # Assemble final spec
+    return (
+        f"### Transformation Specification for Feed: {feed_label}"
+        + "".join(lookup_lines)
+        + "".join(domain_lines)
+        + "".join(unmapped_lines)
+    ).strip()
+
+
+def _json_value(val: object) -> str:
+    """Format a value for display in the spec string."""
+    if val is None:
+        return "null"
+    if isinstance(val, str):
+        return val
+    import json
+    return json.dumps(val)
 
 
 def _ensure_tz(dt: datetime | None, *, default=UTC) -> datetime | None:

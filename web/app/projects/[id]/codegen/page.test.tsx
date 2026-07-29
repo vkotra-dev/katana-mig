@@ -16,6 +16,7 @@ const {
   listFeedSlicesMock,
   getAllApprovedMappingSnapshotsMock,
   getCodegenCodingStandardsTemplateMock,
+  generateTransformationSpecMock,
 } = vi.hoisted(() => ({
   loadUiSessionMock: vi.fn(),
   listFeedContractsMock: vi.fn(),
@@ -30,6 +31,7 @@ const {
   listFeedSlicesMock: vi.fn(),
   getAllApprovedMappingSnapshotsMock: vi.fn(),
   getCodegenCodingStandardsTemplateMock: vi.fn(),
+  generateTransformationSpecMock: vi.fn(),
 }));
 
 vi.mock("../../../../components/Topbar", () => ({
@@ -61,6 +63,7 @@ vi.mock("../../../../lib/codegen-api", () => ({
   triggerCodegen: triggerCodegenMock,
   downloadCodegenDeliveryBundle: downloadCodegenDeliveryBundleMock,
   triggerSchemaAnalysis: triggerSchemaAnalysisMock,
+  generateTransformationSpec: generateTransformationSpecMock,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -226,6 +229,23 @@ describe("CodegenPage", () => {
         aiTrace: null,
       },
     ]);
+    generateTransformationSpecMock.mockResolvedValue(
+      "### Transformation Specification for Feed: Customer Extract\n" +
+        "### 1. Approved Lookup Data\n" +
+        '- Approved lookup: "insurance_plan_lkp"\n' +
+        "  Approved mappings:\n" +
+        '    * Source value: "Gold Plan" -> Destination: entry-1\n' +
+        "\n" +
+        "### 2. Approved Destination Mappings\n" +
+        '- Source table: "staging.Customer Extract"\n' +
+        "\n" +
+        '- Destination object: "customer"\n' +
+        "  Field bindings:\n" +
+        '  * Source field "cust_id" [text] -> Destination column "customer_id"\n' +
+        "\n" +
+        "### 3. Unmapped Required Destination Fields\n" +
+        "  No unmapped required fields detected.\n"
+    );
   });
 
   it("renders sources and the latest artifact preview", async () => {
@@ -349,9 +369,11 @@ describe("CodegenPage", () => {
       expect(textarea.value).toContain('"Gold Plan"');
       expect(textarea.value).toContain("### 2. Approved Destination Mappings");
       expect(textarea.value).toContain('- Destination object: "customer"');
-      expect(textarea.value).toContain('Source field "cust_id" -> Destination column "customer_id"');
-      expect(textarea.value).toContain("### 4. Unmapped Required Destination Fields");
-      expect(textarea.value).toContain("### 5. Source Characteristics");
+      expect(textarea.value).toContain(
+        'Source field "cust_id" [text] -> Destination column "customer_id"'
+      );
+      expect(textarea.value).toContain("### 3. Unmapped Required Destination Fields");
+      expect(textarea.value).toContain("No unmapped required fields detected.");
     });
   });
 
