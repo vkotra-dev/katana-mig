@@ -896,6 +896,10 @@ def test_codegen_includes_discussion_comments(monkeypatch: pytest.MonkeyPatch, a
     assert "Feed discussion (context for mapping intent and business rules)" in prompt
     assert "Slice discussion (context for schema adjustments and anomalies)" in prompt
 
+    # Verify source-type hints are rendered in field bindings (002if)
+    assert "customer_id [integer]" in prompt
+    assert "full_name [text]" in prompt
+
 
 def test_render_feed_instructions_template_none() -> None:
     """Verify None/empty input returns '(none)'."""

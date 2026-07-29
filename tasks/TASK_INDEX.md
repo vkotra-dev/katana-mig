@@ -1,16 +1,12 @@
 # Task Index
 
-## Ready
-
-| Task | Summary |
-|---|---|
-| [002ie-mapping-ownership-warnings](./002ie-mapping-ownership-warnings.md) | Add persistent `mapping_ownership_warnings` to `FeedResponse` — warns on every feed load (not just a failed propose/approve reaction) when another feed already owns one of this feed's destination tables. Ready for implementation. |
-| [002if-feed-source-type-hints](./002if-feed-source-type-hints.md) | Surface feed source-side inferred type hints (from source analysis) in the codegen prompt's field bindings. Backlog — open scope question (every binding vs. lookup-only) not yet resolved; not ready for implementation. |
-
 ## Completed
 
 | Task | Summary |
 |---|---|
+| [002ig-surface-ownership-warning-in-ui](./002ig-surface-ownership-warning-in-ui.md) | Fixed two spots where `mapping_ownership_warnings` was fetched but not surfaced: feed page empty-state no longer stacks with warning card; codegen page "Generate SQL" button replaced by warning when ownership conflict exists. 336/338 frontend tests pass. |
+| [002if-feed-source-type-hints](./002if-feed-source-type-hints.md) | Added source-side type hints to codegen prompt field bindings — `[integer]` next to source field names so the AI knows what to CAST. 28/28 codegen tests pass. [summary](../summary/002if-codegen-source-type-hints.md) |
+| [002ie-mapping-ownership-warnings](./002ie-mapping-ownership-warnings.md) | Added persistent `mapping_ownership_warnings` to `FeedResponse` — cross-feed ownership warnings rendered as amber cards on feed load. 6 tests, 462 backend tests, 15 frontend tests pass. [summary](../summary/002ie-mapping-ownership-warnings.md) |
 | [002b9-version-history-frontend](./completed/002b9-version-history-frontend.md) | [summary](./summary/002b9-version-history-frontend.md) |
 | [002ib-feed-mapping-status](./completed/002ib-feed-mapping-status.md) | [summary](./summary/002ib-feed-mapping-status.md) |
 | [002id-approve-mapping-cross-feed-guard](./completed/002id-approve-mapping-cross-feed-guard.md) | [summary](./summary/002id-approve-mapping-cross-feed-guard.md) |

@@ -705,7 +705,9 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
                               })()}
                             </td>
                             <td className="px-4 py-3">
-                              {role === "central_team" ? (
+                              {source.mappingOwnershipWarnings && Object.keys(source.mappingOwnershipWarnings).length > 0 ? (
+                                <span className="text-xs font-semibold text-amber-700">⚠ Table ownership conflict</span>
+                              ) : role === "central_team" ? (
                                 <button
                                   className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                                   disabled={actionLoading === source.sourceDefinitionId}
@@ -743,6 +745,24 @@ export default function CodegenPage({ params }: { params: Promise<{ id: string }
                                       </div>
                                     );
                                   })()}
+                                  {source.mappingOwnershipWarnings && Object.keys(source.mappingOwnershipWarnings).length > 0 && (
+                                    <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 mb-4">
+                                      <p className="font-semibold mb-1">Table ownership conflicts</p>
+                                      <ul className="list-disc list-inside space-y-0.5">
+                                        {Object.entries(source.mappingOwnershipWarnings).map(([table, ownership]) => (
+                                          <li key={table}>
+                                            <strong>{table}</strong> is already mapped on{" "}
+                                            {ownership.sourceDefinitionId
+                                              ? `${ownership.feedLabel || ownership.sourceDefinitionId.slice(0, 8)}`
+                                              : "this project"}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                      <p className="text-xs text-amber-700 mt-1">
+                                        Generate SQL is disabled for this feed until the conflict is resolved.
+                                      </p>
+                                    </div>
+                                  )}
                                   <h4 className="text-sm font-semibold text-slate-900">
                                     Feed-specific transformation instructions
                                   </h4>

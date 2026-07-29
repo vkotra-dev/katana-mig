@@ -474,6 +474,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
     }
   }
   const mappingTables = Object.values(mappingTablesMap);
+  const hasOwnershipWarning = Boolean(feed?.mappingOwnershipWarnings && Object.keys(feed.mappingOwnershipWarnings).length > 0);
 
   const allBoundFields = allMappingSnapshots.flatMap((s) => s.fieldBindings || []);
   const boundSet = new Set(allBoundFields.map((b) => b.sourceField.toLowerCase()));
@@ -942,7 +943,7 @@ export default function FeedDetailPage({ params }: { params: Promise<{ id: strin
                   </div>
                 )}
 
-                {mappingTables.length === 0 ? (
+                {mappingTables.length === 0 && !hasOwnershipWarning ? (
                   <div className="text-sm text-slate-500">No mapping proposals generated yet.</div>
                 ) : (
                   <div className="space-y-2">

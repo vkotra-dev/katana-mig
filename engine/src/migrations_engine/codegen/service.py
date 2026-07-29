@@ -31,6 +31,7 @@ from ..db.models import (
     FeedSlice,
     FeedComment,
     User,
+    SourceSchemaArtifact,
     new_id,
     VersionHistory,
 )
@@ -101,6 +102,20 @@ def generate_codegen_artifact(
     staging_table_name = _staging_table_name(_source_label(source_definition.source_details))
 
     results: list[CodegenTriggerResponse] = []
+
+    # Fetch source schema artifact once per source feed (shared across all destination objects)
+    source_type_map: dict[str, str] | None = None
+    artifact = db.scalar(
+        select(SourceSchemaArtifact)
+        .where(SourceSchemaArtifact.source_definition_id == source_definition_id)
+        .order_by(SourceSchemaArtifact.created_at.desc())
+        .limit(1)
+    )
+    if artifact is not None and artifact.columns:
+        # artifact columns[].name comes from raw CSV headers (preserves original case),
+        # but field_bindings[].source_field is stored lowercase. Lowercase both sides.
+        source_type_map = {col["name"].lower(): col["inferred_type"] for col in artifact.columns}
+
     for destination_object_name in destination_references:
         destination_object_name = destination_object_name.strip()
         if not destination_object_name:
@@ -156,6 +171,7 @@ def generate_codegen_artifact(
             run_ref=f"{project_id}_{source_definition_id}",
             comments=comments,
             slice_comments=slice_comments,
+            source_type_map=source_type_map,
         )
 
         from ..ai.logging import log_ai_call, backfill_artifact_id
@@ -747,7 +763,20 @@ def _build_user_prompt(
     run_ref: str,
     comments: list[tuple[FeedComment, str]],
     slice_comments: list[tuple[FeedComment, str]],
+    source_type_map: dict[str, str] | None = None,
 ) -> str:
+    # Augment each binding with source_type_hint from the source schema artifact.
+    # CRITICAL: both map keys and field lookups are lowercased to match
+    # how CSV headers ("CUST_ID") map to lowercase binding source_field ("cust_id").
+    field_bindings = mapping_snapshot.field_bindings or []
+    if source_type_map:
+        field_bindings = [
+            {
+                **b,
+                "source_type_hint": source_type_map.get(b.get("source_field", "").lower()),
+            }
+            for b in field_bindings
+        ]
     template = jinja_env.get_template("user_prompt.txt.j2")
     return template.render(
         source_definition=source_definition,
@@ -760,6 +789,7 @@ def _build_user_prompt(
         feed_instructions=render_feed_instructions_template(source_definition.transformation_instructions),
         discussion=_format_discussion(comments),
         slice_discussion=_format_slice_discussion(slice_comments),
+        field_bindings=field_bindings,
     ).strip()
 
 
