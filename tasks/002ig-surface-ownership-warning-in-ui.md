@@ -86,6 +86,6 @@ Implemented two fixes to surface `mapping_ownership_warnings` where it blocks th
 
 **Gap 2 — Codegen page**: (a) The "Generate SQL" button in the action cell now checks `source.mappingOwnershipWarnings` first — when entries exist, renders a "⚠ Table ownership conflict" inline warning instead of the button. (b) The expanded panel now shows a second amber ownership-conflict card alongside the existing "Unmapped Required Destination Fields" card, listing each conflicting table and its owner.
 
-**Verification:** 336/338 frontend tests pass (2 pre-existing failures in `codegen/page.test.tsx` unchanged). Zero new TypeScript errors.
+**Verification:** 340/342 frontend tests pass (2 pre-existing failures in `codegen/page.test.tsx` unchanged); 4 new tests added (2 per file, one positive and one regression guard each). Zero new TypeScript errors.
 
 **Domain doc update (`ui.md`):** Updated — Feeds screen note now documents the button is replaced by a warning on ownership conflict.
